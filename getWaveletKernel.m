@@ -1,0 +1,41 @@
+function W = getWaveletKernel(type, N, par);
+% type	string 'Haar', 'Beylin', 'Coiflet', 'Daubechies'
+%				'Symmlet', 'Vaidyanathan', 'Battle'
+%	N			size of matrix NxN
+%	par		integer, it is a parameter related to the support and vanishing
+%				moments of the wavelets
+%
+%	Output
+%				NxN transformation matrix
+%
+% Description
+%      The Haar filter (which could be considered a Daubechies-2) was the
+%      first wavelet, though not called as such, and is discontinuous.
+%            
+%      The Beylkin filter places roots for the frequency response function
+%      close to the Nyquist frequency on the real axis.
+%                       
+%      The Coiflet filters are designed to give both the mother and father
+%      wavelets 2*Par vanishing moments; here Par may be one of 1,2,3,4 or 5.
+%                                  
+%      The Daubechies filters are minimal phase filters that generate wavelets
+%      which have a minimal support for a given number of vanishing moments.
+%      They are indexed by their length, Par, which may be one of
+%      4,6,8,10,12,14,16,18 or 20. The number of vanishing moments is par/2.
+%                                                       
+%      Symmlets are also wavelets within a minimum size support for a given 
+%      number of vanishing moments, but they are as symmetrical as possible,
+%      as opposed to the Daubechies filters which are highly asymmetrical.
+%      They are indexed by Par, which specifies the number of vanishing
+%      moments and is equal to half the size of the support. It ranges 
+%      from 4 to 10.
+%                                                                                      
+%      The Vaidyanathan filter gives an exact reconstruction, but does not
+%      satisfy any moment condition.  The filter has been optimized for
+%      speech coding.
+%      
+%			 The Battle-Lemarie filter generate spline orthogonal wavelet basis.
+%      The parameter Par gives the degree of the spline. The number of 
+%      vanishing moments is Par+1.
+
+W = WavMat(MakeONFilter(type, par), N);
