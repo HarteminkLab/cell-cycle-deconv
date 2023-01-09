@@ -14,7 +14,8 @@ alpha = model.lengths(DECONV_ALPHAPOS);
 sigma0 = model.lengths(DECONV_SIGMA0POS);
 sigmav = model.lengths(DECONV_SIGMAVPOS);
 
-%disp(sprintf('mu0=%d\nlambda=%d\ndelta=%d\nalpha=%d\nsigma0=%f\nsigmav=%f\n', mu0, lambda, delta, alpha, sigma0, sigmav));
+%disp(sprintf('mu0=%d\nlambda=%d\ndelta=%d\nalpha=%d\nsigma0=%f\nsigmav=%f\n',
+%mu0, lambda, delta, alpha, sigma0, sigmav));
 
 SCALING = 1;
 
@@ -149,7 +150,10 @@ for i = 1:length(model.relations)
 			Hsegments{i} = matrix;
 		else
 			Hsegments{i} = Hsegments{i}+matrix;
-		end
+        end
+
+        disp(Hsegments);
+        disp("");
 	end
 end
 
@@ -174,8 +178,6 @@ if SCALING
 end
 
 if isfield(model, 'H')
-% TODO: transpose H concatenation to deal with error
-% 	model.H = [model.H' H']';
     model.H = [model.H H];
 else
 	model.H = H;

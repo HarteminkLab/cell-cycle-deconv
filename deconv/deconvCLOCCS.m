@@ -45,7 +45,7 @@ DECONV_KERNEL = DECONV_WAVELET;
 
 SILENCE = 0;
 
-SHOW_DETAILS = 0;
+SHOW_DETAILS = 1;
 
 DATA_WT1 = strcat(DECONV_DATASET, 'wt1.txt');
 DATA_WT2 = strcat(DECONV_DATASET, 'wt2.txt');
@@ -53,9 +53,10 @@ DATA_WT2 = strcat(DECONV_DATASET, 'wt2.txt');
 WT1_TP = 30:16:254;
 WT2_TP = 38:16:262;
 
-modeldir1 = 'models/wt1_budflow/';
-modeldir2 = 'models/wt2_budflow/';
-runs = 100;
+modeldir1 = 'models/wt1_flow/';
+modeldir2 = 'models/wt2_flow/';
+modelfile = 'BUD_MODEL2.0.label';
+runs = 1;
 
 DECONV_WT1 = 'WT1';
 DECONV_WT2 = 'WT2';
@@ -76,7 +77,7 @@ model.orig_orfname = orig_orfname;
 model.orfname = orfname;
 model.orfid = orfid;
 
-model.datatype = DECONV_JOINT;
+model.datatype = DECONV_WT1;
 model.alpha = alpha;
 
 output_f = strcat(orig_orfname, '.100runs.f');
@@ -97,7 +98,9 @@ else
 	dataset = load(DATA_WT2, 'ascii');
 	g2 = dataset(orfid,:)';
 end
-model.g = [g1' g2']';
+
+%g1 = log2(g1);
+model.g = [g1'];% g2']';
 model.gm = gamma;
 
 % start runs
@@ -108,9 +111,9 @@ for r = 1:runs
 
 	% ==========================================
 	% WT1
-	modelfile = strcat(modeldir1, modelprefix, '.', int2str(model.alpha(1)), '.', int2str(r), '.label');
+	modelpath = strcat(modeldir1, modelfile);
 
-	[flag, model] = readModelFormat(modelfile, model);
+	[flag, model] = readModelFormat(modelpath, model);
 	if flag == 0
 		error('Error in parsing model file');
 	end
@@ -122,8 +125,9 @@ for r = 1:runs
 		alpha_1 = model.alpha(1);
 		beta_1 = model.lengths(DECONV_BETAPOS);
 
-		disp(sprintf('\twt1 %s', modelfile));
-		disp(sprintf('\tWT1, mu_0=%0.3f, lambda=%0.3f, delta=%0.3f, beta=%0.3f, alpha=%d', mu0_1, lambda_1, delta_1, beta_1, alpha_1));
+		disp(sprintf('\twt1 %s', modelpath));
+		disp(sprintf('\tWT1, mu_0=%0.3f, lambda=%0.3f, delta=%0.3f, beta=%0.3f, alpha=%d', ...
+            mu0_1, lambda_1, delta_1, beta_1, alpha_1));
 	end
 
 	% calculate H
@@ -132,9 +136,9 @@ for r = 1:runs
 
 	% ==========================================
 	% WT2
-	modelfile = strcat(modeldir2, modelprefix, '.', int2str(model.alpha(2)), '.', int2str(r), '.label');
+	modelpath = strcat(modeldir2, modelfile);
 
-	[flag, model] = readModelFormat(modelfile, model);
+	[flag, model] = readModelFormat(modelpath, model);
 	if flag == 0
 		error('Error in parsing model file');
 	end
@@ -146,8 +150,9 @@ for r = 1:runs
 		alpha_2 = model.alpha(2);
 		beta_2 = model.lengths(DECONV_BETAPOS);
 
-		disp(sprintf('\twt2 %s',modelfile));
-		disp(sprintf('\tWT2, mu_0=%0.3f, lambda=%0.3f, delta=%0.3f, beta=%0.3f, alpha=%d', mu0_2, lambda_2, delta_2, beta_2, alpha_2));
+		disp(sprintf('\twt2 %s', modelpath));
+		disp(sprintf('\tWT2, mu_0=%0.3f, lambda=%0.3f, delta=%0.3f, beta=%0.3f, alpha=%d', ...
+            mu0_2, lambda_2, delta_2, beta_2, alpha_2));
 	end
 
 	% calculate H
@@ -155,6 +160,9 @@ for r = 1:runs
 	[model] = calcH(model);
 
 	% ==========================================
+
+    %stop
+
 	% DECONV
 	[model] = deconvModel(model);
 
@@ -166,3 +174,5 @@ for r = 1:runs
 end
 
 fclose(f_fid);
+
+
