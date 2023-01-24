@@ -1,4 +1,4 @@
-function [model] = deconvCLOCCS(orfname, modeltype, alpha, gamma)
+function [model] = deconvSetup(orfname, modeltype, alpha)
 
 global SILENCE;
 
@@ -51,6 +51,7 @@ WT2_TP = 38:16:262;
 outdir = 'output/';
 modeldir1 = 'models/wt1_budflow/';
 modelfile = '1.1.1.0.label';
+
 runs = 1;
 
 DECONV_WT1 = 'WT1';
@@ -77,9 +78,6 @@ model.orfid = orfid;
 model.datatype = DECONV_WT1;
 model.alpha = alpha;
 
-output_f = strcat(outdir, orig_orfname, '.f');
-f_fid = fopen(output_f, 'w');
-
 % deal with modeltype
 model.modeltype = upper(modeltype);
 [model] = parseModelType(model);
@@ -89,38 +87,15 @@ dataset = load(DATA_WT1, 'ascii');
 g1 = dataset(orfid,:)';
 
 model.g = [g1'];
-model.gm = gamma;
 
-% start runs
-ALLF = [];
-for r = 1:runs
-	model.H = [];
-	disp(sprintf('runs %d', r));
+model.H = [];
 
-	% ==========================================
-	% WT1
-	modelpath = strcat(modeldir1, modelfile);
+modelpath = strcat(modeldir1, modelfile);
 
-	[flag, model] = readModelFormat(modelpath, model);
-	
-	% calculate H
-	model.timepoints = WT1_TP;
-	[model] = calcH(model);
+[flag, model] = readModelFormat(modelpath, model);
 
-	% ==========================================
-
-    %stop
-
-	% DECONV
-	[model] = deconvModel(model);
-
-	y = model.f;
-	ALLF = [ALLF; y];
-
-	fprintf(f_fid, '%0.5g\t', y(1:end-1));
-	fprintf(f_fid, '%0.5g\n', y(end));
-end
-
-fclose(f_fid);
+% calculate H
+model.timepoints = WT1_TP;
+[model] = calcH(model);
 
 

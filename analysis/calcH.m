@@ -14,9 +14,6 @@ alpha = model.lengths(DECONV_ALPHAPOS);
 sigma0 = model.lengths(DECONV_SIGMA0POS);
 sigmav = model.lengths(DECONV_SIGMAVPOS);
 
-%disp(sprintf('mu0=%d\nlambda=%d\ndelta=%d\nalpha=%d\nsigma0=%f\nsigmav=%f\n',
-%mu0, lambda, delta, alpha, sigma0, sigmav));
-
 SCALING = 1;
 
 max_cellcycles = 10;
@@ -48,8 +45,6 @@ bDs = {};
 for i=1:length(model.bList)
 	bDs{i} = zeros(num_timepoints, length(model.bList{i})-1);
 end
-
-%disp(sprintf('Generating convolution matrix H\n'));
 
 % ----------------------------------------------
 % ----------------------------------------------
@@ -126,12 +121,12 @@ for i = 1:num_timepoints
 			end % frac_rest > 0
 		end % end R
 	end % end G
-%	disp(sprintf('time=%d\ttotal=%0.4f\tfrac_in=%0.4g\tfrac_rest=%0.4g', t, Q,frac_init,frac_rest_all));
 
 	% --------------------------------------------------
 end 
 
 Hsegments = {};
+
 for i = 1:length(model.relations)
 	relation = model.relations{i};
 	name = relation{1};
@@ -146,14 +141,12 @@ for i = 1:length(model.relations)
 		elseif strcmp(label, 'b')
 			matrix = bDs{num};
 		end
+
 		if idx == 2
 			Hsegments{i} = matrix;
 		else
 			Hsegments{i} = Hsegments{i}+matrix;
         end
-
-        disp(Hsegments);
-        disp("");
 	end
 end
 
@@ -177,12 +170,7 @@ if SCALING
 	end
 end
 
-if isfield(model, 'H')
-    model.H = [model.H H];
-else
-	model.H = H;
-end
-
+model.H = H;
 model.Hpos = Hpos;
 
 % ----------------------------------------------------------------

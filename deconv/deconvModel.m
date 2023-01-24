@@ -58,7 +58,7 @@ PADDINGSIZE = 30;
 
 % Settings
 EDGE_EFFECTS = NOTHING;
-TRIAL = IB_SMOOTH;
+TRIAL = IT_B_SMOOTH;
 modeltype = upper(model.modeltype);
 
 g = model.g;
@@ -77,18 +77,27 @@ gamma = model.gm;
 % require: i and b are smooth
 
 % wavelet; actually using
-if DECONV_KERNEL == DECONV_WAVELET && TRIAL == IB_SMOOTH && ~TURN_OFF && EDGE_EFFECTS == NOTHING
 
-	f_i = [];
-	wf_i = [];
-	i_gap = [];
+if DECONV_KERNEL == DECONV_WAVELET && TRIAL == IT_B_SMOOTH && ~TURN_OFF && EDGE_EFFECTS == NOTHING
+
+	f_it = [];
+	wf_it = [];
+	it_gap = [];
 	for i = 1:length(model.i_intervals)
 		idx = model.i_intervals{i}{2};
 		se = model.Hpos{idx};
-		f_i = [f_i se(1):1:se(2)];
+		f_it = [f_it se(1):1:se(2)];
 		gap = model.iList{i}(2)-model.iList{i}(1);
-		i_gap = [i_gap gap];
-		wf_i = [wf_i ones(1, se(2)-se(1)+1)*gap];
+		it_gap = [it_gap gap];
+		wf_it = [wf_it ones(1, se(2)-se(1)+1)*gap];
+	end
+	for i = 1:length(model.t_intervals)
+		idx = model.t_intervals{i}{2};
+		se = model.Hpos{idx};
+		f_it = [f_it se(1):1:se(2)];
+		gap = model.tList{i}(2)-model.tList{i}(1);
+		it_gap = [it_gap gap];
+		wf_it = [wf_it ones(1, se(2)-se(1)+1)*gap];
 	end
 
 	f_b = [];
@@ -103,11 +112,14 @@ if DECONV_KERNEL == DECONV_WAVELET && TRIAL == IB_SMOOTH && ~TURN_OFF && EDGE_EF
 		wf_b = [wf_b ones(1, se(2)-se(1)+1)*gap];
 	end
 
-	Hsize = size(H, 2);
 
-	W1 = getWaveletKernel(WAVETYPE, length(f_i), WAVEPAR);
+	model.f_it = f_it;
+	model.f_b = f_b;
+
+	Hsize = size(H, 2);
+	W1 = getWaveletKernel(WAVETYPE, length(f_it), WAVEPAR);
 	W2 = getWaveletKernel(WAVETYPE, length(f_b), WAVEPAR);
-	W1 = addWeight(W1, wf_i);
+	W1 = addWeight(W1, wf_it);
 	W2 = addWeight(W2, wf_b);
 
 	cvx_begin
@@ -117,21 +129,23 @@ if DECONV_KERNEL == DECONV_WAVELET && TRIAL == IB_SMOOTH && ~TURN_OFF && EDGE_EF
 
 		minimize(...
 			square_pos(norm(H*f./g'-1, 2)) ... % fit error
-			+ gamma*(norm(W1*f([f_i]),1) + norm(W2*f([f_b]),1))/mean_g ... % smooth error
+			+ gamma*(norm(W1*f([f_it]),1) + norm(W2*f([f_b]),1))/mean_g ... % smooth error
 		);
 
 		subject to
 			f>=0;
 	cvx_end
 
-	sn = (norm(W1*f([f_i]),1) + norm(W2*f([f_b]),1))/mean_g;
+	sn = (norm(W1*f([f_it]),1) + norm(W2*f([f_b]),1))/mean_g;
 	rn = square_pos(norm(H*f./g-1, 2));
+
 end
 
 % ..........................
 % sn: solution norm
 % rn: residual norm
 % ..........................
+
 pred_g = H*f;
 
 model.f = f;

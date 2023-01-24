@@ -1,0 +1,50 @@
+
+%orfname = 'YPR119W'; % CLB2
+%orfname = 'YNL289W';
+orfname = 'YCR073C';
+
+modeltype = '1.1.1';
+alpha = 26;
+gamma = 10;
+datatype = 'WT1';
+
+model = deconvCLOCCS(orfname, modeltype, alpha, gamma);
+model = getRDCidx(model);
+
+fig1 = figure;
+hold on;
+box on;
+WT1_TP = 30:16:254;
+plot(WT1_TP, model.g, '-', 'color', [26 28 228]/255., 'LineWidth', 2.5);
+title("Raw");
+saveas(gcf, strcat('output/', orfname, '_raw'), 'png');
+
+b_x = model.b_x;
+t_x = model.t_x;
+t_y_idx = model.t_y_idx;
+b_y_idx = model.b_y_idx;
+
+output_f = 'output/b_x.tsv';
+f_fid = fopen(output_f, 'w');
+fprintf(f_fid, '%0.5g,', b_x(1:end-1));
+fprintf(f_fid, '%0.5g\n', b_x(end));
+fclose(f_fid);
+
+output_f = 'output/t_x.tsv';
+f_fid = fopen(output_f, 'w');
+fprintf(f_fid, '%0.5g,', t_x(1:end-1));
+fprintf(f_fid, '%0.5g\n', t_x(end));
+fclose(f_fid);
+
+output_f = 'output/t_y_idx.tsv';
+f_fid = fopen(output_f, 'w');
+fprintf(f_fid, '%0.5g,', t_y_idx(1:end-1));
+fprintf(f_fid, '%0.5g\n', t_y_idx(end));
+fclose(f_fid);
+
+output_f = 'output/b_y_idx.tsv';
+f_fid = fopen(output_f, 'w');
+fprintf(f_fid, '%0.5g,', b_y_idx(1:end-1));
+fprintf(f_fid, '%0.5g\n', b_y_idx(end));
+fclose(f_fid);
+

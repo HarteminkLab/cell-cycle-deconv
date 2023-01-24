@@ -10,7 +10,7 @@ r_x = [];
 
 dg1_x = [];	% dg1
 cg1_x = [];	% cg1
-d_x = [];		% d (dg1)
+d_x = [];	% d (dg1)
 g1_x = [];	% g1 (dg1)
 
 postg1_x = [];
