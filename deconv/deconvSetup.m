@@ -1,4 +1,4 @@
-function [model] = deconvSetup(orfname, modeltype, alpha)
+function [model] = deconvSetup(genename, modeltype, alpha)
 
 global SILENCE;
 
@@ -38,9 +38,11 @@ DECONV_DIFF = 2;
 % 2: 1st-order different operator (even intervals)
 DECONV_KERNEL = DECONV_WAVELET;
 
-SILENCE = 0;
-
 SHOW_DETAILS = 1;
+
+DECONV_WT1 = 'WT1';
+DECONV_WT2 = 'WT2';
+DECONV_JOINT = 'JOINT';
 
 DATA_WT1 = strcat(DECONV_DATASET, 'wt1.txt');
 DATA_WT2 = strcat(DECONV_DATASET, 'wt2.txt');
@@ -52,11 +54,12 @@ outdir = 'output/';
 modeldir1 = 'models/wt1_budflow/';
 modelfile = '1.1.1.0.label';
 
-runs = 1;
 
-DECONV_WT1 = 'WT1';
-DECONV_WT2 = 'WT2';
-DECONV_JOINT = 'JOINT';
+
+orfname = gene_to_orfname('SSK22');
+
+
+runs = 1;
 
 model = {};
 
@@ -73,9 +76,10 @@ fprintf("ORF ID: %s, %d\n", orfname, orfid);
 
 model.orig_orfname = orig_orfname;
 model.orfname = orfname;
+model.genename = genename;
 model.orfid = orfid;
 
-model.datatype = DECONV_WT1;
+model.datatype = DECONV_JOINT;
 model.alpha = alpha;
 
 % deal with modeltype
@@ -83,10 +87,12 @@ model.modeltype = upper(modeltype);
 [model] = parseModelType(model);
 modelprefix = model.modelprefix;
 
-dataset = load(DATA_WT1, 'ascii');
-g1 = dataset(orfid,:)';
+dataset1 = load(DATA_WT1, 'ascii');
+dataset2 = load(DATA_WT2, 'ascii');
+g1 = dataset1(orfid,:)';
+g2 = dataset2(orfid,:)';
 
-model.g = [g1'];
+model.g = [g1' g2'];
 
 model.H = [];
 
@@ -96,6 +102,7 @@ modelpath = strcat(modeldir1, modelfile);
 
 % calculate H
 model.timepoints = WT1_TP;
-[model] = calcH(model);
+[model, H] = calcH(model);
 
-
+model.timepoints = [WT1_TP' WT2_TP']';
+[model, H] = calcH(model);

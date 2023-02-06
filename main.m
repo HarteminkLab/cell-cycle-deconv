@@ -3,38 +3,70 @@ addpath(genpath('lib/YAMLMatlab'));
 addpath(genpath('deconv'))
 addpath(genpath('analysis'))
 
-% CDC20, CLB2, PCL1, SSKK22
-orfnames = {'YGL116W', 'YPR119W', 'YNL289W', 'YCR073C'};
-
-orfname = orfnames{1};
+genename = 'SSK22';
 
 modeltype = '1.1.1';
-alpha = 26; 
-datatype = 'WT1';
-gamma = 0.012;
+alpha = 26;
+datatype = 'JOINT';
+gamma_val = 1.;
 
 % Find optimal gamma
-model = deconvSetup(orfname, modeltype, alpha);
+model = deconvSetup(genename, modeltype, alpha);
+model.gm = gamma_val;
+% model = deconvModel(model);
+model = debug_f_i(model);
 
-% model = findOptimal(model, 0);
+% Plot the results
+% drawDeconvolved(model);
 
-model.gm = gamma;
-model = deconvModel(model);
 
-model = getRDCidx(model);
+PADDINGSIZE = 42;
+g = model.g;
+mean_g = mean(g);
+H = model.H;
+gamma = model.gm;
+Hsize = size(H, 2);
 
-fig1 = figure;
-pbaspect([16 9 1]);
-hold on;
-box on;
-WT1_TP = 30:16:254;
-plot(WT1_TP, model.g, '-', 'color', [228 26 28]/255., 'LineWidth', 2.5);
-title("Raw");
-plot(WT1_TP, model.H*model.f, '-', 'color', [28 200 28]/255., 'LineWidth', 2.5);
-title("Fit");
-saveas(gcf, strcat('output/', orfname, '_fit'), 'png');
-hold off;
-box off;
+% Initial with padding to make it a power of 2
+f_i = [];
+last = Hsize;
+f_i_front = last+[1:1:PADDINGSIZE];
 
-drawDeconvolved(model);
+last = last+PADDINGSIZE;
+f_i_after = last+[1:1:PADDINGSIZE];
+last = last+PADDINGSIZE;
+
+for i = 1:length(model.i_intervals)
+	idx = model.i_intervals{i}{2};
+	se = model.Hpos{idx};
+
+    fprintf("%s, interval: %d - %d\n", model.i_intervals{i}{1}, model.Hpos{idx}(1), ...
+        model.Hpos{idx}(2));
+
+	%f_i = [f_i se(1):1:se(2)];
+end
+
+f_i_pad = [f_i_front f_i f_i_after];
+
+f_b = model.f_b;
+W1 = getWaveletKernel('Symmlet', length(f_i_pad), 5);
+W2 = getWaveletKernel('Symmlet', 128, 5);
+
+% The relevant portion of f, removing the padding on the front and after
+% ends, to multiply on H
+
+f = zeros(Hsize+PADDINGSIZE*2, 1);
+unpadded_f = f(PADDINGSIZE:Hsize+PADDINGSIZE-1);
+
+fit_error = square_pos(norm(H*unpadded_f./g'-1, 2));
+
+
+
+
+
+
+
+
+
+
 
