@@ -133,10 +133,12 @@ PADDINGSIZE = 42;
 % square_pos(norm(H*f(PADDINGSIZE:Hsize+PADDINGSIZE-1)./g'-1, 2)) ... % fit errors
 % 		+ gamma*(norm(W1*f([f_i_pad]),1) + norm(W2*f([f_b]),1))/mean_g ...
 
+% + gamma*(norm(W*f(PADDINGSIZE+2:end-PADDINGSIZE-1),1))/mean_g ...
+
 disp(Hsize+PADDINGSIZE*2);
 
 % Enforce smoothness of the entire padded array
-W = getWaveletKernel(WAVETYPE, 256, WAVEPAR);
+W = getWaveletKernel(WAVETYPE, length(f_i_pad), WAVEPAR);
 
 cvx_begin
 	cvx_quiet(true);
@@ -146,8 +148,10 @@ cvx_begin
 	% The fit error, get the relevant indices of f
 	% Skipping the first PADDINGSIZE indices and removing the last PADDINGSIZE indices
 	minimize(...
-		square_pos(norm(H*f(PADDINGSIZE+1:end-PADDINGSIZE)./g'-1, 2)) ... % fit errors
-		+ gamma*(norm(W*f(PADDINGSIZE+2:end-PADDINGSIZE-1),1))/mean_g ...
+		square_pos(norm(H*f(PADDINGSIZE:Hsize+PADDINGSIZE-1)./g'-1, 2)) ... % fit errors
+		+ gamma*(norm(W1*f([1:PADDINGSIZE+130  PADDINGSIZE+217:Hsize+PADDINGSIZE*2]),1) + ...
+				 norm(W2*f([PADDINGSIZE+131:PADDINGSIZE+258                       ]),1) ...
+				 )/mean_g ...
 	);
 
 	subject to

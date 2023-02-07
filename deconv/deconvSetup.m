@@ -52,7 +52,10 @@ WT2_TP = 38:16:262;
 
 outdir = 'output/';
 modeldir1 = 'models/wt1_budflow/';
-modelfile = '1.1.1.0.label';
+modelfile1 = sprintf('%s.%d.label', modeltype, alpha);
+
+modeldir2 = 'models/wt2_budflow/';
+modelfile2 = sprintf('%s.%d.label', modeltype, alpha);
 
 orfname = gene_to_orfname(genename);
 
@@ -92,14 +95,14 @@ model.g = [g1' g2'];
 
 model.H = [];
 
-modelpath = strcat(modeldir1, modelfile);
-
-[flag, model] = readModelFormat(modelpath, model);
-
 % calculate H for WT1
+modelpath1 = strcat(modeldir1, modelfile1);
+[flag, model] = readModelFormat(modelpath1, model);
 model.timepoints = WT1_TP;
 [model, H] = calcH(model);
 
 % calculate H for WT2
+modelpath2 = strcat(modeldir2, modelfile2);
+[flag, model] = readModelFormat(modelpath2, model);
 model.timepoints = [WT1_TP' WT2_TP']';
 [model, H] = calcH(model);
