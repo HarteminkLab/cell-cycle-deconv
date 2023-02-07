@@ -54,10 +54,7 @@ outdir = 'output/';
 modeldir1 = 'models/wt1_budflow/';
 modelfile = '1.1.1.0.label';
 
-
-
-orfname = gene_to_orfname('SSK22');
-
+orfname = gene_to_orfname(genename);
 
 runs = 1;
 
@@ -91,7 +88,6 @@ dataset1 = load(DATA_WT1, 'ascii');
 dataset2 = load(DATA_WT2, 'ascii');
 g1 = dataset1(orfid,:)';
 g2 = dataset2(orfid,:)';
-
 model.g = [g1' g2'];
 
 model.H = [];
@@ -100,9 +96,10 @@ modelpath = strcat(modeldir1, modelfile);
 
 [flag, model] = readModelFormat(modelpath, model);
 
-% calculate H
+% calculate H for WT1
 model.timepoints = WT1_TP;
 [model, H] = calcH(model);
 
+% calculate H for WT2
 model.timepoints = [WT1_TP' WT2_TP']';
 [model, H] = calcH(model);

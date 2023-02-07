@@ -63,13 +63,23 @@ TRIAL = IT_B_SMOOTH;
 
 modeltype = upper(model.modeltype);
 
-
 g = model.g;
 mean_g = mean(g);
 H = model.H;
 gamma = model.gm;
 Hsize = size(H, 2);
 
+% Unused in optimzation. For recording the top
+% indices for plotting
+f_t = [];
+for i = 1:length(model.t_intervals)
+	idx = model.t_intervals{i}{2};
+	se = model.Hpos{idx};
+	f_t = [f_t se(1):1:se(2)];
+end
+
+% Construct the f index vector (f_i) for the first
+% Wavelet smoothing criteria W1
 % Initial with padding to make it a power of 2
 f_i = [];
 last = Hsize;
@@ -84,19 +94,16 @@ for i = 1:length(model.i_intervals)
 end
 f_i_pad = [f_i_front f_i f_i_after];
 
-% Bottom
+% Construct the f index vector (f_b) for the second
+% Wavelet smoothing criteria W2
 f_b = [];
-wf_b = [];
-b_gap = [];
 for i = 1:length(model.b_intervals)
 	idx = model.b_intervals{i}{2};
 	se = model.Hpos{idx};
 	f_b = [f_b se(1):1:se(2)];
-	gap = model.bList{i}(2)-model.bList{i}(1);
-	b_gap = [b_gap gap];
-	wf_b = [wf_b ones(1, se(2)-se(1)+1)*gap];
 end
 
+% Construct the Wavelets
 Hsize = size(H, 2);
 W1 = getWaveletKernel(WAVETYPE, length(f_i_pad), WAVEPAR);
 W2 = getWaveletKernel(WAVETYPE, length(f_b), WAVEPAR);
@@ -123,4 +130,21 @@ rn = square_pos(norm(H*f_final./g-1, 2));
 model.f = f_final;
 
 model.f_i = f_i;
+model.f_t = f_t;
 model.f_b = f_b;
+
+g_avg = mean(model.g);
+if strcmp(model.datatype, DECONV_JOINT)
+	glen = length(model.g);
+	pred_g = model.H*model.f;
+	g1 = model.g(1:glen/2);
+	g2 = model.g(glen/2+1:glen);
+	pred_g1 = pred_g(1:glen/2);
+	pred_g2 = pred_g(glen/2+1:glen);
+	tm1 = model.timepoints(1,:);
+	tm2 = model.timepoints(2,:);
+else
+	pred_g = model.H*model.f;
+end
+
+model.pred_g = pred_g;

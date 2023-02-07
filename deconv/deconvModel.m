@@ -57,7 +57,7 @@ SMALLPADDING = 3;
 DOUBLE_MIRROR = 4;
 % submodel in DOUBLE_MIRROR
 DOUBLE_MIRROR_REFINE = 1;
-PADDINGSIZE = 30;
+PADDINGSIZE = 42;
 
 % Settings
 EDGE_EFFECTS = DOUBLE_MIRROR;
@@ -69,124 +69,107 @@ mean_g = mean(g);
 H = model.H;
 gamma = model.gm;
 
-% model structure so far
-% model:
-%		- lengths: array
-%		- relations: cell array
-%		- i/t/b List: cell arrays
-%		- i/t/b_intervals: string arrays
-%		- Hsegments: cell arrays
-%		- timepoints: array
-% require: it and b are smooth
+g = model.g;
+mean_g = mean(g);
+H = model.H;
+gamma = model.gm;
+Hsize = size(H, 2);
 
-if DECONV_KERNEL == DECONV_WAVELET && TRIAL == IT_B_SMOOTH && EDGE_EFFECTS == DOUBLE_MIRROR
-
-	Hsize = size(H, 2);
-
-	f_it = [];
-	% f_i
-	for i = 1:length(model.i_intervals)
-		idx = model.i_intervals{i}{2};
-		se = model.Hpos{idx};
-		f_it = [f_it se(1):1:se(2)];
-	end
-	% f_t
-	for i = 1:length(model.t_intervals)
-		idx = model.t_intervals{i}{2};
-		se = model.Hpos{idx};
-		f_it = [f_it se(1):1:se(2)];
-	end
-
-	f_b = [];
-	% f_b
-	for i = 1:length(model.b_intervals)
-		idx = model.b_intervals{i}{2};
-		se = model.Hpos{idx};
-		f_b = [f_b se(1):1:se(2)];
-	end
-
-	f_final = zeros(Hsize,1);
-
-	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-	%% right mirroring
-	f_b_mirror = [f_b f_b];
-	f_it_mirror = [f_it flip(f_it)];
-	factor_fb = 1.5;
-
-	W1 = getWaveletKernel(WAVETYPE, length(f_it_mirror), WAVEPAR);
-	W2 = getWaveletKernel(WAVETYPE, length(f_b), WAVEPAR);
-	W2pad = zeros(length(f_b));
-	W2 = [W2 W2pad; W2pad fliplr(W2)];
-
-	cvx_begin
-		cvx_quiet(true);
-
-		variable f(Hsize);
-
-		minimize(...
-			square_pos(norm(H*f./g'-1, 2)) ... % fit error
-			+ gamma*(norm(W1*f(f_it_mirror),1) + ...
-            factor_fb*norm(W2*f(f_b_mirror),1))/mean_g ... % smooth error
-		);
-    
-		subject to
-			f>=0;
-	cvx_end
-
-	f_final(f_it(1:end/2)) = f(f_it(1:end/2));
-	f_b_1 = f(f_b);
-	f_it_1 = f(f_it);
-
-	%% left mirroring
-	f_it_mirror = [flip(f_it) f_it];
-
-	cvx_begin
-		cvx_quiet(true);
-
-		variable f(Hsize);
-
-		minimize(...
-			square_pos(norm(H*f./g'-1, 2)) ... % fit error
-			+ gamma*(norm(W1*f([f_it_mirror]),1) + factor_fb*norm(W2*f([f_b_mirror]),1))/mean_g ... % smooth error
-		);
-
-		subject to
-			f>=0;
-	cvx_end
-
-	f_final(f_it(end/2+1:end)) = f(f_it(end/2+1:end));
-	f_b_2 = f(f_b);
-	f_it_2 = f(f_it);
-
-
-	f_final(f_it) = (f_it_1+f_it_2)/2;
-	f_final(f_b) = (f_b_1+f_b_2)/2;
-
-	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
-
-	f = f_final;
-
-	W1 = getWaveletKernel(WAVETYPE, length(f_it), WAVEPAR);
-	W2 = getWaveletKernel(WAVETYPE, length(f_b), WAVEPAR);
-	sn = ( norm(W1*f([f_it]),1) + norm(W2*f([f_b]),1) )/mean_g;
-	rn = square_pos(norm(H*f./g-1, 2));
-
+% Unused in optimzation. For recording the top
+% indices for plotting
+f_t = [];
+f_t_list = {};
+for i = 1:length(model.t_intervals)
+	idx = model.t_intervals{i}{2};
+	se = model.Hpos{idx};
+	indices = se(1):1:se(2);
+	f_t = [f_t indices];
+	f_t_list{i} = indices;
 end
 
-% ..........................
-% sn: solution norm
-% rn: residual norm
-% ..........................
+% Construct the f index vector (f_i) for the first
+% Wavelet smoothing criteria W1
+% Initial with padding to make it a power of 2
+f_i = [];
+last = Hsize;
+f_i_front = last+[1:1:PADDINGSIZE];
+last = last+PADDINGSIZE;
+f_i_after = last+[1:1:PADDINGSIZE];
+last = last+PADDINGSIZE;
+f_i_list = {};
+fprintf('i: ');
+for i = 1:length(model.i_intervals)
+	idx = model.i_intervals{i}{2};
+	se = model.Hpos{idx};
+	indices = se(1):1:se(2);
+	f_i = [f_i indices];
+	f_i_list{i} = indices;
+	fprintf("%s, ", model.i_intervals{i}{1});
+end
+fprintf('\n');
 
-pred_g = H*f;
+f_i_pad = [f_i_front f_i f_i_after];
 
-model.f = f;
-model.sn = sn;
-model.rn = rn;
-model.err = sqrt(model.rn/length(model.g));
-model.f_it = f_it;
+% Construct the f index vector (f_b) for the second
+% Wavelet smoothing criteria W2
+f_b = [];
+fprintf('b: ');
+for i = 1:length(model.b_intervals)
+	idx = model.b_intervals{i}{2};
+	se = model.Hpos{idx};
+	indices = se(1):1:se(2);
+	f_b = [f_b indices];
+	f_b_list{i} = indices;
+	fprintf("%s, ", model.b_intervals{i}{1});
+end
+fprintf('\n');
+
+% Construct the Wavelets
+Hsize = size(H, 2);
+W1 = getWaveletKernel(WAVETYPE, length(f_i_pad), WAVEPAR);
+W2 = getWaveletKernel(WAVETYPE, length(f_b), WAVEPAR);
+
+PADDINGSIZE = 42;
+% square_pos(norm(H*f(PADDINGSIZE:Hsize+PADDINGSIZE-1)./g'-1, 2)) ... % fit errors
+% 		+ gamma*(norm(W1*f([f_i_pad]),1) + norm(W2*f([f_b]),1))/mean_g ...
+
+disp(Hsize+PADDINGSIZE*2);
+
+% Enforce smoothness of the entire padded array
+W = getWaveletKernel(WAVETYPE, 256, WAVEPAR);
+
+cvx_begin
+	cvx_quiet(true);
+
+	variable f(Hsize+PADDINGSIZE*2); % 258 + 42*2 = 342
+
+	% The fit error, get the relevant indices of f
+	% Skipping the first PADDINGSIZE indices and removing the last PADDINGSIZE indices
+	minimize(...
+		square_pos(norm(H*f(PADDINGSIZE+1:end-PADDINGSIZE)./g'-1, 2)) ... % fit errors
+		+ gamma*(norm(W*f(PADDINGSIZE+2:end-PADDINGSIZE-1),1))/mean_g ...
+	);
+
+	subject to
+		f>=0;
+cvx_end
+
+f_final = f(PADDINGSIZE+1:end-PADDINGSIZE);%(PADDINGSIZE:Hsize+PADDINGSIZE-1);
+% w1 = norm(W1*f([f_i_pad]),1)/mean_g;
+% w2 = norm(W2*f([f_b]),1)/mean_g;
+% rn = square_pos(norm(H*f_final./g-1, 2));
+% model.sn_w1 = w1;
+% model.sn_w2 = w2;
+% model.rn = rn;
+model.f = f_final;
+
+model.f_i = f_i;
+model.f_t = f_t;
 model.f_b = f_b;
+
+model.f_b_list = f_b_list;
+model.f_t_list = f_t_list;
+model.f_i_list = f_i_list;
 
 g_avg = mean(model.g);
 if strcmp(model.datatype, DECONV_JOINT)
@@ -204,4 +187,4 @@ end
 
 model.pred_g = pred_g;
 
-return;
+
