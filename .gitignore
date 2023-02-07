@@ -7,3 +7,4 @@ models
 *.f
 lib
 __pycache__
+*.mat

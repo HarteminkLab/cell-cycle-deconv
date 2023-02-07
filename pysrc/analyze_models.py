@@ -54,12 +54,28 @@ class Model:
         self.lengths = lengths
         self.intervals = intervals
 
+        interval_counts = {}
+        for interval, vals in self.intervals.items():
+            interval_counts[interval] = np.array([len(v) for v in vals]).sum()
+        self.interval_counts = interval_counts
 
         intervals['b'] = [np.array(b) + lengths['delta'] + lengths['lambda']
             for b in intervals['b']]
 
         intervals['t'] = [np.array(t) + lengths['lambda']
                     for t in intervals['t']]
+
+        state_sums = {}
+        for cc_label, v in description.items():
+            cur_sum = 0
+
+            for i_name, index in v.items():
+                x = intervals[i_name][index]
+                cur_sum += len(x)
+
+            label = f"{cc_label}, N={cur_sum}"
+            state_sums[cc_label] = cur_sum
+        self.state_sums = state_sums
 
     def plot_model(self):
         intervals = self.intervals
@@ -99,10 +115,7 @@ class Model:
                     legend_labels.append(label)
 
         plt.ylim(-1.2, 1.2)
-
-        interval_counts = {}
-        for interval, vals in self.intervals.items():
-            interval_counts[interval] = np.array([len(v) for v in vals]).sum()
+        interval_counts = self.interval_counts
 
         lambd = self.lengths['lambda']
         plt.legend(legend_items, legend_labels)
