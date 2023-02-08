@@ -1,4 +1,4 @@
-function [model] = deconvSetup(genename, modeltype, alpha)
+function [model] = deconvSetup(genename, modeltype, alphas)
 
 global SILENCE;
 
@@ -52,10 +52,10 @@ WT2_TP = 38:16:262;
 
 outdir = 'output/';
 modeldir1 = 'models/wt1_budflow/';
-modelfile1 = sprintf('%s.%d.label', modeltype, alpha);
+modelfile1 = sprintf('%s.%d.label', modeltype, alphas(1));
 
 modeldir2 = 'models/wt2_budflow/';
-modelfile2 = sprintf('%s.%d.label', modeltype, alpha);
+modelfile2 = sprintf('%s.%d.label', modeltype, alphas(2));
 
 orfname = gene_to_orfname(genename);
 
@@ -72,7 +72,6 @@ end
 % deal with orfname and datatype
 orig_orfname = orfname;
 [orfname, orfid] = map2SystemNames(orig_orfname);
-fprintf("ORF ID: %s, %d\n", orfname, orfid);
 
 model.orig_orfname = orig_orfname;
 model.orfname = orfname;
@@ -80,7 +79,6 @@ model.genename = genename;
 model.orfid = orfid;
 
 model.datatype = DECONV_JOINT;
-model.alpha = alpha;
 
 % deal with modeltype
 model.modeltype = upper(modeltype);

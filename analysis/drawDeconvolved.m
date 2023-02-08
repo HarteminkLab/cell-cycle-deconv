@@ -1,98 +1,185 @@
-function[model] = drawDeconvolved(model)
+function[fig] = drawDeconvolved(model)
+    fig = figure();
+    f.Position = [100 100 1200 600];
+    tiled_layout = tiledlayout(3, 3);
+    tiled_layout.Padding = 'compact';
+    tiled_layout.TileSpacing = 'compact';
+    fig_title = sprintf("%s, gamma=%.g", model.genename, model.gm);
+    title(tiled_layout, fig_title);
 
-f = figure();
-f.Position = [100 100 1200 600];
-tiled_layout = tiledlayout(3, 3);
-tiled_layout.Padding = 'compact';
-tiled_layout.TileSpacing = 'compact';
-title(tiled_layout, model.genename);
+    plot_g = model.g;
+    plot_pred_g = model.pred_g;
+    plot_f = model.f;
 
-plot_g = model.g;
-plot_pred_g = model.pred_g;
-plot_f = model.f;
+    ylim_raw = max(plot_g)*1.1;
+    ylim_deconv = max(plot_f)*1.25;
+    ylim_low = -max(plot_g)*0.1;
 
-ylim_raw = max(plot_g)*1.25;
-ylim_deconv = max(plot_f)*1.25;
+    line_width = 3.5; 
 
-% WT1 Raw and fitted plot
-nexttile;
-hold on;
-plot(model.timepoints(1, :), plot_g(1, 1:15), '-', 'color', [228 26 28]/255., 'LineWidth', 2.5);
-plot(model.timepoints(1, :), plot_pred_g(1:15, 1), '-', 'color', [28 200 28]/255., 'LineWidth', 2.5);
-ylim([0  ylim_raw]);
-yticks([]);
-ylabel('WT 1');
-hold off;
+    % WT1 Raw and fitted plot
+    nexttile;
+    hold on;
+    plot(model.timepoints(1, :), plot_g(1, 1:15), '-', 'color', colorForName('raw'), ...
+        'LineWidth', line_width);
+    plot(model.timepoints(1, :), plot_pred_g(1:15, 1), '-', 'color', colorForName('fit'),  ...
+        'LineWidth', line_width);
+    ylim([ylim_low  ylim_raw]);
+    yticks([]);
+    xticks([]);
+    ylabel('WT 1');
+    hold off;
 
-% Initial plot
-nexttile;
-hold on;
-plot(model.iList{1}(2:end), plot_f(model.f_i_list{1}(1:end)), '-', 'color', [28 26 228]/255., 'LineWidth', 2.5);
-plot(model.iList{2}(2:end), plot_f(model.f_i_list{2}(1:end)), '-', 'color', [228 26 28]/255., 'LineWidth', 2.5);
-plot(model.iList{3}(2:end), plot_f(model.f_i_list{3}(1:end)), '-', 'color', [26 228 28]/255., 'LineWidth', 2.5);
-ylim([0  ylim_deconv]);
-yticks([]);
-ylabel('Initial: R, CG1, postG1; f_i');
-hold off;
+    % Initial plot
+    nexttile;
+    hold on;
+    plot(model.iList{1}(2:end), plot_f(model.f_i_list{1}(1:end)), '-', 'color',  ...
+        colorForName('R'), 'LineWidth', line_width);
+    plot(model.iList{2}(2:end), plot_f(model.f_i_list{2}(1:end)), '-', 'color',  ...
+        colorForName('CG1'), 'LineWidth', line_width);
+    plot(model.iList{3}(2:end), plot_f(model.f_i_list{3}(1:end)), '-', 'color',  ...
+        colorForName('postG1'), 'LineWidth', line_width);
+    ylim([ylim_low  ylim_deconv]);
+    yticks([]);
+    xticks([]);
+    ylabel('Initial, f\_i');
+    hold off;
 
-% Mother plot
-nexttile;
-hold on;
-ylim([0  ylim_deconv]);
-yticks([]);
-plot(model.tList{1}(2:end), plot_f([model.f_t_list{1}]), '-', 'color', [228 26 28]/255., 'LineWidth', 2.5);
-plot(model.tList{2}(2:end), plot_f([model.f_t_list{2}]), '-', 'color', [26 228 28]/255., 'LineWidth', 2.5);
-ylabel('Top/Mother: CG1, postG1; f_t');
-xlim([min(model.tList{1}) max(model.tList{2})]);
-hold off;
+    % Mother plot
+    nexttile;
+    hold on;
+    ylim([ylim_low  ylim_deconv]);
+    yticks([]); 
+
+    cg1_timepoints = model.tList{1}(2:end);
+    post_g1_timepoints = model.tList{2}(2:end);
+
+    plot(cg1_timepoints, plot_f([model.f_t_list{1}]), '-', 'color', colorForName('CG1'),  ...
+        'LineWidth', line_width);
+    plot(post_g1_timepoints, plot_f([model.f_t_list{2}]), '-', 'color', colorForName('postG1'), ...
+        'LineWidth', line_width);
+    ylabel('Top/Mother, f\_t');
+    xlim([min(model.tList{1}) max(model.tList{2})]);
+    hold off;
+
+    cg1_tick = cg1_timepoints(length(cg1_timepoints)/2);
+    post_g1_tick = post_g1_timepoints(round(length(post_g1_timepoints)/2));
+
+    set(gca, 'xtick', [cg1_tick post_g1_tick]);
+    set(gca, 'xticklabel', {"CG1" "postG1"});
+
+    % WT2 Raw and fitted plot
+    nexttile;
+    hold on;
+    plot(model.timepoints(2, :)	, plot_g(1, 16:end), '-', 'color', colorForName('raw'),  ...
+        'LineWidth', line_width);
+    plot(model.timepoints(2, :), plot_pred_g(16:end, 1), '-', 'color', colorForName('fit'),  ...
+        'LineWidth', line_width);
+    ylim([ylim_low  ylim_raw]);
+    yticks([]);
+    xticks([]);
+    ylabel('WT 2');
+    hold off;
+
+    % f vector
+    nexttile;
+    hold on;
+    ylim([ylim_low  ylim_deconv]);
+    yticks([]);
+    xticks([]);
+    ylabel('f');
+
+    cc_states = {"R" "CG1" "DG1" "postG1"};
+
+    abs_indices = 1:1:size(model.H, 2);
+    for i = 1:length(model.Hpos)
+        indices = h_indices_for_name(model, cc_states{i});
+        plot(abs_indices(indices), model.f(indices), '-', 'color', colorForName(cc_states{i}), ...
+            'LineWidth', line_width);
+    end
+    xlim([1 size(model.H, 2)]);
+    hold off;
+
+    % Daughter plot
+    nexttile;
+    hold on;
+
+    dg1_timepoints = model.bList{1}(2:end);
+    post_g1_timepoints = model.bList{2}(3:end);
+
+    dg1_tick = dg1_timepoints(length(dg1_timepoints)/2);
+    post_g1_tick = post_g1_timepoints(round(length(post_g1_timepoints)/2));
+
+    plot(dg1_timepoints, plot_f(model.f_b_list{1}), '-', 'color', colorForName('DG1'),  ...
+        'LineWidth', line_width);
+    plot(post_g1_timepoints, plot_f(model.f_b_list{2}(1:end-1)), '-', 'color',  ...
+        colorForName('postG1'), 'LineWidth', line_width);
+    ylim([ylim_low  ylim_deconv]);
+    yticks([]);
+    set(gca, 'xtick', [dg1_tick post_g1_tick]);
+    set(gca, 'xticklabel', {"DG1" "postG1"});
+    xlim([min(model.bList{1}) max(model.bList{2})]);
+    ylabel('Bottom/Daughter, f\_b');
+    hold off;
+
+    nexttile;
+    axis off;
+
+    % H heatmap
+    nexttile;
+    hm = heatmap(model.H);
+    hm.GridVisible = 'off';
+    hm.ColorbarVisible = 'off';
+    ylabel('H');
+    Ax = gca;
+    Ax.XDisplayLabels = nan(size(Ax.XDisplayData));
+    Ax.YDisplayLabels = nan(size(Ax.YDisplayData));
+
+    % f vector
+    nexttile;
+    hold on;
+    ylim([ylim_low  ylim_deconv]);
+    yticks([]);
+    xticks([]);
+    ylabel('Single Cell Profile');
+    
+    cc_states = {"R", "CG1", "postG1", "DG1"};
+    last = 0;
+    for i = 1:length(cc_states)
+        cc_state = cc_states{i};
+        y = h_indices_for_name(model, cc_state);
+        x = last+1:1:last+length(y);
+        plot(x, model.f(y), ':', 'color', colorForName(cc_state),  ...
+                'LineWidth', line_width);
+        last = last+length(y);
+    end
+    xlim([1 max(x)]);
+    hold off;
+
+    return
 
 
-% WT2 Raw and fitted plot
-nexttile;
-hold on;
-plot(model.timepoints(2, :)	, plot_g(1, 16:end), '-', 'color', [228 26 28]/255., 'LineWidth', 2.5);
-plot(model.timepoints(2, :), plot_pred_g(16:end, 1), '-', 'color', [28 200 28]/255., 'LineWidth', 2.5);
-ylim([0  ylim_raw]);
-yticks([]);
-ylabel('WT 2');
-hold off;
+function[h_indices] = h_indices_for_name(model, cc_state)
+    % TODO: hard-coded the cc state names, refactor to read the model label names
+    cc_states = ["R" "CG1" "DG1" "postG1"];
+    h_pos_indices = [1 2 3 4];
+    h_dict = dictionary(cc_states, h_pos_indices);
+    h_index = h_dict(cc_state);
+    h_indices = model.Hpos{h_index}(1):1:model.Hpos{h_index}(2);
+    return
 
-% f vector
-nexttile;
-hold on;
-ylim([0  ylim_deconv]);
-yticks([]);
-ylabel('f: R, CG1, DG1, postG1');
-colors = {'blue', 'red', 'magenta', 'green'};
-abs_indices = 1:1:size(model.H, 2);
-for i = 1:length(model.Hpos)
-    indices = model.Hpos{i}(1):1:model.Hpos{i}(2);
-    plot(abs_indices(indices), model.f(indices), '-', 'color', colors{i}, 'LineWidth', 2.5);
-end
-xlim([1 size(model.H, 2)]);
-hold off;
 
-% Daughter plot
-nexttile;
-hold on;
-plot(model.bList{1}(2:end), plot_f(model.f_b_list{1}), '-', 'color', 'magenta', 'LineWidth', 2.5);
-plot(model.bList{2}(3:end), plot_f(model.f_b_list{2}(1:end-1)), '-', 'color', [26 228 28]/255., 'LineWidth', 2.5);
-ylim([0  ylim_deconv]);
-yticks([]);
-xlim([min(model.bList{1}) max(model.bList{2})]);
-ylabel('Bottom/Daughter: DG1, postG1; f_b');
-hold off;
+function[color] = colorForName(color_name)
 
-nexttile;
-axis off;
-
-% g heatmap
-nexttile;
-hm = heatmap(model.H);
-hm.GridVisible = 'off';
-colorbar();
-ylabel('g: R, CG1, DG1, postG1');
-Ax = gca;
-Ax.XDisplayLabels = nan(size(Ax.XDisplayData));
-Ax.YDisplayLabels = nan(size(Ax.YDisplayData));
-
+    color_names = ["raw" "fit" "R" "CG1" "DG1" "postG1"];
+    colors = {[158 50 50]/255., ...
+         [145 180 98]/255., ...
+         [199 148 144]/255., ...
+         [147 168 198]/255., ...
+         [165 197 204]/255., ...
+         [223 192 158]/255., ...
+        };
+    color_mapping = dictionary(color_names, colors);
+    color = color_mapping(color_name);
+    color = color{1};
+    return

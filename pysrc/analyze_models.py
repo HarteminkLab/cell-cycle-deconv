@@ -58,13 +58,6 @@ class Model:
         for interval, vals in self.intervals.items():
             interval_counts[interval] = np.array([len(v) for v in vals]).sum()
         self.interval_counts = interval_counts
-
-        intervals['b'] = [np.array(b) + lengths['delta'] + lengths['lambda']
-            for b in intervals['b']]
-
-        intervals['t'] = [np.array(t) + lengths['lambda']
-                    for t in intervals['t']]
-
         state_sums = {}
         for cc_label, v in description.items():
             cur_sum = 0
@@ -81,33 +74,62 @@ class Model:
         intervals = self.intervals
         description = self.description
 
-        cmap = plt.get_cmap('tab10')
-        colors = {}
-        keys = list(description.keys())
-        for i in range(len(description.keys())):
-            colors[keys[i]] = cmap(i)
+        color_mapping = {}
+        color_names = ["raw", "fit", "R", "CG1", "DG1", "postG1"];
+        colors = [np.array([158, 50, 50])/255.,
+             np.array([145, 180, 98])/255.,
+             np.array([199, 148, 144])/255.,
+             np.array([147, 168, 198])/255.,
+             np.array([165, 197, 204])/255.,
+             np.array([223, 192, 158])/255.]
+        for i in range(len(color_names)):
+            color_mapping[color_names[i]] = colors[i]
 
         def _plot(x, y, label):
             y = [y] * len(x)
-            return plt.scatter(x, y, s=2, color=colors[label], label=label)
+            return plt.scatter(x, y, s=20, marker='s', color=color_mapping[label], label=label)
 
         y_intervals = {'i': 0, 't': 1, 'b': -1}
         plt.figure(figsize=(12, 6))
         legend_items = []
         legend_labels = []
 
+        # Define the right most boundary of the branches, they should all be the same
+        # So just take i
+        def _op_list_arrs(num_list, op, outer_op=None): 
+            if outer_op is None: outer_op = op
+            return outer_op([op(m) for m in num_list])
+
+        max_right = _op_list_arrs(intervals['i'], max)
+        min_top = _op_list_arrs(intervals['t'], min)
+        min_bottom = _op_list_arrs(intervals['b'], min)
+        offset_top = max_right-min_top
+        offset_bottom = max_right-min_bottom
+
         for cc_label, v in description.items():
             cur_sum = 0
 
-            for i_name, index in v.items():
-                x = intervals[i_name][index]
+            for interval_name, index in v.items():
+                x = intervals[interval_name][index]
                 cur_sum += len(x)
 
-            for i_name, index in v.items():
-                y = y_intervals[i_name]
-                x = intervals[i_name][index]
+            for interval_name, index in v.items():
+                y = y_intervals[interval_name]
+                x = np.array(intervals[interval_name][index])
+
+                # The right end are all aligned
+
+                # Take that maximum value, subtract by the start of the I and B branches
+                # and offset by the difference
+
+                if interval_name == 't':
+                    x = x+offset_top
+                elif interval_name == 'b':
+                    x = x+offset_bottom
+
                 ret = _plot(x, y, cc_label)
-                plt.text(x[len(x)//2], y-0.05, f"{len(x)}", va='top')
+                plt.text(x[len(x)//2], y-0.05, f"{cc_label}\n{len(x)}", fontsize=16, va='top',
+                    ha='center')
                 
                 label = f"{cc_label}, N={cur_sum}"
                 if label not in legend_labels:
@@ -117,11 +139,23 @@ class Model:
         plt.ylim(-1.2, 1.2)
         interval_counts = self.interval_counts
 
-        lambd = self.lengths['lambda']
-        plt.legend(legend_items, legend_labels)
-        plt.text(lambd-1, 0+0.05, f"Initial N={interval_counts['i']}", ha='right')
-        plt.text(lambd-1, 1+0.05, f"Top N={interval_counts['t']}, $\\lambda$", ha='right')
-        plt.text(lambd-1, -1+0.05, f"Bottom N={interval_counts['b']}, $\\lambda + \\delta$",
-            ha='right')
-        plt.title(self.model_path)
-        plt.axvline(lambd, color='gray', linestyle='dotted', lw=1)
+        lambd = self.lengths['delta']
+        plt.plot([max_right, max_right], [y_intervals['t'], y_intervals['b']], color='gray', 
+            linestyle='dotted', lw=1, zorder=0)
+        
+        def _plot_branch_text(x, y, name):
+            plt.text(x-3, y, name, ha='right', fontsize=16, va='center')
+
+        _plot_branch_text(_op_list_arrs(intervals['i'], min), y_intervals['i'], 
+            f"Initial\nN={_op_list_arrs(intervals['i'], len, sum)}")
+        _plot_branch_text(max_right, y_intervals['t'], f"Top\nN={_op_list_arrs(intervals['t'], len, sum)}")
+        _plot_branch_text(max_right, y_intervals['b'], f"Bottom\nN={_op_list_arrs(intervals['b'], len, sum)}")
+        plt.xticks([])
+        plt.yticks([])
+
+        ax = plt.gca()
+        ax.spines['right'].set_visible(False)
+        ax.spines['top'].set_visible(False)
+        ax.spines['left'].set_visible(False)
+        ax.spines['bottom'].set_visible(False)
+        ax.patch.set_alpha(0.0)

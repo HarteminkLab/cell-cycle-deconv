@@ -3,18 +3,30 @@ addpath(genpath('lib/YAMLMatlab'));
 addpath(genpath('deconv'))
 addpath(genpath('analysis'))
 
-genename = 'SIC1';
+outdir = 'output/genes';
 
+genenames = ["CLN2"];%["CLN2" "PCL1" "SIC1" "CDC20" "SSK22" "DSE1" "DSE2" "CTS1"];
+
+% Parameters
 modeltype = '1.1.1';
-alpha = 26;
+alphas = [26 27];
 datatype = 'JOINT';
-gamma_val = 0.01;
+gamma_val = 0.1;
 
-% Find optimal gamma
-model = deconvSetup(genename, modeltype, alpha);
-model.gm = gamma_val;
-model = deconvModel(model); 
+for genename = genenames
+    fprintf("%s...", genename);
+    fprintf("Deconvolving...");
 
-% Plot the results
-drawDeconvolved(model);
+    model = deconvSetup(genename, modeltype, alphas);
+    model.gm = gamma_val;
+    model = deconvModel(model); 
+
+    fprintf("Plotting...");
+    % Plot the results
+    fig = drawDeconvolved(model);
+    savename = sprintf('%s/%s_error_2.png', outdir, genename);
+    saveas(fig, savename); 
+    %close;
+    %fprintf("Done, saved to %s\n", savename);
+end
 

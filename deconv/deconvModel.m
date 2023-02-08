@@ -97,32 +97,28 @@ last = last+PADDINGSIZE;
 f_i_after = last+[1:1:PADDINGSIZE];
 last = last+PADDINGSIZE;
 f_i_list = {};
-fprintf('i: ');
 for i = 1:length(model.i_intervals)
 	idx = model.i_intervals{i}{2};
 	se = model.Hpos{idx};
 	indices = se(1):1:se(2);
 	f_i = [f_i indices];
 	f_i_list{i} = indices;
-	fprintf("%s, ", model.i_intervals{i}{1});
+
 end
-fprintf('\n');
 
 f_i_pad = [f_i_front f_i f_i_after];
 
 % Construct the f index vector (f_b) for the second
 % Wavelet smoothing criteria W2
 f_b = [];
-fprintf('b: ');
 for i = 1:length(model.b_intervals)
 	idx = model.b_intervals{i}{2};
 	se = model.Hpos{idx};
 	indices = se(1):1:se(2);
 	f_b = [f_b indices];
 	f_b_list{i} = indices;
-	fprintf("%s, ", model.b_intervals{i}{1});
+
 end
-fprintf('\n');
 
 % Construct the Wavelets
 Hsize = size(H, 2);
@@ -130,12 +126,19 @@ W1 = getWaveletKernel(WAVETYPE, length(f_i_pad), WAVEPAR);
 W2 = getWaveletKernel(WAVETYPE, length(f_b), WAVEPAR);
 
 PADDINGSIZE = 42;
+% Error
 % square_pos(norm(H*f(PADDINGSIZE:Hsize+PADDINGSIZE-1)./g'-1, 2)) ... % fit errors
 % 		+ gamma*(norm(W1*f([f_i_pad]),1) + norm(W2*f([f_b]),1))/mean_g ...
 
-% + gamma*(norm(W*f(PADDINGSIZE+2:end-PADDINGSIZE-1),1))/mean_g ...
+% Working
+		% square_pos(norm(H*f(PADDINGSIZE:Hsize+PADDINGSIZE-1)./g'-1, 2)) ... % fit errors
+		% + gamma*(norm(W1*f([1:PADDINGSIZE+130  PADDINGSIZE+217:Hsize+PADDINGSIZE*2]),1) + ...
+		% 		 norm(W2*f([PADDINGSIZE+131:PADDINGSIZE+258                       ]),1) ...
+		% 		 )/mean_g ...
 
-disp(Hsize+PADDINGSIZE*2);
+fixed_f_i_pad = [1:PADDINGSIZE+130  PADDINGSIZE+217:Hsize+PADDINGSIZE*2];
+model.fixed_f_i_pad = fixed_f_i_pad;
+model.f_i_pad = f_i_pad;
 
 % Enforce smoothness of the entire padded array
 W = getWaveletKernel(WAVETYPE, length(f_i_pad), WAVEPAR);
@@ -147,6 +150,7 @@ cvx_begin
 
 	% The fit error, get the relevant indices of f
 	% Skipping the first PADDINGSIZE indices and removing the last PADDINGSIZE indices
+	% TODO: Figure out why f_i_padding is different than this manually indexing.
 	minimize(...
 		square_pos(norm(H*f(PADDINGSIZE:Hsize+PADDINGSIZE-1)./g'-1, 2)) ... % fit errors
 		+ gamma*(norm(W1*f([1:PADDINGSIZE+130  PADDINGSIZE+217:Hsize+PADDINGSIZE*2]),1) + ...

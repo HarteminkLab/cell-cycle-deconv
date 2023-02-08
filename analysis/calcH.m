@@ -130,9 +130,6 @@ Hsegments = {};
 for i = 1:length(model.relations)
 	relation = model.relations{i};
 	name = relation{1};
-
-	fprintf("%s, ", name);
-
 	for idx = 2:2:length(relation)-1
 		label = relation{idx};
 		num = str2num(relation{idx+1})+1;
@@ -151,7 +148,6 @@ for i = 1:length(model.relations)
         end
 	end
 end
-fprintf('\n');
 
 model.Hsegments = Hsegments;
 
