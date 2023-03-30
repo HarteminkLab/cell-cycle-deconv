@@ -116,9 +116,9 @@ function[fig] = drawDeconvolved(model)
         colorForName('postG1'), 'LineWidth', line_width);
     ylim([ylim_low  ylim_deconv]);
     yticks([]);
-    set(gca, 'xtick', [dg1_tick post_g1_tick]);
-    set(gca, 'xticklabel', {"DG1" "postG1"});
-    xlim([min(model.bList{1}) max(model.bList{2})]);
+    % set(gca, 'xtick', [dg1_tick post_g1_tick]);
+    % set(gca, 'xticklabel', {"DG1" "postG1"});
+    % xlim([min(model.bList{1}) max(model.bList{2})]);
     ylabel('Bottom/Daughter, f\_b');
     hold off;
 

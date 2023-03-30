@@ -1,12 +1,11 @@
-function [flag, model] = readModelFormat(modelfile, model)
+function [lengths, relations, iList, tList, bList, i_intervals, t_intervals, b_intervals] = readModelFormat(modelfile, model)
 
 global DECONV_ALPHAPOS;
 
 lengths = zeros(1,6);
 
 if exist(modelfile, 'file') == 0
-	disp(sprintf('Not existing %s ... exiting', modelfile));
-	flag = 0;
+	disp(sprintf('The model file %s does not exist. Exiting...', modelfile));
 	return;
 end
 
@@ -25,8 +24,8 @@ bList_idx = 1;
 bList = {};
 relations_idx = 1;
 relations = {};
-
 parseFlag = -1;
+
 fid = fopen(modelfile);
 while 1
 	tline = fgetl(fid);
@@ -100,15 +99,6 @@ for i = 1:length(relations)
 	end
 end
 
-model.lengths = lengths;
-model.relations = relations;
-model.iList = iList;
-model.tList = tList;
-model.bList = bList;
-model.i_intervals = i_intervals;
-model.t_intervals = t_intervals;
-model.b_intervals = b_intervals;
-flag = 1;
 return;
 
 % ----------------------------------------

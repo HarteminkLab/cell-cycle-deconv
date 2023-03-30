@@ -1,18 +1,11 @@
-function [model, H] = calcH(model)
+function [H, Hsegments, Hpos] = calcH(model)
 
-global DECONV_MU0POS;
-global DECONV_LAMBDAPOS;
-global DECONV_DELTAPOS;
-global DECONV_ALPHAPOS;
-global DECONV_SIGMA0POS;
-global DECONV_SIGMAVPOS;
-
-mu0 = model.lengths(DECONV_MU0POS);
-lambda = model.lengths(DECONV_LAMBDAPOS);
-delta = model.lengths(DECONV_DELTAPOS);
-alpha = model.lengths(DECONV_ALPHAPOS);
-sigma0 = model.lengths(DECONV_SIGMA0POS);
-sigmav = model.lengths(DECONV_SIGMAVPOS);
+mu0 = model.lengths(Deconv.DECONV_MU0POS);
+lambda = model.lengths(Deconv.DECONV_LAMBDAPOS);
+delta = model.lengths(Deconv.DECONV_DELTAPOS);
+alpha = model.lengths(Deconv.DECONV_ALPHAPOS);
+sigma0 = model.lengths(Deconv.DECONV_SIGMA0POS);
+sigmav = model.lengths(Deconv.DECONV_SIGMAVPOS);
 
 SCALING = 1;
 
@@ -149,8 +142,6 @@ for i = 1:length(model.relations)
 	end
 end
 
-model.Hsegments = Hsegments;
-
 H = [];
 Hpos = {};
 cur_start = 1;
@@ -171,12 +162,10 @@ end
 
 % Joint model, so WT2 H is joined with the existing H computed for WT1
 if isfield(model, 'H')
-	model.H = [model.H' H']';
+	H = [model.H' H']';
 else
-	model.H = H;
+	H = H;
 end
-
-model.Hpos = Hpos;
 
 % ----------------------------------------------------------------
 % ----------------------------------------------------------------

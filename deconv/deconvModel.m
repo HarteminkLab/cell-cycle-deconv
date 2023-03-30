@@ -136,7 +136,22 @@ PADDINGSIZE = 42;
 		% 		 norm(W2*f([PADDINGSIZE+131:PADDINGSIZE+258                       ]),1) ...
 		% 		 )/mean_g ...
 
-fixed_f_i_pad = [1:PADDINGSIZE+130  PADDINGSIZE+217:Hsize+PADDINGSIZE*2];
+% Working way to pad
+% fixed_f_i_pad = [1:PADDINGSIZE+130  PADDINGSIZE+217:Hsize+PADDINGSIZE*2];
+% fixed_f_b = [PADDINGSIZE+131:PADDINGSIZE+258];
+
+% Attempt to move the padding to the end of f
+
+% Initial: R, CG1, ..., postG1
+% R-CG1: 1-130
+% postG1: 217-258
+
+% Bottom: DG1, postG1
+%  131-258 inclusive
+
+fixed_f_i_pad = [1:130 217:Hsize+PADDINGSIZE*2];
+fixed_f_b = [131:258];
+
 model.fixed_f_i_pad = fixed_f_i_pad;
 model.f_i_pad = f_i_pad;
 
@@ -152,9 +167,9 @@ cvx_begin
 	% Skipping the first PADDINGSIZE indices and removing the last PADDINGSIZE indices
 	% TODO: Figure out why f_i_padding is different than this manually indexing.
 	minimize(...
-		square_pos(norm(H*f(PADDINGSIZE:Hsize+PADDINGSIZE-1)./g'-1, 2)) ... % fit errors
-		+ gamma*(norm(W1*f([1:PADDINGSIZE+130  PADDINGSIZE+217:Hsize+PADDINGSIZE*2]),1) + ...
-				 norm(W2*f([PADDINGSIZE+131:PADDINGSIZE+258                       ]),1) ...
+		square_pos(norm(H*f(1:Hsize)./g'-1, 2)) ... % fit errors
+		+ gamma*(norm(W1*f(fixed_f_i_pad),1) + ...
+				 norm(W2*f(fixed_f_b),1) ...
 				 )/mean_g ...
 	);
 
@@ -162,13 +177,7 @@ cvx_begin
 		f>=0;
 cvx_end
 
-f_final = f(PADDINGSIZE+1:end-PADDINGSIZE);%(PADDINGSIZE:Hsize+PADDINGSIZE-1);
-% w1 = norm(W1*f([f_i_pad]),1)/mean_g;
-% w2 = norm(W2*f([f_b]),1)/mean_g;
-% rn = square_pos(norm(H*f_final./g-1, 2));
-% model.sn_w1 = w1;
-% model.sn_w2 = w2;
-% model.rn = rn;
+f_final = f(1:end-PADDINGSIZE*2);
 model.f = f_final;
 
 model.f_i = f_i;
