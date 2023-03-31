@@ -4,33 +4,26 @@ classdef Model
 
 	properties
 		% Define the properties of the class
-		genename
-		modeltype
-		alpha
-		orig_orfname
+		genename, modeltype
+		alpha, orig_orfname
 		orfname
 		orfid
 		datatype
 		modelprefix
-		g
-		H
-		timepoints
-		lengths
-		relations
-		iList
-		tList
-		bList
-		i_intervals
-		t_intervals
-		b_intervals
-		Hsegments
-		Hpos
+		g, timepoints
+		lengths, relations, iList
+		tList, bList
+		i_intervals, t_intervals, b_intervals
+		H, Hsegments, Hpos
+		gm
+		fixed_f_i_pad, f_i_pad, f, f_i, f_t, f_b, f_b_list, f_t_list, f_i_list, pred_g
 	end
 
 	methods
 
-		function model = Model(genename)
+		function model = Model(genename, gamma)
 
+			model.gm = gamma;
 			model.genename = genename;
 			model.modelprefix = '1.1.1';
 			model.modeltype = 'CDG1';
@@ -67,24 +60,25 @@ classdef Model
 			
 			% calculate H for WT1
 			modelpath1 = strcat(modeldir1, modelfile1);
-
 			model = model.loadModelFormat(modelpath1);
 			model.timepoints = Deconv.WT1_TP;
-			[H, Hsegments, Hpos] = calcH(model);
-			model.H = H;
+			[H1, Hsegments, Hpos] = calcH(model);
 			model.Hsegments = Hsegments;
 			model.Hpos = Hpos;
 
-			% calculate H for WT2
+			% calculate H for WT2 and combine into a joint H
 			modelpath2 = strcat(modeldir2, modelfile2);
 			model = model.loadModelFormat(modelpath2);
-			model.timepoints = [Deconv.WT1_TP Deconv.WT2_TP];
-			[H, Hsegments, Hpos] = calcH(model);
-			model.H = H;
+			model.timepoints = Deconv.WT2_TP;
+			[H2, Hsegments, Hpos] = calcH(model);
+
+			% Merge the H kernels
+			model.timepoints = [Deconv.WT1_TP' Deconv.WT2_TP']';
+			model.H = [H1' H2']';
 		end
 
-		% Method 1
 		function ret = loadModelFormat(obj, modelpath)
+			% Load the model format from a model path
 
 			[lengths, relations, iList, tList, bList, i_intervals, t_intervals, b_intervals] = readModelFormat(modelpath, obj);
 
@@ -99,6 +93,5 @@ classdef Model
 
 			ret = obj;
 		end
-
 	 end
 end

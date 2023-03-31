@@ -8,3 +8,4 @@ models
 lib
 __pycache__
 *.mat
+scratch*
