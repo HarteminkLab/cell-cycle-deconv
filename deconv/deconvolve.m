@@ -2,12 +2,6 @@ function [model] = deconvolve(model)
 
 	WAVETYPE = "Symmlet";
 	WAVEPAR = 5;
-	PADDINGSIZE = 42;
-
-	g = model.g;
-	mean_g = mean(g);
-	H = model.H;
-	gamma = model.gm;
 
 	g = model.g;
 	mean_g = mean(g);
@@ -15,77 +9,26 @@ function [model] = deconvolve(model)
 	gamma = model.gm;
 	Hsize = size(H, 2);
 
-	% Unused in optimzation. For recording the top
-	% indices for plotting
-	f_t = [];
-	f_t_list = {};
-	for i = 1:length(model.t_intervals)
-		idx = model.t_intervals{i}{2};
-		se = model.Hpos{idx};
-		indices = se(1):1:se(2);
-		f_t = [f_t indices];
-		f_t_list{i} = indices;
-	end
-
-	% Construct the f index vector (f_i) for the first
-	% Wavelet smoothing criteria W1
-	% Initial with padding to make it a power of 2
-	f_i = [];
-	last = Hsize;
-	f_i_front = last+[1:1:PADDINGSIZE];
-	last = last+PADDINGSIZE;
-	f_i_after = last+[1:1:PADDINGSIZE];
-	last = last+PADDINGSIZE;
-	f_i_list = {};
-	for i = 1:length(model.i_intervals)
-		idx = model.i_intervals{i}{2};
-		se = model.Hpos{idx};
-		indices = se(1):1:se(2);
-		f_i = [f_i indices];
-		f_i_list{i} = indices;
-
-	end
-
-	f_i_pad = [f_i_front f_i f_i_after];
-
-	% Construct the f index vector (f_b) for the second
-	% Wavelet smoothing criteria W2
-	f_b = [];
-	for i = 1:length(model.b_intervals)
-		idx = model.b_intervals{i}{2};
-		se = model.Hpos{idx};
-		indices = se(1):1:se(2);
-		f_b = [f_b indices];
-		f_b_list{i} = indices;
-
-	end
+	% Create the fs that we will want to enforce smoothing against
+	% they will need to be padded if necessary to be a power of two
+	% if so, we will use the end of the H matrix as padding
+	[f_initial, f_bottom, padding] = createFs(model);
 
 	% Construct the Wavelets
-	Hsize = size(H, 2);
-	W1 = getWaveletKernel(WAVETYPE, length(f_i_pad), WAVEPAR);
-	W2 = getWaveletKernel(WAVETYPE, length(f_b), WAVEPAR);
-
-
-	fixed_f_i_pad = [1:130 217:Hsize+PADDINGSIZE*2];
-	fixed_f_b = [131:258];
-
-	model.fixed_f_i_pad = fixed_f_i_pad;
-	model.f_i_pad = f_i_pad;
-
-	% Enforce smoothness of the entire padded array
-	W = getWaveletKernel(WAVETYPE, length(f_i_pad), WAVEPAR);
+	W1 = getWaveletKernel(WAVETYPE, length(f_initial), WAVEPAR);
+	W2 = getWaveletKernel(WAVETYPE, length(f_bottom), WAVEPAR);
 
 	cvx_begin
 		cvx_quiet(true);
 
-		variable f(Hsize+PADDINGSIZE*2); % 258 + 42*2 = 342
+		variable f(Hsize+padding);
 
 		% The fit error, get the relevant indices of f
-		% Skipping the first PADDINGSIZE indices and removing the last PADDINGSIZE indices
+		% Skipping the first padding indices and removing the last padding indices
 		minimize(...
 			square_pos(norm(H*f(1:Hsize)./g'-1, 2)) ... % fit errors
-			+ gamma*(norm(W1*f(fixed_f_i_pad),1) + ...
-					 norm(W2*f(fixed_f_b),1) ...
+			+ gamma*(norm(W1*f(f_initial),1) + ...
+					 norm(W2*f(f_bottom),1) ...
 					 )/mean_g ...
 		);
 
@@ -93,16 +36,8 @@ function [model] = deconvolve(model)
 			f>=0;
 	cvx_end
 
-	f_final = f(1:end-PADDINGSIZE*2);
+	f_final = f(1:end-padding);
 	model.f = f_final;
-
-	model.f_i = f_i;
-	model.f_t = f_t;
-	model.f_b = f_b;
-
-	model.f_b_list = f_b_list;
-	model.f_t_list = f_t_list;
-	model.f_i_list = f_i_list;
 
 	g_avg = mean(model.g);
 

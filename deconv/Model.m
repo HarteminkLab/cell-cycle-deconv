@@ -11,12 +11,9 @@ classdef Model
 		datatype
 		modelprefix
 		g, timepoints
-		lengths, relations, iList
-		tList, bList
-		i_intervals, t_intervals, b_intervals
-		H, Hsegments, Hpos
-		gm
-		fixed_f_i_pad, f_i_pad, f, f_i, f_t, f_b, f_b_list, f_t_list, f_i_list, pred_g
+		intervals
+		H, Hsegments, Hpos,
+		gm, f, pred_g
 	end
 
 	methods
@@ -60,7 +57,7 @@ classdef Model
 			
 			% calculate H for WT1
 			modelpath1 = strcat(modeldir1, modelfile1);
-			model = model.loadModelFormat(modelpath1);
+			model.intervals = ModelIntervals(modelpath1, model);
 			model.timepoints = Deconv.WT1_TP;
 			[H1, Hsegments, Hpos] = calcH(model);
 			model.Hsegments = Hsegments;
@@ -68,30 +65,13 @@ classdef Model
 
 			% calculate H for WT2 and combine into a joint H
 			modelpath2 = strcat(modeldir2, modelfile2);
-			model = model.loadModelFormat(modelpath2);
+			model.intervals = ModelIntervals(modelpath2, model);
 			model.timepoints = Deconv.WT2_TP;
 			[H2, Hsegments, Hpos] = calcH(model);
 
 			% Merge the H kernels
 			model.timepoints = [Deconv.WT1_TP' Deconv.WT2_TP']';
 			model.H = [H1' H2']';
-		end
-
-		function ret = loadModelFormat(obj, modelpath)
-			% Load the model format from a model path
-
-			[lengths, relations, iList, tList, bList, i_intervals, t_intervals, b_intervals] = readModelFormat(modelpath, obj);
-
-			obj.lengths = lengths;
-			obj.relations = relations;
-			obj.iList = iList;
-			obj.tList = tList;
-			obj.bList = bList;
-			obj.i_intervals = i_intervals;
-			obj.t_intervals = t_intervals;
-			obj.b_intervals = b_intervals;
-
-			ret = obj;
 		end
 	 end
 end

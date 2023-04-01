@@ -22,6 +22,9 @@ fprintf("Plotting...");
 fig = drawDeconvolved(model);
 savename = sprintf('%s/%s.png', outdir, genename);
 saveas(fig, savename); 
+
 close;
 
 fprintf("Done, saved to %s\n", savename);
+
+
