@@ -12,7 +12,9 @@ function [model] = deconvolve(model)
 	% Create the fs that we will want to enforce smoothing against
 	% they will need to be padded if necessary to be a power of two
 	% if so, we will use the end of the H matrix as padding
-	[f_initial, f_bottom, padding] = createFs(model);
+	[f_initial, f_top, f_bottom, ...
+	 f_initial_list, f_top_list, f_bottom_list, ...
+	 padding] = createFs(model);
 
 	% Construct the Wavelets
 	W1 = getWaveletKernel(WAVETYPE, length(f_initial), WAVEPAR);
@@ -38,6 +40,12 @@ function [model] = deconvolve(model)
 
 	f_final = f(1:end-padding);
 	model.f = f_final;
+	model.f_initial = f_initial;
+	model.f_top = f_top;
+	model.f_bottom = f_bottom;
+	model.f_initial_list = f_initial_list;
+	model.f_top_list = f_top_list;
+	model.f_bottom_list = f_bottom_list;
 
 	g_avg = mean(model.g);
 

@@ -9,6 +9,12 @@ classdef ModelIntervals
 		% be more clear if we start using key value mappings instead
 		% cell cycle phase -> branches -> intervals
 		% branches -> cell cycle phases
+		%
+		% getPhasesForBranch
+		% getIntervalsForBranch
+		% getPhases
+		% getIntervalForBranchPhase
+		%
 
 		% A set of lists that describes the make up of each cell phase.
 		%

@@ -17,7 +17,10 @@ function[fig] = drawDeconvolved(model)
 
     line_width = 3.5; 
 
+    % -------------------------------------------------------------------------------
+
     % WT1 Raw and fitted plot
+
     nexttile;
     hold on;
     plot(model.timepoints(1, :), plot_g(1, 1:15), '-', 'color', colorForName('raw'), ...
@@ -30,14 +33,20 @@ function[fig] = drawDeconvolved(model)
     ylabel('WT 1');
     hold off;
 
+    % -------------------------------------------------------------------------------
+
     % Initial plot
+
+    initialTimepointsList = model.intervals.initialTimepointsList;
+    f_initial_list = model.f_initial_list;
+
     nexttile;
     hold on;
-    plot(model.iList{1}(2:end), plot_f(model.f_i_list{1}(1:end)), '-', 'color',  ...
+    plot(initialTimepointsList{1}(1:end-1), plot_f(f_initial_list{1}(1:end)), '-', 'color',  ...
         colorForName('R'), 'LineWidth', line_width);
-    plot(model.iList{2}(2:end), plot_f(model.f_i_list{2}(1:end)), '-', 'color',  ...
+    plot(initialTimepointsList{2}(1:end-1), plot_f(f_initial_list{2}(1:end)), '-', 'color',  ...
         colorForName('CG1'), 'LineWidth', line_width);
-    plot(model.iList{3}(2:end), plot_f(model.f_i_list{3}(1:end)), '-', 'color',  ...
+    plot(initialTimepointsList{3}(1:end-1), plot_f(f_initial_list{3}(1:end)), '-', 'color',  ...
         colorForName('postG1'), 'LineWidth', line_width);
     ylim([ylim_low  ylim_deconv]);
     yticks([]);
@@ -45,21 +54,27 @@ function[fig] = drawDeconvolved(model)
     ylabel('Initial, f\_i');
     hold off;
 
+    % -------------------------------------------------------------------------------
+
     % Mother plot
+
+    topTimepointsList = model.intervals.topTimepointsList;
+    f_top_list = model.f_top_list;
+
     nexttile;
     hold on;
     ylim([ylim_low  ylim_deconv]);
     yticks([]); 
 
-    cg1_timepoints = model.tList{1}(2:end);
-    post_g1_timepoints = model.tList{2}(2:end);
+    cg1_timepoints = topTimepointsList{1}(1:end-1);
+    post_g1_timepoints = topTimepointsList{2}(1:end-1);
 
-    plot(cg1_timepoints, plot_f([model.f_t_list{1}]), '-', 'color', colorForName('CG1'),  ...
+    plot(cg1_timepoints, plot_f([f_top_list{1}]), '-', 'color', colorForName('CG1'),  ...
         'LineWidth', line_width);
-    plot(post_g1_timepoints, plot_f([model.f_t_list{2}]), '-', 'color', colorForName('postG1'), ...
+    plot(post_g1_timepoints, plot_f([f_top_list{2}]), '-', 'color', colorForName('postG1'), ...
         'LineWidth', line_width);
     ylabel('Top/Mother, f\_t');
-    xlim([min(model.tList{1}) max(model.tList{2})]);
+    xlim([min(topTimepointsList{1}) max(topTimepointsList{2})]);
     hold off;
 
     cg1_tick = cg1_timepoints(length(cg1_timepoints)/2);
@@ -68,7 +83,10 @@ function[fig] = drawDeconvolved(model)
     set(gca, 'xtick', [cg1_tick post_g1_tick]);
     set(gca, 'xticklabel', {"CG1" "postG1"});
 
+    % -------------------------------------------------------------------------------
+
     % WT2 Raw and fitted plot
+
     nexttile;
     hold on;
     plot(model.timepoints(2, :)	, plot_g(1, 16:end), '-', 'color', colorForName('raw'),  ...
@@ -100,27 +118,36 @@ function[fig] = drawDeconvolved(model)
     xlim([1 size(model.H, 2)]);
     hold off;
 
+    % -------------------------------------------------------------------------------
+
     % Daughter plot
     nexttile;
     hold on;
 
-    dg1_timepoints = model.bList{1}(2:end);
-    post_g1_timepoints = model.bList{2}(3:end);
+    bottomTimepointsList = model.intervals.bottomTimepointsList;
+    f_bottom = model.f_bottom_list;
 
-    dg1_tick = dg1_timepoints(length(dg1_timepoints)/2);
+    dg1_timepoints = bottomTimepointsList{1}(1:end-1);
+    post_g1_timepoints = bottomTimepointsList{2}(3:end);
+
+    round(length(dg1_timepoints)/2)
+
+    dg1_tick = dg1_timepoints(round(length(dg1_timepoints)/2));
     post_g1_tick = post_g1_timepoints(round(length(post_g1_timepoints)/2));
 
-    plot(dg1_timepoints, plot_f(model.f_b_list{1}), '-', 'color', colorForName('DG1'),  ...
+    size(dg1_timepoints)
+    size(f_bottom{1})
+
+    plot(dg1_timepoints, plot_f(f_bottom{1}), '-', 'color', colorForName('DG1'),  ...
         'LineWidth', line_width);
-    plot(post_g1_timepoints, plot_f(model.f_b_list{2}(1:end-1)), '-', 'color',  ...
+    plot(post_g1_timepoints, plot_f(f_bottom{2}(1:end-1)), '-', 'color',  ...
         colorForName('postG1'), 'LineWidth', line_width);
     ylim([ylim_low  ylim_deconv]);
     yticks([]);
-    % set(gca, 'xtick', [dg1_tick post_g1_tick]);
-    % set(gca, 'xticklabel', {"DG1" "postG1"});
-    % xlim([min(model.bList{1}) max(model.bList{2})]);
     ylabel('Bottom/Daughter, f\_b');
     hold off;
+
+    % -------------------------------------------------------------------------------
 
     nexttile;
     axis off;
@@ -134,6 +161,8 @@ function[fig] = drawDeconvolved(model)
     Ax = gca;
     Ax.XDisplayLabels = nan(size(Ax.XDisplayData));
     Ax.YDisplayLabels = nan(size(Ax.YDisplayData));
+
+    % -------------------------------------------------------------------------------
 
     % f vector
     nexttile;

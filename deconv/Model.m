@@ -14,6 +14,8 @@ classdef Model
 		intervals
 		H, Hsegments, Hpos,
 		gm, f, pred_g
+		f_initial, f_top, f_bottom
+		f_initial_list, f_top_list, f_bottom_list
 	end
 
 	methods

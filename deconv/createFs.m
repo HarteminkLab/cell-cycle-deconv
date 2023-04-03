@@ -1,13 +1,16 @@
-function [f_initial, f_bottom, padding] = createFs(model)
+function [f_initial, f_top, f_bottom, f_initial_list, f_top_list, f_bottom_list, padding] = createFs(model)
 
 	H = model.H;
 	Hsize = size(H, 2);
 
 	% Construct the f index vector (f_initial) for the first, pad if necessary
-	[f_initial, f_initialnitial_list, initialPadding] = createFBranch(model.Hpos, model.intervals.initialPhaseMapping, Hsize);
+	[f_initial, f_initial_list, initialPadding] = createFBranch(model.Hpos, model.intervals.initialPhaseMapping, Hsize);
+
+	% Construct the f index vector (f_top) for the first, pad if necessary
+	[f_top, f_top_list, topPadding] = createFBranch(model.Hpos, model.intervals.topPhaseMapping, Hsize);
 
 	% Construct the f index vector (f_b) for the second, pad if necessary
-	[f_bottom, f_b_list, bottomPadding] = createFBranch(model.Hpos, model.intervals.bottomPhaseMapping, Hsize);
+	[f_bottom, f_bottom_list, bottomPadding] = createFBranch(model.Hpos, model.intervals.bottomPhaseMapping, Hsize);
 
 	% We only need to pad H by the larger of the two paddings
 	padding = max(initialPadding, bottomPadding);
@@ -55,5 +58,4 @@ function [f_partial, f_partial_list, padding] = createFBranch(HsubintervalStartE
 		f_padding = last+[1:padding];
 		f_partial = [f_partial f_padding];
 	end
-
 end
