@@ -10,21 +10,20 @@ classdef Model
 		orfid
 		datatype
 		modelprefix
-		g, timepoints
+		g, g1, g2, timepoints
+		timepoints1, timepoints2
 		intervals
 		H, Hsegments, Hpos,
 		gm, f, pred_g
+		pred_g1, pred_g2
 		f_initial, f_top, f_bottom
 		f_initial_list, f_top_list, f_bottom_list
 	end
 
 	methods
 
-		function model = Model(genename, gamma, modelfile1, modelfile2, mappingfile)
+		function model = Model(genename, gamma)
 
-			
-			modelfile1
-			
 			model.gm = gamma;
 			model.genename = genename;
 			model.modelprefix = '1.1.1';
@@ -33,7 +32,7 @@ classdef Model
 
 			outdir = 'output/';
 
-			orfname = gene_to_orfname(genename, mappingfile);
+			orfname = gene_to_orfname(genename, Deconv.NAME_MAPPING);
 
 			% deal with orfname and datatype
 			orig_orfname = orfname;
@@ -56,19 +55,23 @@ classdef Model
 			model.H = [];
 
 			% calculate H for WT1
-			model.intervals = ModelIntervals(modelfile1, model);
+			model.intervals = ModelIntervals(Deconv.MODEL_WT1, model);
 			model.timepoints = Deconv.WT1_TP;
 			[H1, Hsegments, Hpos] = calcH(model);
 			model.Hsegments = Hsegments;
 			model.Hpos = Hpos;
 
 			% calculate H for WT2 and combine into a joint H
-			model.intervals = ModelIntervals(modelfile2, model);
+			model.intervals = ModelIntervals(Deconv.MODEL_WT2, model);
 			model.timepoints = Deconv.WT2_TP;
 			[H2, Hsegments, Hpos] = calcH(model);
 
 			% Merge the H kernels
-			model.timepoints = [Deconv.WT1_TP' Deconv.WT2_TP']';
+			model.timepoints = [Deconv.WT1_TP Deconv.WT2_TP];
+			model.timepoints1 = Deconv.WT1_TP;
+			model.timepoints2 = Deconv.WT2_TP;
+			model.g1 = g1;
+			model.g2 = g2;
 			model.H = [H1' H2']';
 		end
 	 end

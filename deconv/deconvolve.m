@@ -52,10 +52,11 @@ function [model] = deconvolve(model)
 	if strcmp(model.datatype, Deconv.DECONV_JOINT)
 		glen = length(model.g);
 		pred_g = model.H*model.f;
-		g1 = model.g(1:glen/2);
-		g2 = model.g(glen/2+1:glen);
-		pred_g1 = pred_g(1:glen/2);
-		pred_g2 = pred_g(glen/2+1:glen);
+		spl_idx = size(model.timepoints1, 2)
+		pred_g1 = pred_g(1:spl_idx);
+		pred_g2 = pred_g(spl_idx+1:end);
+		model.pred_g1 = pred_g1;
+		model.pred_g2 = pred_g2;
 	else
 		pred_g = model.H*model.f;
 	end
