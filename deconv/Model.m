@@ -20,8 +20,11 @@ classdef Model
 
 	methods
 
-		function model = Model(genename, gamma)
+		function model = Model(genename, gamma, modelfile1, modelfile2, mappingfile)
 
+			
+			modelfile1
+			
 			model.gm = gamma;
 			model.genename = genename;
 			model.modelprefix = '1.1.1';
@@ -29,13 +32,8 @@ classdef Model
 			model.alpha = [26 27];
 
 			outdir = 'output/';
-			modeldir1 = 'models/wt1_budflow/';
-			modelfile1 = sprintf('%s.%d.label', model.modelprefix, model.alpha(1));
 
-			modeldir2 = 'models/wt2_budflow/';
-			modelfile2 = sprintf('%s.%d.label', model.modelprefix, model.alpha(2));
-
-			orfname = gene_to_orfname(genename);
+			orfname = gene_to_orfname(genename, mappingfile);
 
 			% deal with orfname and datatype
 			orig_orfname = orfname;
@@ -56,18 +54,16 @@ classdef Model
 			g2 = dataset2(orfid,:)';
 			model.g = [g1' g2'];
 			model.H = [];
-			
+
 			% calculate H for WT1
-			modelpath1 = strcat(modeldir1, modelfile1);
-			model.intervals = ModelIntervals(modelpath1, model);
+			model.intervals = ModelIntervals(modelfile1, model);
 			model.timepoints = Deconv.WT1_TP;
 			[H1, Hsegments, Hpos] = calcH(model);
 			model.Hsegments = Hsegments;
 			model.Hpos = Hpos;
 
 			% calculate H for WT2 and combine into a joint H
-			modelpath2 = strcat(modeldir2, modelfile2);
-			model.intervals = ModelIntervals(modelpath2, model);
+			model.intervals = ModelIntervals(modelfile2, model);
 			model.timepoints = Deconv.WT2_TP;
 			[H2, Hsegments, Hpos] = calcH(model);
 

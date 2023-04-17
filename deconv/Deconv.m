@@ -12,7 +12,7 @@ classdef Deconv
 		DECONV_DIFF = 2;
 
 		DECONV_KERNEL = Deconv.DECONV_WAVELET;
-		DECONV_DATASET = 'datasets/';
+		DECONV_DATASET = 'datasets/original_budflow/';
 
 		DECONV_WT1 = 'WT1';
 		DECONV_WT2 = 'WT2';

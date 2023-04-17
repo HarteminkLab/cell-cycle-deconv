@@ -11,8 +11,13 @@ outdir = 'output/genes';
 gamma_val = 0.008;
 genename = "CLB2";
 
+mappingfile = 'datasets/original_budflow/map2sys2.txt';
+
+modelpath1 = 'models/original_budflow/wt1_budflow/1.1.1.26.label';
+modelpath2 = 'models/original_budflow/wt2_budflow/1.1.1.27.label';
+
 fprintf("%s...", genename);
-model = Model(genename, gamma_val);
+model = Model(genename, gamma_val, modelpath1, modelpath2, mappingfile);
 
 fprintf("Deconvolving...");
 model = deconvolve(model);
