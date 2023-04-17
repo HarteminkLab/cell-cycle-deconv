@@ -9,7 +9,7 @@ outdir = 'output/genes';
 
 % Parameters
 gamma_val = 0.008;
-genename = "CLN2";
+genename = "CLB2";
 
 fprintf("%s...", genename);
 model = Model(genename, gamma_val);
