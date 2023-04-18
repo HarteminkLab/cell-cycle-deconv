@@ -1,6 +1,6 @@
 
 addpath(genpath('lib/YAMLMatlab'));
-addpath(genpath('deconv'))
+addpath(genpath('deconv')) 
 addpath(genpath('analysis'))
 
 outdir = 'output/genes';
@@ -8,7 +8,7 @@ outdir = 'output/genes';
 %genenames = %;//["CLN2" "PCL1" "SIC1" "CDC20" "SSK22" "DSE1" "DSE2" "CTS1"];
 
 % Parameters
-gamma_val = 0.01;
+gamma_val = 0.05;
 genename = "CLB2";
 
 fprintf("%s...", genename);
