@@ -1,4 +1,4 @@
-function [lengths, relations, iList, tList, bList, i_intervals, t_intervals, b_intervals] = readModelFormat(modelfile, model)
+function [lengths, relations, hList, iList, tList, bList, h_intervals, i_intervals, t_intervals, b_intervals] = readModelFormat(modelfile, model)
 
 	lengths = zeros(1,6);
 
@@ -10,10 +10,13 @@ function [lengths, relations, iList, tList, bList, i_intervals, t_intervals, b_i
 	% headers
 	LENGTHS = '# lengths';
 	DESCRIPTION = '# description';
+	H = '# h';
 	I = '# i';
 	T = '# t';
 	B = '# b';
 
+	hList_idx = 1;
+	hList = {};
 	iList_idx = 1;
 	iList = {};
 	tList_idx = 1;
@@ -26,6 +29,7 @@ function [lengths, relations, iList, tList, bList, i_intervals, t_intervals, b_i
 
 	fid = fopen(modelfile);
 	while 1
+
 		tline = fgetl(fid);
 
 		if ~ischar(tline)
@@ -40,6 +44,8 @@ function [lengths, relations, iList, tList, bList, i_intervals, t_intervals, b_i
 			parseFlag = 4;
 		elseif strcmp(tline, B)
 			parseFlag = 5;
+		elseif strcmp(tline, H)
+			parseFlag = 6;
 		% lengths
 		elseif parseFlag == 1 
 			[flag, value, pos] = parseLengths(tline);
@@ -68,6 +74,11 @@ function [lengths, relations, iList, tList, bList, i_intervals, t_intervals, b_i
 			interval = parseIntervals(tline);
 			bList{bList_idx} = interval;
 			bList_idx = bList_idx+1;
+		% interval h
+		elseif parseFlag == 6
+			interval = parseIntervals(tline);
+			hList{bList_idx} = interval;
+			hList_idx = hList_idx+1;
 		elseif parseFlag == -1
 			disp(sprintf('Error in line %s ... exiting', tline));
 			flag = 0;
@@ -76,6 +87,7 @@ function [lengths, relations, iList, tList, bList, i_intervals, t_intervals, b_i
 	end
 	fclose(fid);
 
+	h_intervals = {};
 	i_intervals = {};
 	t_intervals = {};
 	b_intervals = {};
@@ -93,6 +105,8 @@ function [lengths, relations, iList, tList, bList, i_intervals, t_intervals, b_i
 				t_intervals{num} = {notation, i};
 			elseif label == 'b'
 				b_intervals{num} = {notation, i};
+			elseif label == 'h'
+				h_intervals{num} = {notation, i};
 			end
 		end
 	end

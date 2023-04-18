@@ -17,6 +17,7 @@ function [H, Hsegments, Hpos] = calcH(model)
 	timepoints = model.timepoints;
 	num_timepoints = size(timepoints, 2);
 
+	haltedTimepointsList = intervals.haltedTimepointsList;
 	initialTimepointsList = intervals.initialTimepointsList;
 	bottomTimepointsList = intervals.bottomTimepointsList;
 	topTimepointsList = intervals.topTimepointsList;
@@ -24,6 +25,11 @@ function [H, Hsegments, Hpos] = calcH(model)
 	% For each timepoints vector, create a matrix with the number of timepoints as rows
 	% and the timepoint intervals as columns 1 per vector of timepoints
 
+	% For the halted timepoint intervals
+	haltedBranchPartialH = {};
+	for i=1:length(haltedTimepointsList)
+		haltedBranchPartialH{i} = zeros(num_timepoints, length(haltedTimepointsList{i})-1);
+	end
 
 	% For the initial timepoint intervals
 	initialBranchPartialH = {};
@@ -128,10 +134,13 @@ function [H, Hsegments, Hpos] = calcH(model)
 	for i = 1:length(relations)
 		relation = relations{i};
 		name = relation{1};
+
 		for idx = 2:2:length(relation)-1
 			label = relation{idx};
 			num = str2num(relation{idx+1})+1;
-			if strcmp(label, 'i')
+			if strcmp(label, 'h')
+				matrix = haltedBranchPartialH{num};
+			elseif strcmp(label, 'i')
 				matrix = initialBranchPartialH{num};
 			elseif strcmp(label, 't')
 				matrix = topBranchPartialH{num};

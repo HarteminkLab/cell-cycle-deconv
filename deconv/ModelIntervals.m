@@ -28,13 +28,13 @@ classdef ModelIntervals
 		%
 		% 	e.g. initial: {-101.9, -101.05, ...} {-27, 26, ...} {13.53, ...}
 		%
-		initialTimepointsList, topTimepointsList, bottomTimepointsList
+		haltedTimepointsList, initialTimepointsList, topTimepointsList, bottomTimepointsList
 
 		% These intervals define which of the cell-cycle phases 
 		%
 		% 	e.g. initial: {R 1} {CG1 2} {postG1 4}
 		%
- 		initialPhaseMapping, topPhaseMapping, bottomPhaseMapping
+ 		haltedPhaseMapping, initialPhaseMapping, topPhaseMapping, bottomPhaseMapping
 	end
 
 	properties (Access = private)
@@ -43,14 +43,17 @@ classdef ModelIntervals
 
 	methods
 		function intervals = ModelIntervals(modelpath, model)
-			[parameters, relations, initialTimepointsList, ...
-			 topTimepointsList, bottomTimepointsList, initialPhaseMapping, topPhaseMapping, bottomPhaseMapping] = readModelFormat(modelpath, model);
+			[parameters, relations, haltedTimepointsList, initialTimepointsList, ...
+			 topTimepointsList, bottomTimepointsList, haltedPhaseMapping, initialPhaseMapping, ...
+			 topPhaseMapping, bottomPhaseMapping] = readModelFormat(modelpath, model);
 
 			intervals.parameters = parameters;
 			intervals.relations = relations;
+			intervals.haltedTimepointsList = haltedTimepointsList;
 			intervals.initialTimepointsList = initialTimepointsList;
 			intervals.topTimepointsList = topTimepointsList;
 			intervals.bottomTimepointsList = bottomTimepointsList;
+			intervals.haltedPhaseMapping = haltedPhaseMapping;
 			intervals.initialPhaseMapping = initialPhaseMapping;
 			intervals.topPhaseMapping = topPhaseMapping;
 			intervals.bottomPhaseMapping = bottomPhaseMapping;
