@@ -18,6 +18,7 @@ classdef Model
 		pred_g1, pred_g2
 		f_initial, f_top, f_bottom
 		f_initial_list, f_top_list, f_bottom_list
+		massesTime
 	end
 
 	methods
@@ -72,6 +73,7 @@ classdef Model
 			model.timepoints2 = Deconv.WT2_TP;
 			model.g1 = g1;
 			model.g2 = g2;
+
 			model.H = [H1' H2']';
 		end
 	 end

@@ -1,4 +1,4 @@
-function [H, Hsegments, Hpos] = calcH(model)
+function [H, Hsegments, Hpos, massesTime] = calcH(model)
 
 	intervals = model.intervals;
 	parameters = intervals.getCellCycleParameters();
@@ -9,10 +9,12 @@ function [H, Hsegments, Hpos] = calcH(model)
 	alpha = parameters(Deconv.DECONV_ALPHAPOS);
 	sigma0 = parameters(Deconv.DECONV_SIGMA0POS);
 	sigmav = parameters(Deconv.DECONV_SIGMAVPOS);
+	halted = parameters(Deconv.DECONV_HALTEDPOS);
 
 	max_cellcycles = 10;
 	max_R = 10;
 	max_G = 10;
+	START = 1000;
 
 	timepoints = model.timepoints;
 	num_timepoints = size(timepoints, 2);
@@ -51,6 +53,9 @@ function [H, Hsegments, Hpos] = calcH(model)
 
 	% ----------------------------------------------
 	% ----------------------------------------------
+
+	aliveProportionTime = ones(num_timepoints);
+
 	for i = 1:num_timepoints
 		% Q(t): total size of cohorts at time t
 		t = timepoints(i);
@@ -58,6 +63,12 @@ function [H, Hsegments, Hpos] = calcH(model)
 		for (r = 0:max_R)
 			Q = Q+Qr(mu0,sigma0,sigmav,delta,lambda,t,r,alpha);
 		end
+
+		% Adjust alive/cycling cohorts by halted proportion:
+		haltedProportion = halted / Q * START;
+		
+		haltedBranchPartialH{1}(i) = haltedProportion;
+		aliveProportionTime(i) = 1 - haltedProportion;
 
 		% --------------------------------------------------
 		% fraction of {0,0} cohort = Q(R,t)/Q(t)
@@ -167,10 +178,15 @@ function [H, Hsegments, Hpos] = calcH(model)
 		H = [H Hsegments{i}];
 	end
 
+	% Assume halted is one column in H, first column
+
 	% Scale the final matrix such that each row has an equal sum
 	for i=1:size(H,1)
-		w = sum(H(i,:));
-		H(i,:) = H(i,:)./w;
+
+		% Scale using the expected number of alive cells at each time
+		% this is computed using the expected non-halted/alive mass
+		aliveSum = sum(H(i, 2:end));
+		H(i,2:end) = H(i, 2:end) / aliveSum * aliveProportionTime(i);
 	end
 end
 

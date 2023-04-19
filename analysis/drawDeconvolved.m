@@ -107,7 +107,7 @@ function[fig] = drawDeconvolved(model)
     xticks([]);
     ylabel('f');
 
-    cc_states = {"R" "CG1" "DG1" "postG1"};
+    cc_states = {"H" "R" "CG1" "DG1" "postG1"};
 
     abs_indices = 1:1:size(model.H, 2);
     for i = 1:length(model.Hpos)
@@ -130,13 +130,8 @@ function[fig] = drawDeconvolved(model)
     dg1_timepoints = bottomTimepointsList{1}(1:end-1);
     post_g1_timepoints = bottomTimepointsList{2}(3:end);
 
-    round(length(dg1_timepoints)/2)
-
     dg1_tick = dg1_timepoints(round(length(dg1_timepoints)/2));
     post_g1_tick = post_g1_timepoints(round(length(post_g1_timepoints)/2));
-
-    size(dg1_timepoints)
-    size(f_bottom{1})
 
     plot(dg1_timepoints, plot_f(f_bottom{1}), '-', 'color', colorForName('DG1'),  ...
         'LineWidth', line_width);
@@ -154,7 +149,7 @@ function[fig] = drawDeconvolved(model)
 
     % H heatmap
     nexttile;
-    hm = heatmap(model.H);
+    hm = heatmap(model.H, 'ColorLimits', [0, 0.05]);
     hm.GridVisible = 'off';
     hm.ColorbarVisible = 'off';
     ylabel('H');
@@ -172,7 +167,7 @@ function[fig] = drawDeconvolved(model)
     xticks([]);
     ylabel('Single Cell Profile');
     
-    cc_states = {"R", "CG1", "postG1", "DG1"};
+    cc_states = {"H" "R", "CG1", "postG1", "DG1"};
     last = 0;
     for i = 1:length(cc_states)
         cc_state = cc_states{i};
@@ -190,8 +185,8 @@ function[fig] = drawDeconvolved(model)
 
 function[h_indices] = h_indices_for_name(model, cc_state)
     % TODO: hard-coded the cc state names, refactor to read the model label names
-    cc_states = ["R" "CG1" "DG1" "postG1"];
-    h_pos_indices = [1 2 3 4];
+    cc_states = ["H" "R" "CG1" "DG1" "postG1"];
+    h_pos_indices = [1 2 3 4 5];
     h_dict = dictionary(cc_states, h_pos_indices);
     h_index = h_dict(cc_state);
     h_indices = model.Hpos{h_index}(1):1:model.Hpos{h_index}(2);
@@ -200,9 +195,10 @@ function[h_indices] = h_indices_for_name(model, cc_state)
 
 function[color] = colorForName(color_name)
 
-    color_names = ["raw" "fit" "R" "CG1" "DG1" "postG1"];
+    color_names = ["raw" "fit" "H" "R" "CG1" "DG1" "postG1"];
     colors = {[158 50 50]/255., ...
          [145 180 98]/255., ...
+         [199 108 144]/255., ...
          [199 148 144]/255., ...
          [147 168 198]/255., ...
          [165 197 204]/255., ...

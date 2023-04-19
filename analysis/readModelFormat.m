@@ -1,6 +1,6 @@
 function [lengths, relations, hList, iList, tList, bList, h_intervals, i_intervals, t_intervals, b_intervals] = readModelFormat(modelfile, model)
 
-	lengths = zeros(1,6);
+	lengths = zeros(1, 7);
 
 	if exist(modelfile, 'file') == 0
 		disp(sprintf('The model file %s does not exist. Exiting...', modelfile));
@@ -145,6 +145,10 @@ function [flag, value, pos] = parseLengths(tline)
 		flag = 1;
 	elseif strcmp(segments{1}, 'beta')
 		pos = Deconv.DECONV_BETAPOS;
+		value = str2num(segments{2});
+		flag = 1;
+	elseif strcmp(segments{1}, 'halted')
+		pos = Deconv.DECONV_HALTEDPOS;
 		value = str2num(segments{2});
 		flag = 1;
 	else

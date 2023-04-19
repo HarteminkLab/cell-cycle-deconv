@@ -60,7 +60,7 @@ classdef ModelIntervals
 		end
 
 		function parameters = getCellCycleParameters(model)
-			% The CLOCCS cell cycle parameters: mu0, lambda, delta, alpha, sigma0, sigmav
+			% The CLOCCS cell cycle parameters: mu0, lambda, delta, alpha, sigma0, sigmav, halted
 			parameters = model.parameters;
 		end
 	 end

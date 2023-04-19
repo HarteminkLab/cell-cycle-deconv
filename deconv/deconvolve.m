@@ -20,6 +20,10 @@ function [model] = deconvolve(model)
 	W1 = getWaveletKernel(WAVETYPE, length(f_initial), WAVEPAR);
 	W2 = getWaveletKernel(WAVETYPE, length(f_bottom), WAVEPAR);
 
+	% Scale weighting between W2 and W1 smoothness
+	% Time in R, G1, postG1 is roughly 1.5 times as long as DG1 + postG1
+	w = 1.5;
+
 	cvx_begin
 		cvx_quiet(true);
 
@@ -29,8 +33,8 @@ function [model] = deconvolve(model)
 		% Skipping the first padding indices and removing the last padding indices
 		minimize(...
 			square_pos(norm(H*f(1:Hsize)./g'-1, 2)) ... % fit errors
-			+ gamma*(norm(W1*f(f_initial),1) + ...
-					 norm(W2*f(f_bottom),1) ...
+			+ gamma*(norm(W1*f(f_initial), 1) + ...
+					 w*norm(W2*f(f_bottom), 1) ...
 					 )/mean_g ...
 		);
 
@@ -52,7 +56,7 @@ function [model] = deconvolve(model)
 	if strcmp(model.datatype, Deconv.DECONV_JOINT)
 		glen = length(model.g);
 		pred_g = model.H*model.f;
-		spl_idx = size(model.timepoints1, 2)
+		spl_idx = size(model.timepoints1, 2);
 		pred_g1 = pred_g(1:spl_idx);
 		pred_g2 = pred_g(spl_idx+1:end);
 		model.pred_g1 = pred_g1;
