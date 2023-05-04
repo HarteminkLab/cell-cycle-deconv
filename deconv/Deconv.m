@@ -34,17 +34,16 @@ classdef Deconv
 
 		% ======================    Original    ========================================
 
-	% 	MODEL_WT1 = 'models/original_budflow/wt1_budflow/1.1.1.26.label';
-	% 	MODEL_WT2 = 'models/original_budflow/wt2_budflow/1.1.1.27.label';
+		% MODEL_WT1 = 'models/original_budflow/wt1_budflow/1.1.1.26.label';
+		% MODEL_WT2 = 'models/original_budflow/wt2_budflow/1.1.1.27.label';
 
+		% DECONV_DATASET = 'datasets/original_budflow/';
+		% NAME_MAPPING = 'datasets/original_budflow/map2sys2.txt';
 
-	% 	DECONV_DATASET = 'datasets/original_budflow/';
-	% 	NAME_MAPPING = 'datasets/original_budflow/map2sys2.txt';
+		% DATA_WT1 = strcat(Deconv.DECONV_DATASET, 'wt1.txt');
+		% DATA_WT2 = strcat(Deconv.DECONV_DATASET, 'wt2.txt');
 
-	% 	DATA_WT1 = strcat(Deconv.DECONV_DATASET, 'wt1.txt');
-	% 	DATA_WT2 = strcat(Deconv.DECONV_DATASET, 'wt2.txt');
-
-	% 	WT1_TP = 30:16:254;
-	% 	WT2_TP = 38:16:262;
+		% WT1_TP = 30:16:254;
+		% WT2_TP = 38:16:262;
 	end
 end

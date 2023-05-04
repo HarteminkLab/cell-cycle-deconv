@@ -6,7 +6,7 @@ addpath(genpath('analysis'))
 outdir = 'output/genes';
 
 % Parameters
-gamma_val = 0.00001;
+gamma_val = 0.01;
 genename = "CLB2";
 
 fprintf("%s...", genename);
@@ -24,5 +24,3 @@ saveas(fig, savename);
 %close;
 
 fprintf("Done, saved to %s\n", savename);
-
-

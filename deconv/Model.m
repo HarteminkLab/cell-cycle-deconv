@@ -1,3 +1,4 @@
+
 classdef Model
 	% A model class to deconvolve gene expression data from CLOCCS cell cycle
 	% parameters
@@ -5,11 +6,14 @@ classdef Model
 	properties
 		% Define the properties of the class
 		genename, modeltype
-		alpha, orig_orfname
+		orig_orfname
 		orfname
 		orfid
 		datatype
 		modelprefix
+		% residual norm measures the accuracy of the fit
+		% solution norm measures the weighting of the smoothing wavelet portion of the solution
+		base_rn, rn, sn
 		g, g1, g2, timepoints
 		timepoints1, timepoints2
 		intervals
@@ -29,7 +33,6 @@ classdef Model
 			model.genename = genename;
 			model.modelprefix = '1.1.1';
 			model.modeltype = 'CDG1';
-			model.alpha = [26 27];
 
 			outdir = 'output/';
 

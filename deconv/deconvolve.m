@@ -21,20 +21,23 @@ function [model] = deconvolve(model)
 	W2 = getWaveletKernel(WAVETYPE, length(f_bottom), WAVEPAR);
 
 	% Scale weighting between W2 and W1 smoothness
-	% Time in R, G1, postG1 is roughly 1.5 times as long as DG1 + postG1
-	w = 1.5;
+	% Time in R, G1, postG1 is roughly 1.5 times as long as DG1 + postG1 (in the original data set)
+	% Trying 1.0 in the Yulong Cell Cycle Dataset as R is much shorter
+	w = 1.15;
 
 	cvx_begin
 		cvx_quiet(true);
 
+		% The f variable is the width of H with any additional padding
+		% needed so that the smoothing wavelet function operates on a power of 2
 		variable f(Hsize+padding);
 
 		% The fit error, get the relevant indices of f
 		% Skipping the first padding indices and removing the last padding indices
 		minimize(...
-			square_pos(norm(H*f(1:Hsize)./g'-1, 2)) ... % fit errors
-			+ gamma*(norm(W1*f(f_initial), 1) + ...
-					 w*norm(W2*f(f_bottom), 1) ...
+			square_pos(norm(H*f(1:Hsize)./g'-1, 2)) ... % residual norm: the fit error
+			+ gamma*(norm(W1*f(f_initial), 1) + ...     % W1, solution norm: a measure of 
+					 w*norm(W2*f(f_bottom), 1) ...      % W2, the smoothness/complexity of the solution
 					 )/mean_g ...
 		);
 
@@ -44,7 +47,7 @@ function [model] = deconvolve(model)
 
 	f_final = f(1:end-padding);
 	model.f = f_final;
-	model.f_initial = f_initial;
+	model.f_initial = f_initial-padding;
 	model.f_top = f_top;
 	model.f_bottom = f_bottom;
 	model.f_initial_list = f_initial_list;
@@ -66,4 +69,16 @@ function [model] = deconvolve(model)
 	end
 
 	model.pred_g = pred_g;
+
+	rn = square_pos(norm(H*f_final./g'-1, 2));
+
+	% Compute the solution norm
+	% The worry is that f_initial and f_bottom may be indexing the padded f vector not the
+	% solution f vector
+	sn = (norm(W1*f([f_initial]), 1) + ...
+		  norm(W2*f([f_bottom]), 1))/mean_g;
+
+	model.rn = rn;
+	model.sn = sn;
+
 end
