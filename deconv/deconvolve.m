@@ -47,7 +47,7 @@ function [model] = deconvolve(model)
 
 	f_final = f(1:end-padding);
 	model.f = f_final;
-	model.f_initial = f_initial-padding;
+	model.f_initial = f_initial;
 	model.f_top = f_top;
 	model.f_bottom = f_bottom;
 	model.f_initial_list = f_initial_list;

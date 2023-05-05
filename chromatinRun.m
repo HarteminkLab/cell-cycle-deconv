@@ -70,6 +70,12 @@ toc;
 filename = '/Users/trung/Research/chromatin-transformers/output/deconvolution/clb2_3x16_deconvolved.h5';
 save_deconvolvedClb2 = permute(deconvolvedClb2, [3 2 1]);
 
+% check if the file exists
+if exist(filename, 'file') == 2
+    % delete the file if it exists
+    delete(filename);
+end
+
 % create an HDF5 file and dataset
 h5create(filename, '/data', size(save_deconvolvedClb2), 'Datatype', class(save_deconvolvedClb2));
 
@@ -91,5 +97,9 @@ model.g = [model.g1 model.g2];
 
 model = deconvolve(model);
 drawDeconvolved(model);
+
+%csvwrite("/Users/trung/Research/chromatin-transformers/output/deconvolution/f_top.csv", model.f_top)
+
+saveModelPhaseIntervalTimepoints(model, 'output/test.csv');
 
 
