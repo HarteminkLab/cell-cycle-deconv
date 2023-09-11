@@ -29,10 +29,10 @@ classdef Model
 			model.alpha = [26 27];
 
 			outdir = 'output/';
-			modeldir1 = 'models/wt1_budflow/';
+			modeldir1 = 'models/original_budflow/wt1_budflow/';
 			modelfile1 = sprintf('%s.%d.label', model.modelprefix, model.alpha(1));
 
-			modeldir2 = 'models/wt2_budflow/';
+			modeldir2 = 'models/original_budflow/wt2_budflow/';
 			modelfile2 = sprintf('%s.%d.label', model.modelprefix, model.alpha(2));
 
 			orfname = gene_to_orfname(genename);

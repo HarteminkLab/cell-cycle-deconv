@@ -5,7 +5,7 @@ addpath(genpath('analysis'))
 
 outdir = 'output/genes';
 
-%genenames = %;//["CLN2" "PCL1" "SIC1" "CDC20" "SSK22" "DSE1" "DSE2" "CTS1"];
+genenames = ["CLN2"];
 
 % Parameters
 gamma_val = 0.008;
