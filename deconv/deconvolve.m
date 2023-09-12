@@ -82,4 +82,8 @@ function [model] = deconvolve(model)
 	end
 
 	model.pred_g = pred_g;
+
+    % Store the residual norm
+	model.rn = (norm(W1*f([f_initial]),1) + norm(W2*f([f_bottom]),1))/mean_g;
+    model.sn = square_pos(norm(model.H*model.f ./ model.g-1, 2));
 end

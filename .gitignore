@@ -5,5 +5,4 @@ output
 lib
 __pycache__
 *.mat
-scratch*
 *.asv

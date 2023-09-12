@@ -17,10 +17,19 @@ fprintf("Deconvolving %s...", genename);
 model = deconvolve(model);
 fprintf("Done.\n");
 
+% Make the plotting directory
+plottingdir = 'output/plotting';
+try
+    mkdir(plottingdir);
+catch
+    % Skip, make the directory silently
+end
+
+
 % Plot the results
 fprintf("Plotting...");
 fig = drawDeconvolved(model);
-savename = sprintf('%s/%s.png', outdir, genename);
+savename = sprintf('%s/%s.png', plottingdir, genename);
 saveas(fig, savename); 
 
 close;

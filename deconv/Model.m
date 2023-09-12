@@ -11,6 +11,7 @@
 		datatype
 		modelprefix
 		g, timepoints
+        rn, sn % The residual and solution norms
 		intervals
 		H, Hsegments, Hpos,
 		gm, f, pred_g

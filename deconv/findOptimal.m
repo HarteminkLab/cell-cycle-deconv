@@ -1,5 +1,7 @@
 function [model, flag] = findOptimal(model, fig_flag)
 
+flag = fig_flag;
+
 gammas = 0.001:0.001:0.02;
 rns = zeros(size(gammas));
 sns = zeros(size(gammas));
@@ -7,7 +9,7 @@ sns = zeros(size(gammas));
 for i = 1:size(gammas, 2)
     cur_gm = gammas(i);
     model.gm = cur_gm;
-    [model] = deconvModel(model);
+    [model] = deconvolve(model);
     rns(i) = model.rn;
     sns(i) = model.sn;
     fprintf("%.3f - rn=%.3f, sn=%.3f\n", cur_gm, model.rn, model.sn);
