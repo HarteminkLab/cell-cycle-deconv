@@ -1,4 +1,4 @@
-classdef Model
+    classdef Model
 	% A model class to deconvolve gene expression data from CLOCCS cell cycle
 	% parameters
 

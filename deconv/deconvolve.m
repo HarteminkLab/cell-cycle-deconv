@@ -20,15 +20,62 @@ function [model] = deconvolve(model)
 	W1 = getWaveletKernel(WAVETYPE, length(f_initial), WAVEPAR);
 	W2 = getWaveletKernel(WAVETYPE, length(f_bottom), WAVEPAR);
 
+    % Wondering what H, f, and g look like:
+    fprintf("\n");
+    fprintf("------------------------\n");
+
+    fprintf('The size: of H is: ');
+    fprintf('%d ', size(H));
+    fprintf('\n');
+    fprintf("------------------------\n");
+
+    fprintf('Hsize is: ');
+    fprintf('%d ', Hsize);
+    fprintf('\n');
+    fprintf("------------------------\n");
+
+    fprintf('The size: of g is: ');
+    fprintf('%d ', size(g));
+    fprintf('\n');
+    fprintf("------------------------\n");
+
+    f = zeros(Hsize+padding);
+
+    fprintf('The size of f() is: ');
+    fprintf('%d ', size(f(1:Hsize)));
+    fprintf('\n');
+    fprintf("------------------------\n");
+
+    % So H is 30x258
+    % g is 30x1
+    %     and g' is 1x30
+    % and f is 342, but f(1:Hsize) should be 
+    %      258x1
+
+    % Thus the norm equation is:
+    %
+    %      H * f_ ./ g'
+    %
+    %     [  30 x 258  ]   *   [ 258 x 1 ]    ./      1 x 30
+
+    res = H*f(1:Hsize)';
+
+    fprintf("The result of H*f' is: ");
+    fprintf("%d ", size(res));
+    fprintf("\n");
+
+    error("TODO: Ending execution early for debugging.");
+    
 	cvx_begin
 		cvx_quiet(true);
 
 		variable f(Hsize+padding);
 
 		% The fit error, get the relevant indices of f
-		% Skipping the first padding indices and removing the last padding indices
+		% Skipping the first padding indices and removing the last padding 
+        % indices
 		minimize(...
-			square_pos(norm(H*f(1:Hsize)./g'-1, 2)) ... % fit errors
+			square_pos(norm(H*f(1:Hsize)'./g'-1, 2)) ... % fit errors
 			+ gamma*(norm(W1*f(f_initial),1) + ...
 					 norm(W2*f(f_bottom),1) ...
 					 )/mean_g ...
