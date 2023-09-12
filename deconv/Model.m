@@ -56,6 +56,11 @@
 			g2 = dataset2(orfid,:)';
 			model.g = [g1' g2'];
 			model.H = [];
+
+            % Error handling for when a gene isn't loaded properly
+            if (size(model.g, 1) == 1) 
+                error("g should have at least 1 row. Check that g was loaded correctly for the given gene.")
+            end
 			
 			% calculate H for WT1
 			modelpath1 = strcat(modeldir1, modelfile1);

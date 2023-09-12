@@ -13,6 +13,7 @@ genename = "CLN2";
 
 fprintf("%s...", genename);
 model = Model(genename, gamma_val);
+
 % 
 % fprintf("Deconvolving...");
 % model = deconvolve(model);
