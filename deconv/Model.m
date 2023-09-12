@@ -58,7 +58,7 @@
 			model.H = [];
 
             % Error handling for when a gene isn't loaded properly
-            if (size(model.g, 1) == 1) 
+            if (size(model.g, 1) == 0) 
                 error("g should have at least 1 row. Check that g was loaded correctly for the given gene.")
             end
 			
