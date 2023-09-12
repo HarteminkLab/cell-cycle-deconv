@@ -21,7 +21,7 @@ hold on;
 box on;
 plot(gammas, rns);
 title("Residual Norms");
-saveas(gcf, strcat('output/', model.orfname, '_rns'), 'png');
+saveas(gcf, strcat('output/rns/', model.genename, '_rns'), 'png');
 box off;
 hold off;
 
@@ -31,8 +31,7 @@ box on;
 pbaspect([16 9 1]);
 plot(gammas, sns);
 title("Solution Norms");
-saveas(gcf, strcat('output/', model.orfname, '_sns'), 'png');
+saveas(gcf, strcat('output/sns/', model.genename, '_sns'), 'png');
 box off;
 hold off;
 
-model.gm = 0.007;
