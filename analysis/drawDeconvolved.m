@@ -15,7 +15,7 @@ function[fig] = drawDeconvolved(model)
     ylim_deconv = max(plot_f)*1.25;
     ylim_low = -max(plot_g)*0.1;
 
-    line_width = 3.5; 
+    line_width = 3.5;
 
     % -------------------------------------------------------------------------------
 
@@ -129,14 +129,6 @@ function[fig] = drawDeconvolved(model)
 
     dg1_timepoints = bottomTimepointsList{1}(1:end-1);
     post_g1_timepoints = bottomTimepointsList{2}(3:end);
-
-    round(length(dg1_timepoints)/2)
-
-    dg1_tick = dg1_timepoints(round(length(dg1_timepoints)/2));
-    post_g1_tick = post_g1_timepoints(round(length(post_g1_timepoints)/2));
-
-    size(dg1_timepoints)
-    size(f_bottom{1})
 
     plot(dg1_timepoints, plot_f(f_bottom{1}), '-', 'color', colorForName('DG1'),  ...
         'LineWidth', line_width);

@@ -5,6 +5,4 @@ names = string(names);
 sysnames = string(sysnames);
 lookup = dictionary(names, sysnames);
 
-disp(genename);
-
 orfname = lookup(genename);

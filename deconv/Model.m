@@ -28,7 +28,6 @@
 			model.modeltype = 'CDG1';
 			model.alpha = [26 27];
 
-			outdir = 'output/';
 			modeldir1 = 'models/original_budflow/wt1_budflow/';
 			modelfile1 = sprintf('%s.%d.label', model.modelprefix, model.alpha(1));
 
@@ -46,8 +45,6 @@
 			model.genename = genename;
 			model.orfid = orfid;
 			model.datatype = Deconv.DECONV_JOINT;
-
-			modelprefix = model.modelprefix;
 
 			dataset1 = load(Deconv.DATA_WT1, 'ascii');
 			dataset2 = load(Deconv.DATA_WT2, 'ascii');

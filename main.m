@@ -3,7 +3,7 @@ addpath(genpath('lib/YAMLMatlab'));
 addpath(genpath('deconv'))
 addpath(genpath('analysis'))
 
-outdir = 'output/genes';
+outdir = 'output/';
 
 genenames = ["CLN2"];
 
@@ -11,11 +11,11 @@ genenames = ["CLN2"];
 gamma_val = 0.008;
 genename = "CLN2";
 
-fprintf("%s...", genename);
 model = Model(genename, gamma_val);
 
-fprintf("Deconvolving...");
+fprintf("Deconvolving %s...", genename);
 model = deconvolve(model);
+fprintf("Done.\n");
 
 % Plot the results
 fprintf("Plotting...");
@@ -26,5 +26,3 @@ saveas(fig, savename);
 close;
 
 fprintf("Done, saved to %s\n", savename);
-
-
