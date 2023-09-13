@@ -19,7 +19,11 @@ for index = 1:length(stand_sys2pos)
 
     orf_name = stand_sys2pos{index};
 
-    [model] = deconvolveGene(orf_name);
+    try
+        [model] = deconvolveGene(orf_name);
+    catch
+        fprintf("There was an error trying to deconvolve this gene, let's skip it.");
+    end
 
     % lazy initialize the all genes f matrix, since we dont know the
     % size of f until we've run at least once
@@ -44,4 +48,4 @@ end
 
 writematrix(all_genes_f, "output/all_genes_f.csv");
 writematrix(all_genes_g, "output/all_genes_g.csv");
-writematrix(genenames', "output/all_genes.csv");
+writecell(stand_sys2pos', "output/all_genes.csv");
