@@ -28,6 +28,8 @@ global DEFAULT_RN_CUTOFF;
 
 global SLIENCE;
 
+SLIENCE = false;
+
 if ~SLIENCE
 	disp('findOptimal');
 end
@@ -46,7 +48,7 @@ end
 % ======================
 % some settings
 
-DEFAULT_RN_CUTOFF = 10;		% base_rn is too_large
+DEFAULT_RN_CUTOFF = 1000;		% base_rn is too_large
 DEFAULT_GM = 0.004;			% default gamma if base_rn is larger than cutoff
 
 % gamma boundary
@@ -66,8 +68,8 @@ right_rn = 0.32;
 % ======================
 
 % find best fit
-model.gm = 0;
-model = deconvModel(model);
+model.gm = 0.000001;
+model = deconvolve(model);
 base_rn = model.rn;
 model.base_rn = base_rn;
 
@@ -77,6 +79,9 @@ end
 
 flag = 1; % not using the default_gm
 if base_rn >= DEFAULT_RN_CUTOFF
+
+    fprintf("The base rn is greater than the cutoff. base_rn = %.4f, cutoff = %.4f", base_rn, DEFAULT_RN_CUTOFF);
+
 	model.gm = DEFAULT_GM;
 	flag = 0;
 	if ~SLIENCE % OK
@@ -99,7 +104,7 @@ if flag
 		disp(sprintf('  ...  search left, rn_goal = %0.4f, rate = %0.1f', rn_left, leftr));
 	end
 	model.gm = gm_left;
-	[model] = deconvModel(model);
+	[model] = deconvolve(model);
 
 	if model.rn >= DEFAULT_RN_CUTOFF;
 		model.gm = DEFAULT_GM;
@@ -136,7 +141,7 @@ if flag
 		disp(sprintf('  ...  search right, rn_goal = %0.4f, rate = %0.1f', rn_right, rightr));
 	end
 	model.gm = gm_right;
-	[model] = deconvModel(model);
+	[model] = deconvolve(model);
 	if model.rn >= DEFAULT_RN_CUTOFF;
 		model.gm = DEFAULT_GM;
 		flag = 0;
@@ -176,10 +181,16 @@ if flag
 	else
 		step = (gm_right-gm_left)/ELBOW_BINS;
 		gamma_array = gm_left:step:gm_right;
+
+        gamma_array
+        
 		[model.gm, bs_flag] = findElbow(model, gamma_array, fig_flag);
 	end
 
 	if bs_flag == 0
+
+        fprintf("The binary search failed for some reason.... base_rn = %.4f, cutoff = %.4f\n", base_rn, DEFAULT_RN_CUTOFF);
+
 		flag = 0;
 		model.gm = DEFAULT_GM;
 		if ~SLIENCE
@@ -189,7 +200,7 @@ if flag
 end
 
 disp(sprintf('%s: ... final gamma = %0.5f\n', model.orig_orfname, model.gm));
-[model] = deconvModel(model);
+[model] = deconvolve(model);
 
 if fig_flag
 	[model] = plotOptimal_general_branch(model, fig_flag);
@@ -212,6 +223,7 @@ flag = 1;
 left = gamma_min;
 right = gamma_max;
 runs = 0;
+
 % find the fit_left point
 while right-left > LR_SMALL
 	cur_gamma = (left+right)/2;
@@ -219,7 +231,7 @@ while right-left > LR_SMALL
 	
 	model.gm = cur_gamma;
 	
-	[model] = deconvModel(model);
+	[model] = deconvolve(model);
 
 	if model.rn >= DEFAULT_RN_CUTOFF
 		flag = 0;

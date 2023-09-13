@@ -50,8 +50,8 @@ function [model] = deconvolve(model)
         %
 		minimize(...
 			square_pos(norm(H*f(1:Hsize)./g'-1, 2)) ... % fit errors
-			+ gamma*(norm(W1*f(f_initial),1) + ...
-					 norm(W2*f(f_bottom),1) ...
+			+ gamma*(norm(W1*f(f_initial), 1) + ...
+					 norm(W2*f(f_bottom), 1) ...
 					 )/mean_g ...
 		);
 
@@ -60,6 +60,7 @@ function [model] = deconvolve(model)
 	cvx_end
 
 	f_final = f(1:end-padding);
+    model.f_padded = f;
 	model.f = f_final;
 	model.f_initial = f_initial;
 	model.f_top = f_top;
@@ -67,8 +68,6 @@ function [model] = deconvolve(model)
 	model.f_initial_list = f_initial_list;
 	model.f_top_list = f_top_list;
 	model.f_bottom_list = f_bottom_list;
-
-	g_avg = mean(model.g);
 
 	if strcmp(model.datatype, Deconv.DECONV_JOINT)
 		glen = length(model.g);
@@ -82,8 +81,13 @@ function [model] = deconvolve(model)
 	end
 
 	model.pred_g = pred_g;
+    model.W1 = W1;
+    model.W2 = W2;
+    model.mean_g = mean_g;
 
     % Store the residual norm
 	model.rn = (norm(W1*f([f_initial]),1) + norm(W2*f([f_bottom]),1))/mean_g;
+
     model.sn = square_pos(norm(model.H*model.f ./ model.g-1, 2));
+
 end

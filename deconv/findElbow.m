@@ -18,7 +18,7 @@ sn = [];
 % check monotonicity
 for gamma = gammas
 	model.gm = gamma;
-	[model] = deconvModel(model);
+	[model] = deconvolve(model);
 
 	if model.rn >= DEFAULT_RN_CUTOFF
 		disp("Something wrong 1");
@@ -43,6 +43,9 @@ end
 % check monotonicity
 all_idx = [1];
 last_idx = 1;
+
+rn
+sn
 
 for idx = 2:length(sn)
 	% delete if not monotonicity
@@ -79,7 +82,11 @@ max_pos = max_pos+boundary;
 pos_left = max_pos-boundary;
 pos_right = max_pos+boundary;
 elbow_gamma = gammas(max_pos);
+
 if numel(elbow_gamma) == 0
+
+    disp("Number of elements in the gamma is 0, something is wrong with the monotonicity check.");
+
 	disp(sprintf("el: %d, ", numel(elbow_gamma)));
 	disp(sprintf("el: %f, ", elbow_gamma));
 	disp(sprintf("gm: %f, ", gammas));

@@ -12,11 +12,15 @@
 		modelprefix
 		g, timepoints
         rn, sn % The residual and solution norms
+        base_rn % For finding the optimal gamma value
 		intervals
 		H, Hsegments, Hpos,
 		gm, f, pred_g
 		f_initial, f_top, f_bottom
 		f_initial_list, f_top_list, f_bottom_list
+
+        % Let's store some of the deconvolution data objects for debuggin
+        W1, W2, mean_g, f_padded
 	end
 
 	methods
