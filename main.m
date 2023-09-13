@@ -5,40 +5,34 @@ addpath(genpath('analysis'))
 
 outdir = 'output/';
 
-genenames = ["SSK22"];
+genenames = ["CDC20", "SIC1", "CLN2", "PCL1", "SSK22"];
+all_genes_f = 0;
+all_genes_g = 0;
 
-% Parameters
-gamma_val = 0.0000001;
-genename = "CLN2";
+index = 1;
+for genename = genenames
 
-model = Model(genename, gamma_val);
+    [model] = deconvolveGene(genename);
 
+    % lazy initialize the all genes f matrix, since we dont know the
+    % size of f until we've run at least once
+    if index == 1
+        numgenes = size(genenames, 2);
+        num_f = size(model.f, 1);
+        all_genes_f = zeros(numgenes, num_f);
 
-% Try logging the gene expression and let's see why the rn remains so high
-model.g = log(model.g);
+        num_g = size(model.g, 2);
+        all_genes_g = zeros(numgenes, num_g);
+    end
 
-
-fprintf("Deconvolving %s...", genename);
-model = deconvolve(model);
-fprintf("Done.\n");
-
-% Make the plotting directory
-plottingdir = 'output/plotting';
-try
-    mkdir(plottingdir);
-catch
-    % Skip, make the directory silently
+    all_genes_f(index, :) = model.f;
+    all_genes_g(index, :) = model.g;
+    index = index + 1;
 end
 
-fprintf("The rn of the model is: %.4f\n", model.rn);
-fprintf("The sn of the model is: %.4f\n", model.sn);
+writematrix(all_genes_f, "output/all_genes_f.csv");
+writematrix(all_genes_g, "output/all_genes_g.csv");
+writematrix(genenames', "output/all_genes.csv");
 
-% % Plot the results
-% fprintf("Plotting...");
-% fig = drawDeconvolved(model);
-% savename = sprintf('%s/%s.png', plottingdir, genename);
-% saveas(fig, savename); 
-% 
-% % close;
-% 
-% fprintf("Done, saved to %s\n", savename);
+
+
