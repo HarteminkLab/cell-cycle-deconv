@@ -5,19 +5,26 @@ addpath(genpath('analysis'))
 
 outdir = 'output/';
 
-genenames = ["CDC20", "SIC1", "CLN2", "PCL1", "SSK22"];
+[stand_sys2pos] = textread(strcat(Deconv.DECONV_DATASET, 'genes.lst'), '%s');
+
 all_genes_f = 0;
 all_genes_g = 0;
 
-index = 1;
-for genename = genenames
+% Start the timer
+tic;
 
-    [model] = deconvolveGene(genename);
+for index = 1:length(stand_sys2pos)
+
+    fprintf("%d/%d\ngit a", index, length(stand_sys2pos));
+
+    orf_name = stand_sys2pos{index};
+
+    [model] = deconvolveGene(orf_name);
 
     % lazy initialize the all genes f matrix, since we dont know the
     % size of f until we've run at least once
     if index == 1
-        numgenes = size(genenames, 2);
+        numgenes = size(stand_sys2pos, 2);
         num_f = size(model.f, 1);
         all_genes_f = zeros(numgenes, num_f);
 
@@ -27,12 +34,14 @@ for genename = genenames
 
     all_genes_f(index, :) = model.f;
     all_genes_g(index, :) = model.g;
-    index = index + 1;
+
+    % Stop the timer
+    elapsedTime = toc;
+
+    % Display the elapsed time
+    fprintf('Elapsed time for yourFunction: %.4f seconds\n', elapsedTime);
 end
 
 writematrix(all_genes_f, "output/all_genes_f.csv");
 writematrix(all_genes_g, "output/all_genes_g.csv");
 writematrix(genenames', "output/all_genes.csv");
-
-
-

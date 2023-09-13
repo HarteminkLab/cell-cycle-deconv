@@ -24,13 +24,13 @@ function [model] = deconvolveGene(genename)
     fprintf("The sn of the model is: %.4f\n", model.sn);
     
     % Plot the results
-    fprintf("Plotting...");
-    fig = drawDeconvolved(model);
-    savename = sprintf('%s/%s.png', plottingdir, genename);
-    saveas(fig, savename); 
-    
-    close;
-    
-    fprintf("Done, saved to %s\n", savename);
+    % fprintf("Plotting...");
+    % fig = drawDeconvolved(model);
+    % savename = sprintf('%s/%s.png', plottingdir, genename);
+    % saveas(fig, savename); 
+    % 
+    % close;
+    % 
+    % fprintf("Done, saved to %s\n", savename);
 
 end
