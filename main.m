@@ -17,8 +17,6 @@ numerror = 0;
 numsuccess = 0;
 for index = 1:length(stand_sys2pos)
 
-    fprintf("%d/%d - numerror: %d\n", index, length(stand_sys2pos), numerror);
-
     orf_name = stand_sys2pos{index};
 
     try
@@ -47,8 +45,18 @@ for index = 1:length(stand_sys2pos)
     % Stop the timer
     elapsedTime = toc;
 
-    % Display the elapsed time
-    fprintf('Elapsed time: %.4f seconds\n', elapsedTime);
+    % Periodic updates
+    if mod(numsuccess, 100) == 0
+
+        fprintf("%d/%d - numerror: %d\n", index, length(stand_sys2pos), numerror);
+
+        % Display the elapsed time
+        fprintf('Elapsed time: %.4f seconds\n', elapsedTime);
+
+        writematrix(all_genes_f, "output/all_genes_f.csv");
+        writematrix(all_genes_g, "output/all_genes_g.csv");
+        writecell(stand_sys2pos', "output/all_genes.csv");
+    end
 end
 
 writematrix(all_genes_f, "output/all_genes_f.csv");
