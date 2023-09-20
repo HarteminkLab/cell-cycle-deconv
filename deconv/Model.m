@@ -29,16 +29,6 @@
 
 			model.gm = gamma;
 			model.genename = genename;
-			model.modelprefix = '1.1.1';
-			model.modeltype = 'CDG1';
-			model.alpha = [26 27];
-
-			modeldir1 = 'models/original_budflow/wt1_budflow/';
-			modelfile1 = sprintf('%s.%d.label', model.modelprefix, model.alpha(1));
-
-			modeldir2 = 'models/original_budflow/wt2_budflow/';
-			modelfile2 = sprintf('%s.%d.label', model.modelprefix, model.alpha(2));
-
 			orfname = gene_to_orfname(genename);
 
 			% deal with orfname and datatype
@@ -65,7 +55,7 @@
             end
 			
 			% calculate H for WT1
-			modelpath1 = strcat(modeldir1, modelfile1);
+			modelpath1 = Deconv.MODEL_WT1;
 			model.intervals = ModelIntervals(modelpath1, model);
 			model.timepoints = Deconv.WT1_TP;
 			[H1, Hsegments, Hpos] = calcH(model);
@@ -73,7 +63,7 @@
 			model.Hpos = Hpos;
 
 			% calculate H for WT2 and combine into a joint H
-			modelpath2 = strcat(modeldir2, modelfile2);
+			modelpath2 = Deconv.MODEL_WT2;
 			model.intervals = ModelIntervals(modelpath2, model);
 			model.timepoints = Deconv.WT2_TP;
 			[H2, Hsegments, Hpos] = calcH(model);

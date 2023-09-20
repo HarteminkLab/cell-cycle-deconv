@@ -1,12 +1,11 @@
 # lengths
-mu0 31.710100
-lambda 67.256000
-delta 22.620600
-sigma0 15
-sigmav 0.005
-alpha 0.000000
-beta 0.060530
-halted 0.131600
+mu0 94.387000
+lambda 79.487000
+delta 44.318000
+sigma0 17.961000
+sigmav 0.025000
+alpha 26
+beta 0.153000
 # description
 H h 0
 RG1 i 0

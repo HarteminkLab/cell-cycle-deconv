@@ -42,6 +42,8 @@ function[fig] = drawDeconvolved(model)
     initialTimepointsList = model.intervals.initialTimepointsList;
     f_initial_list = model.f_initial_list;
 
+    initialTimepointsList
+
     nexttile;
     hold on;
     plot(initialTimepointsList{1}(1:end-1), plot_f(f_initial_list{1}(1:end)), '-', 'color',  ...
