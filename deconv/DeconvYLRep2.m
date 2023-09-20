@@ -22,9 +22,9 @@ classdef Deconv
 		DATA_WT1 = strcat(Deconv.DECONV_DATASET, 'replicate2_gene_expression.txt');
 		DATA_WT2 = strcat(Deconv.DECONV_DATASET, 'replicate2_gene_expression.txt');
 
-		WT1_TP = ;
-		WT2_TP = ;
-
+		WT1_TP = [0	20	30	40	50	60	70	80	90	100	110	120	130	140	150];
+		WT2_TP = [0	10	20	30	40	50	60	70	80	90	100	120	130	140];
+		
 		MODEL_DIR = 'models/';
 	end
 end

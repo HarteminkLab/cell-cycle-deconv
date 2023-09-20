@@ -1,3 +1,4 @@
+% Configuration for Yulong 2018 Replicate 2 Dataset (TODO: Currently duplicating replicate 2 for WT1 and WT2)
 classdef Deconv
 	properties (Constant)
 		DECONV_MU0POS = 1;
@@ -12,18 +13,18 @@ classdef Deconv
 		DECONV_DIFF = 2;
 
 		DECONV_KERNEL = Deconv.DECONV_WAVELET;
-		DECONV_DATASET = 'datasets/original_budflow/';
+		DECONV_DATASET = 'datasets/yl_cell_cycle/';
 
 		DECONV_WT1 = 'WT1';
 		DECONV_WT2 = 'WT2';
 		DECONV_JOINT = 'JOINT';
 
-		DATA_WT1 = strcat(Deconv.DECONV_DATASET, 'replicate1_gene_expression.txt');
+		DATA_WT1 = strcat(Deconv.DECONV_DATASET, 'replicate2_gene_expression.txt');
 		DATA_WT2 = strcat(Deconv.DECONV_DATASET, 'replicate2_gene_expression.txt');
 
-		WT1_TP = 30:16:254;
-		WT2_TP = 38:16:262;
-
+		WT1_TP = [0	20	30	40	50	60	70	80	90	100	110	120	130	140	150];
+		WT2_TP = [0	10	20	30	40	50	60	70	80	90	100	120	130	140];
+		
 		MODEL_DIR = 'models/';
 	end
 end
