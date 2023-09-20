@@ -13,21 +13,26 @@ all_genes_g = 0;
 % Start the timer
 tic;
 
+numerror = 0;
+numsuccess = 0;
 for index = 1:length(stand_sys2pos)
 
-    fprintf("%d/%d\ngit a", index, length(stand_sys2pos));
+    fprintf("%d/%d - numerror: %d\n", index, length(stand_sys2pos), numerror);
 
     orf_name = stand_sys2pos{index};
 
     try
         [model] = deconvolveGene(orf_name);
+        numsuccess = numsuccess + 1;
     catch
-        fprintf("There was an error trying to deconvolve this gene, let's skip it.");
+        % fprintf("There was an error trying to deconvolve this gene, let's skip it.");
+        numerror = numerror + 1;
+        continue;
     end
 
     % lazy initialize the all genes f matrix, since we dont know the
     % size of f until we've run at least once
-    if index == 1
+    if numsuccess == 1
         numgenes = size(stand_sys2pos, 2);
         num_f = size(model.f, 1);
         all_genes_f = zeros(numgenes, num_f);
@@ -43,7 +48,7 @@ for index = 1:length(stand_sys2pos)
     elapsedTime = toc;
 
     % Display the elapsed time
-    fprintf('Elapsed time for yourFunction: %.4f seconds\n', elapsedTime);
+    fprintf('Elapsed time: %.4f seconds\n', elapsedTime);
 end
 
 writematrix(all_genes_f, "output/all_genes_f.csv");
