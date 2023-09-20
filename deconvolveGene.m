@@ -29,7 +29,7 @@ function [model] = deconvolveGene(genename)
     savename = sprintf('%s/%s.png', plottingdir, genename);
     saveas(fig, savename); 
 
-    close;
+    % close;
 
     fprintf("Done, saved to %s\n", savename);
 

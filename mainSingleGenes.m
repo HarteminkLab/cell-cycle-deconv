@@ -5,4 +5,4 @@ addpath(genpath('analysis'))
 
 outdir = 'output/';
 
-[model] = deconvolveGene('CLN2');
+[model] = deconvolveGene('CLB2');
