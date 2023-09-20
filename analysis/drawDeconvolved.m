@@ -20,12 +20,14 @@ function[fig] = drawDeconvolved(model)
     % -------------------------------------------------------------------------------
 
     % WT1 Raw and fitted plot
-
+    num_timepoints = size(model.timepoints, 2);
     nexttile;
     hold on;
-    plot(model.timepoints(1, :), plot_g(1, 1:15), '-', 'color', colorForName('raw'), ...
+    plot(model.timepoints(1, :), plot_g(1, 1:num_timepoints), ...
+        '-', 'color', colorForName('raw'), ...
         'LineWidth', line_width);
-    plot(model.timepoints(1, :), plot_pred_g(1:15, 1), '-', 'color', colorForName('fit'),  ...
+    plot(model.timepoints(1, :), plot_pred_g(1:num_timepoints, 1), ...
+        '-', 'color', colorForName('fit'),  ...
         'LineWidth', line_width);
     ylim([ylim_low  ylim_raw]);
     yticks([]);
@@ -85,18 +87,21 @@ function[fig] = drawDeconvolved(model)
 
     % -------------------------------------------------------------------------------
 
-    % WT2 Raw and fitted plot
+    % WT1 Raw and fitted plot
+    num_timepoints = size(model.timepoints, 2);
 
     nexttile;
     hold on;
-    plot(model.timepoints(2, :)	, plot_g(1, 16:end), '-', 'color', colorForName('raw'),  ...
+    plot(model.timepoints(1, :), plot_g(1, num_timepoints:end-1), ...
+        '-', 'color', colorForName('raw'), ...
         'LineWidth', line_width);
-    plot(model.timepoints(2, :), plot_pred_g(16:end, 1), '-', 'color', colorForName('fit'),  ...
+    plot(model.timepoints(1, :), plot_pred_g(num_timepoints:end-1, 1), ...
+        '-', 'color', colorForName('fit'),  ...
         'LineWidth', line_width);
     ylim([ylim_low  ylim_raw]);
     yticks([]);
     xticks([]);
-    ylabel('WT 2');
+    ylabel('WT 1');
     hold off;
 
     % f vector
