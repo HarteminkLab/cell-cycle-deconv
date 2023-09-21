@@ -46,7 +46,7 @@ for index = 1:length(stand_sys2pos)
     elapsedTime = toc;
 
     % Periodic updates
-    if mod(numsuccess, 100) == 0
+    if mod(numsuccess, 10) == 0
 
         fprintf("%d/%d - numerror: %d\n", index, length(stand_sys2pos), numerror);
 
@@ -56,6 +56,8 @@ for index = 1:length(stand_sys2pos)
         writematrix(all_genes_f, "output/all_genes_f.csv");
         writematrix(all_genes_g, "output/all_genes_g.csv");
         writecell(stand_sys2pos', "output/all_genes.csv");
+
+        break
     end
 end
 
