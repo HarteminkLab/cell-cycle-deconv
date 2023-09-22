@@ -32,7 +32,9 @@ for index = 1:length(stand_sys2pos)
 
     orf_name = stand_sys2pos{index};
 
-    fprintf("Deconvolve %s...", orf_name);
+    elapsedTime = toc;
+    fprintf("Deconvolving %s (%d/%d) - %.3f min\n", orf_name, index, size(stand_sys2pos, 1), ...
+        elapsedTime/60.);
 
     try
         model = Model(orf_name, gamma_val);
@@ -43,7 +45,7 @@ for index = 1:length(stand_sys2pos)
 
         numsuccess = numsuccess + 1;
     catch
-        fprintf("There was an error trying to deconvolve this gene, let's skip it.");
+        fprintf("   There was an error trying to deconvolve this gene, let's skip it.\n");
         numerror = numerror + 1;
         continue;
     end
@@ -51,19 +53,12 @@ for index = 1:length(stand_sys2pos)
     % Stop the timer
     elapsedTime = toc;
 
-    % Periodic updates
-    if mod(index, 1) == 0
-
-        fprintf("%d/%d - numerror: %d\n", index, length(stand_sys2pos), numerror);
-
-        % Display the elapsed time
-        fprintf('Elapsed time: %.4f seconds\n', elapsedTime);
+    % Periodically save the output files
+    if mod(index, 100) == 0
 
         writematrix(all_genes_f, "output/all_genes_f.csv");
         writematrix(all_genes_g, "output/all_genes_g.csv");
         writecell(stand_sys2pos', "output/all_genes.csv");
-
-        break
     end
 end
 
