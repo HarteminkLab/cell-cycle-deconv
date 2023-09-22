@@ -31,7 +31,7 @@ for index = 1:length(stand_sys2pos)
     % lazy initialize the all genes f matrix, since we dont know the
     % size of f until we've run at least once
     if numsuccess == 1
-        numgenes = size(stand_sys2pos, 2);
+        numgenes = size(stand_sys2pos, 1);
         num_f = size(model.f, 1);
         all_genes_f = zeros(numgenes, num_f);
 
@@ -46,7 +46,7 @@ for index = 1:length(stand_sys2pos)
     elapsedTime = toc;
 
     % Periodic updates
-    if mod(numsuccess, 10) == 0
+    if mod(index, 10) == 0
 
         fprintf("%d/%d - numerror: %d\n", index, length(stand_sys2pos), numerror);
 
@@ -57,7 +57,6 @@ for index = 1:length(stand_sys2pos)
         writematrix(all_genes_g, "output/all_genes_g.csv");
         writecell(stand_sys2pos', "output/all_genes.csv");
 
-        break
     end
 end
 
