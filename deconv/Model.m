@@ -33,7 +33,7 @@
 
 			% deal with orfname and datatype
 			orig_orfname = orfname;
-			[orfname, orfid] = map2SystemNames(orig_orfname);
+			[orfname, orfid] = map2SystemNames(orfname);
 
 			model.orig_orfname = orig_orfname;
 			model.orfname = orfname;
