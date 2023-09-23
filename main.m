@@ -53,7 +53,7 @@ for index = 1:length(stand_sys2pos)
     % Stop the timer
     elapsedTime = toc;
 
-    % Periodically save the output files
+    % Periodically save the output filescomcomc
     if mod(index, 100) == 0
 
         writematrix(all_genes_f, "output/all_genes_f.csv");
