@@ -25,6 +25,7 @@ classdef Deconv
 		WT1_TP = 30:16:254;
 		WT2_TP = 38:16:262;
 
-		MODEL_DIR = 'models/';
+		MODEL_WT1 = 'models/original_budflow/wt1_budflow/1.1.1.26.label';
+        MODEL_WT2 = 'models/original_budflow/wt2_budflow/1.1.1.27.label';
 	end
 end

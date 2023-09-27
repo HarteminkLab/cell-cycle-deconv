@@ -25,7 +25,7 @@ classdef Deconv
 		WT1_TP = [0	10	20	30	40	50	60	70	80	90	100	120	130	140];
 		WT2_TP = [0	10	20	30	40	50	60	70	80	90	100	120	130	140];
 		
-		MODEL_WT1 = 'models/yl_cell_cycle/wt2.model';
-        MODEL_WT2 = 'models/yl_cell_cycle/wt2.model';
+		MODEL_WT1 = 'models/yl_cell_cycle/wt2_rg1.model';
+        MODEL_WT2 = 'models/yl_cell_cycle/wt2_rg1.model';
 	end
 end
