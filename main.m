@@ -3,12 +3,15 @@ addpath(genpath('lib/YAMLMatlab'));
 addpath(genpath('deconv'))
 addpath(genpath('analysis'))
 
-outdir = 'output/';
+outdir = 'output/2023-09-26_yl_rep2_all_genes_rg1/';
 
 % Deconvolve 1 gene so we can get the dimensions of f and g easily, rather 
 % than digging through the parsing code of the model file
 model = Model('CLB2', 0.004);
 model = deconvolve(model);
+
+% Start deconvolve of all genes
+[stand_sys2pos] = textread(strcat(Deconv.DECONV_DATASET, 'genes.lst'), '%s');
 
 numgenes = size(stand_sys2pos, 1);
 num_f = size(model.f, 1);
@@ -16,10 +19,6 @@ all_genes_f = zeros(numgenes, num_f);
 
 num_g = size(model.g, 2);
 all_genes_g = zeros(numgenes, num_g);
-
-
-% Start deconvolve of all genes
-[stand_sys2pos] = textread(strcat(Deconv.DECONV_DATASET, 'genes.lst'), '%s');
 
 % Start the timer
 tic;
@@ -54,14 +53,17 @@ for index = 1:length(stand_sys2pos)
     elapsedTime = toc;
 
     % Periodically save the output filescomcomc
-    if mod(index, 100) == 0
-
-        writematrix(all_genes_f, "output/all_genes_f.csv");
-        writematrix(all_genes_g, "output/all_genes_g.csv");
-        writecell(stand_sys2pos', "output/all_genes.csv");
+    if mod(index, 10) == 0
+        writedata(outdir, all_genes_f, all_genes_g, stand_sys2pos);
     end
 end
 
-writematrix(all_genes_f, "output/all_genes_f.csv");
-writematrix(all_genes_g, "output/all_genes_g.csv");
-writecell(stand_sys2pos', "output/all_genes.csv");
+writedata(outdir, all_genes_f, all_genes_g, stand_sys2pos);
+
+function[] = writedata(outdir, all_genes_f, all_genes_g, stand_sys2pos)
+
+    writematrix(all_genes_f, strcat(outdir, "/all_genes_f.csv"));
+    writematrix(all_genes_g, strcat(outdir, "/all_genes_g.csv"));
+    writecell(stand_sys2pos', strcat(outdir, "/all_genes.csv"));
+
+end
