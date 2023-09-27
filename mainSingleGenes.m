@@ -6,5 +6,6 @@ addpath(genpath('analysis'))
 outdir = 'output/';
 plottingdir = 'output/plotting';
 
-[model] = deconvolveGene('CLB2');
-[model] = plotDeconvolved(model, plottingdir);
+model = Model('CLB2', 0.004);
+model = deconvolve(model);
+drawDeconvolvedRG1(model, plottingdir);

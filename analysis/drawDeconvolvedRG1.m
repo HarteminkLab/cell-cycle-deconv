@@ -1,4 +1,4 @@
-function[fig] = drawDeconvolved(model, plottingdir)
+function[fig] = drawDeconvolvedRG1(model, plottingdir)
     fig = figure();
     f.Position = [100 100 1200 600];
     tiled_layout = tiledlayout(3, 3);
@@ -42,15 +42,11 @@ function[fig] = drawDeconvolved(model, plottingdir)
     initialTimepointsList = model.intervals.initialTimepointsList;
     f_initial_list = model.f_initial_list;
 
-    initialTimepointsList
-
     nexttile;
     hold on;
     plot(initialTimepointsList{1}(1:end-1), plot_f(f_initial_list{1}(1:end)), '-', 'color',  ...
-        colorForName('R'), 'LineWidth', line_width);
+        colorForName('RG1'), 'LineWidth', line_width);
     plot(initialTimepointsList{2}(1:end-1), plot_f(f_initial_list{2}(1:end)), '-', 'color',  ...
-        colorForName('CG1'), 'LineWidth', line_width);
-    plot(initialTimepointsList{3}(1:end-1), plot_f(f_initial_list{3}(1:end)), '-', 'color',  ...
         colorForName('postG1'), 'LineWidth', line_width);
     ylim([ylim_low  ylim_deconv]);
     yticks([]);
@@ -114,7 +110,7 @@ function[fig] = drawDeconvolved(model, plottingdir)
     xticks([]);
     ylabel('f');
 
-    cc_states = {"R" "CG1" "DG1" "postG1"};
+    cc_states = {"RG1" "CG1" "DG1" "postG1"};
 
     abs_indices = 1:1:size(model.H, 2);
     for i = 1:length(model.Hpos)
@@ -171,7 +167,7 @@ function[fig] = drawDeconvolved(model, plottingdir)
     xticks([]);
     ylabel('Single Cell Profile');
     
-    cc_states = {"R", "CG1", "postG1", "DG1"};
+    cc_states = {"RG1", "CG1", "postG1", "DG1"};
     last = 0;
     for i = 1:length(cc_states)
         cc_state = cc_states{i};
@@ -189,17 +185,18 @@ function[fig] = drawDeconvolved(model, plottingdir)
 
 function[h_indices] = h_indices_for_name(model, cc_state)
     % TODO: hard-coded the cc state names, refactor to read the model label names
-    cc_states = ["R" "CG1" "DG1" "postG1"];
+    cc_states = ["RG1" "CG1" "DG1" "postG1"];
     h_pos_indices = [1 2 3 4];
     h_dict = dictionary(cc_states, h_pos_indices);
     h_index = h_dict(cc_state);
+
     h_indices = model.Hpos{h_index}(1):1:model.Hpos{h_index}(2);
     return
 
 
 function[color] = colorForName(color_name)
 
-    color_names = ["raw" "fit" "R" "CG1" "DG1" "postG1"];
+    color_names = ["raw" "fit" "RG1" "CG1" "DG1" "postG1"];
     colors = {[158 50 50]/255., ...
          [145 180 98]/255., ...
          [199 148 144]/255., ...

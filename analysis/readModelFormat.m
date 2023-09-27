@@ -3,8 +3,7 @@ function [lengths, relations, iList, tList, bList, i_intervals, t_intervals, b_i
 	lengths = zeros(1,6);
 
 	if exist(modelfile, 'file') == 0
-		disp(sprintf('The model file %s does not exist. Exiting...', modelfile));
-		return;
+		error('The model file %s does not exist');
 	end
 
 	% headers
