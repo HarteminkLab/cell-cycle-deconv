@@ -18,7 +18,8 @@ function [model] = deconvolve(model)
 
 	% Construct the Wavelets
 	W1 = getWaveletKernel(WAVETYPE, length(f_initial), WAVEPAR);
-	W2 = getWaveletKernel(WAVETYPE, length(f_bottom), WAVEPAR);
+    W2 = getWaveletKernel(WAVETYPE, length(f_top), WAVEPAR);
+	W3 = getWaveletKernel(WAVETYPE, length(f_bottom), WAVEPAR);
 
 	cvx_begin
 
@@ -51,7 +52,8 @@ function [model] = deconvolve(model)
 		minimize(...
 			square_pos(norm(H*f(1:Hsize)./g'-1, 2)) ... % fit errors
 			+ gamma*(norm(W1*f(f_initial), 1) + ...
-					 norm(W2*f(f_bottom), 1) ...
+                     norm(W2*f(f_top), 1) + ...
+					 norm(W3*f(f_bottom), 1) ...
 					 )/mean_g ...
 		);
 
