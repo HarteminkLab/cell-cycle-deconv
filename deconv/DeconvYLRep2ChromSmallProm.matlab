@@ -26,10 +26,10 @@ classdef Deconv
 		GENESET_PATH = strcat(Deconv.DECONV_DATASET, 'orf_names.csv');
 		GENEMAPPING_PATH = 'datasets/yl_cell_cycle/gene_to_orf_name_mapping.txt';
 
-		WT1_TP = [0	10	20	30	40	50	60	70	80	90	100	110 120	130	140];
-		WT2_TP = [0	10	20	30	40	50	60	70	80	90	100	110 120	130	140];
-
-		MODEL_WT1 = 'models/yl_cell_cycle/wt2_rg1_test_sigma0.label';
-        MODEL_WT2 = 'models/yl_cell_cycle/wt2_rg1_test_sigma0.label';
+		WT1_TP = [0	10	20	30	40	50	60	70	80	90	100	120	130	140];
+		WT2_TP = [0	10	20	30	40	50	60	70	80	90	100	120	130	140];
+		
+		MODEL_WT1 = 'models/yl_cell_cycle/wt2_rg1_test_sigma0.model';
+        MODEL_WT2 = 'models/yl_cell_cycle/wt2_rg1_test_sigma0.model';
 	end
 end

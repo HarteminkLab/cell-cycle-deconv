@@ -1,6 +1,6 @@
 function [] = main()
 
-    outdir = 'output/2023-10-02_yl_rep2_all_genes_rg1_sigma0_11/';
+    outdir = 'output/2023-10-06_yl_rep2_chrom_small_prom_rg1_sigma0_11/';
     
     addpath(genpath('lib/YAMLMatlab'));
     addpath(genpath('deconv'))
@@ -14,7 +14,7 @@ function [] = main()
     writematrix(model.H, strcat(outdir, '/H.csv'));
 
     % Start deconvolve of all genes
-    [stand_sys2pos] = textread(strcat(Deconv.DECONV_DATASET, 'genes.lst'), '%s');
+    [stand_sys2pos] = textread(Deconv.GENESET_PATH, '%s');
     
     numgenes = size(stand_sys2pos, 1);
     num_f = size(model.f, 1);
