@@ -43,6 +43,7 @@ classdef ModelIntervals
 
 	methods
 		function intervals = ModelIntervals(modelpath, model)
+
 			[parameters, relations, initialTimepointsList, ...
 			 topTimepointsList, bottomTimepointsList, ...
              initialPhaseMapping, topPhaseMapping, bottomPhaseMapping] = readModelFormat(modelpath, model);

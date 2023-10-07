@@ -56,6 +56,7 @@
 			
 			% calculate H for WT1
 			modelpath1 = Deconv.MODEL_WT1;
+
 			model.intervals = ModelIntervals(modelpath1, model);
 			model.timepoints = Deconv.WT1_TP;
 			[H1, Hsegments, Hpos] = calcH(model);
