@@ -1,6 +1,6 @@
 function [] = main()
 
-    outdir = 'output/2023-10-06_yl_rep2_chrom_nuc_genebody_rg1_sigma0_11/';
+    outdir = 'output/2023-10-17_yl_rep2_entropy_nuc_genebody_rg1_sigma0_11/';
     
     addpath(genpath('lib/YAMLMatlab'));
     addpath(genpath('deconv'))
