@@ -1,5 +1,5 @@
-% Configuration for Yulong 2018 Replicate 2 Dataset gene body nucleosome entropy
-% (TODO: Currently duplicating replicate 2 for WT1 and WT2)
+% Configuration for Yulong 2018 Replicate 2 Dataset (TODO: Currently duplicating replicate 2 for WT1 and WT2)
+
 classdef Deconv
 	properties (Constant)
 		DECONV_MU0POS = 1;
@@ -14,22 +14,22 @@ classdef Deconv
 		DECONV_DIFF = 2;
 
 		DECONV_KERNEL = Deconv.DECONV_WAVELET;
-		DECONV_DATASET = 'datasets/yl_cell_cycle/chromatin/yl_rep2_chromatin_entropies_for_deconv_2023_10_17/';
+		DECONV_DATASET = 'datasets/yl_cell_cycle/';
 
 		DECONV_WT1 = 'WT1';
 		DECONV_WT2 = 'WT2';
 		DECONV_JOINT = 'JOINT';
 
-		DATA_WT1 = strcat(Deconv.DECONV_DATASET, 'entropies_yl_rep2_gb_nuc.tsv');
-		DATA_WT2 = strcat(Deconv.DECONV_DATASET, 'entropies_yl_rep2_gb_nuc.tsv');
-
-		GENESET_PATH = strcat(Deconv.DECONV_DATASET, 'orf_names.csv');
+		DATA_WT1 = strcat(Deconv.DECONV_DATASET, 'replicate2_gene_expression.txt');
+		DATA_WT2 = strcat(Deconv.DECONV_DATASET, 'replicate2_gene_expression.txt');
+		
+		GENESET_PATH = strcat(Deconv.DECONV_DATASET, 'genes.lst');
 		GENEMAPPING_PATH = 'datasets/yl_cell_cycle/gene_to_orf_name_mapping.txt';
 
-		WT1_TP = [0	10	20	30	40	50	60	70	80	90	100	110 120	130	140];
-		WT2_TP = [0	10	20	30	40	50	60	70	80	90	100	110 120	130	140];
+		WT1_TP = [0	10	20	30	40	50	60	70	80	90	100	120	130	140];
+		WT2_TP = [0	10	20	30	40	50	60	70	80	90	100	120	130	140];
 		
-		MODEL_WT1 = 'models/yl_cell_cycle/wt2_rg1_test_sigma0.label';
-        MODEL_WT2 = 'models/yl_cell_cycle/wt2_rg1_test_sigma0.label';
+		MODEL_WT1 = 'models/yl_cell_cycle/wt2_rg1.label';
+        MODEL_WT2 = 'models/yl_cell_cycle/wt2_rg1.label';
 	end
 end
