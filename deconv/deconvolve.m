@@ -100,10 +100,16 @@ function [model] = deconvolve(model)
     model.W2 = W2;
     model.mean_g = mean_g;
 
-    % Store the solution norm
+    % Store the smoothing norm
 	model.sn = gamma*(norm(W1*f(f_initial),1) + ...
                 norm(W2*f(f_top), 1) + ...
                 norm(W3*f(f_bottom), 1))/mean_g;
+
+    % The old calculation of the smoothing norm without gamma, for
+    % reference
+	model.sn_nogamma = (norm(W1*f(f_initial),1) + ...
+                        norm(W2*f(f_top), 1) + ...
+                        norm(W3*f(f_bottom), 1))/mean_g;
 
     % Store the residual norm
     model.rn = square_pos(norm(model.H*f(1:Hsize) ./ model.g-1, 2));

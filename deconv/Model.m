@@ -11,7 +11,7 @@
 		datatype
 		modelprefix
 		g, timepoints
-        rn, sn % The residual and solution norms
+        rn, sn % The residual and smoothing norms
         base_rn % For finding the optimal gamma value
 		intervals
 		H, Hsegments, Hpos,
@@ -23,7 +23,7 @@
         W1, W2, mean_g, f_padded,
 
         % For finding optimal gamma
-        err, rn0
+        err, rn0, sn_nogamma
 	end
 
 	methods
