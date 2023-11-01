@@ -6,8 +6,8 @@ addpath(genpath('analysis'))
 outdir = 'output/';
 plottingdir = 'output/plotting';
 
-model = Model('CLN2', 0.004);
+model = Model('CLN2', 0.0000001);
 model = deconvolve(model);
-% drawDeconvolvedRG1(model, plottingdir);
+drawDeconvolvedRG1(model, plottingdir);
 
 writematrix(model.H, strcat(outdir, '/H.csv'));

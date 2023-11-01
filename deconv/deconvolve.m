@@ -5,8 +5,6 @@ function [model] = deconvolve(model)
 
 	g = model.g;
 
-    g = log(g);
-
 	mean_g = mean(g);
 	H = model.H;
 	gamma = model.gm;
@@ -26,12 +24,12 @@ function [model] = deconvolve(model)
 	W3 = getWaveletKernel(WAVETYPE, length(f_bottom), WAVEPAR);
 
 	% The weights to add to the wavelet kernels
-	[wf_i, wf_t, wf_b] = createWFs(model);
-
-	% fprintf("The size of W1: %d\n", size(W1));
-	%fprintf("The size of wf_i: %d\n", size(wf_i));
-
-	% Doesnt seem to be used in padded case....
+    % This was testing an idea that adding weight was important in
+    % the optimization, but looking back at xin's code base, it doesn't
+    % seem to be used when padding is set
+	% 
+    % [wf_i, wf_t, wf_b] = createWFs(model);
+    % 
 	% W1 = addWeight(W1, wf_i);
 	% W2 = addWeight(W2, wf_b);
 	% W3 = addWeight(W3, wf_t);

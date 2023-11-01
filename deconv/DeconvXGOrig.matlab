@@ -1,4 +1,5 @@
 % Configuration for the Xin Guo Original Dataset
+
 classdef Deconv
 	properties (Constant)
 		DECONV_MU0POS = 1;
@@ -21,6 +22,9 @@ classdef Deconv
 
 		DATA_WT1 = strcat(Deconv.DECONV_DATASET, 'replicate1_gene_expression.txt');
 		DATA_WT2 = strcat(Deconv.DECONV_DATASET, 'replicate2_gene_expression.txt');
+
+		GENESET_PATH = strcat(Deconv.DECONV_DATASET, 'genes.lst');
+		GENEMAPPING_PATH = 'datasets/original_budflow/gene_to_orf_name_mapping.txt';
 
 		WT1_TP = 30:16:254;
 		WT2_TP = 38:16:262;
