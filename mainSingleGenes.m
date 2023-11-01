@@ -8,6 +8,6 @@ plottingdir = 'output/plotting';
 
 model = Model('CLN2', 0.004);
 model = deconvolve(model);
-drawDeconvolvedRG1(model, plottingdir);
+% drawDeconvolvedRG1(model, plottingdir);
 
 writematrix(model.H, strcat(outdir, '/H.csv'));

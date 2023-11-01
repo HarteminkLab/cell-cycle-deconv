@@ -44,9 +44,6 @@ end
 all_idx = [1];
 last_idx = 1;
 
-rn
-sn
-
 for idx = 2:length(sn)
 	% delete if not monotonicity
 	if rn(idx) >= rn(last_idx) && sn(idx) <= sn(last_idx) % OK; update
@@ -76,6 +73,10 @@ y_grad2 = gradient(y_grad1);
 curvature = (x_grad1.*y_grad2-y_grad1.*x_grad2) ./ ((x_grad1.^2+y_grad1.^2).^(1.5));
 
 boundary = 1;
+
+fprintf("The x_grad1 is: %f\n", x_grad1);
+fprintf("The x_grad2 is: %f\n", x_grad2);
+fprintf("The curvature is: %f\n", curvature);
 
 [max_val, max_pos] = max(curvature(boundary+1:length(rn)-boundary));
 max_pos = max_pos+boundary;

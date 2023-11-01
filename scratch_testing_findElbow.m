@@ -3,14 +3,32 @@ addpath(genpath('lib/YAMLMatlab'));
 addpath(genpath('deconv'))
 addpath(genpath('analysis'))
 
-% Parameters
-gamma_val = 0.008;
+
+% TODO: Find optimal
+
 genename = "CLN2";
+model = Model(genename, 0.001);
 
-model = Model(genename, gamma_val);
+[model] = findOptimalBud(model, false);
 
-fprintf("Deconvolving %s...", genename);
-model = deconvolve(model);
-fprintf("Done.\n");
+% 
+% gms = 0.001:0.0005:0.01;
+% sns = zeros(1, size(gms, 2));
+% rns = zeros(1, size(gms, 2));
+% 
+% i = 1;
+% for gm = gms
+% 
+%     gamma_val = gm;
+%     model = Model(genename, gamma_val);
+%     model = deconvolve(model);
+% 
+%     fprintf("For a gamma value of %3f, the rn is %.3f. ", gamma_val, model.rn);
+%     fprintf("The sn is %.3f\n", model.sn);
+% 
+%     rns(i) = model.rn;
+%     sns(i) = model.sn;
+% 
+%     i = i + 1;
+% end
 
-[model, flag] = findOptimal(model, true);

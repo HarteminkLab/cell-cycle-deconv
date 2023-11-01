@@ -4,6 +4,9 @@ function [model] = deconvolve(model)
 	WAVEPAR = 5;
 
 	g = model.g;
+
+    g = log(g);
+
 	mean_g = mean(g);
 	H = model.H;
 	gamma = model.gm;
@@ -16,10 +19,22 @@ function [model] = deconvolve(model)
 	 f_initial_list, f_top_list, f_bottom_list, ...
 	 padding] = createFs(model);
 
+
 	% Construct the Wavelets
 	W1 = getWaveletKernel(WAVETYPE, length(f_initial), WAVEPAR);
     W2 = getWaveletKernel(WAVETYPE, length(f_top), WAVEPAR);
 	W3 = getWaveletKernel(WAVETYPE, length(f_bottom), WAVEPAR);
+
+	% The weights to add to the wavelet kernels
+	[wf_i, wf_t, wf_b] = createWFs(model);
+
+	% fprintf("The size of W1: %d\n", size(W1));
+	%fprintf("The size of wf_i: %d\n", size(wf_i));
+
+	% Doesnt seem to be used in padded case....
+	% W1 = addWeight(W1, wf_i);
+	% W2 = addWeight(W2, wf_b);
+	% W3 = addWeight(W3, wf_t);
 
 	cvx_begin
 
@@ -87,9 +102,13 @@ function [model] = deconvolve(model)
     model.W2 = W2;
     model.mean_g = mean_g;
 
+    % Store the solution norm
+	model.sn = gamma*(norm(W1*f(f_initial),1) + ...
+                norm(W2*f(f_top), 1) + ...
+                norm(W3*f(f_bottom), 1))/mean_g;
+
     % Store the residual norm
-	model.rn = (norm(W1*f([f_initial]),1) + norm(W2*f([f_bottom]),1))/mean_g;
+    model.rn = square_pos(norm(model.H*f(1:Hsize) ./ model.g-1, 2));
 
-    model.sn = square_pos(norm(model.H*model.f ./ model.g-1, 2));
-
+    model.err = sqrt(model.rn/length(model.g));
 end

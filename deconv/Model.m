@@ -20,7 +20,10 @@
 		f_initial_list, f_top_list, f_bottom_list
 
         % Let's store some of the deconvolution data objects for debuggin
-        W1, W2, mean_g, f_padded
+        W1, W2, mean_g, f_padded,
+
+        % For finding optimal gamma
+        err, rn0
 	end
 
 	methods
