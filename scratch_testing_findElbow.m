@@ -31,7 +31,7 @@ for gm = gms
 
     rns(i) = model.rn;
     sns(i) = model.sn;
-    sns_nogamma(i) = model.sn_nogamma;
+    % sns_nogamma(i) = model.sn_nogamma;
 
     i = i + 1;
 end

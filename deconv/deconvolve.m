@@ -11,6 +11,7 @@ function [model] = deconvolve(model)
 	Hsize = size(H, 2);
 
 	f_it = [];
+	f_i = [];
 	i_intervals = model.intervals.initialPhaseMapping;
 	i_list = model.intervals.initialTimepointsList;
 
@@ -20,38 +21,20 @@ function [model] = deconvolve(model)
 	b_intervals = model.intervals.bottomPhaseMapping;
 	b_list = model.intervals.bottomTimepointsList;
 
-	for i = 1:length(i_intervals)
-		idx = i_intervals{i}{2};
-		se = model.Hpos{idx};
-		f_it = [f_it se(1):1:se(2)];
-	end
+	[f_i, f_t, f_b, f_initial_list, f_top_list, f_bottom_list] = createFs(model)
 
-	for i = 1:length(t_intervals)
-		idx = t_intervals{i}{2};
-		se = model.Hpos{idx};
-		f_it = [f_it se(1):1:se(2)];
-	end
-
-	f_b = [];
-	for i = 1:length(b_intervals)
-		idx = b_intervals{i}{2};
-		se = model.Hpos{idx};
-		f_b = [f_b se(1):1:se(2)];
-	end
+	f_it = [f_i f_t];
 
 	f_final = zeros(Hsize,1);
 
-	% =============== Testing adding mirror code from deconv.v2 ===============
+	% =============== From deconv.v2 ===============
 
-	%% right mirroring
 	f_b = f_b;
 	f_it = f_it;
 	factor_fb = 1.5;
 
 	W1 = getWaveletKernel(WAVETYPE, length(f_it), WAVEPAR);
 	W2 = getWaveletKernel(WAVETYPE, length(f_b), WAVEPAR);
-
-	f = zeros(Hsize, 1);
 
 	cvx_begin
 		cvx_quiet(true);
@@ -76,8 +59,6 @@ function [model] = deconvolve(model)
 
 	f = f_final;
 
-	W1 = getWaveletKernel(WAVETYPE, length(f_it), WAVEPAR);
-	W2 = getWaveletKernel(WAVETYPE, length(f_b), WAVEPAR);
 	sn = ( norm(W1*f([f_it]),1) + norm(W2*f([f_b]),1) )/mean_g;
 	rn = square_pos(norm(H*f./g-1, 2));
 
@@ -90,27 +71,27 @@ function [model] = deconvolve(model)
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 
-    % model.f_padded = f;
-	% model.f = f_final;
-	% model.f_initial = f_initial;
-	% model.f_top = f_top;
-	% model.f_bottom = f_bottom;
-	% model.f_initial_list = f_initial_list;
-	% model.f_top_list = f_top_list;
-	% model.f_bottom_list = f_bottom_list;
+	model.f_initial = f_i;
+	model.f_top = f_t;
+	model.f_bottom = f_b;
 
-	% if strcmp(model.datatype, Deconv.DECONV_JOINT)
-	% 	glen = length(model.g);
-	% 	pred_g = model.H*model.f;
-	% 	g1 = model.g(1:glen/2);
-	% 	g2 = model.g(glen/2+1:glen);
-	% 	pred_g1 = pred_g(1:glen/2);
-	% 	pred_g2 = pred_g(glen/2+1:glen);
-	% else
-	% 	pred_g = model.H*model.f;
-	% end
+	model.f_initial_list = f_initial_list;
+	model.f_top_list = f_top_list;
+	model.f_bottom_list = f_bottom_list;
 
-	% model.pred_g = pred_g;
+
+	if strcmp(model.datatype, Deconv.DECONV_JOINT)
+		glen = length(model.g);
+		pred_g = model.H*model.f;
+		g1 = model.g(1:glen/2);
+		g2 = model.g(glen/2+1:glen);
+		pred_g1 = pred_g(1:glen/2);
+		pred_g2 = pred_g(glen/2+1:glen);
+	else
+		pred_g = model.H*model.f;
+	end
+
+	model.pred_g = pred_g;
     % model.W1 = W1;
     % model.W2 = W2;
     % model.mean_g = mean_g;
