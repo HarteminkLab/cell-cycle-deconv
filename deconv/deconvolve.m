@@ -44,17 +44,14 @@ function [model] = deconvolve(model)
 	% =============== Testing adding mirror code from deconv.v2 ===============
 
 	%% right mirroring
-	f_b_mirror = [f_b f_b];
-	f_it_mirror = [f_it reverse(f_it)];
+	f_b = f_b;
+	f_it = f_it;
 	factor_fb = 1.5;
 
-	W1 = getWaveletKernel(WAVETYPE, length(f_it_mirror), WAVEPAR);
+	W1 = getWaveletKernel(WAVETYPE, length(f_it), WAVEPAR);
 	W2 = getWaveletKernel(WAVETYPE, length(f_b), WAVEPAR);
-	W2pad = zeros(length(f_b));
-	W2 = [W2 W2pad; W2pad fliplr(W2)];
 
 	f = zeros(Hsize, 1);
-
 
 	cvx_begin
 		cvx_quiet(true);
@@ -63,40 +60,16 @@ function [model] = deconvolve(model)
 
 		minimize(...
 			square_pos(norm(H*f ./ g-1, 2)) ... % fit error
-			+ gamma*(norm(W1*f(f_it_mirror),1) + ...
-			factor_fb*norm(W2*f(f_b_mirror),1))/mean_g ... % smooth error
+			+ gamma*(norm(W1*f(f_it),1) + ...
+			factor_fb*norm(W2*f(f_b),1))/mean_g ... % smooth error
 		);
 
 		subject to
 			f>=0;
 	cvx_end
 
-	f_final(f_it(1:end/2)) = f(f_it(1:end/2));
-	f_b_1 = f(f_b);
-	f_it_1 = f(f_it);
-
-	%% left mirroring
-	f_it_mirror = [reverse(f_it) f_it];
-
-	cvx_begin
-		cvx_quiet(true);
-
-		variable f(Hsize);
-
-		minimize(...
-			square_pos(norm(H*f./g-1, 2)) ... % fit error
-			+ gamma*(norm(W1*f([f_it_mirror]),1) + factor_fb*norm(W2*f([f_b_mirror]),1))/mean_g ... % smooth error
-		);
-
-		subject to
-			f>=0;
-	cvx_end
-
-	f_final(f_it(end/2+1:end)) = f(f_it(end/2+1:end));
-	f_b_2 = f(f_b);
-	f_it_2 = f(f_it);
-
-	f_final(f_b) = (f_b_1+f_b_2)/2;
+	f_final(f_b) = f(f_b);
+	f_final(f_it) = f(f_it);
 
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
 	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
