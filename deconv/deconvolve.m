@@ -21,7 +21,7 @@ function [model] = deconvolve(model)
 	b_intervals = model.intervals.bottomPhaseMapping;
 	b_list = model.intervals.bottomTimepointsList;
 
-	[f_i, f_t, f_b, f_initial_list, f_top_list, f_bottom_list] = createFs(model)
+	[f_i, f_t, f_b, f_initial_list, f_top_list, f_bottom_list] = createFs(model);
 
 	f_it = [f_i f_t];
 

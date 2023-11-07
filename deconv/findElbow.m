@@ -1,4 +1,4 @@
-function[elbow_gamma, flag] = findElbow(model, gammas, fig_flag)
+function[elbow_gamma, flag, gammas, rn, sn] = findElbow(model, gammas, fig_flag)
 
 global DECONV_JOINT;
 global SLIENCE;
