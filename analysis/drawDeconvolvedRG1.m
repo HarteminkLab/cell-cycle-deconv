@@ -170,7 +170,7 @@ function[fig] = drawDeconvolvedRG1(model, plottingdir)
     xticks([]);
     ylabel('Single Cell Profile');
     
-    cc_states = {"RG1", "CG1", "postG1", "DG1"};
+    cc_states = {"RG1", "postG1", "CG1", "postG1", "DG1", "postG1"};
     last = 0;
     for i = 1:length(cc_states)
         cc_state = cc_states{i};

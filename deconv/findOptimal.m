@@ -1,4 +1,4 @@
-function [model] = findOptimal(model, fig_flag)
+function [model, flag, rn, sn, gammas, elbow_gamma] = findOptimal(model, fig_flag)
 
 % model structure
 % model.orfname
@@ -24,9 +24,17 @@ global DECONV_DELTAPOS;
 global DECONV_ALPHAPOS;
 global FROM_FINDOPTIMAL;
 
+global DEFAULT_RN_CUTOFF;
+
 global SLIENCE;
 
-ELBOW_BINS = 20;
+SLIENCE = 0;
+
+if ~SLIENCE
+	disp('findOptimal');
+end
+
+ELBOW_BINS = 10;
 
 SMALL = 5e-5;
 
@@ -37,100 +45,154 @@ if nargin < optarg
 	error('Needs (model, fig_flag) in findOptimal function');
 end
 
+% ======================
+% some settings
+
+DEFAULT_RN_CUTOFF = 10;		% base_rn is too_large
+DEFAULT_GM = 0.004;			% default gamma if base_rn is larger than cutoff
+
 % gamma boundary
-GAMMA_MIN = log10(4e-3);
-GAMMA_MAX = log10(0.2);
+GAMMA_MIN = 0.001;
+GAMMA_MAX = 0.01;
 
 % left boundary
-err_rate_left = 1.06;
-min_err = 0.009;
+rn_rate_left = 1.10;
+left_rn = 0.08;
 
-%err_rate_left = 1.05;
-%min_err = 0.0075;
 
 % right boundary
-err_rate_right = 1.20;
-max_err = 0.03;
+rn_rate_right = 1.40;
+right_rn = 0.32;
 
-%err_rate_right = 1.1;
-%max_err = 0.0150;
+% End of the settings
+% ======================
 
 % find best fit
 model.gm = 0;
 model = deconvolve(model);
-best_err = model.err;
-model.rn0 = best_err;
-
-DEFAULT_CUTOFF = 0.3;
-DEFAULT_GM = 0.005;
-skip = 0;
-
-fprintf("The best error is: %f\n", best_err);
-fprintf("The default cutoff for error is: %f\n", DEFAULT_CUTOFF);
-
-if best_err > DEFAULT_CUTOFF;
-	model.gm = DEFAULT_GM;
-	skip = 1;
-end
-
-SLIENCE = false;
+base_rn = model.rn;
+model.base_rn = base_rn;
 
 if ~SLIENCE
-	disp(sprintf('...Best err_fit = %0.5g', best_err));
+	disp(sprintf('  ... base_rn = %0.4f', base_rn));
 end
 
-if ~skip
-	if model.rn > 1e-5
-		gm_left = GAMMA_MIN;
-		gm_right = GAMMA_MAX;
-
-		if ~SLIENCE
-			disp(sprintf('...Initial search region [%0.5f, %0.5f]', 10^gm_left, 10^gm_right));
-		end
-
-		err_left = min(err_rate_left*best_err, best_err+min_err);
-		leftr = (err_left/best_err-1)*100;
-		if ~SLIENCE
-			disp(sprintf('\n... Search err_left, goal = %0.5f, rate = %0.5f', err_left, leftr));
-		end
-		[model, runs] = binarysearch(model, gm_left, gm_right, err_left);
-		gm_left = log10(model.gm);
-
-		err_right = min(err_rate_right*best_err, best_err+max_err);
-		rightr = (err_right/best_err-1)*100;
-		if ~SLIENCE
-			disp(sprintf('\n...Search err_right, err = %0.5f, rate = %0.1f', err_right, rightr));
-		end
-		[model, runs] = binarysearch(model, gm_left, gm_right, err_right);
-		gm_right = log10(model.gm);
-
-		if ~SLIENCE
-			disp(sprintf('\n...error rate range: [%0.5f, %0.5f]', err_left, err_right));
-			disp(sprintf('...Search gm in [%0.5f %0.5f]', 10^gm_left, 10^gm_right));
-		end
-
-		if (abs(10^gm_right-10^gm_left) < SMALL) % gm_right == gm_left
-			model.gm = (10^gm_right+10^gm_left)/2;
-		else
-			diff = (gm_right-gm_left)/ELBOW_BINS;
-			gamma_array = gm_left:diff:gm_right;
-			[model.elbow] = findElbow(model, 10.^gamma_array, fig_flag);
-			model.gm = model.elbow;
-		end
-	else % if rn is too tiny, use gamma_min 
-		model.elbow = 10^GAMMA_MIN;
-		model.gm = model.elbow;
+flag = 1; % not using the default_gm
+if base_rn >= DEFAULT_RN_CUTOFF
+	model.gm = DEFAULT_GM;
+	flag = 0;
+	if ~SLIENCE % OK
+		disp(sprintf('  ... step1: base_rn is too large, use default %0.4f', model.gm));
 	end
 end
 
-%if ~SLIENCE
-	disp(sprintf('%s: \n...gamma = %0.5f\n', model.orig_orfname,model.gm));
-%end
-[model] = deconvolve(model);
+% left boundary search
+if flag
+	gm_left = GAMMA_MIN;
+	gm_right = GAMMA_MAX;
 
-if fig_flag
-	[model] = plotOptimal_general_branch(model, fig_flag);
+	if ~SLIENCE
+		disp(sprintf('  ... gamma in [%0.4f, %0.4f]', gm_left, gm_right));
+	end
+
+	rn_left = min(rn_rate_left*base_rn, base_rn+left_rn);
+	leftr = (rn_left/base_rn-1)*100;
+	if ~SLIENCE
+		disp(sprintf('  ...  search left, rn_goal = %0.4f, rate = %0.1f', rn_left, leftr));
+	end
+	model.gm = gm_left;
+	[model] = deconvolve(model);
+
+	if model.rn >= DEFAULT_RN_CUTOFF;
+		model.gm = DEFAULT_GM;
+		flag = 0;
+		if ~SLIENCE
+			disp(sprintf('  ... left: base_rn is too large, use default %0.4f', model.gm));
+		end
+	end
 end
+
+if flag
+	bs_flag = 1;
+	if model.rn < rn_left
+		[model, runs, bs_flag] = binarysearch(model, gm_left, gm_right, rn_left);
+	end
+
+	if bs_flag == 0
+		flag = 0;
+		model.gm = DEFAULT_GM;
+		if ~SLIENCE
+			disp(sprintf('  ... left_boundary: base_rn is too large in search, use default %0.4f', model.gm));
+		end
+	else
+		gm_left = model.gm;
+		rn_left = model.rn;
+	end
+end
+
+% right boundary search
+if flag
+	rn_right = max(rn_rate_right*base_rn, base_rn+right_rn);
+	rightr = (rn_right/base_rn-1)*100;
+	if ~SLIENCE
+		disp(sprintf('  ...  search right, rn_goal = %0.4f, rate = %0.1f', rn_right, rightr));
+	end
+	model.gm = gm_right;
+	[model] = deconvolve(model);
+	if model.rn >= DEFAULT_RN_CUTOFF;
+		model.gm = DEFAULT_GM;
+		flag = 0;
+		if ~SLIENCE
+			disp(sprintf('  ... right: base_rn is too large, use default %0.4f', model.gm));
+		end
+	end
+end
+
+if flag
+	bs_flag = 1;
+	if model.rn > rn_right
+		[model, runs, bs_flag] = binarysearch(model, gm_left, gm_right, rn_right);
+	end
+
+	if bs_flag == 0
+		flag = 0;
+		model.gm = DEFAULT_GM;
+		if ~SLIENCE % OK
+			disp(sprintf('  ... right_boundary: base_rn is too large in search, use default %0.4f', model.gm));
+		end
+	else
+		gm_right = model.gm;
+		rn_right = model.rn;
+	end
+end
+
+if flag
+	if ~SLIENCE
+		disp(sprintf('  ... rn range: [%0.4f, %0.4f]', rn_left, rn_right));
+		disp(sprintf('  ... search gamma in [%0.4f %0.4f] for elbow', gm_left, gm_right));
+	end
+
+	bs_flag = 1;
+	if (abs(gm_right-gm_left) < SMALL) % gm_right == gm_left
+		model.gm = (gm_right+gm_left)/2;
+	else
+		step = (gm_right-gm_left)/ELBOW_BINS;
+		gamma_array = gm_left:step:gm_right;
+		[elbow_gamma, flag, gammas, rn, sn] = findElbow(model, gamma_array, fig_flag);
+		model.gm = elbow_gamma;
+	end
+
+	if bs_flag == 0
+		flag = 0;
+		model.gm = DEFAULT_GM;
+		if ~SLIENCE
+			disp(sprintf('  ... findElbow: base_rn is too large or something wrong in search, use default %0.4f', model.gm));
+		end
+	end
+end
+
+disp(sprintf('%s: ... final gamma = %0.5f\n', model.orig_orfname, model.gm));
+[model] = deconvolve(model);
 
 return;
 
@@ -138,11 +200,13 @@ return;
 % ===============================
 % ===============================
 
-function [model, runs] = binarysearch(model, gamma_min, gamma_max, err)
+function [model, runs, flag] = binarysearch(model, gamma_min, gamma_max, rn_goal)
 global SLIENCE;
+global DEFAULT_RN_CUTOFF;
 
-FIT_SMALL = 5e-4;
+RN_SMALL = 2e-4;
 LR_SMALL = 5e-4;
+flag = 1;
 
 left = gamma_min;
 right = gamma_max;
@@ -152,20 +216,26 @@ while right-left > LR_SMALL
 	cur_gamma = (left+right)/2;
 	runs = runs+1;
 	
-	model.gm = 10^cur_gamma;
+	model.gm = cur_gamma;
 	
 	[model] = deconvolve(model);
-	if abs(model.rn-err) <= FIT_SMALL
+
+	if model.rn >= DEFAULT_RN_CUTOFF
+		flag = 0;
+		return;
+	end
+
+	if abs(model.rn-rn_goal) <= RN_SMALL
 		break;
-	elseif model.rn > err
+	elseif model.rn > rn_goal
 		right = cur_gamma;
 	else
 		left = cur_gamma;
 	end
 
-	err_rate = model.rn/model.rn0-1;
+	rn_rate = (model.rn/model.base_rn-1)*100;
 	if ~SLIENCE
-		disp(sprintf('cur_gm = %0.3f, cur_err = %0.3f, err_rate = %0.1f', model.gm, model.rn, err_rate*100));
+		disp(sprintf('  ...   gm = %0.4f, rn = %0.4f, rate = %0.1f', model.gm, model.rn, rn_rate));
 	end
 
 end

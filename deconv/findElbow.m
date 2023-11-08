@@ -108,7 +108,7 @@ if fig_flag
 
 	plot(rn, sn, '--rs', 'LineWidth', 2, 'color', 'g');
 	hold on;
-	plot(rn(pos_left:pos_right), sn(pos_left:pos_right), '--rs', 'LineWidth', 4, 'color', 'r');
+	plot(rn(pos_left:pos_right), sn(pos_left:pos_right), '-rs', 'LineWidth', 4, 'color', 'r');
 	hold on;
 %	plot(rn(slope_left:slope_right), sn(slope_left:slope_right), '--rs', 'LineWidth', 4, 'color', 'b');
 	xlabel('fit error');
