@@ -7,9 +7,9 @@ addpath(genpath('analysis'))
 outdir = 'output/';
 plottingdir = 'output/plotting';
 
-config = DeconvolutionConfig.yl2_replicate2_rg1_gene_expression_config();
+config = DeconvolutionConfig.xg_gene_expression_config();
 
-model = Model(config, 'CLB2', 0.002);
+model = Model(config, 'CLB2', 0.0037);
 model = deconvolve(model);
 
 drawDeconvolvedRG1(model, plottingdir);
