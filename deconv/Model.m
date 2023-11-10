@@ -1,28 +1,29 @@
-
-classdef Model
+    classdef Model
 	% A model class to deconvolve gene expression data from CLOCCS cell cycle
 	% parameters
 
 	properties
 		% Define the properties of the class
 		genename, modeltype
-		orig_orfname
+		alpha, orig_orfname
 		orfname
 		orfid
 		datatype
 		modelprefix
-		% residual norm measures the accuracy of the fit
-		% solution norm measures the weighting of the smoothing wavelet portion of the solution
-		base_rn, rn, sn
-		g, g1, g2, timepoints
-		timepoints1, timepoints2
+		g, timepoints
+        rn, sn % The residual and smoothing norms
+        base_rn % For finding the optimal gamma value
 		intervals
 		H, Hsegments, Hpos,
 		gm, f, pred_g
-		pred_g1, pred_g2
 		f_initial, f_top, f_bottom
 		f_initial_list, f_top_list, f_bottom_list
-		massesTime
+
+        % Let's store some of the deconvolution data objects for debuggin
+        W1, W2, mean_g, f_padded,
+
+        % For finding optimal gamma
+        err, rn0, sn_nogamma
 	end
 
 	methods
@@ -31,24 +32,17 @@ classdef Model
 
 			model.gm = gamma;
 			model.genename = genename;
-			model.modelprefix = '1.1.1';
-			model.modeltype = 'CDG1';
-
-			outdir = 'output/';
-
-			orfname = gene_to_orfname(genename, Deconv.NAME_MAPPING);
+			orfname = gene_to_orfname(genename);
 
 			% deal with orfname and datatype
 			orig_orfname = orfname;
-			[orfname, orfid] = map2SystemNames(orig_orfname);
+			[orfname, orfid] = map2SystemNames(orfname);
 
 			model.orig_orfname = orig_orfname;
 			model.orfname = orfname;
 			model.genename = genename;
 			model.orfid = orfid;
 			model.datatype = Deconv.DECONV_JOINT;
-
-			modelprefix = model.modelprefix;
 
 			dataset1 = load(Deconv.DATA_WT1, 'ascii');
 			dataset2 = load(Deconv.DATA_WT2, 'ascii');
@@ -58,25 +52,28 @@ classdef Model
 			model.g = [g1' g2'];
 			model.H = [];
 
+            % Error handling for when a gene isn't loaded properly
+            if (size(model.g, 1) == 0) 
+                error("g should have at least 1 row. Check that g was loaded correctly for the given gene.")
+            end
+			
 			% calculate H for WT1
-			model.intervals = ModelIntervals(Deconv.MODEL_WT1, model);
+			modelpath1 = Deconv.MODEL_WT1;
+
+			model.intervals = ModelIntervals(modelpath1, model);
 			model.timepoints = Deconv.WT1_TP;
 			[H1, Hsegments, Hpos] = calcH(model);
 			model.Hsegments = Hsegments;
 			model.Hpos = Hpos;
 
 			% calculate H for WT2 and combine into a joint H
-			model.intervals = ModelIntervals(Deconv.MODEL_WT2, model);
+			modelpath2 = Deconv.MODEL_WT2;
+			model.intervals = ModelIntervals(modelpath2, model);
 			model.timepoints = Deconv.WT2_TP;
 			[H2, Hsegments, Hpos] = calcH(model);
 
 			% Merge the H kernels
-			model.timepoints = [Deconv.WT1_TP Deconv.WT2_TP];
-			model.timepoints1 = Deconv.WT1_TP;
-			model.timepoints2 = Deconv.WT2_TP;
-			model.g1 = g1;
-			model.g2 = g2;
-
+			model.timepoints = [Deconv.WT1_TP' Deconv.WT2_TP']';
 			model.H = [H1' H2']';
 		end
 	 end

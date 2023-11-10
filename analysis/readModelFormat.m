@@ -1,22 +1,18 @@
-function [lengths, relations, hList, iList, tList, bList, h_intervals, i_intervals, t_intervals, b_intervals] = readModelFormat(modelfile, model)
+function [lengths, relations, iList, tList, bList, i_intervals, t_intervals, b_intervals] = readModelFormat(modelfile, model)
 
-	lengths = zeros(1, 7);
+	lengths = zeros(1,6);
 
 	if exist(modelfile, 'file') == 0
-		disp(sprintf('The model file %s does not exist. Exiting...', modelfile));
-		return;
+		error('The model file %s does not exist');
 	end
 
 	% headers
 	LENGTHS = '# lengths';
 	DESCRIPTION = '# description';
-	H = '# h';
 	I = '# i';
 	T = '# t';
 	B = '# b';
 
-	hList_idx = 1;
-	hList = {};
 	iList_idx = 1;
 	iList = {};
 	tList_idx = 1;
@@ -29,7 +25,6 @@ function [lengths, relations, hList, iList, tList, bList, h_intervals, i_interva
 
 	fid = fopen(modelfile);
 	while 1
-
 		tline = fgetl(fid);
 
 		if ~ischar(tline)
@@ -44,8 +39,6 @@ function [lengths, relations, hList, iList, tList, bList, h_intervals, i_interva
 			parseFlag = 4;
 		elseif strcmp(tline, B)
 			parseFlag = 5;
-		elseif strcmp(tline, H)
-			parseFlag = 6;
 		% lengths
 		elseif parseFlag == 1 
 			[flag, value, pos] = parseLengths(tline);
@@ -74,11 +67,6 @@ function [lengths, relations, hList, iList, tList, bList, h_intervals, i_interva
 			interval = parseIntervals(tline);
 			bList{bList_idx} = interval;
 			bList_idx = bList_idx+1;
-		% interval h
-		elseif parseFlag == 6
-			interval = parseIntervals(tline);
-			hList{bList_idx} = interval;
-			hList_idx = hList_idx+1;
 		elseif parseFlag == -1
 			disp(sprintf('Error in line %s ... exiting', tline));
 			flag = 0;
@@ -87,7 +75,6 @@ function [lengths, relations, hList, iList, tList, bList, h_intervals, i_interva
 	end
 	fclose(fid);
 
-	h_intervals = {};
 	i_intervals = {};
 	t_intervals = {};
 	b_intervals = {};
@@ -105,8 +92,6 @@ function [lengths, relations, hList, iList, tList, bList, h_intervals, i_interva
 				t_intervals{num} = {notation, i};
 			elseif label == 'b'
 				b_intervals{num} = {notation, i};
-			elseif label == 'h'
-				h_intervals{num} = {notation, i};
 			end
 		end
 	end
@@ -145,10 +130,6 @@ function [flag, value, pos] = parseLengths(tline)
 		flag = 1;
 	elseif strcmp(segments{1}, 'beta')
 		pos = Deconv.DECONV_BETAPOS;
-		value = str2num(segments{2});
-		flag = 1;
-	elseif strcmp(segments{1}, 'halted')
-		pos = Deconv.DECONV_HALTEDPOS;
 		value = str2num(segments{2});
 		flag = 1;
 	else

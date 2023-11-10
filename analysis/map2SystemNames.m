@@ -13,8 +13,8 @@ if exist('flag', 'var') && flag == 2
 	end
 end
 
-[names, sysnames] = textread(strcat(Deconv.DECONV_DATASET, 'map2sys2.txt'), '%s\t%s');
-[stand_sys2pos] = textread(strcat(Deconv.DECONV_DATASET, 'gene.lst'), '%s');
+[names, sysnames] = textread(Deconv.GENEMAPPING_PATH, '%s\t%s');
+[stand_sys2pos] = textread(Deconv.GENESET_PATH, '%s');
 
 syslist = {};
 sysids = {};
@@ -55,5 +55,6 @@ else
 		sysids = std_pos;
 	end
 end
+
 
 return;

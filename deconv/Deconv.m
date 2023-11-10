@@ -1,3 +1,5 @@
+% Configuration for Yulong 2018 Replicate 2 Dataset (TODO: Currently duplicating replicate 2 for WT1 and WT2)
+
 classdef Deconv
 	properties (Constant)
 		DECONV_MU0POS = 1;
@@ -7,43 +9,27 @@ classdef Deconv
 		DECONV_SIGMAVPOS = 5;
 		DECONV_ALPHAPOS = 6;
 		DECONV_BETAPOS = 7;
-		DECONV_HALTEDPOS = 7;
 
 		DECONV_WAVELET = 1;
 		DECONV_DIFF = 2;
 
 		DECONV_KERNEL = Deconv.DECONV_WAVELET;
+		DECONV_DATASET = 'datasets/yl_cell_cycle/';
 
 		DECONV_WT1 = 'WT1';
 		DECONV_WT2 = 'WT2';
 		DECONV_JOINT = 'JOINT';
 
-		% ===========================  YL  ==========================================
+		DATA_WT1 = strcat(Deconv.DECONV_DATASET, 'replicate2_gene_expression.txt');
+		DATA_WT2 = strcat(Deconv.DECONV_DATASET, 'replicate2_gene_expression.txt');
+		
+		GENESET_PATH = strcat(Deconv.DECONV_DATASET, 'genes.lst');
+		GENEMAPPING_PATH = 'datasets/yl_cell_cycle/gene_to_orf_name_mapping.txt';
 
-		MODEL_WT1 = 'models/yl_cell_cycle/wt1.label';
-		MODEL_WT2 = 'models/yl_cell_cycle/wt2.label';
-
-		DECONV_DATASET = 'datasets/yl_cell_cycle/';
-		NAME_MAPPING = 'datasets/yl_cell_cycle/map2sys2.txt';
-
-		DATA_WT1 = strcat(Deconv.DECONV_DATASET, 'wt1.txt');
-		DATA_WT2 = strcat(Deconv.DECONV_DATASET, 'wt2.txt');
-
-		WT1_TP = [0	20	30	40	50	60	70	80	90	100	110	120	130	140	150];
+		WT1_TP = [0	10	20	30	40	50	60	70	80	90	100	120	130	140];
 		WT2_TP = [0	10	20	30	40	50	60	70	80	90	100	120	130	140];
-
-		% ======================    Original    ========================================
-
-		% MODEL_WT1 = 'models/original_budflow/wt1_budflow/1.1.1.26.label';
-		% MODEL_WT2 = 'models/original_budflow/wt2_budflow/1.1.1.27.label';
-
-		% DECONV_DATASET = 'datasets/original_budflow/';
-		% NAME_MAPPING = 'datasets/original_budflow/map2sys2.txt';
-
-		% DATA_WT1 = strcat(Deconv.DECONV_DATASET, 'wt1.txt');
-		% DATA_WT2 = strcat(Deconv.DECONV_DATASET, 'wt2.txt');
-
-		% WT1_TP = 30:16:254;
-		% WT2_TP = 38:16:262;
+		
+		MODEL_WT1 = 'models/yl_cell_cycle/wt2_rg1.label';
+        MODEL_WT2 = 'models/yl_cell_cycle/wt2_rg1.label';
 	end
 end

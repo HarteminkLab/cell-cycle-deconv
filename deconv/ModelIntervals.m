@@ -28,13 +28,13 @@ classdef ModelIntervals
 		%
 		% 	e.g. initial: {-101.9, -101.05, ...} {-27, 26, ...} {13.53, ...}
 		%
-		haltedTimepointsList, initialTimepointsList, topTimepointsList, bottomTimepointsList
+		initialTimepointsList, topTimepointsList, bottomTimepointsList
 
 		% These intervals define which of the cell-cycle phases 
 		%
 		% 	e.g. initial: {R 1} {CG1 2} {postG1 4}
 		%
- 		haltedPhaseMapping, initialPhaseMapping, topPhaseMapping, bottomPhaseMapping
+ 		initialPhaseMapping, topPhaseMapping, bottomPhaseMapping
 	end
 
 	properties (Access = private)
@@ -43,24 +43,23 @@ classdef ModelIntervals
 
 	methods
 		function intervals = ModelIntervals(modelpath, model)
-			[parameters, relations, haltedTimepointsList, initialTimepointsList, ...
-			 topTimepointsList, bottomTimepointsList, haltedPhaseMapping, initialPhaseMapping, ...
-			 topPhaseMapping, bottomPhaseMapping] = readModelFormat(modelpath, model);
+
+			[parameters, relations, initialTimepointsList, ...
+			 topTimepointsList, bottomTimepointsList, ...
+             initialPhaseMapping, topPhaseMapping, bottomPhaseMapping] = readModelFormat(modelpath, model);
 
 			intervals.parameters = parameters;
 			intervals.relations = relations;
-			intervals.haltedTimepointsList = haltedTimepointsList;
 			intervals.initialTimepointsList = initialTimepointsList;
 			intervals.topTimepointsList = topTimepointsList;
 			intervals.bottomTimepointsList = bottomTimepointsList;
-			intervals.haltedPhaseMapping = haltedPhaseMapping;
 			intervals.initialPhaseMapping = initialPhaseMapping;
 			intervals.topPhaseMapping = topPhaseMapping;
 			intervals.bottomPhaseMapping = bottomPhaseMapping;
 		end
 
 		function parameters = getCellCycleParameters(model)
-			% The CLOCCS cell cycle parameters: mu0, lambda, delta, alpha, sigma0, sigmav, halted
+			% The CLOCCS cell cycle parameters: mu0, lambda, delta, alpha, sigma0, sigmav
 			parameters = model.parameters;
 		end
 	 end

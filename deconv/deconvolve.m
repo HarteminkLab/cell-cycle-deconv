@@ -3,82 +3,184 @@ function [model] = deconvolve(model)
 	WAVETYPE = "Symmlet";
 	WAVEPAR = 5;
 
-	g = model.g;
+	g = model.g';
+
 	mean_g = mean(g);
 	H = model.H;
 	gamma = model.gm;
 	Hsize = size(H, 2);
 
-	% Create the fs that we will want to enforce smoothing against
-	% they will need to be padded if necessary to be a power of two
-	% if so, we will use the end of the H matrix as padding
-	[f_initial, f_top, f_bottom, ...
-	 f_initial_list, f_top_list, f_bottom_list, ...
-	 padding] = createFs(model);
+	f_it = [];
+	f_i = [];
+	i_intervals = model.intervals.initialPhaseMapping;
+	i_list = model.intervals.initialTimepointsList;
 
-	% Construct the Wavelets
-	W1 = getWaveletKernel(WAVETYPE, length(f_initial), WAVEPAR);
-	W2 = getWaveletKernel(WAVETYPE, length(f_bottom), WAVEPAR);
+	t_intervals = model.intervals.topPhaseMapping;
+	t_list = model.intervals.topTimepointsList;
 
-	% Scale weighting between W2 and W1 smoothness
-	% Time in R, G1, postG1 is roughly 1.5 times as long as DG1 + postG1 (in the original data set)
-	% Trying 1.0 in the Yulong Cell Cycle Dataset as R is much shorter
-	w = 1.15;
+	b_intervals = model.intervals.bottomPhaseMapping;
+	b_list = model.intervals.bottomTimepointsList;
+
+	[f_i, f_t, f_b, f_initial_list, f_top_list, f_bottom_list] = createFs(model);
+
+	f_it = [f_i f_t];
+
+	f_final = zeros(Hsize,1);
+
+	% =============== From deconv.v2 ===============
+
+	% f_b = f_b;
+	% f_it = f_it;
+	% factor_fb = 2.;
+
+	% W1 = getWaveletKernel(WAVETYPE, length(f_it), WAVEPAR);
+	% W2 = getWaveletKernel(WAVETYPE, length(f_b), WAVEPAR);
+
+	% cvx_begin
+	% 	cvx_quiet(true);
+
+	% 	variable f(Hsize);
+
+	% 	minimize(...
+	% 		square_pos(norm(H*f ./ g-1, 2)) ... % fit error
+	% 		+ gamma*(norm(W1*f(f_it),1) + ...
+	% 		factor_fb*norm(W2*f(f_b),1))/mean_g ... % smooth error
+	% 	);
+
+	% 	subject to
+	% 		f>=0;
+	% cvx_end
+
+	% f_final(f_b) = f(f_b);
+	% f_final(f_it) = f(f_it);
+
+
+	Hsize = size(H, 2);
+
+	f_it = [];
+	% f_i
+	for i = 1:length(i_intervals)
+		idx = i_intervals{i}{2};
+		se = model.Hpos{idx};
+		f_it = [f_it se(1):1:se(2)];
+%		disp(sprintf('I: %d %d', se(1), se(2)));
+	end
+	% f_t
+	for i = 1:length(t_intervals)
+		idx = t_intervals{i}{2};
+		se = model.Hpos{idx};
+		f_it = [f_it se(1):1:se(2)];
+%		disp(sprintf('T: %d %d', se(1), se(2)));
+	end
+
+	f_b = [];
+	% f_b
+	for i = 1:length(b_intervals)
+		idx = b_intervals{i}{2};
+		se = model.Hpos{idx};
+		f_b = [f_b se(1):1:se(2)];
+%		disp(sprintf('B: %d %d', se(1), se(2)));
+	end
+
+	f_final = zeros(Hsize,1);
+
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	%% right mirroring
+	f_b_mirror = [f_b f_b];
+	f_it_mirror = [f_it reverse(f_it)];
+	factor_fb = 1.5;
+
+	W1 = getWaveletKernel(WAVETYPE, length(f_it_mirror), WAVEPAR);
+	W2 = getWaveletKernel(WAVETYPE, length(f_b), WAVEPAR);
+	W2pad = zeros(length(f_b));
+	W2 = [W2 W2pad; W2pad fliplr(W2)];
 
 	cvx_begin
 		cvx_quiet(true);
 
-		% The f variable is the width of H with any additional padding
-		% needed so that the smoothing wavelet function operates on a power of 2
-		variable f(Hsize+padding);
+		variable f(Hsize);
 
-		% The fit error, get the relevant indices of f
-		% Skipping the first padding indices and removing the last padding indices
 		minimize(...
-			square_pos(norm(H*f(1:Hsize)./g'-1, 2)) ... % residual norm: the fit error
-			+ gamma*(norm(W1*f(f_initial), 1) + ...     % W1, solution norm: a measure of 
-					 w*norm(W2*f(f_bottom), 1) ...      % W2, the smoothness/complexity of the solution
-					 )/mean_g ...
+			square_pos(norm(H*f./g-1, 2)) ... % fit error
+			+ gamma*(norm(W1*f(f_it_mirror),1) + factor_fb*norm(W2*f(f_b_mirror),1))/mean_g ... % smooth error
 		);
 
 		subject to
 			f>=0;
 	cvx_end
 
-	f_final = f(1:end-padding);
-	model.f = f_final;
-	model.f_initial = f_initial;
-	model.f_top = f_top;
-	model.f_bottom = f_bottom;
+	f_final(f_it(1:end/2)) = f(f_it(1:end/2));
+	f_b_1 = f(f_b);
+	f_it_1 = f(f_it);
+
+	%% left mirroring
+	f_it_mirror = [reverse(f_it) f_it];
+
+	cvx_begin
+		cvx_quiet(true);
+
+		variable f(Hsize);
+
+		minimize(...
+			square_pos(norm(H*f./g-1, 2)) ... % fit error
+			+ gamma*(norm(W1*f([f_it_mirror]),1) + factor_fb*norm(W2*f([f_b_mirror]),1))/mean_g ... % smooth error
+		);
+
+		subject to
+			f>=0;
+	cvx_end
+
+	f_final(f_it(end/2+1:end)) = f(f_it(end/2+1:end));
+	f_b_2 = f(f_b);
+	f_it_2 = f(f_it);
+
+	f_final(f_b) = (f_b_1+f_b_2)/2;
+
+
+	f = f_final;
+
+	W1 = getWaveletKernel(WAVETYPE, length(f_it), WAVEPAR);
+	W2 = getWaveletKernel(WAVETYPE, length(f_b), WAVEPAR);
+	sn = ( norm(W1*f([f_it]),1) + norm(W2*f([f_b]),1) )/mean_g;
+	rn = square_pos(norm(H*f./g-1, 2));
+
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+	% f = f_final;
+
+	% sn = ( norm(W1*f([f_it]),1) + norm(W2*f([f_b]),1) )/mean_g;
+	% rn = square_pos(norm(H*f./g-1, 2));
+
+	pred_g = H*f;
+
+	model.f = f;
+	model.sn = sn;
+	model.rn = rn;
+
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+	%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
+
+	model.f_initial = f_i;
+	model.f_top = f_t;
+	model.f_bottom = f_b;
+
 	model.f_initial_list = f_initial_list;
 	model.f_top_list = f_top_list;
 	model.f_bottom_list = f_bottom_list;
 
-	g_avg = mean(model.g);
-
 	if strcmp(model.datatype, Deconv.DECONV_JOINT)
 		glen = length(model.g);
 		pred_g = model.H*model.f;
-		spl_idx = size(model.timepoints1, 2);
-		pred_g1 = pred_g(1:spl_idx);
-		pred_g2 = pred_g(spl_idx+1:end);
-		model.pred_g1 = pred_g1;
-		model.pred_g2 = pred_g2;
+		g1 = model.g(1:glen/2);
+		g2 = model.g(glen/2+1:glen);
+		pred_g1 = pred_g(1:glen/2);
+		pred_g2 = pred_g(glen/2+1:glen);
 	else
 		pred_g = model.H*model.f;
 	end
 
 	model.pred_g = pred_g;
-
-	rn = square_pos(norm(H*f_final./g'-1, 2));
-
-	% Compute the solution norm
-	% The worry is that f_initial and f_bottom may be indexing the padded f vector not the
-	% solution f vector
-	sn = (norm(W1*f([f_initial]), 1) + ...
-		  norm(W2*f([f_bottom]), 1))/mean_g;
-
-	model.rn = rn;
-	model.sn = sn;
 
 end
