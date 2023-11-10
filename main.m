@@ -8,13 +8,14 @@ function [] = main()
 
     % Deconvolve 1 gene so we can get the dimensions of f and g easily, rather 
     % than digging through the parsing code of the model file
-    model = Model('CLB2', 0.004);
+    config = DeconvolutionConfig.xg_gene_expression_config();
+    model = Model(config, 'CLB2', 0.004);
     model = deconvolve(model);
 
     writematrix(model.H, strcat(outdir, '/H.csv'));
 
     % Start deconvolve of all genes
-    [stand_sys2pos] = textread(Deconv.GENESET_PATH, '%s');
+    [stand_sys2pos] = textread(config.GENESET_PATH, '%s');
     
     numgenes = size(stand_sys2pos, 1);
     num_f = size(model.f, 1);
@@ -40,8 +41,6 @@ function [] = main()
             elapsedTime/60.);
     
         try
-            config = DeconvolutionConfig.xg_gene_expression_config();
-
             model = Model(config, orf_name, gamma_val);
 
             [model, flag, rn, sn, gammas, elbow_gamma] = findOptimal(model, true);
