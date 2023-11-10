@@ -1,4 +1,4 @@
-function [syslist, sysids, namelist] = map2SystemNames(namelist, flag)
+function [syslist, sysids, namelist] = map2SystemNames(config, namelist, flag)
 
 % flag = 1 or undefined:
 %		namelist in a cellstr, or a string for one gene
@@ -13,8 +13,8 @@ if exist('flag', 'var') && flag == 2
 	end
 end
 
-[names, sysnames] = textread(Deconv.GENEMAPPING_PATH, '%s\t%s');
-[stand_sys2pos] = textread(Deconv.GENESET_PATH, '%s');
+[names, sysnames] = textread(config.GENEMAPPING_PATH, '%s\t%s');
+[stand_sys2pos] = textread(config.GENESET_PATH, '%s');
 
 syslist = {};
 sysids = {};

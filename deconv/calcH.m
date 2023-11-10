@@ -1,14 +1,14 @@
-function [H, Hsegments, Hpos] = calcH(model)
+function [H, Hsegments, Hpos] = calcH(config, model)
 
 	intervals = model.intervals;
 	parameters = intervals.getCellCycleParameters();
 
-	mu0 = parameters(Deconv.DECONV_MU0POS);
-	lambda = parameters(Deconv.DECONV_LAMBDAPOS);
-	delta = parameters(Deconv.DECONV_DELTAPOS);
-	alpha = parameters(Deconv.DECONV_ALPHAPOS);
-	sigma0 = parameters(Deconv.DECONV_SIGMA0POS);
-	sigmav = parameters(Deconv.DECONV_SIGMAVPOS);
+	mu0 = parameters(config.DECONV_MU0POS);
+	lambda = parameters(config.DECONV_LAMBDAPOS);
+	delta = parameters(config.DECONV_DELTAPOS);
+	alpha = parameters(config.DECONV_ALPHAPOS);
+	sigma0 = parameters(config.DECONV_SIGMA0POS);
+	sigmav = parameters(config.DECONV_SIGMAVPOS);
 
 	max_cellcycles = 10;
 	max_R = 10;

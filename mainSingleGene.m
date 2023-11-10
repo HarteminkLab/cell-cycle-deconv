@@ -7,7 +7,9 @@ addpath(genpath('analysis'))
 outdir = 'output/';
 plottingdir = 'output/plotting';
 
-model = Model('CLB2', 0.002);
+config = DeconvolutionConfig.yl2_replicate2_rg1_gene_expression_config();
+
+model = Model(config, 'CLB2', 0.002);
 model = deconvolve(model);
 
 drawDeconvolvedRG1(model, plottingdir);
@@ -18,7 +20,8 @@ drawDeconvolvedRG1(model, plottingdir);
 
 figure;
 
-titlename = sprintf('fit vs smooth (%s, alpha=%d, %s, gamma elbow = %0.5g)', model.orfname, model.alpha, model.datatype, elbow_gamma);
+titlename = sprintf('fit vs smooth (%s, alpha=%d, %s, gamma elbow = %0.5g)', ...
+    model.orfname, model.alpha, model.datatype, elbow_gamma);
 
 title(titlename);
 

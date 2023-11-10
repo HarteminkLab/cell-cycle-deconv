@@ -24,28 +24,33 @@
 
         % For finding optimal gamma
         err, rn0, sn_nogamma
+
+        % A struct containing configuration parameters like the path
+        % to data and model files
+        config,
 	end
 
 	methods
 
-		function model = Model(genename, gamma)
+        function model = Model(config, genename, gamma)
 
+            model.config = config;
 			model.gm = gamma;
 			model.genename = genename;
-			orfname = gene_to_orfname(genename);
+			orfname = gene_to_orfname(config, genename);
 
 			% deal with orfname and datatype
 			orig_orfname = orfname;
-			[orfname, orfid] = map2SystemNames(orfname);
+			[orfname, orfid] = map2SystemNames(config, orfname);
 
 			model.orig_orfname = orig_orfname;
 			model.orfname = orfname;
 			model.genename = genename;
 			model.orfid = orfid;
-			model.datatype = Deconv.DECONV_JOINT;
+			model.datatype = config.DECONV_JOINT;
 
-			dataset1 = load(Deconv.DATA_WT1, 'ascii');
-			dataset2 = load(Deconv.DATA_WT2, 'ascii');
+			dataset1 = load(config.DATA_WT1, 'ascii');
+			dataset2 = load(config.DATA_WT2, 'ascii');
 
 			g1 = dataset1(orfid,:)';
 			g2 = dataset2(orfid,:)';
@@ -58,22 +63,22 @@
             end
 			
 			% calculate H for WT1
-			modelpath1 = Deconv.MODEL_WT1;
+			modelpath1 = config.MODEL_WT1;
 
-			model.intervals = ModelIntervals(modelpath1, model);
-			model.timepoints = Deconv.WT1_TP;
-			[H1, Hsegments, Hpos] = calcH(model);
+			model.intervals = ModelIntervals(config, modelpath1, model);
+			model.timepoints = config.WT1_TP;
+			[H1, Hsegments, Hpos] = calcH(config, model);
 			model.Hsegments = Hsegments;
 			model.Hpos = Hpos;
 
 			% calculate H for WT2 and combine into a joint H
-			modelpath2 = Deconv.MODEL_WT2;
-			model.intervals = ModelIntervals(modelpath2, model);
-			model.timepoints = Deconv.WT2_TP;
-			[H2, Hsegments, Hpos] = calcH(model);
+			modelpath2 = config.MODEL_WT2;
+			model.intervals = ModelIntervals(config, modelpath2, model);
+			model.timepoints = config.WT2_TP;
+			[H2, Hsegments, Hpos] = calcH(config, model);
 
 			% Merge the H kernels
-			model.timepoints = [Deconv.WT1_TP' Deconv.WT2_TP']';
+			model.timepoints = [config.WT1_TP' config.WT2_TP']';
 			model.H = [H1' H2']';
 		end
 	 end

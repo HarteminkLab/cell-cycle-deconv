@@ -1,7 +1,7 @@
-function [orfname] = gene_to_orfname(genename)
+function [orfname] = gene_to_orfname(config, genename)
 
 
-mappingfile = Deconv.GENEMAPPING_PATH;
+mappingfile = config.GENEMAPPING_PATH;
 
 [names, sysnames] = textread(mappingfile, '%s\t%s');
 names = string(names);

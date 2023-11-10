@@ -1,4 +1,4 @@
-function [lengths, relations, iList, tList, bList, i_intervals, t_intervals, b_intervals] = readModelFormat(modelfile, model)
+function [lengths, relations, iList, tList, bList, i_intervals, t_intervals, b_intervals] = readModelFormat(config, modelfile, model)
 
 	lengths = zeros(1,6);
 
@@ -41,7 +41,7 @@ function [lengths, relations, iList, tList, bList, i_intervals, t_intervals, b_i
 			parseFlag = 5;
 		% lengths
 		elseif parseFlag == 1 
-			[flag, value, pos] = parseLengths(tline);
+			[flag, value, pos] = parseLengths(config, tline);
 			if flag == 0
 				return;
 			else
@@ -101,35 +101,35 @@ return;
 % ----------------------------------------
 % ----------------------------------------
 
-function [flag, value, pos] = parseLengths(tline)
+function [flag, value, pos] = parseLengths(config, tline)
 
 	segments = strsplit(tline, ' ');
 	if strcmp(segments{1}, 'mu0')
-		pos = Deconv.DECONV_MU0POS;
+		pos = config.DECONV_MU0POS;
 		value = str2num(segments{2});
 		flag = 1;
 	elseif strcmp(segments{1}, 'lambda')
-		pos = Deconv.DECONV_LAMBDAPOS;
+		pos = config.DECONV_LAMBDAPOS;
 		value = str2num(segments{2});
 		flag = 1;
 	elseif strcmp(segments{1}, 'delta')
-		pos = Deconv.DECONV_DELTAPOS;
+		pos = config.DECONV_DELTAPOS;
 		value = str2num(segments{2});
 		flag = 1;
 	elseif strcmp(segments{1}, 'alpha')
-		pos = Deconv.DECONV_ALPHAPOS;
+		pos = config.DECONV_ALPHAPOS;
 		value = str2num(segments{2});
 		flag = 1;
 	elseif strcmp(segments{1}, 'sigma0')
-		pos = Deconv.DECONV_SIGMA0POS;
+		pos = config.DECONV_SIGMA0POS;
 		value = str2num(segments{2});
 		flag = 1;
 	elseif strcmp(segments{1}, 'sigmav')
-		pos = Deconv.DECONV_SIGMAVPOS;
+		pos = config.DECONV_SIGMAVPOS;
 		value = str2num(segments{2});
 		flag = 1;
 	elseif strcmp(segments{1}, 'beta')
-		pos = Deconv.DECONV_BETAPOS;
+		pos = config.DECONV_BETAPOS;
 		value = str2num(segments{2});
 		flag = 1;
 	else

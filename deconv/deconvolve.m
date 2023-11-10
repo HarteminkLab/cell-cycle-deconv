@@ -170,7 +170,7 @@ function [model] = deconvolve(model)
 	model.f_top_list = f_top_list;
 	model.f_bottom_list = f_bottom_list;
 
-	if strcmp(model.datatype, Deconv.DECONV_JOINT)
+	if strcmp(model.datatype, model.config.DECONV_JOINT)
 		glen = length(model.g);
 		pred_g = model.H*model.f;
 		g1 = model.g(1:glen/2);

@@ -42,11 +42,11 @@ classdef ModelIntervals
 	end
 
 	methods
-		function intervals = ModelIntervals(modelpath, model)
+		function intervals = ModelIntervals(config, modelpath, model)
 
 			[parameters, relations, initialTimepointsList, ...
 			 topTimepointsList, bottomTimepointsList, ...
-             initialPhaseMapping, topPhaseMapping, bottomPhaseMapping] = readModelFormat(modelpath, model);
+             initialPhaseMapping, topPhaseMapping, bottomPhaseMapping] = readModelFormat(config, modelpath, model);
 
 			intervals.parameters = parameters;
 			intervals.relations = relations;
