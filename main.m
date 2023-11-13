@@ -20,7 +20,7 @@ function [] = main()
     numgenes = size(stand_sys2pos, 1);
     num_f = size(model.f, 1);
     all_genes_f = zeros(numgenes, num_f);
-    all_genes_gammas = zeros(num_f);
+    all_genes_gammas = zeros(num_f, 1);
     
     num_g = size(model.g, 2);
     all_genes_g = zeros(numgenes, num_g);
@@ -43,7 +43,7 @@ function [] = main()
         try
             model = Model(config, orf_name, gamma_val);
 
-            [model, flag, rn, sn, gammas, elbow_gamma] = findOptimal(model, true);
+            [model, flag, rn, sn, gammas, elbow_gamma] = findOptimal(model, false);
 
             all_genes_gammas(index) = elbow_gamma;
 
@@ -66,7 +66,7 @@ function [] = main()
         elapsedTime = toc;
     
         % Periodically save the output filescomcomc
-        if mod(index, 10) == 0
+        if index == 1 || mod(index, 10) == 0
             writedata(outdir, all_genes_f, all_genes_g, all_genes_gammas, ...
                 stand_sys2pos);
         end
@@ -82,6 +82,6 @@ function[] = writedata(outdir, all_genes_f, all_genes_g, all_genes_gammas, stand
     writematrix(all_genes_f, strcat(outdir, "/all_genes_f.csv"));
     writematrix(all_genes_g, strcat(outdir, "/all_genes_g.csv"));
     writecell(stand_sys2pos', strcat(outdir, "/all_genes.csv"));
-    writecell(all_genes_gammas', strcat(outdir, "/all_gammas.csv"));
+    writematrix(all_genes_gammas', strcat(outdir, "/all_gammas.csv"));
 
 end

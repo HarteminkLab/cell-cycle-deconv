@@ -9,32 +9,68 @@ plottingdir = 'output/plotting';
 
 config = DeconvolutionConfig.xg_gene_expression_config();
 
-model = Model(config, 'CLB2', 0.0037);
+model = Model(config, 'CLN2', 0.00429);
 model = deconvolve(model);
 
-drawDeconvolvedRG1(model, plottingdir);
+drawDeconvolved(model, plottingdir);
 
 % --------------- Find optimal gamma through elbow method ------------
 
-[model, flag, rn, sn, gammas, elbow_gamma] = findOptimal(model, true);
+plot_figure = false;
 
-figure;
+[model, flag, rn, sn, gammas, elbow_gamma] = findOptimal(model, plot_figure);
 
-titlename = sprintf('fit vs smooth (%s, alpha=%d, %s, gamma elbow = %0.5g)', ...
-    model.orfname, model.alpha, model.datatype, elbow_gamma);
+if plot_figure
+    figure;
 
-title(titlename);
-
-plot(rn, sn, '--rs', 'LineWidth', 2, 'color', 'g');
-hold on;
-scatter(model.rn, model.sn, 100, 'r', 'filled');
-hold on;
-
-xlabel('fit error');
-ylabel('smooth error');
-axis square;
+    titlename = sprintf('fit vs smooth (%s, alpha=%d, %s, gamma elbow = %0.5g)', ...
+        model.orfname, model.alpha, model.datatype, elbow_gamma);
+    
+    title(titlename);
+    
+    plot(rn, sn, '--rs', 'LineWidth', 2, 'color', 'g');
+    hold on;
+    scatter(model.rn, model.sn, 100, 'r', 'filled');
+    hold on;
+    
+    xlabel('fit error');
+    ylabel('smooth error');
+    axis square;
+end
 
 % ------------- Curvature --------------
+
+
+% The published peak-to-trough ratios (PTR) for gene: YPL256C / CLN2
+% 
+%       Original PTR:            2.294
+%       Deconvolved PTR:         4808.477
+%
+
+f_top_values = model.f(model.f_top);
+f_bottom_values = model.f(model.f_bottom);
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
 
 
 
