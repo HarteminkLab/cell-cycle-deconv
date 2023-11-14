@@ -16,10 +16,21 @@
 	g1 = dataset1(orfid, :)';
 	g2 = dataset2(orfid, :)';
 
-	% Not sure what g1_range and g2_range are 
+	% g1_range and g2_range appear to be
 	%
-	% *** Let's set aside for now **** ---------------
+	% the first cell cycle's range in the
+	% raw data's timepoints 
 	%
+	% mu0 --------- mu0+lambda      
+	%
+	g1_range = find(WT1_TP>=mu0_1 & 
+		WT1_TP<=mu0_1+lambda_1);
+	g2_range = find(WT2_TP>=mu0_2 & 
+		WT2_TP<=mu0_2+lambda_2);
+
+	% To compute peak to trough on the raw data
+	% we only want to examine the timepoints
+	% associated with the first cell cycle
 	g1 = g1(g1_range);
 	g2 = g2(g2_range);
 
