@@ -47,7 +47,13 @@
 
 	% We will rescale them, some type of normalization?
 	%
-	%  ******* I'm not certain what rescale does ********
+	%  ******* I'm not certain what rescale is doing *********
+	% 
+	% After looking over the rescale function, it seems
+	% to be interpolating the values of x (timepoints?)
+	% to be a vector of the same length as the curC/curD
+	% I think. Maybe we can rename it to matchVecLengthInterpolate
+	% or something like that.
 	%
 	curC_r = rescale(t_x, curC);
 	curD_r = rescale(b_x, curD);
