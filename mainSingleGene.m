@@ -71,7 +71,3 @@ f_bottom_values = model.f(model.f_bottom);
 
 
 
-
-
-
-
