@@ -9,12 +9,14 @@ plottingdir = 'output/plotting';
 
 config = DeconvolutionConfig.xg_gene_expression_config();
 
-model = Model(config, 'CLN2', 0.00429);
+gene = 'CLN2';
+model = Model(config, gene, 0.00429);
 model = deconvolve(model);
 
 drawDeconvolved(model, plottingdir);
 
-peak2trough(model);
+ptr = peak2troughModel(model);
+fprintf("The computed PTR (80/20) for %s is: %.3f\n", gene, computedPtr);
 
 % --------------- Find optimal gamma through elbow method ------------
 

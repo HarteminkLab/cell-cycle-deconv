@@ -1,37 +1,11 @@
-function [m20, Cr20, Dr20] = peak2trough(model);
+function [m20, Cr20, Dr20] = peak2trough(common_values, daughter_values)
 
-	% Function to compute the deconvolved peak to trough ratio
-	% for a given model which has deconvolved one gene.
-	curf = model.f;
-
-	% The indicies of the subsets of f corresponding to
-	% the top branch (mother) and bottom branch (daughter)
-	t_y_idx = model.f_top;
-	b_y_idx = model.f_bottom;
-
-	% The time intervals corresponding to mother and daughter
-	t_x = model.intervals.topTimepoints;
-	b_x = model.intervals.bottomTimepoints;
-
-	% Get the top and bottom branch subsets of f
-	% We'll call them current C (mother) and current D (daughter)
-	curC = curf(t_y_idx);
-	curD = curf(b_y_idx);
-
-	% After looking over the rescale function, it seems
-	% to be interpolating the values of x (timepoints?)
-	% to be a vector of the same length as the curC/curD
-	% I think. Maybe we can rename it to matchVecLengthInterpolate
-	% or something like that.
-	curC_r = rescale(t_x, curC);
-	curD_r = rescale(b_x, curD);
-	
 	% Compute various quantiles of the rescaled C and D
 	% vectors, note that we will only use 20 and 80 for
 	% the final result, other values are likely for unpublished 
 	% analyses.
-	ptrC = quantile(curC_r, [5 10 20 80 90 95]./100);
-	ptrD = quantile(curD_r, [5 10 20 80 90 95]./100);
+	quantilesC = quantile(common_values, [5 10 20 80 90 95]./100);
+	quantilesD = quantile(daughter_values, [5 10 20 80 90 95]./100);
 
 	% Combine the mother and daughter
 	% PTR scales as defined in the paper as
@@ -40,9 +14,20 @@ function [m20, Cr20, Dr20] = peak2trough(model);
 	% So, weight should be equal to 2/3
 	% (referring to ptr_C's exponent)
 	%
+    quantileC80 = quantilesC(4);
+    quantileC20 = quantilesC(3);
+
+    quantileD80 = quantilesD(4);
+    quantileD20 = quantilesD(3);
+
+    % To prevent division by zero, let's set a minimum threshold as
+    % 1.
+    quantileD20 = max(quantileD20, 1);
+    quantileC20 = max(quantileC20, 1);
+
 	Weight = 2./3.;
-	Cr20 = ptrC(4)/ptrC(3);
-	Dr20 = ptrD(4)/ptrD(3);
+	Cr20 = quantileC80/quantileC20;
+	Dr20 = quantileD80/quantileD20;
 	m20 = ptrScore(Cr20, Dr20, Weight);
 
 return
