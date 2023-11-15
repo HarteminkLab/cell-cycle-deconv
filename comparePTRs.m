@@ -54,9 +54,33 @@ model = deconvolve(model);
 my_computed_ptr = peak2troughModel(model);
 fprintf("  (3) The computed PTR (80/20) for my deconvolution is: %.3f\n", my_computed_ptr);
 
+fprintf("  ** Note: The biggest difference seems to be that I didn't include the rescale step in the PTR calculation for (2) **\n");
+
 % ===========================================================================
 
+% Next we will compare all the PTR values that we've computed with the
+% published values.
 
+% 1. Load the gene expression values for all the of deconvolved genes
+% 2. Load the gene names
+% 4. Compute the PTRs for all genes
+% 5. Merge with the published dataset
+%. Scatter plot published vs my deconvolution ptr values.
 
+% Load the f matrix for all genes that were run
+all_genes_f = cell2mat(table2cell(readtable('saved_output/2023-11-10_xg_gammas/all_genes_f.csv')));
+genenames = readtable('saved_output/2023-11-10_xg_gammas/all_genes.csv', 'ReadVariableNames', false);
+
+n = size(genenames, 2);
+
+p2ts = zeros(n, 1);
+
+for idx = 1:n
+    model.f = all_genes_f(idx, :);
+    p2t = peak2troughModel(model);
+    p2ts(idx) = p2t;
+end
+
+writematrix(p2ts, "output/2023-11-10_xg_gammas/peak2troughs.csv");
 
 
