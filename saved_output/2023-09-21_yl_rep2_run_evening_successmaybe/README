@@ -1,1 +1,0 @@
-Working run of yl rep2 2018 gene expression deconvolution. Fixed gamma of 0.004. Need to check PTR calculations and individual gene deconvolutions. Halted proportion is ignored in this version of the deconvolution.
