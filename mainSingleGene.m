@@ -14,6 +14,8 @@ model = deconvolve(model);
 
 drawDeconvolved(model, plottingdir);
 
+peak2trough(model);
+
 % --------------- Find optimal gamma through elbow method ------------
 
 plot_figure = false;

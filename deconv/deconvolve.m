@@ -29,32 +29,6 @@ function [model] = deconvolve(model)
 
 	% =============== From deconv.v2 ===============
 
-	% f_b = f_b;
-	% f_it = f_it;
-	% factor_fb = 2.;
-
-	% W1 = getWaveletKernel(WAVETYPE, length(f_it), WAVEPAR);
-	% W2 = getWaveletKernel(WAVETYPE, length(f_b), WAVEPAR);
-
-	% cvx_begin
-	% 	cvx_quiet(true);
-
-	% 	variable f(Hsize);
-
-	% 	minimize(...
-	% 		square_pos(norm(H*f ./ g-1, 2)) ... % fit error
-	% 		+ gamma*(norm(W1*f(f_it),1) + ...
-	% 		factor_fb*norm(W2*f(f_b),1))/mean_g ... % smooth error
-	% 	);
-
-	% 	subject to
-	% 		f>=0;
-	% cvx_end
-
-	% f_final(f_b) = f(f_b);
-	% f_final(f_it) = f(f_it);
-
-
 	Hsize = size(H, 2);
 
 	f_it = [];

@@ -56,10 +56,6 @@
 	curC = curf(t_y_idx);
 	curD = curf(b_y_idx);
 
-	% We will rescale them, some type of normalization?
-	%
-	%  ******* I'm not certain what rescale is doing *********
-	% 
 	% After looking over the rescale function, it seems
 	% to be interpolating the values of x (timepoints?)
 	% to be a vector of the same length as the curC/curD
@@ -80,9 +76,13 @@
 	Cr5 = ptrC(6)/ptrC(1);
 	Dr5 = ptrD(6)/ptrD(1);
 
-	% *****  Uncertain what ptrScore is ***
-	% Exponetiation? Maybe to transform things out of 
-	% exponent space ? And what is Weight?
+	% Combine the mother and daughter
+	% PTR scales as defined in the paper as
+	% [ ptr_C^2 * ptr_D^1] ^ (1/3)
+	%
+	% So, weight should be equal to 2/3
+	% (referring to ptr_C's exponent)
+	%
 	m5 = ptrScore(Cr5, Dr5, Weight);
 
 	% Same thing for 90/10

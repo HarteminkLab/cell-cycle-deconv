@@ -30,6 +30,11 @@ classdef ModelIntervals
 		%
 		initialTimepointsList, topTimepointsList, bottomTimepointsList
 
+		% Vectors of the timepoints for each branch (flattened from the Lists above).
+		% e.g. initial: [ -101.9, -101.05, ... ]
+		%
+		initialTimepoints, topTimepoints, bottomTimepoints
+
 		% These intervals define which of the cell-cycle phases 
 		%
 		% 	e.g. initial: {R 1} {CG1 2} {postG1 4}
@@ -56,6 +61,32 @@ classdef ModelIntervals
 			intervals.initialPhaseMapping = initialPhaseMapping;
 			intervals.topPhaseMapping = topPhaseMapping;
 			intervals.bottomPhaseMapping = bottomPhaseMapping;
+
+			% Let's also create vector of the the initial, top, and bottom branches (non-list)
+			% so we can index f and H directly without looping through the lists again.
+
+
+
+
+			
+			initialTimepoints = [];
+			for idx = 1:length(initialTimepointsList)
+				initialTimepoints = [initialTimepoints initialTimepointsList{idx}(1:end-1)];
+			end
+			intervals.initialTimepoints = initialTimepoints;
+
+			topTimepoints = [];
+			for idx = 1:length(topTimepointsList)
+				topTimepoints = [topTimepoints topTimepointsList{idx}(1:end-1)];
+			end
+			intervals.topTimepoints = topTimepoints;
+
+			bottomTimepoints = [];
+			for idx = 1:length(bottomTimepointsList)
+				bottomTimepoints = [bottomTimepoints bottomTimepointsList{idx}(1:end-1)];
+			end
+			intervals.bottomTimepoints = bottomTimepoints;
+
 		end
 
 		function parameters = getCellCycleParameters(model)
