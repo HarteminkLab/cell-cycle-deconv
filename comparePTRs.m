@@ -6,6 +6,7 @@ addpath(genpath('analysis'))
 % This script will be used to validate that the peak to trough function
 % I am using is computing the PTR values properly..
 
+fprintf("First we will compare the PTR values for a single gene. (1) published PTR value, (2) the PTR value computed from the published deconvolved gene expression, and finally (3) the calculated PTR value for my deconvolved gene expression \n");
 
 % ---- 1. Load the gene association data from disk and the gene expression ----
 gene_table_path = '/Users/trung/Research/cell-cycle/data/dataset_from_deconv_web/gene_associated.tsv';
@@ -13,7 +14,6 @@ gene_table = readtable(gene_table_path, "FileType","text",'Delimiter', '\t');
 
 deconvolved_ge_path = '/Users/trung/Research/cell-cycle/data/dataset_from_deconv_web/deconvolved_profiles.tsv';
 deconvolved_ge = readtable(deconvolved_ge_path, "FileType", "text",'Delimiter', '\t');
-
 
 % ---- 2. Choose a gene, CLN2 to start ----
 
@@ -39,12 +39,22 @@ cln2_d_ge = cell2mat(table2cell(cln2_ge_row(:, d_columns)));
 cln2_row = gene_table(strcmp(gene_table.StandardName, gene_name), :);
 
 cln2_deconvolved_ptr = cln2_row.DeconvolvedPTR_80pt_20pt_;
-fprintf("The published deconvolved PTR (80/20) for CLN2 is: %.3f\n", cln2_deconvolved_ptr);
+fprintf("  (1) The published deconvolved PTR (80/20) for CLN2 is: %.3f\n", cln2_deconvolved_ptr);
 
 computedPtr = peak2trough(cln2_c_ge, cln2_d_ge);
-fprintf("The computed PTR (80/20) for CLN2 is: %.3f\n", computedPtr);
+fprintf("  (2) The computed PTR (80/20) for the published ge: %.3f\n", computedPtr);
 
+% ---- 5. Deconvolve the gene expression for CLN2 -----
 
+% Deconvolve the gene expression, (fixed gamma, precomputed)
+config = DeconvolutionConfig.xg_gene_expression_config();
+gene = 'CLN2';
+model = Model(config, gene, 0.00429);
+model = deconvolve(model);
+my_computed_ptr = peak2troughModel(model);
+fprintf("  (3) The computed PTR (80/20) for my deconvolution is: %.3f\n", my_computed_ptr);
+
+% ===========================================================================
 
 
 
