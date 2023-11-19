@@ -27,11 +27,12 @@ OG_MODEL_WT1_FILE = 'models/original_budflow/wt1_budflow/1.1.1.26.label'
 OG_MODEL_WT2_FILE = 'models/original_budflow/wt2_budflow/1.1.1.27.label'
 
 if __name__ == "__main__":
-    yl_config = Config(YL_WT1_TP, YL_WT2_TP, YL_DATA_WT1_FILE, YL_DATA_WT2_FILE, 
-                       YL_GENE_MAPPING_FILE, YL_GENE_SET_FILE, YL_MODEL_WT1_FILE, YL_MODEL_WT2_FILE)
+    # yl_config = Config(YL_WT1_TP, YL_WT2_TP, YL_DATA_WT1_FILE, YL_DATA_WT2_FILE, 
+    #                    YL_GENE_MAPPING_FILE, YL_GENE_SET_FILE, YL_MODEL_WT1_FILE, YL_MODEL_WT2_FILE)
+    # yl_model = Model(yl_config, 'CLN2', 0.004)
+
     og_config = Config(OG_WT1_TP, OG_WT2_TP, OG_DATA_WT1_FILE, OG_DATA_WT2_FILE, 
                        OG_GENE_MAPPING_FILE, OG_GENE_SET_FILE, OG_MODEL_WT1_FILE, OG_MODEL_WT2_FILE)
-    yl_model = Model(yl_config, 'CLN2', 0.004)
-    og_model = Model(og_config, 'CLB2', 0.0037)
+    og_model = Model(og_config, 'CLN2', 0.00429)
 
-    yl_model.deconvolve()
+    # og_model.deconvolve()

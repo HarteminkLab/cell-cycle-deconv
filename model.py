@@ -1,10 +1,10 @@
+from math import comb
+from matplotlib import pyplot as plt
+from scipy.stats import norm
+
 import constants
 import cvxpy as cp
-from matplotlib import pyplot as plt
 import numpy as np
-
-import temp
-
 
 class Model:
     """A model class to deconvolve gene expression data from CLOCCS cell cycle.
@@ -47,12 +47,18 @@ class Model:
         self.top_timepoints, self.bottom_timepoints, self.initial_phase_map, 
         self.top_phase_map, self.bottom_phase_map) = config.model_intervals_1
         self.timepoints = config.WT1_TIMEPOINTS
+        H1 = self.calcH()
+        (self.parameters, self.relations, self.initial_timepoints, 
+        self.top_timepoints, self.bottom_timepoints, self.initial_phase_map, 
+        self.top_phase_map, self.bottom_phase_map) = config.model_intervals_2
+        self.timepoints = config.WT2_TIMEPOINTS
+        H2 = self.calcH()
+        self.H = np.concatenate((H1, H2))
+
         
     def deconvolve(self):
         # Load datasets ported from MATLAB
-        calculatedH, _, _ = temp.calcH(self)
-        calcH = np.concatenate((calculatedH, calculatedH))
-        H = constants.H
+        
 
         return
 
@@ -85,3 +91,129 @@ class Model:
         plt.legend()
         plt.show()
 
+    def calcH(self):
+        mu0, lambda_val, delta, sigma0, sigmav, alpha, beta = self.parameters
+
+        max_cellcycles = 10
+        max_R = 10
+        max_G = 10
+
+        timepoints = self.timepoints
+        num_timepoints = len(timepoints)
+
+        initialTimepointsList = self.initial_timepoints
+        bottomTimepointsList = self.bottom_timepoints
+        topTimepointsList = self.top_timepoints
+
+        initialBranchPartialH = [np.zeros((num_timepoints, len(lst)-1)) for lst in initialTimepointsList]
+        topBranchPartialH = [np.zeros((num_timepoints, len(lst)-1)) for lst in topTimepointsList]
+        bottomBranchPartialH = [np.zeros((num_timepoints, len(lst)-1)) for lst in bottomTimepointsList]
+
+        for i in range(num_timepoints):
+            t = timepoints[i]
+            Q = 0
+            for r in range(max_R + 1):
+                Q += self.Qr(mu0, sigma0, sigmav, delta, lambda_val, t, r, alpha)
+
+            frac_init = self.Qr(mu0, sigma0, sigmav, delta, lambda_val, t, 0, alpha) / Q
+
+            for idx, array in enumerate(initialTimepointsList):
+                cdf = norm.cdf(array, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
+                initialBranchPartialH[idx][i, :] = np.diff(cdf) * frac_init
+
+            for runs in range(1, max_R + 1):
+                for idx, array in enumerate(topTimepointsList):
+                    cdf = norm.cdf(array + runs * lambda_val, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
+                    topBranchPartialH[idx][i, :] += np.diff(cdf) * frac_init
+
+            frac_rest_all = 0
+            for r in range(1, max_R + 1):
+                for g in range(1, r + 1):
+                    frac_rest = self.Mgr(mu0, sigma0, sigmav, delta, lambda_val, t, g, r, alpha) / Q
+                    frac_rest_all += frac_rest
+
+                    if frac_rest > 1e-10:
+                        trun_cdf = norm.cdf(r * lambda_val + (g-1) * delta - alpha, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
+                        trun_denom = 1 - trun_cdf
+
+                        for idx, array in enumerate(topTimepointsList):
+                            for runs in range(r + 1, max_R + 1):
+                                cdf = norm.cdf(array + runs * lambda_val + g * delta, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
+                                if trun_denom == 0:
+                                    portion = cdf * 0
+                                else:
+                                    portion = (cdf - trun_cdf) / trun_denom
+                                topBranchPartialH[idx][i, :] += np.diff(portion) * frac_rest
+
+                        for idx, array in enumerate(bottomTimepointsList):
+                            cdf = norm.cdf(array + r * lambda_val + g * delta, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
+                            if trun_denom == 0:
+                                portion = cdf * 0
+                            else:
+                                portion = (cdf - trun_cdf) / trun_denom
+                            bottomBranchPartialH[idx][i, :] += np.diff(portion) * frac_rest
+
+        Hsegments = {}
+        relations = self.relations
+
+        for i in range(len(relations)):
+            relation = relations[i]
+            for idx in range(1, len(relation) - 1, 2):
+                label = relation[idx]
+                num = int(relation[idx + 1])
+                if label == 'i':
+                    matrix = initialBranchPartialH[num]
+                elif label == 't':
+                    matrix = topBranchPartialH[num]
+                elif label == 'b':
+                    matrix = bottomBranchPartialH[num]
+
+                if idx == 1:
+                    Hsegments[i] = matrix
+                else:
+                    Hsegments[i] += matrix
+
+        H = np.hstack(list(Hsegments.values()))
+
+        Hpos = {}
+        cur_start = 0
+        for i in range(len(Hsegments)):
+            cur_len = Hsegments[i].shape[1]
+            cur_end = cur_start + cur_len
+            Hpos[i] = [cur_start, cur_end]
+            cur_start = cur_end
+
+        # Scale the final matrix such that each row has an equal sum
+        for i in range(H.shape[0]):
+            w = np.sum(H[i, :])
+            H[i, :] = H[i, :] / w
+
+        return H
+    
+    
+    def Qr(self, mu0, sigma0, sigmav, delta, lambda_val, t, r, alpha):
+        START = 1000
+        if r == 0:
+            return START
+        else:
+            N = 0
+            for i in range(r):
+                normval = 1 - norm.cdf(r * lambda_val + i * delta - alpha, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
+                N += normval * START * comb(r-1, i)
+            return N
+
+    def Mgr(self, mu0, sigma0, sigmav, delta, lambda_val, t, g, r, alpha):
+        START = 1000
+        if g == 0:
+            if r == 0:
+                return START
+            else:
+                return 0
+        elif g > 0:
+            if r < g:
+                return 0
+            else:
+                normval = 1 - norm.cdf(r * lambda_val + (g-1) * delta - alpha, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
+                return normval * START * comb(r-1, g-1)
+        else:
+            print('Error: g < 0')
