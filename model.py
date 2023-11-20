@@ -91,33 +91,47 @@ class Model:
 
         W1 = temp.getWaveletKernel(WAVETYPE, len(f_it_mirror), WAVEPAR)
         W2 = temp.getWaveletKernel(WAVETYPE, len(f_b), WAVEPAR)
-        W2pad = np.zeros(len(f_b))
-        W2 = np.concatenate((np.concatenate((W2, W2pad), axis=1), np.concatenate((W2pad, np.fliplr(W2)), axis=1)), axis=0)
-        
-        print(W2.shape)
-
-        return
-
+        W2pad = np.zeros((len(f_b), len(f_b)))
+        W2 = np.concatenate((np.concatenate((W2, W2pad)), np.concatenate((W2pad, np.fliplr(W2)))), axis=1)
 
         # Convex optimization
-        f = cp.Variable(H.shape[1] + padding)
-        objective = cp.Minimize(cp.square(cp.pos(cp.norm(H@f[0:H.shape[1]]/self.g.T - 1)))
-                          + self.gamma * (cp.norm(W1@f[f_initial], 1) 
-                                          + cp.norm(W2@f[f_top], 1) 
-                                          + cp.norm(W3@f[f_bottom], 1))/self.g.mean())
+        f = cp.Variable(self.H.shape[1])
+        objective = cp.Minimize(cp.square(cp.pos(cp.norm(self.H@f/self.g - 1))) 
+                                + self.gamma * (cp.norm(W1@f[f_it_mirror], 1) 
+                                + factor_fb * cp.norm(W2@f[f_b_mirror], 1)/self.g.mean()))
         constraints = [f >= 0]
         prob = cp.Problem(objective, constraints)
-        print(cp.installed_solvers())
-        result = prob.solve(solver=cp.CLARABEL, verbose=True)
-        mse = np.square(f.value - constants.F_PADDED).mean()
-        print(f'MSE: {mse}')
-        print(f'Objective: {objective.value}')
+        result = prob.solve(solver=cp.CLARABEL)
+
+        f_final[f_it[:len(f_it)//2]] = f.value[f_it[:len(f_it)//2]]
+        f_b_1 = f.value[f_b]
+        f_it_1 = f.value[f_it]
+
+        # left mirroring
+        f_it_mirror = np.concatenate((np.flip(f_it), f_it))
+        f = cp.Variable(self.H.shape[1])
+        objective = cp.Minimize(cp.square(cp.pos(cp.norm(self.H@f/self.g - 1))) 
+                                + self.gamma * (cp.norm(W1@f[f_it_mirror], 1) 
+                                + factor_fb * cp.norm(W2@f[f_b_mirror], 1)/self.g.mean()))
+        constraints = [f >= 0]
+        prob = cp.Problem(objective, constraints)
+        result = prob.solve(solver=cp.CLARABEL)
+
+        f_final[f_it[len(f_it)//2:]] = f.value[f_it[len(f_it)//2:]]
+        f_b_2 = f.value[f_b]
+        f_it_2 = f.value[f_it]
+
+        f_final[f_b] = (f_b_1 + f_b_2) / 2
+
+        f = f_final
+
+        print(f.shape)
+        print(f)
 
         # Plot F ported from MATLAB versus solved through CVXPY
-        plt.plot(f.value, label='CP f')
-        plt.plot(constants.F_PADDED, label='MATLAB f')
-        plt.legend()
-        plt.show()
+        # plt.plot(f, label='CP f')
+        # plt.legend()
+        # plt.show()
 
     def createFs(self):
         f_initial = self.createFBranch(self.initial_phase_map)

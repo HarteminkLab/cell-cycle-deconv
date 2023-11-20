@@ -5,9 +5,8 @@ import numpy as np
 
 # Deconvolution argument (copied from calculations in the MATLAB code)
 FS_FILE = 'deconv_args/Fs.csv'
-W1_FILE = 'deconv_args/W1.csv'
-W2_FILE = 'deconv_args/W2.csv'
-W3_FILE = 'deconv_args/W3.csv'
+W1_FILE = 'deconv_args/w1.csv'
+W2_FILE = 'deconv_args/w2.csv'
 
 FS = []
 PADDING = 84
@@ -22,7 +21,6 @@ F_BOTTOM = np.array(FS[2], dtype=np.int32) - 1
 
 W1 = np.loadtxt(W1_FILE, delimiter=',', dtype=np.float64)
 W2 = np.loadtxt(W2_FILE, delimiter=',', dtype=np.float64)
-W3 = np.loadtxt(W3_FILE, delimiter=',', dtype=np.float64)
 
 H_FILE = 'deconv_args/H.csv'
 H = np.loadtxt(H_FILE, delimiter=',', dtype=np.float64)

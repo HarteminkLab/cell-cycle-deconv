@@ -33,11 +33,8 @@ def WavMat(h, N, k0=None, shift=2):
                 modulus = modulus + (modulus == 0) * ubJk1
                 hmat[ii-1, jj-1] = h[modulus - 1]
                 gmat[ii-1, jj-1] = g[modulus - 1]
-        print("here")
-        print(oldmat.shape)
-        print(hmat.shape)
-        print(gmat.shape)
-        W = np.concatenate((np.matmul(oldmat, hmat), gmat.T), axis=1)
+
+        W = np.concatenate((np.matmul(oldmat, hmat.T), gmat.T))
         oldmat = W
 
     return W
