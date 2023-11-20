@@ -104,13 +104,13 @@ class Config:
         i_intervals = {}
         t_intervals = {}
         b_intervals = {}
-
+        
         for i, relation in enumerate(relations):
             notation = relation[0]
 
             for idx in range(1, len(relation)-1, 2):
                 label = relation[idx]
-                num = int(relation[idx+1])
+                num = relation[idx+1]
 
                 if label == 'i':
                     i_intervals[num] = (notation, i)

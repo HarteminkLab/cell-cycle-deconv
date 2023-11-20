@@ -12,7 +12,7 @@ W3_FILE = 'deconv_args/W3.csv'
 FS = []
 PADDING = 84
 with open(FS_FILE) as f:
-    reader = csv.reader(f, delimiter=',')
+    reader = csv.reader(f, delimiter='\t')
     for line in reader:
         FS.append(line)
 
@@ -23,11 +23,6 @@ F_BOTTOM = np.array(FS[2], dtype=np.int32) - 1
 W1 = np.loadtxt(W1_FILE, delimiter=',', dtype=np.float64)
 W2 = np.loadtxt(W2_FILE, delimiter=',', dtype=np.float64)
 W3 = np.loadtxt(W3_FILE, delimiter=',', dtype=np.float64)
-
-F_PADDED_FILE = 'deconv_args/F_padded.csv'
-F_PADDED = []
-with open(F_PADDED_FILE) as f:
-    F_PADDED = np.array(f.read().split('\n'), dtype=np.float64)
 
 H_FILE = 'deconv_args/H.csv'
 H = np.loadtxt(H_FILE, delimiter=',', dtype=np.float64)

@@ -35,4 +35,4 @@ if __name__ == "__main__":
                        OG_GENE_MAPPING_FILE, OG_GENE_SET_FILE, OG_MODEL_WT1_FILE, OG_MODEL_WT2_FILE)
     og_model = Model(og_config, 'CLN2', 0.00429)
 
-    # og_model.deconvolve()
+    og_model.deconvolve()

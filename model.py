@@ -5,6 +5,7 @@ from scipy.stats import norm
 import constants
 import cvxpy as cp
 import numpy as np
+import temp
 
 class Model:
     """A model class to deconvolve gene expression data from CLOCCS cell cycle.
@@ -47,29 +48,56 @@ class Model:
         self.top_timepoints, self.bottom_timepoints, self.initial_phase_map, 
         self.top_phase_map, self.bottom_phase_map) = config.model_intervals_1
         self.timepoints = config.WT1_TIMEPOINTS
-        H1 = self.calcH()
+        H1, Hpos1 = self.calcH()
         (self.parameters, self.relations, self.initial_timepoints, 
         self.top_timepoints, self.bottom_timepoints, self.initial_phase_map, 
         self.top_phase_map, self.bottom_phase_map) = config.model_intervals_2
         self.timepoints = config.WT2_TIMEPOINTS
-        H2 = self.calcH()
+        H2, Hpos2 = self.calcH()
         self.H = np.concatenate((H1, H2))
-
+        self.Hpos = Hpos1
         
     def deconvolve(self):
         # Load datasets ported from MATLAB
+        WAVETYPE = "Symmlet"
+        WAVEPAR = 5
+
+        f_initial, f_top, f_bottom = self.createFs()
+
+        f_it = []
+
+        for phase in self.initial_phase_map.values():
+            se = self.Hpos[phase[1]]
+            f_it.extend([e for e in range(se[0], se[1])])
         
+        for phase in self.top_phase_map.values():
+            se = self.Hpos[phase[1]]
+            f_it.extend([e for e in range(se[0], se[1])])
+        
+        f_it = np.array(f_it)
+
+        f_b = []
+        for phase in self.bottom_phase_map.values():
+            se = self.Hpos[phase[1]]
+            f_b.extend([e for e in range(se[0], se[1])])
+        f_b = np.array(f_b)
+
+        f_final = np.zeros(self.H.shape[1])
+
+        # right mirroring
+        f_b_mirror = np.concatenate((f_b, f_b))
+        f_it_mirror = np.concatenate((f_it, np.flip(f_it)))
+        factor_fb = 1.5
+
+        W1 = temp.getWaveletKernel(WAVETYPE, len(f_it_mirror), WAVEPAR)
+        W2 = temp.getWaveletKernel(WAVETYPE, len(f_b), WAVEPAR)
+        W2pad = np.zeros(len(f_b))
+        W2 = np.concatenate((np.concatenate((W2, W2pad), axis=1), np.concatenate((W2pad, np.fliplr(W2)), axis=1)), axis=0)
+        
+        print(W2.shape)
 
         return
 
-        f_initial = constants.F_INITIAL
-        f_top = constants.F_TOP
-        f_bottom = constants.F_BOTTOM
-        padding = constants.PADDING
-
-        W1 = constants.W1
-        W2 = constants.W2
-        W3 = constants.W3
 
         # Convex optimization
         f = cp.Variable(H.shape[1] + padding)
@@ -90,6 +118,20 @@ class Model:
         plt.plot(constants.F_PADDED, label='MATLAB f')
         plt.legend()
         plt.show()
+
+    def createFs(self):
+        f_initial = self.createFBranch(self.initial_phase_map)
+        f_top = self.createFBranch(self.top_phase_map)
+        f_bottom = self.createFBranch(self.bottom_phase_map)
+        return f_initial, f_top, f_bottom
+    
+    def createFBranch(self, phaseMapping):
+        f_partial = []
+        for array in phaseMapping.values():
+            phaseName = array[0]
+            subintervalStartEnd = self.Hpos[array[1]]
+            f_partial.extend([e for e in range(subintervalStartEnd[0], subintervalStartEnd[1])])
+        return np.array(f_partial)
 
     def calcH(self):
         mu0, lambda_val, delta, sigma0, sigmav, alpha, beta = self.parameters
@@ -188,7 +230,7 @@ class Model:
             w = np.sum(H[i, :])
             H[i, :] = H[i, :] / w
 
-        return H
+        return H, Hpos
     
     
     def Qr(self, mu0, sigma0, sigmav, delta, lambda_val, t, r, alpha):
