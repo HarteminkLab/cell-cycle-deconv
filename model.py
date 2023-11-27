@@ -1,11 +1,10 @@
 from math import comb
 from matplotlib import pyplot as plt
 from scipy.stats import norm
+from helpers import calcH, createF, get_wavelet_kernel
 
-import constants
 import cvxpy as cp
 import numpy as np
-import temp
 
 class Model:
     """A model class to deconvolve gene expression data from CLOCCS cell cycle.
@@ -44,36 +43,25 @@ class Model:
             print(f'ORF ID: {self.orf_id} is not a valid row in WT2 dataset.')
         self.g = np.concatenate((g1, g2))
 
-        (self.parameters, self.relations, self.initial_timepoints, 
-        self.top_timepoints, self.bottom_timepoints, self.initial_phase_map, 
-        self.top_phase_map, self.bottom_phase_map) = config.model_intervals_1
-        self.timepoints = config.WT1_TIMEPOINTS
-        H1, Hpos1 = self.calcH()
-        (self.parameters, self.relations, self.initial_timepoints, 
-        self.top_timepoints, self.bottom_timepoints, self.initial_phase_map, 
-        self.top_phase_map, self.bottom_phase_map) = config.model_intervals_2
-        self.timepoints = config.WT2_TIMEPOINTS
-        H2, Hpos2 = self.calcH()
+        self.initial_phase_map, self.top_phase_map, self.bottom_phase_map = config.intervals_wt1[-1]
+        H1, self.Hpos = calcH(config.intervals_wt1, config.WT1_TIMEPOINTS)
+        H2, _ = calcH(config.intervals_wt2, config.WT2_TIMEPOINTS)
         self.H = np.concatenate((H1, H2))
-        self.Hpos = Hpos1
-        
-    def deconvolve(self):
-        # Load datasets ported from MATLAB
-        WAVETYPE = "Symmlet"
-        WAVEPAR = 5
 
-        f_initial, f_top, f_bottom = self.createFs()
+    def deconvolve(self):
+        WAVETYPE, WAVEPAR = "Symmlet", 5
+
+        f_initial, f_initial_list = createF(self.Hpos, self.initial_phase_map)
+        f_top, f_top_list = createF(self.Hpos, self.top_phase_map)
+        f_bottom, f_bottom_list = createF(self.Hpos, self.bottom_phase_map)
 
         f_it = []
-
         for phase in self.initial_phase_map.values():
             se = self.Hpos[phase[1]]
             f_it.extend([e for e in range(se[0], se[1])])
-        
         for phase in self.top_phase_map.values():
             se = self.Hpos[phase[1]]
             f_it.extend([e for e in range(se[0], se[1])])
-        
         f_it = np.array(f_it)
 
         f_b = []
@@ -89,187 +77,48 @@ class Model:
         f_it_mirror = np.concatenate((f_it, np.flip(f_it)))
         factor_fb = 1.5
 
-        W1 = temp.getWaveletKernel(WAVETYPE, len(f_it_mirror), WAVEPAR)
-        W2 = temp.getWaveletKernel(WAVETYPE, len(f_b), WAVEPAR)
+        W1 = get_wavelet_kernel(WAVETYPE, len(f_it_mirror), WAVEPAR)
+        W2 = get_wavelet_kernel(WAVETYPE, len(f_b), WAVEPAR)
         W2pad = np.zeros((len(f_b), len(f_b)))
         W2 = np.concatenate((np.concatenate((W2, W2pad)), np.concatenate((W2pad, np.fliplr(W2)))), axis=1)
 
         # Convex optimization
-        f = cp.Variable(self.H.shape[1])
-        objective = cp.Minimize(cp.square(cp.pos(cp.norm(self.H@f/self.g - 1))) 
-                                + self.gamma * (cp.norm(W1@f[f_it_mirror], 1) 
-                                + factor_fb * cp.norm(W2@f[f_b_mirror], 1)/self.g.mean()))
-        constraints = [f >= 0]
-        prob = cp.Problem(objective, constraints)
-        result = prob.solve(solver=cp.CLARABEL)
+        f_right = cp.Variable(self.H.shape[1])
+        objective_right = cp.Minimize(cp.square(cp.pos(cp.norm(self.H@f_right/self.g - 1))) 
+                                + self.gamma * (cp.norm(W1@f_right[f_it_mirror], 1) 
+                                + factor_fb * cp.norm(W2@f_right[f_b_mirror], 1))/self.g.mean())
+        constraints_right = [f_right >= 0]
+        prob_right = cp.Problem(objective_right, constraints_right)
+        result_right = prob_right.solve(solver=cp.CLARABEL)
 
-        f_final[f_it[:len(f_it)//2]] = f.value[f_it[:len(f_it)//2]]
-        f_b_1 = f.value[f_b]
-        f_it_1 = f.value[f_it]
+        # f_final[f_it[:len(f_it)//2]] = f_right.value[f_it[:len(f_it)//2]]
+        # f_b_1 = f_right.value[f_b]
+        # f_it_1 = f_right.value[f_it]
 
         # left mirroring
-        f_it_mirror = np.concatenate((np.flip(f_it), f_it))
-        f = cp.Variable(self.H.shape[1])
-        objective = cp.Minimize(cp.square(cp.pos(cp.norm(self.H@f/self.g - 1))) 
-                                + self.gamma * (cp.norm(W1@f[f_it_mirror], 1) 
-                                + factor_fb * cp.norm(W2@f[f_b_mirror], 1)/self.g.mean()))
-        constraints = [f >= 0]
-        prob = cp.Problem(objective, constraints)
-        result = prob.solve(solver=cp.CLARABEL)
+        # f_it_mirror = np.concatenate((np.flip(f_it), f_it))
 
-        f_final[f_it[len(f_it)//2:]] = f.value[f_it[len(f_it)//2:]]
-        f_b_2 = f.value[f_b]
-        f_it_2 = f.value[f_it]
+        # f_left = cp.Variable(self.H.shape[1])
+        # objective_left = cp.Minimize(cp.square(cp.pos(cp.norm(self.H@f_left/self.g - 1))) 
+        #                         + self.gamma * (cp.norm(W1@f_left[f_it_mirror], 1) 
+        #                         + factor_fb * cp.norm(W2@f_left[f_b_mirror], 1)/self.g.mean()))
+        # constraints_left = [f_left >= 0]
+        # prob_left = cp.Problem(objective_left, constraints_left)
+        # result_left = prob_left.solve(solver=cp.CLARABEL)
+        # f_final[f_it[len(f_it)//2:]] = f_left.value[f_it[len(f_it)//2:]]
+        # f_b_2 = f_left.value[f_b]
+        # f_it_2 = f_left.value[f_it]
 
-        f_final[f_b] = (f_b_1 + f_b_2) / 2
+        # f_final[f_b] = (f_b_1 + f_b_2) / 2
 
-        f = f_final
+        # f = f_final
 
-        print(f.shape)
-        print(f)
+        pred_g = np.matmul(self.H, f_right.value)
+        
+        W1 = get_wavelet_kernel(WAVETYPE, len(f_it), WAVEPAR)
+        W2 = get_wavelet_kernel(WAVETYPE, len(f_b), WAVEPAR)
+        sn = (np.linalg.norm(np.matmul(W1, f_right.value[f_it]), 1) + np.linalg.norm(np.matmul(W2, f_right.value[f_b]), 1)) / np.mean(self.g)
+        rn = np.square(np.clip(np.linalg.norm(np.matmul(self.H, f_right.value) / self.g - 1), 0, None))
 
-        # Plot F ported from MATLAB versus solved through CVXPY
-        # plt.plot(f, label='CP f')
-        # plt.legend()
-        # plt.show()
-
-    def createFs(self):
-        f_initial = self.createFBranch(self.initial_phase_map)
-        f_top = self.createFBranch(self.top_phase_map)
-        f_bottom = self.createFBranch(self.bottom_phase_map)
-        return f_initial, f_top, f_bottom
-    
-    def createFBranch(self, phaseMapping):
-        f_partial = []
-        for array in phaseMapping.values():
-            phaseName = array[0]
-            subintervalStartEnd = self.Hpos[array[1]]
-            f_partial.extend([e for e in range(subintervalStartEnd[0], subintervalStartEnd[1])])
-        return np.array(f_partial)
-
-    def calcH(self):
-        mu0, lambda_val, delta, sigma0, sigmav, alpha, beta = self.parameters
-
-        max_cellcycles = 10
-        max_R = 10
-        max_G = 10
-
-        timepoints = self.timepoints
-        num_timepoints = len(timepoints)
-
-        initialTimepointsList = self.initial_timepoints
-        bottomTimepointsList = self.bottom_timepoints
-        topTimepointsList = self.top_timepoints
-
-        initialBranchPartialH = [np.zeros((num_timepoints, len(lst)-1)) for lst in initialTimepointsList]
-        topBranchPartialH = [np.zeros((num_timepoints, len(lst)-1)) for lst in topTimepointsList]
-        bottomBranchPartialH = [np.zeros((num_timepoints, len(lst)-1)) for lst in bottomTimepointsList]
-
-        for i in range(num_timepoints):
-            t = timepoints[i]
-            Q = 0
-            for r in range(max_R + 1):
-                Q += self.Qr(mu0, sigma0, sigmav, delta, lambda_val, t, r, alpha)
-
-            frac_init = self.Qr(mu0, sigma0, sigmav, delta, lambda_val, t, 0, alpha) / Q
-
-            for idx, array in enumerate(initialTimepointsList):
-                cdf = norm.cdf(array, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
-                initialBranchPartialH[idx][i, :] = np.diff(cdf) * frac_init
-
-            for runs in range(1, max_R + 1):
-                for idx, array in enumerate(topTimepointsList):
-                    cdf = norm.cdf(array + runs * lambda_val, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
-                    topBranchPartialH[idx][i, :] += np.diff(cdf) * frac_init
-
-            frac_rest_all = 0
-            for r in range(1, max_R + 1):
-                for g in range(1, r + 1):
-                    frac_rest = self.Mgr(mu0, sigma0, sigmav, delta, lambda_val, t, g, r, alpha) / Q
-                    frac_rest_all += frac_rest
-
-                    if frac_rest > 1e-10:
-                        trun_cdf = norm.cdf(r * lambda_val + (g-1) * delta - alpha, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
-                        trun_denom = 1 - trun_cdf
-
-                        for idx, array in enumerate(topTimepointsList):
-                            for runs in range(r + 1, max_R + 1):
-                                cdf = norm.cdf(array + runs * lambda_val + g * delta, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
-                                if trun_denom == 0:
-                                    portion = cdf * 0
-                                else:
-                                    portion = (cdf - trun_cdf) / trun_denom
-                                topBranchPartialH[idx][i, :] += np.diff(portion) * frac_rest
-
-                        for idx, array in enumerate(bottomTimepointsList):
-                            cdf = norm.cdf(array + r * lambda_val + g * delta, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
-                            if trun_denom == 0:
-                                portion = cdf * 0
-                            else:
-                                portion = (cdf - trun_cdf) / trun_denom
-                            bottomBranchPartialH[idx][i, :] += np.diff(portion) * frac_rest
-
-        Hsegments = {}
-        relations = self.relations
-
-        for i in range(len(relations)):
-            relation = relations[i]
-            for idx in range(1, len(relation) - 1, 2):
-                label = relation[idx]
-                num = int(relation[idx + 1])
-                if label == 'i':
-                    matrix = initialBranchPartialH[num]
-                elif label == 't':
-                    matrix = topBranchPartialH[num]
-                elif label == 'b':
-                    matrix = bottomBranchPartialH[num]
-
-                if idx == 1:
-                    Hsegments[i] = matrix
-                else:
-                    Hsegments[i] += matrix
-
-        H = np.hstack(list(Hsegments.values()))
-
-        Hpos = {}
-        cur_start = 0
-        for i in range(len(Hsegments)):
-            cur_len = Hsegments[i].shape[1]
-            cur_end = cur_start + cur_len
-            Hpos[i] = [cur_start, cur_end]
-            cur_start = cur_end
-
-        # Scale the final matrix such that each row has an equal sum
-        for i in range(H.shape[0]):
-            w = np.sum(H[i, :])
-            H[i, :] = H[i, :] / w
-
-        return H, Hpos
-    
-    
-    def Qr(self, mu0, sigma0, sigmav, delta, lambda_val, t, r, alpha):
-        START = 1000
-        if r == 0:
-            return START
-        else:
-            N = 0
-            for i in range(r):
-                normval = 1 - norm.cdf(r * lambda_val + i * delta - alpha, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
-                N += normval * START * comb(r-1, i)
-            return N
-
-    def Mgr(self, mu0, sigma0, sigmav, delta, lambda_val, t, g, r, alpha):
-        START = 1000
-        if g == 0:
-            if r == 0:
-                return START
-            else:
-                return 0
-        elif g > 0:
-            if r < g:
-                return 0
-            else:
-                normval = 1 - norm.cdf(r * lambda_val + (g-1) * delta - alpha, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
-                return normval * START * comb(r-1, g-1)
-        else:
-            print('Error: g < 0')
+        print(sn)
+        print(rn)
