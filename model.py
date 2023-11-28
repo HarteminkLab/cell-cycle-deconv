@@ -1,3 +1,4 @@
+
 from math import comb
 from matplotlib import pyplot as plt
 from scipy.stats import norm
@@ -49,11 +50,9 @@ class Model:
         self.H = np.concatenate((H1, H2))
 
     def deconvolve(self):
-        WAVETYPE, WAVEPAR = "Symmlet", 5
 
-        # f_initial, f_initial_list = createF(self.Hpos, self.initial_phase_map)
-        # f_top, f_top_list = createF(self.Hpos, self.top_phase_map)
-        # f_bottom, f_bottom_list = createF(self.Hpos, self.bottom_phase_map)
+        # Configure the smoothing wavelet
+        WAVETYPE, WAVEPAR = "Symmlet", 5
 
         f_it = []
         for phase in self.initial_phase_map.values():
@@ -83,21 +82,21 @@ class Model:
         W2 = np.concatenate((np.concatenate((W2, W2pad)), np.concatenate((W2pad, np.fliplr(W2)))), axis=1)
 
         # Convex optimization
-        f_right = cp.Variable(self.H.shape[1])
-        objective_right = cp.Minimize(cp.square(cp.pos(cp.norm(self.H@f_right/self.g - 1))) 
-                                + self.gamma * (cp.norm(W1@f_right[f_it_mirror], 1) 
-                                + factor_fb * cp.norm(W2@f_right[f_b_mirror], 1))/self.g.mean())
-        constraints_right = [f_right >= 0]
+        f = cp.Variable(self.H.shape[1])
+        objective_right = cp.Minimize(cp.square(cp.pos(cp.norm(self.H@f/self.g - 1))) 
+                                + self.gamma * (cp.norm(W1@f[f_it_mirror], 1) 
+                                + factor_fb * cp.norm(W2@f[f_b_mirror], 1))/self.g.mean())
+        constraints_right = [f >= 0]
         prob_right = cp.Problem(objective_right, constraints_right)
         result_right = prob_right.solve(solver=cp.CLARABEL)
 
-        pred_g = np.matmul(self.H, f_right.value)
+        pred_g = np.matmul(self.H, f.value)
         
         W1 = get_wavelet_kernel(WAVETYPE, len(f_it), WAVEPAR)
         W2 = get_wavelet_kernel(WAVETYPE, len(f_b), WAVEPAR)
-        sn = (np.linalg.norm(np.matmul(W1, f_right.value[f_it]), 1) + np.linalg.norm(np.matmul(W2, f_right.value[f_b]), 1)) / np.mean(self.g)
-        rn = np.square(np.clip(np.linalg.norm(np.matmul(self.H, f_right.value) / self.g - 1), 0, None))
+        sn = (np.linalg.norm(np.matmul(W1, f.value[f_it]), 1) + np.linalg.norm(np.matmul(W2, f.value[f_b]), 1)) / np.mean(self.g)
+        rn = np.square(np.clip(np.linalg.norm(np.matmul(self.H, f.value) / self.g - 1), 0, None))
 
-        print(sn)
-        print(rn)
-        return f_right
+        self.sn = sn
+        self.rn = rn
+        self.f = f 
