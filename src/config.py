@@ -47,6 +47,8 @@ class Config:
 		self.wt1_df.index.name = 'orf_name'
 		self.wt2_df.index.name = 'orf_name'
 
+		self.create_helper_structures()
+
 	def read_gene_orf_map(self, gene_mapping_file):
 		map = {}
 		
@@ -127,6 +129,91 @@ class Config:
 		else:
 			raise ValueError(f'Wrong parameter {segments[0]} in line {line}')
 		return value
+
+
+	def create_helper_structures(self):
+		"""
+		We will create some dataframes and dictionaries that will help with looking up branch/phase subsets.
+		"""
+
+		# Assume we can just use wt1's model config (that wt2 has the same defined intervals)
+		lengths, relations, initial_tps, top_tps, bottom_tps, \
+		(initial_phase_map, top_phase_map, bottom_phase_map) = self.intervals_wt1
+
+		def get_branch_timepoints_by_index(branch, phase_tp_index):
+			if branch == 'i':
+				ret = initial_tps[phase_tp_index]
+			elif branch == 't':
+				ret = top_tps[phase_tp_index]
+			elif branch == 'b':
+				ret = bottom_tps[phase_tp_index]
+
+			return ret
+
+		all_phases = []
+		all_branches = []
+		all_branch_indices = []
+		all_timepoints = []
+
+		for item in relations:
+			
+			phase = item[0]
+			
+			intervals = item[1:]
+
+			for interval_idx in range(0, len(intervals), 2):
+				branch, phase_tp_index = intervals[interval_idx], int(intervals[interval_idx+1])
+
+				branch, phase_tp_index
+
+				timepoints = get_branch_timepoints_by_index(branch, phase_tp_index)
+
+				all_phases = all_phases + ([phase]*len(timepoints))
+				all_branches = all_branches + ([branch]*len(timepoints))
+				all_branch_indices = all_branch_indices + ([phase_tp_index]*len(timepoints))
+				all_timepoints = all_timepoints + list(timepoints)
+
+		phase_branch_tp_df = pd.DataFrame({'phase': all_phases, 'branch': all_branches, 
+					  'tp_index': all_branch_indices, 'timepoint': all_timepoints})
+		phase_branch_tp_df = phase_branch_tp_df.set_index(['phase', 'branch'])
+		self.phase_branch_tp_df = phase_branch_tp_df
+
+		# --------------------------
+
+
+		# Construct a dictionary that will allow us to retrieve the indices in the H matrix
+		# for the requested cell phase
+		phase_columns = {}
+		for relation in relations:
+			phase = relation[0]
+			first_branch = phase_branch_tp_df.loc[phase].index.unique()[0]
+			first_branch_tps = phase_branch_tp_df.loc[phase].loc[first_branch]
+			phase_columns[relation[0]] = np.arange(len(first_branch_tps)-1)    
+		self.phase_columns = phase_columns
+
+
+	def get_timepoints_phases_Hpositions_for_branch(self, branch):
+		"""
+		A bit complicated, but this method is for plotting. 
+		
+		We will want the phases, the timepoints, and the indices in H (also in f).
+		
+		There is probably a cleaner way to do this, but we will just use the dataframe
+		of all timepoints to do this.
+		"""
+
+		# Then we will want the phases and the indices for a branch
+		search_df = self.phase_branch_tp_df.reset_index()
+		phases_for_branch = search_df[search_df.branch == branch].phase.unique()
+
+		branch_indices = []
+		for phase in phases_for_branch:
+			timepoints = search_df[(search_df.phase == phase) & 
+								   (search_df.branch == branch)].timepoint
+			branch_indices.append((phase,timepoints[:-1], self.phase_columns[phase]))
+
+		return branch_indices
+
 
 
 

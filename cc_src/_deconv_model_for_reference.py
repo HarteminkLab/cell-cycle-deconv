@@ -11,10 +11,6 @@ class DeconvolvedAnalysis:
         self.load_model(model.config.model_wt1_file)
         # self.load_deconvolved_data(deconvolved_output_path)
 
-
-
-
-    
         # gene_names_d = pd.read_csv(f'{parentdir}/all_genes.csv').columns.values
 
         # deconv_f = pd.read_csv(f'{parentdir}/all_genes_f.csv', header=None)
@@ -38,8 +34,6 @@ class DeconvolvedAnalysis:
 
         # self.deconv_f_df = pd.DataFrame(self.deconv_f, index=self.gene_names_d)
         # self.deconv_g_df = pd.DataFrame(self.deconv_g, index=self.gene_names_d)
-
-
 
 
     def compute_predicted_g(self):
