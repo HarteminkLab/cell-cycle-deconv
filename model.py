@@ -51,9 +51,9 @@ class Model:
     def deconvolve(self):
         WAVETYPE, WAVEPAR = "Symmlet", 5
 
-        f_initial, f_initial_list = createF(self.Hpos, self.initial_phase_map)
-        f_top, f_top_list = createF(self.Hpos, self.top_phase_map)
-        f_bottom, f_bottom_list = createF(self.Hpos, self.bottom_phase_map)
+        # f_initial, f_initial_list = createF(self.Hpos, self.initial_phase_map)
+        # f_top, f_top_list = createF(self.Hpos, self.top_phase_map)
+        # f_bottom, f_bottom_list = createF(self.Hpos, self.bottom_phase_map)
 
         f_it = []
         for phase in self.initial_phase_map.values():
@@ -91,28 +91,6 @@ class Model:
         prob_right = cp.Problem(objective_right, constraints_right)
         result_right = prob_right.solve(solver=cp.CLARABEL)
 
-        # f_final[f_it[:len(f_it)//2]] = f_right.value[f_it[:len(f_it)//2]]
-        # f_b_1 = f_right.value[f_b]
-        # f_it_1 = f_right.value[f_it]
-
-        # left mirroring
-        # f_it_mirror = np.concatenate((np.flip(f_it), f_it))
-
-        # f_left = cp.Variable(self.H.shape[1])
-        # objective_left = cp.Minimize(cp.square(cp.pos(cp.norm(self.H@f_left/self.g - 1))) 
-        #                         + self.gamma * (cp.norm(W1@f_left[f_it_mirror], 1) 
-        #                         + factor_fb * cp.norm(W2@f_left[f_b_mirror], 1)/self.g.mean()))
-        # constraints_left = [f_left >= 0]
-        # prob_left = cp.Problem(objective_left, constraints_left)
-        # result_left = prob_left.solve(solver=cp.CLARABEL)
-        # f_final[f_it[len(f_it)//2:]] = f_left.value[f_it[len(f_it)//2:]]
-        # f_b_2 = f_left.value[f_b]
-        # f_it_2 = f_left.value[f_it]
-
-        # f_final[f_b] = (f_b_1 + f_b_2) / 2
-
-        # f = f_final
-
         pred_g = np.matmul(self.H, f_right.value)
         
         W1 = get_wavelet_kernel(WAVETYPE, len(f_it), WAVEPAR)
@@ -122,3 +100,4 @@ class Model:
 
         print(sn)
         print(rn)
+        return f_right
