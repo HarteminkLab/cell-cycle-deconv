@@ -1,3 +1,5 @@
+
+import pandas as pd
 import numpy as np
 import os
 
@@ -19,9 +21,31 @@ class Config:
 		self.gene_orf_map = self.read_gene_orf_map(gene_mapping_file)
 		self.orf_index_map = self.read_orf_index_map(gene_set_file)
 
+		self.model_wt1_file = model_wt1_file
+		self.model_wt2_file = model_wt2_file
+
 		# read model data
 		self.intervals_wt1 = self.read_model_format(model_wt1_file)
 		self.intervals_wt2 = self.read_model_format(model_wt2_file)
+
+		# convert to data frames for easier access. I'm not sure why but the last row
+		# is blank, so index up until the last row for the orf names
+		# TODO: this is used in analyses for now, but we can migrate this to the deconvolution
+		# step at some point.
+		ordered_orf_names = pd.DataFrame(self.orf_index_map.items())[:-1][0]
+
+		wt1_df = pd.DataFrame(self.data_wt1)
+		wt1_df.index = ordered_orf_names
+		wt1_df.columns = self.WT1_TIMEPOINTS
+		self.wt1_df = wt1_df
+
+		wt2_df = pd.DataFrame(self.data_wt2)
+		wt2_df.index = ordered_orf_names
+		wt2_df.columns = self.WT2_TIMEPOINTS
+		self.wt2_df = wt2_df
+
+		self.wt1_df.index.name = 'orf_name'
+		self.wt2_df.index.name = 'orf_name'
 
 	def read_gene_orf_map(self, gene_mapping_file):
 		map = {}

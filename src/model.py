@@ -19,6 +19,7 @@ class Model:
     """
     
     def __init__(self, config, gene_name, gamma):
+
         self.config = config
         self.gene_name = gene_name
         self.gamma = gamma
