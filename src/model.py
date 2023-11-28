@@ -2,7 +2,7 @@
 from math import comb
 from matplotlib import pyplot as plt
 from scipy.stats import norm
-from helpers import calcH, createF, get_wavelet_kernel
+from src.helpers import calcH, createF, get_wavelet_kernel
 
 import cvxpy as cp
 import numpy as np
