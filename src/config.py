@@ -184,11 +184,17 @@ class Config:
 		# Construct a dictionary that will allow us to retrieve the indices in the H matrix
 		# for the requested cell phase
 		phase_columns = {}
+		last = 0
 		for relation in relations:
 			phase = relation[0]
 			first_branch = phase_branch_tp_df.loc[phase].index.unique()[0]
 			first_branch_tps = phase_branch_tp_df.loc[phase].loc[first_branch]
-			phase_columns[relation[0]] = np.arange(len(first_branch_tps)-1)    
+
+			current_length = len(first_branch_tps)-1
+
+			phase_columns[relation[0]] = np.arange(last, last+current_length)
+			last = last+current_length
+
 		self.phase_columns = phase_columns
 
 
