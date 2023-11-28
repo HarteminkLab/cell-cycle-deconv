@@ -25,6 +25,7 @@ class Config:
 
 	def read_gene_orf_map(self, gene_mapping_file):
 		map = {}
+		
 		with open(gene_mapping_file) as f:
 			for line in f:
 				(key, val) = line.strip().split('\t')
