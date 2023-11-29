@@ -197,6 +197,25 @@ class Config:
 
 		self.phase_columns = phase_columns
 
+	def get_timepoints_for_branch(self, branch):
+		"""
+		This function will return the timepoints as an array for a branch.
+
+		Basically consolidating the timepoints for  each phase within the branch.
+
+		This is useful for the rescaling function for computing PTR, which takes in
+		the timepoints as a single array as input.
+		"""
+
+		timepoints = np.array([])
+		for phase, timepoints_series, indices in self.get_timepoints_phases_Hpositions_for_branch(branch):    
+			current_timepoints = timepoints_series.values
+			timepoints = np.concatenate([timepoints, current_timepoints])
+
+		timepoints
+
+		return timepoints
+
 
 	def get_timepoints_phases_Hpositions_for_branch(self, branch):
 		"""
