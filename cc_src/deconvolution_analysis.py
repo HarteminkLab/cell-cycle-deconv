@@ -70,7 +70,61 @@ class DeconvolvedAnalysis:
 
 		# -----------------
 
+		def _plot_branch(ax, branch, start_offset=0, linestyle='solid'):
+			"""Plot the branch coloring the individual phases within the branch"""
+			phase_tp_idx_list = self.model.config.get_timepoints_phases_Hpositions_for_branch(branch)
 
+
+			offset = 0
+			if start_offset:
+				offset = start_offset-phase_tp_idx_list[0][1].values[0]
+
+			for phase, timepoints, indices in phase_tp_idx_list:
+				ax.plot(timepoints+offset, f[indices], color=self.color_for_key(phase), 
+					lw=5, linestyle=linestyle)
+
+			# return timepoints in case we want to append more branches on to the plot
+			return timepoints.values
+
+		# ------------------
+
+		for phase, indices in self.model.config.phase_columns.items():
+			ax1.plot(indices, f[indices], color=self.color_for_key(phase), lw=5)
+		ax1.set_title("Deconvolved, f")
+
+		_plot_branch(ax2, 't')
+		ax2.set_title("Top branch")
+
+		_plot_branch(ax3, 'b')
+		ax3.set_title("Bottom branch")
+
+		ax5.imshow(self.model.H, aspect='auto')
+		ax5.set_title('Convolution kernel, H')
+
+		_plot_branch(ax6, 'i')
+		ax6.set_title("Initial branch")
+
+		i_timepoints = _plot_branch(ax7, 'i', linestyle='dashed')
+		_plot_branch(ax7, 'b', start_offset=i_timepoints[-1], linestyle='dashed')
+		ax7.set_title("Single cell profile")
+
+
+
+	def color_for_key(self, key):
+		"""Predefined colors for phases and keys for gene plots"""
+
+		color_map = {
+			 "raw": np.array([158, 50, 50])/255.,
+			 "fit": np.array([145, 180, 98])/255.,
+			 "R": np.array([199, 148, 144])/255.,
+			 "RG1": np.array([199, 148, 144])/255.,
+			 "CG1": np.array([147, 168, 198])/255.,
+			 "DG1": np.array([165, 197, 204])/255.,
+			 "postG1": np.array([223, 192, 158])/255.,
+			 "H": np.array([100, 100, 100])/255.
+		}
+
+		return color_map[key]
 
 
 
