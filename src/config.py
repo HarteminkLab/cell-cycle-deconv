@@ -102,9 +102,9 @@ class Config:
 		We will create some dataframes and dictionaries that will help with looking up branch/phase subsets.
 		"""
 
-		# Assume we can just use wt1's model config (that wt2 has the same defined intervals)
+		# Assume we can just use wt2's model config (that wt1 has the same defined intervals)
 		lengths, relations, initial_tps, top_tps, bottom_tps, \
-		(initial_phase_map, top_phase_map, bottom_phase_map) = self.intervals_wt1
+		(initial_phase_map, top_phase_map, bottom_phase_map) = self.intervals_wt2
 
 		def get_branch_timepoints_by_index(branch, phase_tp_index):
 			if branch == 'i':
