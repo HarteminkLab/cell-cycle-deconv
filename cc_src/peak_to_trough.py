@@ -41,7 +41,7 @@ def compute_ptr(model, gene_f):
     dptr = dg1_80/dg1_20;
 
     combinedPtr = combine_ptr_score(cptr, dptr, weight)
-    return combinedPtr
+    return cptr, dptr, combinedPtr
 
 
 def rescale(x, y, interval=1):

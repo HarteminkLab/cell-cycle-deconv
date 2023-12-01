@@ -48,14 +48,32 @@ def read_sgd_genes(filename='data/reference_data/sgd_R64-1-1_20110208.gff'):
 
     return data.set_index('orf_name')
 
-def get_gene(gene_name):
+def get_gene(genename_or_orfname):
     genes = read_sgd_genes()
-    found_genes = genes[(genes['gene'] == gene_name) | (genes.index == gene_name)]
-    return found_genes.reset_index().loc[0]
+    found_genes = genes[(genes['gene'] == genename_or_orfname) | (genes.index == genename_or_orfname)]
+    return found_genes.iloc[0]
+
+def get_gene_name(orf_name):
+    return get_gene(orf_name).gene
+
 
 def get_orfname(gene_name):
     gene = get_gene(gene_name)
-    return gene['orf_name']
+    return gene.name
+
+
+def get_gene_name_orf_name(genename_or_orfname):
+
+    # gene_name = get_gene_name(genename_or_orfname)
+    # orf_name = genename_or_orfname
+
+    # orf_name = get_orfname(gene_name_or_orf_name)
+    # gene_name = genename_or_orfname
+
+    generow = get_gene(genename_or_orfname)
+
+    return generow.name, generow.gene
+
 
 def get_gene_coordinates(gene_name):
     gene = get_gene(gene_name)

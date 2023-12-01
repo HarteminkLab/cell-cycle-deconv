@@ -28,19 +28,15 @@ class Config:
 		self.intervals_wt1 = self.read_model_format(model_wt1_file)
 		self.intervals_wt2 = self.read_model_format(model_wt2_file)
 
-		# convert to data frames for easier access. I'm not sure why but the last row
-		# is blank, so index up until the last row for the orf names
-		# TODO: this is used in analyses for now, but we can migrate this to the deconvolution
-		# step at some point.
-		ordered_orf_names = pd.DataFrame(self.orf_index_map.items())[:-1][0]
+		self.gene_set_orfs = self.get_geneset_df()
 
 		wt1_df = pd.DataFrame(self.data_wt1)
-		wt1_df.index = ordered_orf_names
+		wt1_df.index = self.gene_set_orfs.index
 		wt1_df.columns = self.WT1_TIMEPOINTS
 		self.wt1_df = wt1_df
 
 		wt2_df = pd.DataFrame(self.data_wt2)
-		wt2_df.index = ordered_orf_names
+		wt2_df.index = self.gene_set_orfs.index
 		wt2_df.columns = self.WT2_TIMEPOINTS
 		self.wt2_df = wt2_df
 
@@ -48,6 +44,8 @@ class Config:
 		self.wt2_df.index.name = 'orf_name'
 
 		self.create_helper_structures()
+		self.xg_gammas = load_xg_gammas()
+
 
 	def read_gene_orf_map(self, gene_mapping_file):
 		map = {}
@@ -180,11 +178,11 @@ class Config:
 
 		# --------------------------
 
-
 		# Construct a dictionary that will allow us to retrieve the indices in the H matrix
 		# for the requested cell phase
 		phase_columns = {}
 		last = 0
+		num_columns = 0
 		for relation in relations:
 			phase = relation[0]
 			first_branch = phase_branch_tp_df.loc[phase].index.unique()[0]
@@ -194,8 +192,11 @@ class Config:
 
 			phase_columns[relation[0]] = np.arange(last, last+current_length)
 			last = last+current_length
+			num_columns = last
 
 		self.phase_columns = phase_columns
+		self.num_columns = num_columns
+
 
 	def get_timepoints_for_branch(self, branch):
 		"""
@@ -240,6 +241,39 @@ class Config:
 		return branch_indices
 
 
+
+	def get_geneset_df(self):
+		"""
+		Returns the geneset data frame in the same order as the raw gene expression is defined.
+
+		The original matlab data had the orf names and the gene expression in separate files, so here
+		we will create a dataframe with the orf names ordering as well as any other gene data
+		we may need.
+
+		Note that some of the gene information may note exist (nas).
+		"""
+
+		from cc_src.sgd import read_sgd_genes
+
+		genelist_orfs = pd.DataFrame(self.orf_index_map.items())
+		genelist_orfs.columns = ['orf_name', 'data_idx']
+		genelist_orfs = genelist_orfs.set_index('orf_name')
+		genelist_orfs = genelist_orfs.iloc[:-1] # last row is empty for some reason
+
+		genes = read_sgd_genes()
+		genes.loc[genes['gene'].isna(), 'gene'] = genes[genes['gene'].isna()].index
+
+		genelist_orfs = genelist_orfs.join(genes).sort_values('data_idx')
+
+		return genelist_orfs
+
+
+def load_xg_gammas():
+	# Load the precomputed gamma values from Xin Guo's deconv.v2 codebase
+	deconvv2_gene_gammas = pd.read_csv('allgenes/from_deconvv2/allgenes.gm', sep='\t', header=None)
+	deconvv2_gene_gammas.columns = ['gene', 'orf_name', 'gamma']
+	deconvv2_gene_gammas = deconvv2_gene_gammas.set_index('orf_name')
+	return deconvv2_gene_gammas
 
 
 def load_yl_replicate2_gene_expression_config():
