@@ -230,7 +230,12 @@ def deconvolve_all_genes(config, save_dir):
 	index = 0
 	for orf_name, row in gene_orfs.iterrows():
 
-		model = deconvolve_gene(config, orf_name)
+		try:
+			model = deconvolve_gene(config, orf_name)
+		except IndexError:
+			print(f"Error with orf: {orf_name}, index: {index}. Skipping...")
+			index += 1
+			continue
 
 		gene_fs_df.loc[orf_name] = model.f.value
 
@@ -240,18 +245,20 @@ def deconvolve_all_genes(config, save_dir):
 
 		if index % 100 == 0:
 			print(f"   {index+1}/{len(gene_orfs)} - {timer.get_time()}")
+			save_df(gene_fs_df, f'{save_dir}/deconvolved_fs.csv')
+			save_df(gene_meta_df, f'{save_dir}/meta.csv')
 
 		index += 1
 
 	print(f"Completed. {timer.get_time()}")
 
-	save_df(gene_fs_df, f'{save_dir}/deconvolved_fs.csv')
-	save_df(gene_meta_df, f'{save_dir}/meta.csv')
+	save_df(gene_fs_df, f'{save_dir}/deconvolved_fs.csv', silent=False)
+	save_df(gene_meta_df, f'{save_dir}/meta.csv', silent=False)
 
 	return gene_fs_df, gene_meta_df
 
 
-def save_df(df, save_path):
+def save_df(df, save_path, silent=True):
 	df.to_csv(save_path)
-	print(f"Saved to {save_path}")
+	if not silent: print(f"Saved to {save_path}")
 

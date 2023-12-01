@@ -8,18 +8,14 @@ class Config:
 	A config class to read data and initialize the model.
 	"""
 
-	def __init__(self, wt1_tp, wt2_tp, data_wt1_file, data_wt2_file, gene_mapping_file, gene_set_file, model_wt1_file, model_wt2_file):
+	def __init__(self, wt1, wt2, model_wt1_file, model_wt2_file):
 
-		self.WT1_TIMEPOINTS = wt1_tp
-		self.WT2_TIMEPOINTS = wt2_tp
+		self.WT1_TIMEPOINTS = wt1.columns.values.astype(int)
+		self.WT2_TIMEPOINTS = wt2.columns.values.astype(int)
 
 		# read data files
-		self.data_wt1 = np.loadtxt(data_wt1_file, delimiter='\t', dtype=np.float64)
-		self.data_wt2 = np.loadtxt(data_wt2_file, delimiter='\t', dtype=np.float64)
-
-		# load gene/orf mappings
-		self.gene_orf_map = self.read_gene_orf_map(gene_mapping_file)
-		self.orf_index_map = self.read_orf_index_map(gene_set_file)
+		self.wt1_df = wt1
+		self.wt2_df = wt2
 
 		self.model_wt1_file = model_wt1_file
 		self.model_wt2_file = model_wt2_file
@@ -27,21 +23,6 @@ class Config:
 		# read model data
 		self.intervals_wt1 = self.read_model_format(model_wt1_file)
 		self.intervals_wt2 = self.read_model_format(model_wt2_file)
-
-		self.gene_set_orfs = self.get_geneset_df()
-
-		wt1_df = pd.DataFrame(self.data_wt1)
-		wt1_df.index = self.gene_set_orfs.index
-		wt1_df.columns = self.WT1_TIMEPOINTS
-		self.wt1_df = wt1_df
-
-		wt2_df = pd.DataFrame(self.data_wt2)
-		wt2_df.index = self.gene_set_orfs.index
-		wt2_df.columns = self.WT2_TIMEPOINTS
-		self.wt2_df = wt2_df
-
-		self.wt1_df.index.name = 'orf_name'
-		self.wt2_df.index.name = 'orf_name'
 
 		self.create_helper_structures()
 		self.xg_gammas = load_xg_gammas()
@@ -301,26 +282,26 @@ def load_yl_replicate2_gene_expression_config():
 	return config
 
 
+def read_xin_published_wt_data(wildtype):    
+    # Handle columns and rows, second row has clock time, drop alias columns
+    wt1_web_df = pd.read_csv(f'datasets/datasets_from_web_deconvolution.cs.duke.edu/wildtype{wildtype}.tsv', 
+        sep='\t')
+    wt1_web_df.columns = wt1_web_df.iloc[0]
+    wt1_web_df = wt1_web_df.rename(columns={'byClock': 'orf_name'}).set_index('orf_name')
+    wt1_web_df = wt1_web_df[wt1_web_df.columns[3:]]
+    wt1_web_df = wt1_web_df.iloc[1:]
+    return wt1_web_df
+
+
 def load_xg_gene_expression_config():
 
-	# Timepoints
-	WT1_TP = [x for x in range(30, 255, 16)]
-	WT2_TP = [x for x in range(38, 263, 16)]
-
-	# dataset files
-	DATA_WT1_FILE = 'datasets/original_budflow/replicate1_gene_expression.txt'
-	DATA_WT2_FILE = 'datasets/original_budflow/replicate2_gene_expression.txt'
-
-	GENE_MAPPING_FILE = 'datasets/original_budflow/gene_to_orf_name_mapping.txt'
-	GENE_SET_FILE = 'datasets/original_budflow/genes.lst'
+	WT1 = read_xin_published_wt_data(1)
+	WT2 = read_xin_published_wt_data(2)
 
 	# model files
 	MODEL_WT1_FILE = 'models/original_budflow/wt1_budflow/1.1.1.26.label'
 	MODEL_WT2_FILE = 'models/original_budflow/wt2_budflow/1.1.1.27.label'
 
-	config = Config(WT1_TP, WT2_TP, 
-		DATA_WT1_FILE, DATA_WT2_FILE,
-		GENE_MAPPING_FILE, GENE_SET_FILE,
-		MODEL_WT1_FILE, MODEL_WT2_FILE)
+	config = Config(WT1, WT2, MODEL_WT1_FILE, MODEL_WT2_FILE)
 
 	return config
