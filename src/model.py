@@ -67,7 +67,7 @@ class Model:
 
 		f_final = np.zeros(self.H.shape[1])
 
-		# right mirroring
+		# Mirroring
 		f_b_mirror = np.concatenate((f_b, f_b))
 		f_it_mirror = np.concatenate((f_it, np.flip(f_it)))
 		factor_fb = 1.5
@@ -86,7 +86,8 @@ class Model:
 		prob_right = cp.Problem(objective_right, constraints_right)
 		result_right = prob_right.solve(solver=cp.CLARABEL)
 
-		pred_g = np.matmul(self.H, f.value)
+		# predicted g
+		self.pred_g = np.matmul(self.H, f.value)
 		
 		W1 = get_wavelet_kernel(WAVETYPE, len(f_it), WAVEPAR)
 		W2 = get_wavelet_kernel(WAVETYPE, len(f_b), WAVEPAR)
@@ -120,7 +121,7 @@ class Model:
 		g = np.concatenate([g1, g2])
 		f = self.f.value
 
-		predicted_g = np.matmul(self.H, f)
+		predicted_g = self.pred_g
 
 		predicted_g1 = predicted_g[range(len(g1))]
 		predicted_g2 = predicted_g[len(g1):]
@@ -215,20 +216,21 @@ def deconvolve_all_genes(config, save_dir):
 	# Initialize configuration and model
 	timer = Timer()
 
-	gene_orfs = config.gene_set_orfs
+	gene_orfs = config.all_orfs()
 
 	# We will store all of the deconvolved f values into this matrix
 	gene_fs_df = pd.DataFrame(np.zeros((len(gene_orfs), config.num_columns)))
+	gene_fs_df.index = gene_orfs
 
-	gene_meta_df = gene_orfs[[]].copy()
-
-	gene_fs_df.index = gene_orfs.index
+	# Store ptr, rn, sn values into a meta data dataframe
+	gene_meta_df = pd.DataFrame()
+	gene_meta_df.index = gene_orfs
 
 	print(f"Deconvolving {len(gene_orfs)} genes...")
 
 	# Loop through all genes and store the deconvolved f values.
 	index = 0
-	for orf_name, row in gene_orfs.iterrows():
+	for orf_name in gene_orfs:
 
 		try:
 			model = deconvolve_gene(config, orf_name)

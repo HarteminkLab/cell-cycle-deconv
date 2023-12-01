@@ -27,22 +27,9 @@ class Config:
 		self.create_helper_structures()
 		self.xg_gammas = load_xg_gammas()
 
+	def all_orfs(self):
+		return self.wt1_df.index.values
 
-	def read_gene_orf_map(self, gene_mapping_file):
-		map = {}
-		
-		with open(gene_mapping_file) as f:
-			for line in f:
-				(key, val) = line.strip().split('\t')
-				map[key] = val
-		return map
-
-	def read_orf_index_map(self, gene_set_file):
-		map = {}
-		with open(gene_set_file) as f:
-			map = {orf: index for index, orf in enumerate(f.read().split('\n'))}
-		return map
-	
 	def read_model_format(self, modelfile):
 		if not os.path.exists(modelfile):
 			raise FileNotFoundError(f"The model file {modelfile} does not exist")

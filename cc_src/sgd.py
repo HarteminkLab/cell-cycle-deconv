@@ -64,12 +64,6 @@ def get_orfname(gene_name):
 
 def get_gene_name_orf_name(genename_or_orfname):
 
-    # gene_name = get_gene_name(genename_or_orfname)
-    # orf_name = genename_or_orfname
-
-    # orf_name = get_orfname(gene_name_or_orf_name)
-    # gene_name = genename_or_orfname
-
     generow = get_gene(genename_or_orfname)
 
     return generow.name, generow.gene
