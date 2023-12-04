@@ -8,21 +8,23 @@ class Config:
 	A config class to read data and initialize the model.
 	"""
 
-	def __init__(self, wt1, wt2, model_wt1_file, model_wt2_file):
+	def __init__(self, wt1=None, wt2=None, model_wt1_file=None, model_wt2_file=None):
 
+		# Replicate 1 configuration
 		self.WT1_TIMEPOINTS = wt1.columns.values.astype(int)
-		self.WT2_TIMEPOINTS = wt2.columns.values.astype(int)
-
-		# read data files
 		self.wt1_df = wt1
-		self.wt2_df = wt2
-
 		self.model_wt1_file = model_wt1_file
-		self.model_wt2_file = model_wt2_file
-
-		# read model data
 		self.intervals_wt1 = self.read_model_format(model_wt1_file)
-		self.intervals_wt2 = self.read_model_format(model_wt2_file)
+
+		# Replicate 2 configuration
+		if wt2 is not None:
+			self.WT2_TIMEPOINTS = wt2.columns.values.astype(int)
+			self.wt2_df = wt2
+			self.model_wt2_file = model_wt2_file
+			self.intervals_wt2 = self.read_model_format(model_wt2_file)
+
+		# Boolean flag to indicate whether we have 1 or 2 replicates
+		self.has_two_replicates = wt2 is not None
 
 		self.create_helper_structures()
 		self.xg_gammas = load_xg_gammas()
@@ -104,7 +106,7 @@ class Config:
 
 		# Assume we can just use wt2's model config (that wt1 has the same defined intervals)
 		lengths, relations, initial_tps, top_tps, bottom_tps, \
-		(initial_phase_map, top_phase_map, bottom_phase_map) = self.intervals_wt2
+		(initial_phase_map, top_phase_map, bottom_phase_map) = self.intervals_wt1
 
 		def get_branch_timepoints_by_index(branch, phase_tp_index):
 			if branch == 'i':
@@ -248,31 +250,24 @@ def load_yl_replicate2_gene_expression_config():
 
 	# Time points
 	WT1_TP = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 130, 140]
-	WT2_TP = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 130, 140]
 
 	# dataset files
 	DATA_WT1_FILE = 'datasets/yl_cell_cycle/replicate2_gene_expression.txt'
-	DATA_WT2_FILE = 'datasets/yl_cell_cycle/replicate2_gene_expression.txt'
 	GENE_SET_FILE = 'datasets/yl_cell_cycle/genes.lst'
 
 	orf_names = pd.read_csv(GENE_SET_FILE, sep='\t', header=None)[0].values
-
 
 	wt1 = pd.read_csv(DATA_WT1_FILE, sep='\t', header=None)
 	wt1.columns = WT1_TP
 	wt1.index = orf_names
 
-	wt2 = pd.read_csv(DATA_WT2_FILE, sep='\t', header=None)
-	wt2.columns = WT2_TP
-	wt2.index = orf_names
-
-
 	# model files
-	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt2_rg1.label'
-	MODEL_WT2_FILE = 'models/yl_cell_cycle/wt2_rg1.label'
+	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.label'
 
-	config = Config(wt1, wt2,
-		MODEL_WT1_FILE, MODEL_WT2_FILE)
+	# TODO: Testing purposes using known good model
+	MODEL_WT1_FILE = 'models/original_budflow/wt1_budflow/1.1.1.26.label'
+
+	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE)
 
 	return config
 

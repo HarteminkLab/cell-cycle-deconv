@@ -35,15 +35,24 @@ class Model:
 		g1 = self.config.wt1_df.loc[self.orf_name].values
 		self.g1 = g1
 
-		g2 = self.config.wt2_df.loc[self.orf_name].values
-		self.g2 = g2
-
-		self.g = np.concatenate((g1, g2))
-
 		self.initial_phase_map, self.top_phase_map, self.bottom_phase_map = config.intervals_wt1[-1]
+
 		H1, self.Hpos = calcH(config.intervals_wt1, config.WT1_TIMEPOINTS)
-		H2, _ = calcH(config.intervals_wt2, config.WT2_TIMEPOINTS)
-		self.H = np.concatenate((H1, H2))
+
+		if self.config.has_two_replicates:
+			g2 = self.config.wt2_df.loc[self.orf_name].values
+			self.g2 = g2
+			self.g = np.concatenate((g1, g2))
+
+			H2, _ = calcH(config.intervals_wt2, config.WT2_TIMEPOINTS)
+
+			print(H2.shape)
+
+			self.H = np.concatenate((H1, H2))
+
+		else:
+			self.g = g1
+			self.H = H1
 
 	def deconvolve(self):
 
@@ -116,15 +125,19 @@ class Model:
 			# timepoints are looked up in the intervals object
 
 		g1 = self.g1
-		g2 = self.g2
-
-		g = np.concatenate([g1, g2])
-		f = self.f.value
-
 		predicted_g = self.pred_g
 
-		predicted_g1 = predicted_g[range(len(g1))]
-		predicted_g2 = predicted_g[len(g1):]
+		if self.config.has_two_replicates:
+			g2 = self.g2
+			g = np.concatenate([g1, g2])
+
+			predicted_g1 = predicted_g[range(len(g1))]
+			predicted_g2 = predicted_g[len(g1):]
+		else:
+			g = g1
+			predicted_g1 = predicted_g
+
+		f = self.f.value
 
 		fig, axs = plt.subplots(2, 4, figsize=(16, 7))
 		(ax0, ax1, ax2, ax3, ax4, ax5, ax6, ax7) = np.array(axs).flatten()
@@ -138,10 +151,11 @@ class Model:
 
 		# -----------------
 
-		timepoints2 = self.config.WT2_TIMEPOINTS
-		ax4.plot(timepoints2, g2, color=self.color_for_key('raw'), lw=4)
-		ax4.plot(timepoints2, predicted_g2, color=self.color_for_key('fit'), lw=4)
-		ax4.set_yscale('log')
+		if self.config.has_two_replicates:
+			timepoints2 = self.config.WT2_TIMEPOINTS
+			ax4.plot(timepoints2, g2, color=self.color_for_key('raw'), lw=4)
+			ax4.plot(timepoints2, predicted_g2, color=self.color_for_key('fit'), lw=4)
+			ax4.set_yscale('log')
 
 		# -----------------
 
