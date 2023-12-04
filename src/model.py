@@ -54,11 +54,7 @@ class Model:
 			self.g = g1
 			self.H = H1
 
-	def deconvolve(self):
-
-		# Configure the smoothing wavelet
-		WAVETYPE, WAVEPAR = "Symmlet", 5
-
+	def get_f_it(self):
 		f_it = []
 		for phase in self.initial_phase_map.values():
 			se = self.Hpos[phase[1]]
@@ -67,33 +63,39 @@ class Model:
 			se = self.Hpos[phase[1]]
 			f_it.extend([e for e in range(se[0], se[1])])
 		f_it = np.array(f_it)
+		return f_it
 
+	def get_f_b(self):
 		f_b = []
 		for phase in self.bottom_phase_map.values():
 			se = self.Hpos[phase[1]]
 			f_b.extend([e for e in range(se[0], se[1])])
 		f_b = np.array(f_b)
+		return f_b
 
-		f_final = np.zeros(self.H.shape[1])
+	def deconvolve(self):
+
+		f_it = self.get_f_it()	
+		f_b = self.get_f_b()
 
 		# Mirroring
 		f_b_mirror = np.concatenate((f_b, f_b))
 		f_it_mirror = np.concatenate((f_it, np.flip(f_it)))
 		factor_fb = 1.5
 
-		W1 = get_wavelet_kernel(WAVETYPE, len(f_it_mirror), WAVEPAR)
-		W2 = get_wavelet_kernel(WAVETYPE, len(f_b), WAVEPAR)
+		W1 = get_wavelet_kernel(len(f_it_mirror))
+		W2 = get_wavelet_kernel(len(f_b))
 		W2pad = np.zeros((len(f_b), len(f_b)))
 		W2 = np.concatenate((np.concatenate((W2, W2pad)), np.concatenate((W2pad, np.fliplr(W2)))), axis=1)
 
 		# Convex optimization
 		f = cp.Variable(self.H.shape[1])
-		objective_right = cp.Minimize(cp.square(cp.pos(cp.norm(self.H@f/self.g - 1))) 
+		objective = cp.Minimize(cp.square(cp.pos(cp.norm(self.H@f/self.g - 1))) 
 								+ self.gamma * (cp.norm(W1@f[f_it_mirror], 1) 
 								+ factor_fb * cp.norm(W2@f[f_b_mirror], 1))/self.g.mean())
-		constraints_right = [f >= 0]
-		prob_right = cp.Problem(objective_right, constraints_right)
-		result_right = prob_right.solve(solver=cp.CLARABEL)
+		constraints = [f >= 0]
+		prob = cp.Problem(objective, constraints)
+		result = prob.solve(solver=cp.CLARABEL)
 
 		# predicted g
 		self.pred_g = np.matmul(self.H, f.value)

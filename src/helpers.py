@@ -106,7 +106,7 @@ def createF(Hpos, phaseMap):
         f_partial_list[i] = indices
     return np.array(f_partial), f_partial_list
 
-def get_wavelet_kernel(type, N, par):
+def get_wavelet_kernel(N, type="Symmlet", par=5):
     return WavMat(MakeONFilter(type, par), N)
 
 def WavMat(h, N, k0=None, shift=2):
