@@ -132,14 +132,16 @@ class Model:
 		# -----------------
 
 		timepoints1 = self.config.WT1_TIMEPOINTS
-		ax0.plot(timepoints1, g1)
-		ax0.plot(timepoints1, predicted_g1)
+		ax0.plot(timepoints1, g1, color=self.color_for_key('raw'), lw=4)
+		ax0.plot(timepoints1, predicted_g1, color=self.color_for_key('fit'), lw=4)
+		ax0.set_yscale('log')
 
 		# -----------------
 
 		timepoints2 = self.config.WT2_TIMEPOINTS
-		ax4.plot(timepoints2, g2)
-		ax4.plot(timepoints2, predicted_g2)
+		ax4.plot(timepoints2, g2, color=self.color_for_key('raw'), lw=4)
+		ax4.plot(timepoints2, predicted_g2, color=self.color_for_key('fit'), lw=4)
+		ax4.set_yscale('log')
 
 		# -----------------
 

@@ -253,17 +253,25 @@ def load_yl_replicate2_gene_expression_config():
 	# dataset files
 	DATA_WT1_FILE = 'datasets/yl_cell_cycle/replicate2_gene_expression.txt'
 	DATA_WT2_FILE = 'datasets/yl_cell_cycle/replicate2_gene_expression.txt'
-
-	GENE_MAPPING_FILE = 'datasets/yl_cell_cycle/gene_to_orf_name_mapping.txt'
 	GENE_SET_FILE = 'datasets/yl_cell_cycle/genes.lst'
+
+	orf_names = pd.read_csv(GENE_SET_FILE, sep='\t', header=None)[0].values
+
+
+	wt1 = pd.read_csv(DATA_WT1_FILE, sep='\t', header=None)
+	wt1.columns = WT1_TP
+	wt1.index = orf_names
+
+	wt2 = pd.read_csv(DATA_WT2_FILE, sep='\t', header=None)
+	wt2.columns = WT2_TP
+	wt2.index = orf_names
+
 
 	# model files
 	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt2_rg1.label'
 	MODEL_WT2_FILE = 'models/yl_cell_cycle/wt2_rg1.label'
 
-	config = Config(WT1_TP, WT2_TP, 
-		DATA_WT1_FILE, DATA_WT2_FILE,
-		GENE_MAPPING_FILE, GENE_SET_FILE,
+	config = Config(wt1, wt2,
 		MODEL_WT1_FILE, MODEL_WT2_FILE)
 
 	return config
