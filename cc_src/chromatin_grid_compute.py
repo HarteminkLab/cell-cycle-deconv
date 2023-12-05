@@ -48,7 +48,7 @@ class ChromatinGrid:
 
 		xlims = self.mnase_span
 		x_bins = np.arange(xlims[0], xlims[1]+x_bin_size, x_bin_size)
-		y_bins = np.arange(0, 200+y_bin_size, y_bin_size)
+		y_bins = np.arange(50, 200+y_bin_size, y_bin_size)
 
 		self.hist, self.x_edges, self.y_edges = np.histogram2d(self.plotting_reads['mid'], 
 			self.plotting_reads['length'], bins=[x_bins, y_bins])
@@ -68,8 +68,15 @@ class ChromatinGrid:
 			extent=[self.x_edges[0], self.x_edges[-1], self.y_edges[0], self.y_edges[-1]])
 		ax2.set_xlim(*xlims)
 
+
 		for ax in [ax1, ax2]:
 			for x in [gene.TSS-500, gene.TSS, gene.TSS+500]:
-				ax.axvline(x, c='green', alpha=0., lw=3)
+				ax.axvline(x, c='green', alpha=0.75, lw=3)
 				
 			ax.set_ylim(50, 200)
+
+			xticks = np.arange(gene.TSS-1000, gene.TSS+1500, 500)
+			xtick_labels = ['-1000', '-500', 'TSS', '500', '1000']
+
+			ax.set_xticks(xticks)
+			ax.set_xticklabels(xtick_labels)
