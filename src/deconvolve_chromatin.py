@@ -2,6 +2,8 @@
 import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
+import cvxpy as cp
+
 
 def load_yl_chromatin_data(orf_name):
 
@@ -55,8 +57,6 @@ def plot_deconvolved_chromatin(H, f, g):
 	plt.plot(g[:, 1])
 	plt.title("The fit 2, H*f")
 
-
-import cvxpy as cp
 
 def deconvolve_chromatin(model, g):
 	H = model.H

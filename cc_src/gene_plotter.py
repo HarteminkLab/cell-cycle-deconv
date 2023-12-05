@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from src.orf_plotter import ORFAnnotationPlotter
-from src.rna_plotting import RNAPlotter
-from src.mnase_plotting import MNasePlotter
+from cc_src.orf_plotter import ORFAnnotationPlotter
+from cc_src.rna_plotting import RNAPlotter
+from cc_src.mnase_plotting import MNasePlotter
 
 
 class GeneLocusPlotter:
@@ -20,8 +20,8 @@ class GeneLocusPlotter:
 
 	def __init__(self):
 
-		self.gene_window_padding_2 = 2000
-		self.geneset = pd.read_csv('data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
+		self.gene_window_padding_2 = 1000
+		self.geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
 		self.chr = None
 
 		# Individual plotters
@@ -40,7 +40,7 @@ class GeneLocusPlotter:
 
 	def set_gene(self, gene_name_or_orf_name, normalize_mnase=True):
 
-		from src.sgd import get_orfname
+		from cc_src.sgd import get_orfname
 
 		if gene_name_or_orf_name in self.geneset.index.values:
 			orfname = gene_name_or_orf_name
@@ -59,20 +59,21 @@ class GeneLocusPlotter:
 		# Configure the ORF plotter
 		self.orf_plotter.set_span_chrom(self.gene_window, gene.chr)
 		self.chr_mnase_plotter.set_gene(gene, normalize_mnase)
-		self.chr_rna_plotter.set_gene(gene)
+		# self.chr_rna_plotter.set_gene(gene)
+
 
 	def plot(self):
 		# number of rows: orfs, rna-seq, mnase_reads (num of timepoints)
 		rows = 2 + len(self.chr_rna_plotter.times)
 
-		fig, axs = plt.subplots(rows, 1, figsize=(12, 14))
+		fig, axs = plt.subplots(rows, 1, figsize=(9, 16))
 		axs = np.array(axs).flatten()
 
 		orfs_ax = axs[0]
 		rna_ax = axs[1]
 
 		self.orf_plotter.plot_orf_annotations(orfs_ax)
-		self.chr_rna_plotter.plot_rna_seq(rna_ax)
+		# self.chr_rna_plotter.plot_rna_seq(rna_ax)
 		self.chr_mnase_plotter.plot(axs[2:])
 
 		# plot TSS

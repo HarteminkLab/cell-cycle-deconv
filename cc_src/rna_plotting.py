@@ -5,7 +5,7 @@ import numpy as np
 import scipy.stats as stats
 
 from scipy.stats import norm
-from src.rna_reads import load_rna_reads
+from cc_src.rna_reads import load_rna_reads
 
 
 class RNAPlotter:

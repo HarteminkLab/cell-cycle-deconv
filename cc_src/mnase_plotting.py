@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
 import statsmodels.api as sm
-from src.mnase_reads import load_mnase_reads
+from cc_src.mnase_reads import load_mnase_reads
 
 
 class MNasePlotter:
@@ -52,7 +52,7 @@ class MNasePlotter:
 		times = self.times
 
 		if axs is None:
-			fig, axs = plt.subplots(len(times), 1, figsize=(12, 12))
+			fig, axs = plt.subplots(len(times), 1, figsize=(6, 13))
 			axs = list(np.array(axs).flatten())
 
 		for i in range(len(times)):
