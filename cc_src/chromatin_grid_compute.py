@@ -39,9 +39,11 @@ class ChromatinGrid:
 		self.gene_reads = self.chr_reads[(self.chr_reads.mid > self.mnase_span[0]) & 
 			(self.chr_reads.mid < self.mnase_span[1])]
 
+		self.times = self.gene_reads['sample'].unique()
+
 	def compute_bin_counts_sample(self, sample):
 
-		self.plotting_reads = self.gene_reads[self.gene_reads['sample'] == sample]
+		plotting_reads = self.gene_reads[self.gene_reads['sample'] == sample]
 
 		x_bin_size = 100
 		y_bin_size = 50
@@ -50,24 +52,46 @@ class ChromatinGrid:
 		x_bins = np.arange(xlims[0], xlims[1]+x_bin_size, x_bin_size)
 		y_bins = np.arange(50, 200+y_bin_size, y_bin_size)
 
-		self.hist, self.x_edges, self.y_edges = np.histogram2d(self.plotting_reads['mid'], 
-			self.plotting_reads['length'], bins=[x_bins, y_bins])
+		hist, x_edges, y_edges = np.histogram2d(plotting_reads['mid'], 
+			plotting_reads['length'], bins=[x_bins, y_bins])
 
-	def plot(self):
+		return plotting_reads, hist, x_edges, y_edges
+
+	def create_bins_per_sample(self):
+
+		samples = self.gene_reads['sample'].unique()
+
+		self.all_plotting_reads = {}
+		self.all_hists = {}
+		self.all_x_edges = {}
+		self.all_y_edges = {}
+
+		for sample in samples:
+			plotting_reads, hist, x_edges, y_edges = self.compute_bin_counts_sample(sample)
+
+			self.all_plotting_reads[sample] = plotting_reads
+			self.all_hists[sample] = hist.T
+			self.all_x_edges[sample] = x_edges
+			self.all_y_edges[sample] = y_edges
+
+
+	def plot(self, ax1, ax2, sample):
 		
 		xlims = self.mnase_span
 		gene = self.gene
-		plotting_reads = self.plotting_reads
-		fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(18, 1.5))
+
+		plotting_reads = self.all_plotting_reads[sample]
+		hist = self.all_hists[sample]
+		x_edges = self.all_x_edges[sample]
+		y_edges = self.all_y_edges[sample]
 
 		plot_mnase_density(ax1, plotting_reads)
 		ax1.set_xticks([])
 		ax1.set_xlim(*xlims)
 
-		ax2.imshow(self.hist.T, origin='lower', aspect='auto', cmap='magma_r',
-			extent=[self.x_edges[0], self.x_edges[-1], self.y_edges[0], self.y_edges[-1]])
+		ax2.imshow(hist, origin='lower', aspect='auto', cmap='magma_r',
+			extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]])
 		ax2.set_xlim(*xlims)
-
 
 		for ax in [ax1, ax2]:
 			for x in [gene.TSS-500, gene.TSS, gene.TSS+500]:
