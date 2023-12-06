@@ -8,62 +8,63 @@ import pandas as pd
 # file to simplify things.
 #
 
+def create_model_rg1_model(posteriors_filepath):
+    """
 
-def create_model_config_1_1_1(filepath):
-    """ models.cfg defines how the R, CG1, DG1, postG1 interavals are created.
+    The RG1 model modeled after the original 1.2.1 model in the deconvolution code
 
-     Specifically, I don't believe the cfg files are different for 1.1.1.1 and 1.1.1. We use 
-         1.1.1.26 where 26 is the alpha value (time for bud release, see the paper for more info)
-
-      
-            "1.1.1":{
-                "R":[{"i":["-mu0","-alpha","88"]}],
-                
-                "CG1":[
-                    {"t":["-alpha","lambda*beta","42"]},
-                    {"i":["-alpha","lambda*beta","42"]}],
-                
-                "DG1":[{"b":["-delta-alpha","beta*lambda","42+44"]}]
-                "postG1":[
-                    {"t":["lambda*beta","-alpha+lambda","42"]},
-                    {"i":["lambda*beta","-alpha+lambda","42"]},
-                    {"b":["lambda*beta","-alpha+lambda","42"]}],
+    # ------------------
+    # 1.2.1 MODEL (ALL_DIFF_G1, ibt)
+    # ------------------ 
+    my ($diff_g1_rg1, $diff_g1_cg1, $diff_g1_dg1, $diff_g1_postg1) = (192, 64, 192, 64);
+    print OUT <<DIFF_G1;
+            "1.2.1":{
+                "RG1":[{"i":["-mu0","lambda*beta","$diff_g1_rg1"]}],
+                "CG1":[{"t":["-alpha","lambda*beta","$diff_g1_cg1"]}],
+                "DG1":[{"b":["-delta-alpha","lambda*beta","$diff_g1_dg1"]}],
+                "postG1":[{"t":["lambda*beta","-alpha+lambda","$diff_g1_postg1"]},
+                    {"b":["lambda*beta","-alpha+lambda","$diff_g1_postg1"]},
+                    {"i":["lambda*beta","-alpha+lambda","$diff_g1_postg1"]}]
             },
+    DIFF_G1
     """
     params = {}
-    with open(filepath, 'r') as f:
+    with open(posteriors_filepath, 'r') as f:
         lines = f.readlines()
         for line in lines[1:-1]:
             line_spl = line.split()
             params[line_spl[0]] = float(line_spl[1])
 
     mu0, lambd, delta, sigma0, sigmav, halted = (params['mu0'], params['lambda'], 
-                                         params['delta'], params['sigma0'], params['sigmav'], 
+                                         params['delta'], params['sigma0'], params['sigmav'],
                                          params['halted'])
 
-    # TODO: Investigate the importance of these values
+    # TODO: These values may not be important for our alpha factor arrest flow dataset.
     alpha = 0
-    beta = params['gamma1']
+    gamma1 = params['gamma1']
+    sStart = beta = gamma1*lambd
 
-    return (mu0, lambd, delta, sigma0, sigmav, alpha, beta), {
-        "H": [{'h': [mu0-1, mu0, 1] }],
-        "R":[{"i":[mu0, -alpha, 88]}],
+    params = mu0, lambd, delta, sigma0, sigmav, alpha, beta
+    model_dic = {
 
+        "RG1": [
+            {"i":[mu0, sStart, 55]}],
         "CG1":[
-            {"t":[-alpha, lambd*beta, 42]},
-            {"i":[-alpha, lambd*beta, 42]}],
-
-        "DG1":[{"b":[-delta-alpha, beta*lambd, 42+44]}],
+            {"t":[-alpha, sStart, 25]}],
+        "DG1":[
+            {"b":[-delta-alpha, sStart, 40]}],
         "postG1":[
-            {"t":[lambd*beta, -alpha+lambd, 42]},
-            {"i":[lambd*beta, -alpha+lambd, 42]},
-            {"b":[lambd*beta, -alpha+lambd, 42]}],
-    }
+            {"t":[sStart, -alpha+lambd, 90]},
+            {"i":[sStart, -alpha+lambd, 90]},
+            {"b":[sStart, -alpha+lambd, 90]}],
+        }
+
+    return params, model_dic
 
 
 def get_sub_interval_str(model):
-    subnames = ['H', 'R', 'RG1', 'CG1', 'DG1', 'postG1']
-    branches = ['h', 'i', 't', 'b']
+    subnames = ['R', 'RG1', 'CG1', 'DG1', 'postG1']
+    branches = ['i', 't', 'b']
 
     intervals_str = ""
     for br in branches:
@@ -82,11 +83,11 @@ def get_sub_interval_str(model):
     return intervals_str
 
 
-def get_model_cfg_str(params, model, Rname="R", CG1_intervals="i 1 t 0", PG1_intervals="i 2 t 1 b 1"):
+def get_model_cfg_str(params, model_dic, Rname="R", CG1_intervals="i 1 t 0", PG1_intervals="i 2 t 1 b 1"):
 
-    mu0, lambd, delta, sigma0, sigmav, alpha, beta, halted = params
+    mu0, lambd, delta, sigma0, sigmav, alpha, beta = params
 
-    intervals = get_sub_interval_str(model)
+    intervals = get_sub_interval_str(model_dic)
 
     s = """# lengths
 mu0 %f
@@ -96,75 +97,31 @@ sigma0 %f
 sigmav %f
 alpha %f
 beta %f
-halted %f
 # description
-H h 0
 %s i 0
 CG1 %s
 DG1 b 0
 postG1 %s
-%s""" % (-mu0, lambd, delta, sigma0, sigmav, alpha, beta, halted,
+%s""" % (-mu0, lambd, delta, sigma0, sigmav, alpha, beta,
          Rname, CG1_intervals, PG1_intervals, intervals)
 
     return s
 
+def main():
 
-def create_model_config_1_2_1(filepath):
-    """
+    output_model_path = 'models/yl_cell_cycle/wt2_rg1_updated.label'
+    posteriors_filepath = 'data/cloccs_output_yl_replicate2/posteriors.txt'
 
-    The RG1 model modeled after the original 1.2.1 model in the deconvolution code. With added halted cells
+    wt2_params, rep2_model = create_model_rg1_model(posteriors_filepath)
+    wt2_cfg = get_model_cfg_str(wt2_params, rep2_model, Rname="RG1", CG1_intervals="t 0", 
+        PG1_intervals="i 1 t 1 b 1")
 
-    # ------------------
-    # 1.2.1 MODEL (ALL_DIFF_G1, ibt)
-    # ------------------ 
-    my ($diff_g1_rg1, $diff_g1_cg1, $diff_g1_dg1, $diff_g1_postg1) = (192, 64, 192, 64);
-    print OUT <<DIFF_G1;
-            "1.2.1":{
-                "RG1":[{"i":["-mu0","lambda*beta","$diff_g1_rg1"]}],
-                "CG1":[{"t":["-alpha","lambda*beta","$diff_g1_cg1"]}],
-                "DG1":[{"b":["-delta-alpha","lambda*beta","$diff_g1_dg1"]}],
-                "postG1":[{"t":["lambda*beta","-alpha+lambda","$diff_g1_postg1"]},
-                    {"b":["lambda*beta","-alpha+lambda","$diff_g1_postg1"]},
-                    {"i":["lambda*beta","-alpha+lambda","$diff_g1_postg1"]}]
-            },
-    DIFF_G1
-    """
-    params = {}
-    with open(filepath, 'r') as f:
-        lines = f.readlines()
-        for line in lines[1:-1]:
-            line_spl = line.split()
-            params[line_spl[0]] = float(line_spl[1])
+    with open(output_model_path, 'w') as f:
+        f.write(wt2_cfg)
 
-    mu0, lambd, delta, sigma0, sigmav, halted = (params['mu0'], params['lambda'], 
-                                         params['delta'], params['sigma0'], params['sigmav'],
-                                         params['halted'])
+    from src.ModelFile import ModelFile
 
-    # TODO: Investigate the importance of these values
-    alpha = 0
-    gamma1 = params['gamma1']
-    sStart = beta = gamma1*lambd
-
-    print(f"mu0: {mu0}")
-    print(f"lambd: {lambd}")
-    print(f"delta: {delta}")
-    print()
-
-    params = mu0, lambd, delta, sigma0, sigmav, alpha, beta, halted
-    model = {
-        "H": [
-            {'h': [0, lambd, 1] }],
-        "RG1": [
-            {"i":[mu0, sStart, 32]}],
-        "CG1":[
-            {"t":[-alpha, sStart, 42]}],
-        "DG1":[
-            {"b":[-delta-alpha, sStart, 52]}],
-        "postG1":[
-            {"t":[sStart, -alpha+lambd, 42]},
-            {"i":[sStart, -alpha+lambd, 42]},
-            {"b":[sStart, -alpha+lambd, 42]}],
-        }
-
-    return params, model
-
+    model_file = ModelFile()
+    model_file.load_model(output_model_path)
+    model_file.plot_model()
+    
