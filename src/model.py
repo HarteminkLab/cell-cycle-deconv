@@ -100,8 +100,8 @@ class Model:
 		# predicted g
 		self.pred_g = np.matmul(self.H, f.value)
 		
-		W1 = get_wavelet_kernel(WAVETYPE, len(f_it), WAVEPAR)
-		W2 = get_wavelet_kernel(WAVETYPE, len(f_b), WAVEPAR)
+		W1 = get_wavelet_kernel(len(f_it))
+		W2 = get_wavelet_kernel(len(f_b))
 		sn = (np.linalg.norm(np.matmul(W1, f.value[f_it]), 1) + np.linalg.norm(np.matmul(W2, f.value[f_b]), 1)) / np.mean(self.g)
 		rn = np.square(np.clip(np.linalg.norm(np.matmul(self.H, f.value) / self.g - 1), 0, None))
 
@@ -197,6 +197,7 @@ class Model:
 		ax6.set_title("Initial branch")
 
 		i_timepoints = _plot_branch(ax7, 'i', linestyle='dashed')
+		#t_timepoints = _plot_branch(ax7, 't', start_offset=i_timepoints[-1], linestyle='dashed')
 		_plot_branch(ax7, 'b', start_offset=i_timepoints[-1], linestyle='dashed')
 		ax7.set_title("Single cell profile")
 

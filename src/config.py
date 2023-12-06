@@ -297,6 +297,31 @@ def load_yl_replicate2_chromatin_config():
 	return config
 
 
+
+def load_yl_replicate2_rg1_config():
+
+	# Time points
+	WT1_TP = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 130, 140]
+
+	# dataset files
+	DATA_WT1_FILE = 'datasets/yl_cell_cycle/replicate2_gene_expression.txt'
+	GENE_SET_FILE = 'datasets/yl_cell_cycle/genes.lst'
+
+	orf_names = pd.read_csv(GENE_SET_FILE, sep='\t', header=None)[0].values
+
+	wt1 = pd.read_csv(DATA_WT1_FILE, sep='\t', header=None)
+	wt1.columns = WT1_TP
+	wt1.index = orf_names
+
+	# model files
+	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt2_rg1_2023_12_06_update.label'
+
+	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE)
+
+	return config
+
+
+
 def read_xin_published_wt_data(wildtype):    
     # Handle columns and rows, second row has clock time, drop alias columns
     wt1_web_df = pd.read_csv(f'datasets/datasets_from_web_deconvolution.cs.duke.edu/wildtype{wildtype}.tsv', 
