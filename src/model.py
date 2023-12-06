@@ -206,18 +206,24 @@ class Model:
 	def color_for_key(self, key):
 		"""Predefined colors for phases and keys for gene plots"""
 
-		color_map = {
-			 "raw": np.array([158, 50, 50])/255.,
-			 "fit": np.array([145, 180, 98])/255.,
-			 "R": np.array([199, 148, 144])/255.,
-			 "RG1": np.array([199, 148, 144])/255.,
-			 "CG1": np.array([147, 168, 198])/255.,
-			 "DG1": np.array([165, 197, 204])/255.,
-			 "postG1": np.array([223, 192, 158])/255.,
-			 "H": np.array([100, 100, 100])/255.
-		}
+		return color_for_key(key)
 
-		return color_map[key]
+
+def color_for_key(key):
+	"""Predefined colors for phases and keys for gene plots"""
+
+	color_map = {
+		 "raw": np.array([158, 50, 50])/255.,
+		 "fit": np.array([145, 180, 98])/255.,
+		 "R": np.array([199, 148, 144])/255.,
+		 "RG1": np.array([199, 148, 144])/255.,
+		 "CG1": np.array([147, 168, 198])/255.,
+		 "DG1": np.array([165, 197, 204])/255.,
+		 "postG1": np.array([223, 192, 158])/255.,
+		 "H": np.array([100, 100, 100])/255.
+	}
+
+	return color_map[key]
 
 
 def deconvolve_gene(config, gene_or_orfname, gamma=None, plot=False):
