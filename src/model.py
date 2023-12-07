@@ -161,7 +161,7 @@ class Model:
 
 		# -----------------
 
-		def _plot_branch(ax, branch, start_offset=0, linestyle='solid'):
+		def _plot_branch(ax, branch, ylim, start_offset=0, linestyle='solid'):
 			"""Plot the branch coloring the individual phases within the branch"""
 			phase_tp_idx_list = self.config.get_timepoints_phases_Hpositions_for_branch(branch)
 
@@ -174,6 +174,8 @@ class Model:
 				ax.plot(timepoints+offset, f[indices], color=self.color_for_key(phase), 
 					lw=5, linestyle=linestyle)
 
+			ax.set_ylim(*ylim)
+
 			# return timepoints in case we want to append more branches on to the plot
 			return timepoints.values
 
@@ -182,23 +184,25 @@ class Model:
 		for phase, indices in self.config.phase_columns.items():
 			ax1.plot(indices, f[indices], color=self.color_for_key(phase), lw=5)
 
+		ylim = 0, np.max(f)*1.1
+
 		ax1.set_title("Deconvolved, f")
 
-		_plot_branch(ax2, 't')
+		_plot_branch(ax2, 't', ylim)
 		ax2.set_title("Top branch")
 
-		_plot_branch(ax3, 'b')
+		_plot_branch(ax3, 'b', ylim)
 		ax3.set_title("Bottom branch")
 
 		ax5.imshow(self.H, aspect='auto')
 		ax5.set_title('Convolution kernel, H')
 
-		_plot_branch(ax6, 'i')
+		_plot_branch(ax6, 'i', ylim)
 		ax6.set_title("Initial branch")
 
-		i_timepoints = _plot_branch(ax7, 'i', linestyle='dashed')
+		i_timepoints = _plot_branch(ax7, 'i', linestyle='dashed', ylim=ylim)
 		#t_timepoints = _plot_branch(ax7, 't', start_offset=i_timepoints[-1], linestyle='dashed')
-		_plot_branch(ax7, 'b', start_offset=i_timepoints[-1], linestyle='dashed')
+		_plot_branch(ax7, 'b', start_offset=i_timepoints[-1], linestyle='dashed', ylim=ylim)
 		ax7.set_title("Single cell profile")
 
 		plt.suptitle(f"{self.gene_name} / {self.orf_name}, gamma={self.gamma:.3f}\nrn={self.rn:.2f}, sn={self.sn:.2f}\nptr={self.ptr:.2f}")
@@ -221,6 +225,10 @@ def color_for_key(key):
 		 "CG1": np.array([147, 168, 198])/255.,
 		 "DG1": np.array([165, 197, 204])/255.,
 		 "postG1": np.array([223, 192, 158])/255.,
+
+		 "S": np.array([200, 192, 158])/255.,
+		 "G2": np.array([223, 172, 158])/255.,
+
 		 "H": np.array([100, 100, 100])/255.
 	}
 
