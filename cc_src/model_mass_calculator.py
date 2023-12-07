@@ -110,3 +110,95 @@ class MassCalculator:
 		return masses
 
 
+	def compute_subinterval_mass(self, time):
+
+		g1Proportion = 0.0
+		g2Proportion = 0.0
+		sProportion = 0.0
+		rProportion = 0.0
+		cg1Proportion = 0.0
+		dg1Proportion = 0.0
+
+		for g in range(MaxNumCellCycles + 1):
+			for r in range(g, MaxNumCellCycles + 1):
+				cohort_masses = self.get_cell_cycle_subinterval_mass(time, g, r)
+
+				g1Proportion += cohort_masses[0]
+				sProportion += cohort_masses[1]
+				g2Proportion += cohort_masses[2]
+
+				rProportion += cohort_masses[3]
+				cg1Proportion += cohort_masses[4]
+				dg1Proportion += cohort_masses[5]
+
+		total_intervals_sum = g1Proportion + sProportion + g2Proportion
+		g1Proportion /= total_intervals_sum
+		sProportion /= total_intervals_sum
+		g2Proportion /= total_intervals_sum
+
+		total_g1_proportion = g1Proportion / (rProportion + cg1Proportion + dg1Proportion)
+		rProportion *= total_g1_proportion
+		cg1Proportion *= total_g1_proportion
+		dg1Proportion *= total_g1_proportion
+
+		return total_g1_proportion, rProportion, cg1Proportion, dg1Proportion, \
+				sProportion, g2Proportion
+
+
+	def compute_proportions_all_times(self, timepoints):
+		"""Compute the mass for each subinterval for each time point"""
+
+		import pandas as pd
+
+		all_total_g1_proportion = []
+		all_rProportion = []
+		all_cg1Proportion = []
+		all_dg1Proportion = []
+		all_sProportion = []
+		all_g2Proportion = []
+
+		for time in timepoints:
+			(total_g1_proportion, rProportion, cg1Proportion, dg1Proportion, \
+					sProportion, g2Proportion) = self.compute_subinterval_mass(time)
+
+			all_total_g1_proportion.append(total_g1_proportion)
+			all_rProportion.append(rProportion)
+			all_cg1Proportion.append(cg1Proportion)
+			all_dg1Proportion.append(dg1Proportion)
+			all_sProportion.append(sProportion)
+			all_g2Proportion.append(g2Proportion)
+
+		sub_mass_df = pd.DataFrame({
+			'time': timepoints,
+			'total_g1': all_total_g1_proportion,
+					 'R': all_rProportion,
+					 'CG1': all_cg1Proportion,
+					 'DG1': all_dg1Proportion,
+					 'S': all_sProportion,
+					 'G2': all_g2Proportion})
+
+		self.sub_mass_df = sub_mass_df
+		return sub_mass_df
+
+
+	def plot_subinterval_mass_port(self):
+	  
+		from matplotlib import pyplot as plt
+		from cc_src.plot_helpers import plot_stacked_curves
+	  
+		sub_mass_df = self.sub_mass_df
+		tp = sub_mass_df.time
+		phase_columns = sub_mass_df.columns[2:]
+
+		plt.figure(figsize=(6, 4))
+		plt.ylim(0, 2.)
+
+		vectors = []
+
+		for phase in phase_columns:
+			cur_vec = sub_mass_df[phase]
+			vectors.append(cur_vec)
+			
+		plot_stacked_curves(tp, vectors, phase_columns)
+
+		plt.legend()
