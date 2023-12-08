@@ -39,24 +39,24 @@ def create_model_rg1_model(posteriors_filepath):
                                          params['delta'], params['sigma0'], params['sigmav'],
                                          params['halted'])
 
-    # TODO: These values may not be important for our alpha factor arrest flow dataset.
-    alpha = 0
     gamma1 = params['gamma1']
-    sStart = beta = gamma1*lambd
+    start_of_S = gamma1*lambd
 
-    params = mu0, lambd, delta, sigma0, sigmav, alpha, beta
+    print(start_of_S)
+
+    params = mu0, lambd, delta, sigma0, sigmav, 0
     model_dic = {
 
         "RG1": [
-            {"i":[mu0, sStart, 54]}],
+            {"i":[mu0, start_of_S, 54]}],
         "CG1":[
-            {"t":[-alpha, sStart, 44]}],
+            {"t":[0, start_of_S, 44]}],
         "DG1":[
-            {"b":[-delta-alpha, sStart, 49]}],
+            {"b":[-delta, start_of_S, 49]}],
         "postG1":[
-            {"t":[sStart, -alpha+lambd, 79]},
-            {"i":[sStart, -alpha+lambd, 79]},
-            {"b":[sStart, -alpha+lambd, 79]}],
+            {"t":[start_of_S, lambd, 79]},
+            {"i":[start_of_S, lambd, 79]},
+            {"b":[start_of_S, lambd, 79]}],
         }
 
     return params, model_dic
@@ -85,7 +85,10 @@ def get_sub_interval_str(model):
 
 def get_model_cfg_str(params, model_dic, Rname="R", CG1_intervals="i 1 t 0", PG1_intervals="i 2 t 1 b 1"):
 
-    mu0, lambd, delta, sigma0, sigmav, alpha, beta = params
+    mu0, lambd, delta, sigma0, sigmav, alpha = params
+
+    # Unused parameter beta
+    beta = 0
 
     intervals = get_sub_interval_str(model_dic)
 

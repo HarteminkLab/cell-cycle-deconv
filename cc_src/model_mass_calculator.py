@@ -15,8 +15,10 @@ class MassCalculator:
 		mu0, lambda_val, delta, sigma0, sigmav, alpha = (
 			-21.0, 79.3787, 1.1588, 15.2752, 0.1611, 0
 			)
-
+		self.gamma1 = 0.157
+		self.gamma2 = 0.4
 		self.parameters = mu0, lambda_val, delta, sigma0, sigmav, alpha
+
 
 	def get_position_distribution_parameters(self, g, r, time):
 
@@ -60,8 +62,8 @@ class MassCalculator:
 		params = self.get_position_distribution_parameters(g, r, time)  # Assuming this method is defined
 		mean_g, sd_g = params
 
-		gamma1 = 0.157
-		gamma2 = 0.4
+		gamma1 = self.gamma1
+		gamma2 = self.gamma2
 
 		mass_g1, mass_g2, mass_s = 0, 0, 0
 		mass_r, mass_dg1, mass_cg1 = 0, 0, 0
@@ -82,7 +84,8 @@ class MassCalculator:
 					current_cg1_mass = 0
 					current_r_mass += norm.cdf(gamma1 * lambda_val, mean_g, sd_g) - norm.cdf(0, mean_g, sd_g)
 				else:
-					current_dg1_mass = norm.cdf(0, mean_g, sd_g) - norm.cdf(-delta, mean_g, sd_g)
+					current_cg1_mass = 0
+					current_dg1_mass = norm.cdf(gamma1*lambda_val, mean_g, sd_g) - norm.cdf(-delta, mean_g, sd_g)
 
 
 			mass_g1 += current_r_mass + current_cg1_mass + current_dg1_mass

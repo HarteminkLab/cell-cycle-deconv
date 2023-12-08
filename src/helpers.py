@@ -5,35 +5,69 @@ from math import comb
 def calcH(model_intervals, timepoints):
     parameters, relations, initial_timepoints, top_timepoints, bottom_timepoints, _ = model_intervals
     mu0, lambda_val, delta, sigma0, sigmav, alpha, beta = parameters
-    max_cellcycles, max_R, max_G = 10, 10, 10
+    max_runs = 10
 
     initial_partial_H = [np.zeros((len(timepoints), len(lst)-1)) for lst in initial_timepoints]
     top_partial_H = [np.zeros((len(timepoints), len(lst)-1)) for lst in top_timepoints]
     bottom_partial_H = [np.zeros((len(timepoints), len(lst)-1)) for lst in bottom_timepoints]
 
+    print("Initial branch: Recovery shape: ", initial_partial_H[0].shape)
+    print("Initial branch: postG1 shape: ", initial_partial_H[1].shape)
+
+    # For each timepoint in the experiment, (rows in g)
     for i, t in enumerate(timepoints):
+
         Q = 0
-        for r in range(max_R + 1):
+
+        # Compute the Qr value or mass at a given timepoint in the experiment
+        # We are doing this for each run (cell cycle)
+        for r in range(max_runs + 1):
             Q += Qr(mu0, sigma0, sigmav, delta, lambda_val, t, r, alpha)
-            frac_init = Qr(mu0, sigma0, sigmav, delta, lambda_val, t, 0, alpha) / Q
+
+        # We also want to have a fraction of the initial population, so t=0
+        # over the expected mass at our current time
+        frac_init = Qr(mu0, sigma0, sigmav, delta, lambda_val, t, 0, alpha) / Q
+
+        # Now we will construct our initial branch's columns
+        # Enumerate through the timepoints of the initial branch
         for idx, tp in enumerate(initial_timepoints):
+
+            # Compute the cdf for the initial branch timepoint
             cdf = norm.cdf(tp, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
             initial_partial_H[idx][i, :] = np.diff(cdf) * frac_init
-        for runs in range(1, max_R + 1):
+
+        # For the top timepoint, we will be computing the cdf
+        # to compute the mass for each timepoint interval
+        # i.e.   CG1, and postG1
+        for runs in range(1, max_runs + 1):
+
+            # Enumerate through the timepoints for each subinterval belonging to the to top timepoints
             for idx, tp in enumerate(top_timepoints):
+
+                # Compute the cdf for the top branch timepoint
                 cdf = norm.cdf(tp + runs * lambda_val, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
                 top_partial_H[idx][i, :] += np.diff(cdf) * frac_init
-        for r in range(1, max_R + 1):
+
+                
+        # Now we will do the same for the top and bottom, with the distinction...
+
+        for r in range(1, max_runs + 1):
             for g in range(1, r + 1):
+
                 frac_rest = Mgr(mu0, sigma0, sigmav, delta, lambda_val, t, g, r, alpha) / Q
+
                 if frac_rest > 1e-10:
-                    trun_cdf = norm.cdf(r * lambda_val + (g-1) * delta - alpha, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
+                    trun_cdf = norm.cdf(r * lambda_val + (g-1) * delta - alpha, loc=t-mu0, 
+                        scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
                     trun_denom = 1 - trun_cdf
+
                     for idx, tp in enumerate(top_timepoints):
-                        for runs in range(r + 1, max_R + 1):
-                            cdf = norm.cdf(tp + runs * lambda_val + g * delta, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
+                        for runs in range(r + 1, max_runs + 1):
+                            cdf = norm.cdf(tp + runs * lambda_val + g * delta, loc=t-mu0, 
+                                    scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
                             portion = cdf * 0 if trun_denom == 0 else (cdf - trun_cdf) / trun_denom
                             top_partial_H[idx][i, :] += np.diff(portion) * frac_rest
+
                     for idx, tp in enumerate(bottom_timepoints):
                         cdf = norm.cdf(tp + r * lambda_val + g * delta, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
                         portion = cdf * 0 if trun_denom == 0 else (cdf - trun_cdf) / trun_denom
@@ -69,16 +103,25 @@ def calcH(model_intervals, timepoints):
 
     return H, Hpos
     
+
 def Qr(mu0, sigma0, sigmav, delta, lambda_val, t, r, alpha):
+    """
+    I believe this returns the mass of cells at a given time and reproductive instance. Seemingly starting with a mass
+    of 1000
+    """
     START = 1000
     if r == 0:
         return START
     else:
+
+        # For each of the reproductive instances r, compute the amount of mass that will contribute
         N = 0
         for i in range(r):
             normval = 1 - norm.cdf(r * lambda_val + i * delta - alpha, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
             N += normval * START * comb(r-1, i)
+
         return N
+
 
 def Mgr(mu0, sigma0, sigmav, delta, lambda_val, t, g, r, alpha):
     START = 1000
