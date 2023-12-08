@@ -48,9 +48,9 @@ def create_model_rg1_model(posteriors_filepath):
     model_dic = {
 
         "RG1": [
-            {"i":[mu0, start_of_S, 54]}],
+            {"i":[mu0, start_of_S, 49]}],
         "CG1":[
-            {"t":[0, start_of_S, 44]}],
+            {"t":[0, start_of_S, 49]}],
         "DG1":[
             {"b":[-delta, start_of_S, 49]}],
         "postG1":[
