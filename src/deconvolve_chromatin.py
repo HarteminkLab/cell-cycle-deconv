@@ -60,7 +60,7 @@ def plot_deconvolved_chromatin(H, f, g):
 
 def deconvolve_chromatin(model, g):
 	H = model.H
-	gamma = 0.001
+	gamma = model.gamma
 	factor_fb = 1.5
 
 	# And we are trying to determine the best f (4x1) that
@@ -94,5 +94,17 @@ def deconvolve_chromatin(model, g):
 	# Perform the convex optimization
 	prob = cp.Problem(objective, constraints)
 	result = prob.solve(solver=cp.CLARABEL)
+
+	# ------- Compute the smoothing norm and fitting/residual norms --------------
+
+	# We will use the non-mirrored wavelet kernel sizes, because we are operating on the 
+	# final f values
+	W1 = get_wavelet_kernel(len(f_it))
+	W2 = get_wavelet_kernel(len(f_b))
+
+	model.sn = (np.linalg.norm(np.matmul(W1, f.value[f_it]), 1) +
+	 np.linalg.norm(np.matmul(W2, f.value[f_b]), 1)) / np.mean(g)
+
+	model.rn = np.square(np.clip(np.linalg.norm(np.matmul(model.H, f.value) / g - 1), 0, None))
 
 	return result, f.value
