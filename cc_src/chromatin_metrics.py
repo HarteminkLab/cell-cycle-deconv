@@ -4,7 +4,7 @@ import pandas as pd
 
 from src.timer import Timer
 from matplotlib import pyplot as plt
-from src.read_bam import read_mnase_bam
+from cc_src.read_bam import read_mnase_bam
 
 
 class ChromatinMetrics:

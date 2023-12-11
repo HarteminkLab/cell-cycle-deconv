@@ -30,6 +30,7 @@ class ChromatinGrid:
 	def set_gene(self, gene_name):
 
 		# Get some gene information
+		self.computed_plus_one = None
 		self.orf_name, self.gene_name = get_gene_name_orf_name(gene_name)
 		self.gene = self.geneset.loc[self.orf_name]
 
@@ -42,6 +43,17 @@ class ChromatinGrid:
 			(self.chr_reads.mid < self.mnase_span[1])]
 
 		self.times = self.gene_reads['sample'].unique()
+		self.find_max_plusOne_pos()
+
+
+		# Now that we have the +1 position defined, let's realign on this position
+		#
+		# TODO: Note, that we may run into some weird behavior if the read counts are very low for nucleosome fragments around
+		# the TSS, in that case, we will need a back up plan... maybe a minimum threshold for this procedure...
+		self.mnase_span = self.computed_plus_one-self.padding, self.computed_plus_one+self.padding
+		self.gene_reads = self.chr_reads[(self.chr_reads.mid > self.mnase_span[0]) & 
+			(self.chr_reads.mid < self.mnase_span[1])]
+
 
 	def compute_bin_counts_sample(self, sample):
 
@@ -99,23 +111,27 @@ class ChromatinGrid:
 
 		plot_mnase_density(ax1, plotting_reads)
 		ax1.set_xticks([])
-		ax1.set_xlim(*xlims)
 
 		ax2.imshow(hist, origin='lower', aspect='auto', cmap='magma_r',
-			extent=[x_edges[0], x_edges[-1], y_edges[0], y_edges[-1]])
-		ax2.set_xlim(*xlims)
+			extent=[self.mnase_span[0], self.mnase_span[1], y_edges[0], y_edges[-1]])
+
+		center = self.computed_plus_one
 
 		for ax in [ax1, ax2]:
-			for x in [gene.TSS-500, gene.TSS, gene.TSS+500]:
+			for x in [center-500, center, center+500]:
 				ax.axvline(x, c='green', alpha=0.75, lw=3)
 				
 			ax.set_ylim(50, 200)
 
-			xticks = np.arange(gene.TSS-1000, gene.TSS+1500, 500)
-			xtick_labels = ['-1000', '-500', 'TSS', '500', '1000']
+			xticks = np.arange(center-1000, center+1500, 500)
+			xtick_labels = ['-1000', '-500', '+1 pos.', '500', '1000']
 
 			ax.set_xticks(xticks)
 			ax.set_xticklabels(xtick_labels)
+			ax.axvline(self.computed_plus_one, c='red')
+
+		ax1.set_xlim(*xlims)
+		ax2.set_xlim(*xlims)
 
 
 	def plot_raw_and_grid(self):
@@ -247,10 +263,11 @@ class ChromatinGrid:
 
 		predicted_g_reshaped = predicted_g.reshape(n, 3, 10)
 
-		fig, axs = plt.subplots(n, 2, figsize=(4, 6))
+		fig, axs = plt.subplots(n, 3, figsize=(7, 6))
 		axs = np.array(axs).T
 		g_axs = axs[0]
 		pred_g_axs = axs[1]
+		comparison_axs = axs[2]
 
 		for i in range(n):
 			time = times[i]
@@ -262,11 +279,59 @@ class ChromatinGrid:
 			pred_ax = pred_g_axs[i]
 			im = pred_ax.imshow(predicted_g_reshaped[i], origin='lower', cmap='magma_r', 
 						   aspect='auto', vmax=300)
+
+			comp_ax = comparison_axs[i]
+			im = comp_ax.imshow(predicted_g_reshaped[i]-self.threed_hist_matrix[i], 
+							origin='lower', cmap='RdBu', aspect='auto', vmin=-300, vmax=300)
 			
-			for ax in [g_ax, pred_ax]:
+			for ax in [g_ax, pred_ax, comp_ax]:
 				ax.set_xticks([])
 				ax.set_yticks([])
 				ax.axvline(4.5, c='black', lw=2)
 
+
+
+
 		g_axs[0].set_title("Original")
 		pred_g_axs[0].set_title("Predicted")
+		comparison_axs[0].set_title("Difference")
+
+	def find_max_plusOne_pos(self):
+		"""
+		Find the position of the +1 by finding the max number of nucleosome reads in
+		a 200bp window around the TSS.
+
+		For the currently selected gene
+		"""
+
+		from cc_src.chromatin_metrics import yl_rep2_len_spans
+
+		small_lens, med_lens, nuc_lens = yl_rep2_len_spans()
+
+		# Next, we will align at the +1
+		# from the TSS, stack up all timepoints, then look up and dowstream (200 bp window) for the
+		# position with the highest number of reads, and we will use that position as our +1 position
+		# We will put that position into our gene data set and use that as our reference data set
+
+		# We can get all of the  nucleosome length fragments for the gene, and stack them up by time
+
+		cur_reads = self.gene_reads.copy()
+
+		# Search around the TSS with a 200bp window
+		window = 200
+		search_peak_span = self.gene.TSS-window//2, \
+			self.gene.TSS+window//2 
+
+		cur_nuc_reads = cur_reads[(cur_reads['length'] >= nuc_lens[0]) & 
+							  (cur_reads['length'] < nuc_lens[1]) & 
+								 (cur_reads['mid'] >= search_peak_span[0]) &
+								 (cur_reads['mid'] < search_peak_span[1])]
+
+		counts_per_pos_search = cur_nuc_reads.groupby('mid').count()
+		counts_per_pos_search = counts_per_pos_search[['start']].rename({'start': 'count'})
+		pos_max = counts_per_pos_search.idxmax().start
+
+
+		self.computed_plus_one = pos_max
+
+		return pos_max
