@@ -36,7 +36,7 @@ class FindOptimalGammaChromatin:
 		DEFAULT_RN_CUTOFF = 1000
 		DEFAULT_GM = 0.004
 		GAMMA_MIN = 0.001
-		GAMMA_MAX = 0.01
+		GAMMA_MAX = 0.1
 
 		# left boundary
 		rn_rate_left = 1.10
