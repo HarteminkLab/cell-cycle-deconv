@@ -55,50 +55,62 @@ class ChromatinGrid:
 			(self.chr_reads.mid < self.mnase_span[1])]
 
 
+	def define_histogram_bins(self):
+		"""
+		Here, we will define the genomic bin positions as centered around the
+		computed plus one location. Where we will want one bin. Then, 
 
-    def define_histogram_bins():
-        x_bin_size = 80
+		Define the promoter as apporximately 300 bp (3 bins backwards)
+		But also take into account half a bin width, since we are centering a 
+		bin on the +1 nucleosome.
+
+		3 * 80 = 240
+		+40 (the half bin from the center)
+		280 bp will be the promoter region
+
+		And the gene body as 5 bins forward:
+		5 bins forward, 
+		5 * 80 = 400
+		+ 40
+
+		440 bp wide will be the gene body (including sitting on the +1 nucleosome)
+		"""
+
+		from cc_src.chromatin_metrics import yl_rep2_len_spans
+
+		x_bin_size = 80
 		y_bin_size = 50
 
-		xlims = self.mnase_span
-		x_bins = np.arange(xlims[0], xlims[1]+x_bin_size, x_bin_size)
+		num_promoter_bins = 3
+		num_gb_bins = 5
+		num_bins = num_promoter_bins+num_gb_bins+1 # Plus one, because we are centered on a bin
+
 		
-        
-        # Defined by the fragment lengths we previously defined
-        # TODO: Verify this
-        y_bins = [0, 50, 145, 200]
-        
-		# Here, we will define the genomic bin positions as centered around the
-        # computed plus one location. Where we will want one bin. Then, 
-        # Define the promoter as apporximately 300 bp (3 bins backwards)
-        # But also take into account half a bin width, since we are centering a 
-        # bin on the +1 nucleosome.
-		# 
-        # 3 * 80 = 240 
-        # +40 (the half bin from the center)
-        # 280 bp will be the promoter region
-        num_promoter_bins = 3
-        
-        # 6 bins forward, 
-        # 6 * 80 = 480
-        # + 40
-        #
-        # 520 will be the gene body.
-        num_gb_bins = 6
-        
-        # from the center we will 
-        center = self.computed_plus_one
-        
-        promoter_span = center-x_bin_size//2 - x_bin_size*num_promoter_bins, center
-        gene_body_span = center, center+x_bin_size//2 + x_bin_size*num_gb_bins
-        
+		# Defined by the fragment lengths we previously defined
+		small_lens, med_lens, nuc_lens = yl_rep2_len_spans()
+		y_bins = [small_lens[0], small_lens[1], nuc_lens[0], nuc_lens[1]]
+		
+		
+		# from the center we will 
+		center = self.computed_plus_one
+
+		if self.gene.strand == "+":
+			x_start = center - x_bin_size//2 - num_promoter_bins*x_bin_size
+			x_end = x_start+num_bins*x_bin_size
+		else:
+			x_start = center - x_bin_size//2 - num_gb_bins*x_bin_size
+			x_end = x_start+num_bins*x_bin_size
+
+		x_bins = np.arange(x_start, x_end+x_bin_size, x_bin_size)
+
+		return x_bins, y_bins
+
+		
 	def compute_bin_counts_sample(self, sample):
 
 		plotting_reads = self.gene_reads[self.gene_reads['sample'] == sample]
 
-
-        
-        
+		x_bins, y_bins = self.define_histogram_bins()
 
 		hist, x_edges, y_edges = np.histogram2d(plotting_reads['mid'], 
 			plotting_reads['length'], bins=[x_bins, y_bins])
@@ -107,62 +119,64 @@ class ChromatinGrid:
 
 	def create_bins_per_all_sample(self):
 
-		samples = self.gene_reads['sample'].unique()
+		samples = self.times
 
 		self.all_plotting_reads = {}
-		self.all_hists = {}
-		self.all_x_edges = {}
-		self.all_y_edges = {}
+		self.all_hists = None
 
+		i = 0
 		for sample in samples:
 			plotting_reads, hist, x_edges, y_edges = self.compute_bin_counts_sample(sample)
 
+			# Tranpose so its easier to plot (matches columns and rows more intuitively)
+			hist = hist.T
+
+
+			if self.all_hists is None:
+				self.all_hists = np.zeros((len(samples), hist.shape[0], hist.shape[1]))
+
 			self.all_plotting_reads[sample] = plotting_reads
-			self.all_hists[sample] = hist.T
-			self.all_x_edges[sample] = x_edges
-			self.all_y_edges[sample] = y_edges
+			self.all_hists[i] = hist
+			i += 1
 
-		hist = self.all_hists[0]
-
-		print(f"The histogram shape for the 2000 bp window around the TSS:", 
+		print(f"The histogram shape around the TSS is:", 
 			hist.shape)
 
-		# If we were to take the middle 10 bins (equivalent to 1000 bp window around the TSS), 
-		# Our histogram for this time point would look like:
-		print("The shape for the middle 10 bins (1000 bp around the TSS):", 
-			hist[:, 5:-5].shape)
 
-
-	def plot_sample(self, ax1, ax2, sample):
+	def plot_sample(self, ax1, ax2, sample, i):
 		
+		x_bins, y_bins = self.define_histogram_bins()
+
 		xlims = self.mnase_span
 		gene = self.gene
 
 		plotting_reads = self.all_plotting_reads[sample]
-		hist = self.all_hists[sample]
-		x_edges = self.all_x_edges[sample]
-		y_edges = self.all_y_edges[sample]
+		hist = self.all_hists[i]
 
 		plot_mnase_density(ax1, plotting_reads)
 		ax1.set_xticks([])
 
+		# This is the plot of the grid, so the extents are inset
 		ax2.imshow(hist, origin='lower', aspect='auto', cmap='magma_r',
-			extent=[self.mnase_span[0], self.mnase_span[1], y_edges[0], y_edges[-1]])
+			extent=[x_bins[0], x_bins[-1], 0, 225])
 
 		center = self.computed_plus_one
 
-		for ax in [ax1, ax2]:
-			for x in [center-500, center, center+500]:
-				ax.axvline(x, c='green', alpha=0.75, lw=3)
-				
-			ax.set_ylim(50, 200)
+		for x in x_bins:
+			ax1.axvline(x, c='red', lw=1, alpha=0.5)
 
+		for y in y_bins:
+			ax1.axhline(y, c='red', lw=1, alpha=0.5)
+
+		for ax in [ax1, ax2]:
 			xticks = np.arange(center-1000, center+1500, 500)
 			xtick_labels = ['-1000', '-500', '+1 pos.', '500', '1000']
 
 			ax.set_xticks(xticks)
 			ax.set_xticklabels(xtick_labels)
-			ax.axvline(self.computed_plus_one, c='red')
+			ax.axvline(self.computed_plus_one, c='black')
+			ax.set_ylim(0, 225)
+
 
 		ax1.set_xlim(*xlims)
 		ax2.set_xlim(*xlims)
@@ -183,7 +197,8 @@ class ChromatinGrid:
 			time = times[i]
 			raw_ax = raw_axes[i]
 			grid_ax = grid_axes[i]
-			self.plot_sample(raw_ax, grid_ax, time)
+			self.plot_sample(raw_ax, grid_ax, time, i)
+
 
 	def create_deconvolution_matrices(self, plot=False):
 
