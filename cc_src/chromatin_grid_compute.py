@@ -103,6 +103,8 @@ class ChromatinGrid:
 
 		x_bins = np.arange(x_start, x_end+x_bin_size, x_bin_size)
 
+		self.bin_extents = [x_bins[0], x_bins[-1], 0, 225]
+
 		return x_bins, y_bins
 
 		
@@ -142,7 +144,6 @@ class ChromatinGrid:
 		print(f"The histogram shape around the TSS is:", 
 			hist.shape)
 
-
 	def plot_sample(self, ax1, ax2, sample, i):
 		
 		x_bins, y_bins = self.define_histogram_bins()
@@ -158,7 +159,7 @@ class ChromatinGrid:
 
 		# This is the plot of the grid, so the extents are inset
 		ax2.imshow(hist, origin='lower', aspect='auto', cmap='magma_r',
-			extent=[x_bins[0], x_bins[-1], 0, 225])
+			extent=self.bin_extents)
 
 		center = self.computed_plus_one
 
@@ -243,7 +244,8 @@ class ChromatinGrid:
 	def create_deconvolution_plots(self, f, model):
 		from src.model import color_for_key
 
-		reshaped_f = f.reshape(-1, 3, 10)
+		shape = self.all_hists[0].shape
+		reshaped_f = f.reshape(-1, shape[0], shape[1])
 		phase_cols = model.config.phase_columns
 
 		phases = []
@@ -265,6 +267,8 @@ class ChromatinGrid:
 		fig, axs = plt.subplots(26, 10, figsize=(13, 9))
 		axs = np.array(axs).T.flatten()
 
+		x_bins, y_bins = self.define_histogram_bins()
+
 		plotting_index = 0
 		last_phase = None
 		for i in range(len(axs)):
@@ -279,10 +283,11 @@ class ChromatinGrid:
 			phase = phase_col_df.loc[i].phase
 			color = color_for_index(phase_col_df, i)
 
-			im = ax.imshow(reshaped_f[i], origin='lower', cmap='magma_r', aspect='auto', vmax=500)
+			im = ax.imshow(reshaped_f[i], origin='lower', cmap='magma_r', aspect='auto', vmax=500,
+				extent=self.bin_extents)
 			ax.set_xticks([])
 			ax.set_yticks([])
-			ax.axvline(4.5, c=color, lw=2)
+			ax.axvline(self.computed_plus_one, c='black', lw=1, linestyle='dotted')
 
 			if last_phase is not None and phase != last_phase:
 				plotting_index += 2
@@ -294,10 +299,11 @@ class ChromatinGrid:
 	def plot_prediction_comparison(self, model, f):
 		times = self.times
 		predicted_g = np.matmul(model.H, f)
+		shape = self.all_hists[0].shape
 
 		n = predicted_g.shape[0]
 
-		predicted_g_reshaped = predicted_g.reshape(n, 3, 10)
+		predicted_g_reshaped = predicted_g.reshape(n, shape[0], shape[1])
 
 		fig, axs = plt.subplots(n, 3, figsize=(7, 6))
 		axs = np.array(axs).T
@@ -309,24 +315,24 @@ class ChromatinGrid:
 			time = times[i]
 
 			g_ax = g_axs[i]
-			im = g_ax.imshow(self.threed_hist_matrix[i], origin='lower', cmap='magma_r', 
-						   aspect='auto', vmax=300)
+			im = g_ax.imshow(self.all_hists[i], origin='lower', cmap='magma_r', 
+						   aspect='auto', vmax=300,
+						   extent=self.bin_extents)
 			
 			pred_ax = pred_g_axs[i]
 			im = pred_ax.imshow(predicted_g_reshaped[i], origin='lower', cmap='magma_r', 
-						   aspect='auto', vmax=300)
+						   aspect='auto', vmax=300,
+						   extent=self.bin_extents)
 
 			comp_ax = comparison_axs[i]
-			im = comp_ax.imshow(predicted_g_reshaped[i]-self.threed_hist_matrix[i], 
-							origin='lower', cmap='RdBu', aspect='auto', vmin=-300, vmax=300)
+			im = comp_ax.imshow(predicted_g_reshaped[i]-self.all_hists[i], 
+							origin='lower', cmap='RdBu', aspect='auto', vmin=-300, vmax=300,
+							extent=self.bin_extents)
 			
 			for ax in [g_ax, pred_ax, comp_ax]:
 				ax.set_xticks([])
 				ax.set_yticks([])
-				ax.axvline(4.5, c='black', lw=2)
-
-
-
+				ax.axvline(self.computed_plus_one, c='black', lw=2, linestyle='dotted')
 
 		g_axs[0].set_title("Original")
 		pred_g_axs[0].set_title("Predicted")
