@@ -32,8 +32,10 @@ class Model:
 		self.config = config
 		self.gamma = gamma
 
-		g1 = self.config.wt1_df.loc[self.orf_name].values
-		self.g1 = g1
+		if self.config.wt1_df is not None:
+			g1 = self.config.wt1_df.loc[self.orf_name].values
+			self.g1 = g1
+			self.g = g1
 
 		self.initial_phase_map, self.top_phase_map, self.bottom_phase_map = config.intervals_wt1[-1]
 
@@ -45,13 +47,9 @@ class Model:
 			self.g = np.concatenate((g1, g2))
 
 			H2, _ = calcH(config.intervals_wt2, config.WT2_TIMEPOINTS)
-
-			print(H2.shape)
-
 			self.H = np.concatenate((H1, H2))
 
 		else:
-			self.g = g1
 			self.H = H1
 
 	def get_f_it(self):

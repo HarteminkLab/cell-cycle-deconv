@@ -202,35 +202,23 @@ class ChromatinGrid:
 
 	def create_deconvolution_matrices(self, plot=False):
 
-		hist = self.all_hists[0]
 		times = self.times
 
-		# So let's create the data structure for inner 1000 bp histogram for all time points:
-		# Dimension: (num_time_points, rows, columns)
-
-		inner_hist_shape = hist[:, 5:-5].shape
-		threed_hist_matrix = np.zeros((len(times), inner_hist_shape[0], inner_hist_shape[1]))
-
-		for i in range(len(times)):
-			time = times[i]
-			inner_hist = self.all_hists[time][:, 5:-5]
-			threed_hist_matrix[i] = inner_hist
-
-		self.threed_hist_matrix = threed_hist_matrix
+		orig_shape = self.all_hists[0].shape
 
 		# Checking if we can collapse the rows and columns, then restore them
-		reshaped_hist = threed_hist_matrix.reshape(15, -1)
+		reshaped_hist = self.all_hists.reshape(len(times), -1)
 		first_hist = reshaped_hist[0]
 
 		if plot:
-			print("The first histogram is shape:", threed_hist_matrix[0].shape)
+			print("The first histogram is shape:", self.all_hists[0].shape)
 			print("Reshaping this histogram to a vector of shape:", first_hist.shape)
-			restored_hist = first_hist.reshape((3, 10))
+			restored_hist = first_hist.reshape(orig_shape)
 			print("Then, if we were to take that first vector and restore it to its original shape:", 
 				  restored_hist.shape)
 
 			plt.subplot(1, 2, 1)
-			plt.imshow(threed_hist_matrix[0], origin='lower', cmap='magma_r')
+			plt.imshow(self.all_hists[0], origin='lower', cmap='magma_r')
 			plt.title("Original first histogram")
 			plt.xticks([])
 			plt.yticks([])
@@ -246,12 +234,11 @@ class ChromatinGrid:
 		# TODO: At least for now, as we have assumed we should drop this point as per 
 		# Yulong's analysis
 		# We probably don't need to do this anymore.
-		deconv_hist = np.concatenate([reshaped_hist[:-4, :], reshaped_hist[-3:, :]])
 		print("Now we have a data structure that we can try to deconvolve of shape:", 
-			  deconv_hist.shape)
+			  reshaped_hist.shape)
 
 		# Reshape for deconvolution
-		self.deconv_hist = deconv_hist
+		self.deconv_hist = reshaped_hist
 
 	def create_deconvolution_plots(self, f, model):
 		from src.model import color_for_key

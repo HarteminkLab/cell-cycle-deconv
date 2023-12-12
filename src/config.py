@@ -8,12 +8,17 @@ class Config:
 	A config class to read data and initialize the model.
 	"""
 
-	def __init__(self, wt1=None, wt2=None, model_wt1_file=None, model_wt2_file=None):
+	def __init__(self, wt1=None, wt2=None, wt1_timepoints=None, wt2_timepoints=None, model_wt1_file=None, model_wt2_file=None):
 
 		# Replicate 1 configuration
-		self.WT1_TIMEPOINTS = wt1.columns.values.astype(int)
-		self.wt1_df = wt1
-		self.model_wt1_file = model_wt1_file
+		if wt1 is not None:
+			self.wt1_df = wt1
+			self.WT1_TIMEPOINTS = wt1.columns.values.astype(int)
+			self.model_wt1_file = model_wt1_file
+		else:
+			self.wt1_df = None
+			self.WT1_TIMEPOINTS = wt1_timepoints
+
 		self.intervals_wt1 = self.read_model_format(model_wt1_file)
 
 		# Replicate 2 configuration
@@ -297,6 +302,24 @@ def load_yl_replicate2_chromatin_config():
 	return config
 
 
+
+def load_yl_replicate2_rg1_chromatin_config():
+
+	# Time points
+	WT1_TP = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140]
+
+	# dataset files
+	DATA_WT1_FILE = 'datasets/yl_cell_cycle/replicate2_gene_expression.txt'
+	GENE_SET_FILE = 'datasets/yl_cell_cycle/genes.lst'
+
+	orf_names = pd.read_csv(GENE_SET_FILE, sep='\t', header=None)[0].values
+
+	# model files
+	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt2_rg1_2023_12_06_update.label'
+
+	config = Config(wt1=None, model_wt1_file=MODEL_WT1_FILE, wt1_timepoints=WT1_TP)
+
+	return config
 
 def load_yl_replicate2_rg1_config():
 
