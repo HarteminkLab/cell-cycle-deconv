@@ -55,23 +55,57 @@ class ChromatinGrid:
 			(self.chr_reads.mid < self.mnase_span[1])]
 
 
-	def compute_bin_counts_sample(self, sample):
 
-		plotting_reads = self.gene_reads[self.gene_reads['sample'] == sample]
-
-		x_bin_size = 100
+    def define_histogram_bins():
+        x_bin_size = 80
 		y_bin_size = 50
 
 		xlims = self.mnase_span
 		x_bins = np.arange(xlims[0], xlims[1]+x_bin_size, x_bin_size)
-		y_bins = np.arange(50, 200+y_bin_size, y_bin_size)
+		
+        
+        # Defined by the fragment lengths we previously defined
+        # TODO: Verify this
+        y_bins = [0, 50, 145, 200]
+        
+		# Here, we will define the genomic bin positions as centered around the
+        # computed plus one location. Where we will want one bin. Then, 
+        # Define the promoter as apporximately 300 bp (3 bins backwards)
+        # But also take into account half a bin width, since we are centering a 
+        # bin on the +1 nucleosome.
+		# 
+        # 3 * 80 = 240 
+        # +40 (the half bin from the center)
+        # 280 bp will be the promoter region
+        num_promoter_bins = 3
+        
+        # 6 bins forward, 
+        # 6 * 80 = 480
+        # + 40
+        #
+        # 520 will be the gene body.
+        num_gb_bins = 6
+        
+        # from the center we will 
+        center = self.computed_plus_one
+        
+        promoter_span = center-x_bin_size//2 - x_bin_size*num_promoter_bins, center
+        gene_body_span = center, center+x_bin_size//2 + x_bin_size*num_gb_bins
+        
+	def compute_bin_counts_sample(self, sample):
+
+		plotting_reads = self.gene_reads[self.gene_reads['sample'] == sample]
+
+
+        
+        
 
 		hist, x_edges, y_edges = np.histogram2d(plotting_reads['mid'], 
 			plotting_reads['length'], bins=[x_bins, y_bins])
 
 		return plotting_reads, hist, x_edges, y_edges
 
-	def create_bins_per_sample(self):
+	def create_bins_per_all_sample(self):
 
 		samples = self.gene_reads['sample'].unique()
 
