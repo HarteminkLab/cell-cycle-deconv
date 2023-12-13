@@ -10,6 +10,7 @@
 #done
 
 # Testing one job
+OUTDIR=output/deconvolve_chromatin_2023_12_12
 ORFNAME=YPR119W
 i=0
 
