@@ -4,6 +4,15 @@ import numpy as np
 from src.deconvolve_chromatin import deconvolve_chromatin
 
 
+def print_fl(str):
+	"""On the cluster, it is helpful to flush after printing
+	for live updates"""
+
+	import sys
+	print(str)
+	sys.stdout.flush()
+
+
 class FindOptimalGammaChromatin:
 
 	def __init__(self, model, chromatin_gridder):
@@ -28,7 +37,7 @@ class FindOptimalGammaChromatin:
 		self.timer = Timer()
 		SILENCE = 0
 		if not SILENCE:
-			print('findOptimal')
+			print_fl('findOptimal')
 		ELBOW_BINS = 10
 		SMALL = 5e-5
 
@@ -53,14 +62,14 @@ class FindOptimalGammaChromatin:
 		self.base_rn = base_rn
 
 		if not SILENCE:
-			print(f'  ... base_rn = {base_rn:.4f}')
+			print_fl(f'  ... base_rn = {base_rn:.4f}')
 
 		flag = 1  # not using the default_gm
 		if base_rn >= DEFAULT_RN_CUTOFF:
 			self.gamma = DEFAULT_GM
 			flag = 0
 			if not SILENCE:
-				print(f'  ... step1: base_rn is too large, use default {self.gamma:.4f}')
+				print_fl(f'  ... step1: base_rn is too large, use default {self.gamma:.4f}')
 
 		# left boundary search
 		if flag:
@@ -68,12 +77,12 @@ class FindOptimalGammaChromatin:
 			gm_right = GAMMA_MAX
 
 			if not SILENCE:
-				print(f'  ... gamma in [{gm_left:.4f}, {gm_right:.4f}]')
+				print_fl(f'  ... gamma in [{gm_left:.4f}, {gm_right:.4f}]')
 
 			rn_left = min(rn_rate_left * base_rn, base_rn + left_rn)
 			leftr = (rn_left / base_rn - 1) * 100
 			if not SILENCE:
-				print(f'  ...  search left, rn_goal = {rn_left:.4f}, rate = {leftr:.1f}')
+				print_fl(f'  ...  search left, rn_goal = {rn_left:.4f}, rate = {leftr:.1f}')
 			self.gamma = gm_left
 			self.conv_optim()
 
@@ -81,7 +90,7 @@ class FindOptimalGammaChromatin:
 				self.gamma = DEFAULT_GM
 				flag = 0
 				if not SILENCE:
-					print(f'  ... left: base_rn is too large, use default {self.gamma:.4f}')
+					print_fl(f'  ... left: base_rn is too large, use default {self.gamma:.4f}')
 
 		if flag:
 			bs_flag = 1
@@ -92,7 +101,7 @@ class FindOptimalGammaChromatin:
 				flag = 0
 				self.gamma = DEFAULT_GM
 				if not SILENCE:
-					print(f'  ... left_boundary: base_rn is too large in search, use default {self.gamma:.4f}')
+					print_fl(f'  ... left_boundary: base_rn is too large in search, use default {self.gamma:.4f}')
 			else:
 				gm_left = self.gamma
 				rn_left = self.rn
@@ -102,14 +111,14 @@ class FindOptimalGammaChromatin:
 			rn_right = max(rn_rate_right * base_rn, base_rn + right_rn)
 			rightr = (rn_right / base_rn - 1) * 100
 			if not SILENCE:
-				print(f'  ...  search right, rn_goal = {rn_right:.4f}, rate = {rightr:.1f}')
+				print_fl(f'  ...  search right, rn_goal = {rn_right:.4f}, rate = {rightr:.1f}')
 			self.gamma = gm_right
 			self.conv_optim()
 			if self.rn >= DEFAULT_RN_CUTOFF:
 				self.gamma = DEFAULT_GM
 				flag = 0
 				if not SILENCE:
-					print(f'  ... right: base_rn is too large, use default {self.gamma:.4f}')
+					print_fl(f'  ... right: base_rn is too large, use default {self.gamma:.4f}')
 
 		if flag:
 			bs_flag = 1
@@ -120,15 +129,15 @@ class FindOptimalGammaChromatin:
 				flag = 0
 				self.gamma = DEFAULT_GM
 				if not SILENCE:
-					print(f'  ... right_boundary: base_rn is too large in search, use default {self.gamma:.4f}')
+					print_fl(f'  ... right_boundary: base_rn is too large in search, use default {self.gamma:.4f}')
 			else:
 				gm_right = self.gamma
 				rn_right = self.rn
 
 		if flag:
 			if not SILENCE:
-				print(f'  ... rn range: [{rn_left:.4f}, {rn_right:.4f}]')
-				print(f'  ... search gamma in [{gm_left:.4f} {gm_right:.4f}] for elbow')
+				print_fl(f'  ... rn range: [{rn_left:.4f}, {rn_right:.4f}]')
+				print_fl(f'  ... search gamma in [{gm_left:.4f} {gm_right:.4f}] for elbow')
 
 			bs_flag = 1
 			if abs(gm_right - gm_left) < SMALL:  # gm_right == gm_left
@@ -143,11 +152,11 @@ class FindOptimalGammaChromatin:
 				flag = 0
 				self.gamma = DEFAULT_GM
 				if not SILENCE:
-					print(f'  ... findElbow: base_rn is too large or something wrong in search, use default {self.gamma:.4f}')
+					print_fl(f'  ... findElbow: base_rn is too large or something wrong in search, use default {self.gamma:.4f}')
 
-		print(f'{self.model.orf_name}: ... final gamma = {self.gamma:.5f}')
+		print_fl(f'{self.model.orf_name}: ... final gamma = {self.gamma:.5f}')
 		self.conv_optim()
-		print(f"Time to find optimal gamma: {self.timer.get_time()}")
+		print_fl(f"Time to find optimal gamma: {self.timer.get_time()}")
 
 		return flag, rn, sn, gammas, elbow_gamma
 
@@ -181,7 +190,7 @@ class FindOptimalGammaChromatin:
 
 			rn_rate = (self.rn / self.base_rn - 1) * 100
 			if not SILENCE:
-				print(f'  ...   gm = {self.gamma:.4f}, rn = {self.rn:.4f}, rate = {rn_rate:.1f}')
+				print_fl(f'  ...   gm = {self.gamma:.4f}, rn = {self.rn:.4f}, rate = {rn_rate:.1f}')
 
 		return runs, flag
 
@@ -199,7 +208,7 @@ class FindOptimalGammaChromatin:
 			self.conv_optim()
 
 			if self.rn >= DEFAULT_RN_CUTOFF:
-				print("Something wrong 1")
+				print_fl("Something wrong 1")
 				flag = 0
 				elbow_gamma = 0
 				return elbow_gamma, flag, gammas, rn, sn
@@ -209,7 +218,7 @@ class FindOptimalGammaChromatin:
 				break
 
 			if not SILENCE:
-				print(f'  ...   gamma = {gamma:.4g}, rn = {self.rn:.4g}, sn = {self.sn:.4g}')
+				print_fl(f'  ...   gamma = {gamma:.4g}, rn = {self.rn:.4g}, sn = {self.sn:.4g}')
 
 			rn.append(self.rn)
 			sn.append(self.sn)
@@ -238,9 +247,9 @@ class FindOptimalGammaChromatin:
 
 		boundary = 1
 
-		print("The x_grad1 is:", x_grad1)
-		print("The x_grad2 is:", x_grad2)
-		print("The curvature is:", curvature)
+		print_fl("The x_grad1 is:", x_grad1)
+		print_fl("The x_grad2 is:", x_grad2)
+		print_fl("The curvature is:", curvature)
 
 		max_val, max_pos = max((val, idx) for idx, val in enumerate(curvature[boundary:len(rn)]))
 		max_pos = max_pos + boundary

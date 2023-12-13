@@ -11,9 +11,6 @@ def calcH(model_intervals, timepoints):
     top_partial_H = [np.zeros((len(timepoints), len(lst)-1)) for lst in top_timepoints]
     bottom_partial_H = [np.zeros((len(timepoints), len(lst)-1)) for lst in bottom_timepoints]
 
-    print("Initial branch: Recovery shape: ", initial_partial_H[0].shape)
-    print("Initial branch: postG1 shape: ", initial_partial_H[1].shape)
-
     # For each timepoint in the experiment, (rows in g)
     for i, t in enumerate(timepoints):
 

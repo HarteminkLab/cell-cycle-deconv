@@ -380,13 +380,14 @@ class ChromatinGrid:
 		return pos_max
 
 
-	def save_deconvolved_outputs(self, out_dir, model, f):
+	def save_deconvolved_outputs(self, out_dir, index, model, f):
 
 		orf_name = model.orf_name
 
-		f_save_path = f'{out_dir}/f_{orf_name}.npy'
-		ptr_save_path = f'{out_dir}/ptr_{orf_name}.npy'
-		meta_save_path = f'{out_dir}/meta_{orf_name}.csv'
+		g_save_path = f'{out_dir}/{index}_g_{orf_name}.npy'
+		f_save_path = f'{out_dir}/{index}_f_{orf_name}.npy'
+		ptr_save_path = f'{out_dir}/{index}_ptr_{orf_name}.npy'
+		meta_save_path = f'{out_dir}/{index}_meta_{orf_name}.csv'
 
 		# ------- Reshape f ---------
 
@@ -408,6 +409,9 @@ class ChromatinGrid:
 		reshaped_ptrs = f_ptrs.reshape(*shape)
 
 		#---------- Save to disk -------------
+
+		# Save the g to disk
+		np.save(g_save_path, self.all_hists)
 
 		# Save the f to disk
 		np.save(f_save_path, reshaped_f)
