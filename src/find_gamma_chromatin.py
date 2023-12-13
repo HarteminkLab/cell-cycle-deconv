@@ -161,7 +161,9 @@ class FindOptimalGammaChromatin:
 		return flag
 
 	def binarysearch(self, gamma_min, gamma_max, rn_goal, SILENCE, DEFAULT_RN_CUTOFF):
-		RN_SMALL = 2e-4
+
+		
+		RN_SMALL = 1e-3
 		LR_SMALL = 5e-4
 		flag = 1
 
