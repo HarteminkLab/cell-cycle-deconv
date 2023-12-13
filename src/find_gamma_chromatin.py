@@ -158,7 +158,7 @@ class FindOptimalGammaChromatin:
 		self.conv_optim()
 		print_fl(f"Time to find optimal gamma: {self.timer.get_time()}")
 
-		return flag, rn, sn, gammas, elbow_gamma
+		return flag
 
 	def binarysearch(self, gamma_min, gamma_max, rn_goal, SILENCE, DEFAULT_RN_CUTOFF):
 		RN_SMALL = 2e-4
@@ -257,5 +257,3 @@ class FindOptimalGammaChromatin:
 		pos_left = max_pos - boundary
 		pos_right = max_pos + boundary
 		elbow_gamma = gammas[max_pos]
-
-		return elbow_gamma, flag, gammas, rn, sn

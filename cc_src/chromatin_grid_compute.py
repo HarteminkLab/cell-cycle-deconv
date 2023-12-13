@@ -380,7 +380,7 @@ class ChromatinGrid:
 		return pos_max
 
 
-	def save_deconvolved_outputs(self, out_dir, index, model, f):
+	def save_deconvolved_outputs(self, out_dir, index, model, f, using_default_flag):
 
 		orf_name = model.orf_name
 
@@ -420,8 +420,9 @@ class ChromatinGrid:
 		np.save(ptr_save_path, reshaped_ptrs)
 
 		# Save meta information
-		df = pd.DataFrame({'rn': model.rn, 'sn': model.sn, 'gm': model.gamma}, index=[model.orf_name])
-		df.to_csv(meta_save_path)
+		df = pd.DataFrame({'rn': model.rn, 'sn': model.sn, 'gm': model.gamma, 'default_gamma': using_default_flag}, 
+			index=[model.orf_name])
+		df.to_csv(meta_save_path, float_format="%.4f")
 
 		print(f"Saved to {f_save_path}...")
 		print(f"Saved to {ptr_save_path}...")

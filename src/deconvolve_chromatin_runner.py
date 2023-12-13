@@ -40,14 +40,15 @@ def main():
 	chromatin_gridder.create_deconvolution_matrices()
 
 	find_gamma_chromatin = FindOptimalGammaChromatin(model, chromatin_gridder)
-	find_gamma_chromatin.find_optimal()
+	found_optimal_success = find_gamma_chromatin.find_optimal()
+	using_default_flag = not found_optimal_success
 
 	f = find_gamma_chromatin.f
 
 	print(f"Finished finding the optimal gamma in : {timer.get_time()}")
 	sys.stdout.flush()
 
-	chromatin_gridder.save_deconvolved_outputs(out_dir, index, model, f)
+	chromatin_gridder.save_deconvolved_outputs(out_dir, index, model, f, using_default_flag)
 
 
 if __name__ == '__main__':
