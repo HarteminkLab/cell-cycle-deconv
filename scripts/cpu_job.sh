@@ -1,10 +1,10 @@
 #!/bin/bash
 #SBATCH --time=48:00:00
-#SBATCH --mem 200G
+#SBATCH --mem 2G
 #SBATCH -p compsci
 
 # Example run:
-# sbatch -D ./slurm-logs/ --export="PYFILE=src/vit_train_cifar.py,ARGS=''" scripts/gpu_script.sh
+# sbatch -D ./slurm-logs/ --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS='output orfname'" scripts/cpu_script.sh
 
 cd /usr/xtmp/tqtran/deconvolution-project
 
@@ -20,3 +20,4 @@ python $PYFILE $ARGS
 
 echo $(date)
 echo "batch: Completed job on $(date)"
+
