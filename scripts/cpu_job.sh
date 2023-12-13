@@ -6,7 +6,7 @@
 # Example run:
 # sbatch -D ./slurm-logs/ --export="PYFILE=src/vit_train_cifar.py,ARGS=''" scripts/gpu_script.sh
 
-cd /usr/xtmp/tqtran/cell-cycle
+cd /usr/xtmp/tqtran/deconvolution-project
 
 echo "batch: Starting job on $(date)"
 

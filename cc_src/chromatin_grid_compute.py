@@ -5,6 +5,7 @@ from matplotlib import pyplot as plt
 
 from cc_src.sgd import get_gene_name_orf_name
 from cc_src.mnase_plotting import plot_mnase_density
+import sys
 
 
 class ChromatinGrid:
@@ -389,14 +390,14 @@ class ChromatinGrid:
 
 		# ------- Reshape f ---------
 
-		shape = chromatin_gridder.all_hists[0].shape
+		shape = self.all_hists[0].shape
 		reshaped_f = f.reshape(-1, shape[0], shape[1])
 
 		# -------- Compute the PTR ---------
 
 		from cc_src.peak_to_trough import compute_ptr
 
-		shape = chromatin_gridder.all_hists[0].shape
+		shape = self.all_hists[0].shape
 		reshaped_f = f.reshape(-1, shape[0], shape[1])
 
 		f_ptrs = np.zeros(f.shape[1])
