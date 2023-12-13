@@ -1,6 +1,6 @@
 #!/bin/bash
-#SBATCH --time=48:00:00
-#SBATCH --mem 2G
+#SBATCH --time=3:00:00
+#SBATCH --mem 6G
 #SBATCH -p compsci
 
 # Example run:
@@ -8,7 +8,7 @@
 
 cd /usr/xtmp/tqtran/deconvolution-project
 
-echo "batch: Starting job on $(date)"
+echo "cpu_job.sh: beginning job, date: $(date)"
 
 # activate conda and  environment
 . "/usr/xtmp/tqtran/miniconda3/etc/profile.d/conda.sh"
@@ -16,8 +16,8 @@ echo "batch: Starting job on $(date)"
 # activate environment
 conda activate cell-cycle-deconvolution
 
-python $PYFILE $ARGS
+# Run the python command with the task id (array index) as the last argument
+python $PYFILE $ARGS $SLURM_ARRAY_TASK_ID
 
 echo $(date)
-echo "batch: Completed job on $(date)"
-
+echo "cpu_job.sh: completed job, date: $(date)"
