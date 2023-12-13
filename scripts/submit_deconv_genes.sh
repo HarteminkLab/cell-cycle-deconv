@@ -24,9 +24,8 @@ do
     if [ "$line" != "orf_name" ]; then
 
         ORFNAME=$line
-        sbatch -D ./slurm-logs/ --job-name="deconv_$i" --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR,$ORFNAME" scripts/cpu_job.sh
+        sbatch -D ./slurm-logs/ --job-name="deconv_$i" --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR $ORFNAME" scripts/cpu_job.sh
         i=$(($i+1))
-        break
 
     fi
 
