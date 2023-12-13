@@ -57,6 +57,7 @@ def plot_deconvolved_chromatin(H, f, g):
 	plt.plot(g[:, 1])
 	plt.title("The fit 2, H*f")
 
+	
 
 def deconvolve_chromatin(model, g):
 	H = model.H

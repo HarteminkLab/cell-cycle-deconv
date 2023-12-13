@@ -377,3 +377,48 @@ class ChromatinGrid:
 		self.computed_plus_one = pos_max
 
 		return pos_max
+
+
+	def save_deconvolved_outputs(self, out_dir, model, f):
+
+		orf_name = model.orf_name
+
+		f_save_path = f'{out_dir}/f_{orf_name}.npy'
+		ptr_save_path = f'{out_dir}/ptr_{orf_name}.npy'
+		meta_save_path = f'{out_dir}/meta_{orf_name}.csv'
+
+		# ------- Reshape f ---------
+
+		shape = chromatin_gridder.all_hists[0].shape
+		reshaped_f = f.reshape(-1, shape[0], shape[1])
+
+		# -------- Compute the PTR ---------
+
+		from cc_src.peak_to_trough import compute_ptr
+
+		shape = chromatin_gridder.all_hists[0].shape
+		reshaped_f = f.reshape(-1, shape[0], shape[1])
+
+		f_ptrs = np.zeros(f.shape[1])
+		for i in range(f.shape[1]):
+		    cptr, dpt, ptr = compute_ptr(model, f[:, i])
+		    f_ptrs[i] = ptr
+
+		reshaped_ptrs = f_ptrs.reshape(*shape)
+
+		#---------- Save to disk -------------
+
+		# Save the f to disk
+		np.save(f_save_path, reshaped_f)
+
+		# Save the ptr to disk
+		np.save(ptr_save_path, reshaped_ptrs)
+
+		# Save meta information
+		df = pd.DataFrame({'rn': model.rn, 'sn': model.sn, 'gm': model.gamma}, index=[model.orf_name])
+		df.to_csv(meta_save_path)
+
+		print(f"Saved to {f_save_path}...")
+		print(f"Saved to {ptr_save_path}...")
+		print(f"Saved to {meta_save_path}...")
+		sys.stdout.flush()
