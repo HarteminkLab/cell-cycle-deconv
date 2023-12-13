@@ -42,7 +42,7 @@ class FindOptimalGammaChromatin:
 		SMALL = 5e-5
 
 		# some settings
-		DEFAULT_RN_CUTOFF = 1000
+		DEFAULT_RN_CUTOFF = 50
 		DEFAULT_GM = 0.004
 		GAMMA_MIN = 0.001
 		GAMMA_MAX = 0.1
