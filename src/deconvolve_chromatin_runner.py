@@ -32,7 +32,10 @@ def main():
 	timer = Timer()
 
 	chromatin_gridder = ChromatinGrid()
-	chromatin_gridder.set_gene(model.gene_name)
+
+	if model.gene_name is None: chromatin_gridder.set_gene(model.orf_name)
+	else: chromatin_gridder.set_gene(model.gene_name)
+
 	chromatin_gridder.create_bins_per_all_sample()
 	chromatin_gridder.create_deconvolution_matrices()
 

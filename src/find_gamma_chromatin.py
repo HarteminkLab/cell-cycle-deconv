@@ -4,12 +4,12 @@ import numpy as np
 from src.deconvolve_chromatin import deconvolve_chromatin
 
 
-def print_fl(str):
+def print_fl(*args, **kwargs):
 	"""On the cluster, it is helpful to flush after printing
 	for live updates"""
 
 	import sys
-	print(str)
+	print(*args, **kwargs)
 	sys.stdout.flush()
 
 
