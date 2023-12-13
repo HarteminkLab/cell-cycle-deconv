@@ -100,8 +100,9 @@ class Model:
 		
 		W1 = get_wavelet_kernel(len(f_it))
 		W2 = get_wavelet_kernel(len(f_b))
+
 		sn = (np.linalg.norm(np.matmul(W1, f.value[f_it]), 1) + np.linalg.norm(np.matmul(W2, f.value[f_b]), 1)) / np.mean(self.g)
-		rn = np.square(np.clip(np.linalg.norm(np.matmul(self.H, f.value) / self.g - 1), 0, None))
+		rn = np.square(np.clip(np.linalg.norm(np.matmul(self.H, f.value) / (self.g) - 1), 0, None))
 
 		self.sn = sn
 		self.rn = rn

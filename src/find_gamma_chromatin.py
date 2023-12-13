@@ -37,7 +37,7 @@ class FindOptimalGammaChromatin:
 		self.timer = Timer()
 		SILENCE = 0
 		if not SILENCE:
-			print_fl('findOptimal')
+			print_fl('Running the find optimal gamma procedure...')
 		ELBOW_BINS = 10
 		SMALL = 5e-5
 
@@ -62,7 +62,7 @@ class FindOptimalGammaChromatin:
 		self.base_rn = base_rn
 
 		if not SILENCE:
-			print_fl(f'  ... base_rn = {base_rn:.4f}')
+			print_fl(f'  ... The base fitting norm (rn) with no smoothing (gamma=0) is: {base_rn:.4f}')
 
 		flag = 1  # not using the default_gm
 		if base_rn >= DEFAULT_RN_CUTOFF:

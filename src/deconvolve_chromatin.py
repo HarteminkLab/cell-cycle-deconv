@@ -60,6 +60,21 @@ def plot_deconvolved_chromatin(H, f, g):
 	
 
 def deconvolve_chromatin(model, g):
+	"""
+	Deconvolve the chromatin array
+
+
+	TODO: this is nearly identical
+	to the Model.deconvolve() method.
+	So we may want to refactor to just have one method 
+	"""
+
+
+	# We will add a very small value to g, to avoid divide by zero errors
+	eps = 1e-5
+	g = g + eps
+
+
 	H = model.H
 	gamma = model.gamma
 	factor_fb = 1.5
