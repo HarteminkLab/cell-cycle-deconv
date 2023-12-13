@@ -190,7 +190,8 @@ class FindOptimalGammaChromatin:
 
 			rn_rate = (self.rn / self.base_rn - 1) * 100
 			if not SILENCE:
-				print_fl(f'  ...   gm = {self.gamma:.4f}, rn = {self.rn:.4f}, rate = {rn_rate:.1f}')
+				print_fl(f'  ...   gm = {self.gamma:.4f}, rn = {self.rn:.4f}, rate = {rn_rate:.1f}, ' +
+						 f'time = {self.timer.get_time()}')
 
 		return runs, flag
 
