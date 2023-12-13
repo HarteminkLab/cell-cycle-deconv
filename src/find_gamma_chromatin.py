@@ -69,7 +69,7 @@ class FindOptimalGammaChromatin:
 			self.gamma = DEFAULT_GM
 			flag = 0
 			if not SILENCE:
-				print_fl(f'  ... step1: base_rn is too large, use default {self.gamma:.4f}')
+				print_fl(f'  ... The base fitting norm is too large, so set gamma to the default value and exit. gamma = {self.gamma:.4f}')
 
 		# left boundary search
 		if flag:
@@ -77,7 +77,7 @@ class FindOptimalGammaChromatin:
 			gm_right = GAMMA_MAX
 
 			if not SILENCE:
-				print_fl(f'  ... gamma in [{gm_left:.4f}, {gm_right:.4f}]')
+				print_fl(f'  ... Searching for an optimal gamma value in the boundaries: [{gm_left:.4f}, {gm_right:.4f}]')
 
 			rn_left = min(rn_rate_left * base_rn, base_rn + left_rn)
 			leftr = (rn_left / base_rn - 1) * 100
@@ -190,10 +190,14 @@ class FindOptimalGammaChromatin:
 
 			rn_rate = (self.rn / self.base_rn - 1) * 100
 			if not SILENCE:
-				print_fl(f'  ...   gm = {self.gamma:.4f}, rn = {self.rn:.4f}, rate = {rn_rate:.1f}, ' +
-						 f'time = {self.timer.get_time()}')
+				self.print_search_progress()
 
 		return runs, flag
+
+	def print_search_progress(self):
+		rn_rate = (self.rn / self.base_rn - 1) * 100
+		print_fl(f'  ...   gm = {self.gamma:.4f}, rn = {self.rn:.4f}, rate = {rn_rate:.1f}, ' +
+				 f'time = {self.timer.get_time()}')
 
 	def find_elbow(self, gammas, SILENCE, DEFAULT_RN_CUTOFF):
 		flag = 1
@@ -219,7 +223,7 @@ class FindOptimalGammaChromatin:
 				break
 
 			if not SILENCE:
-				print_fl(f'  ...   gamma = {gamma:.4g}, rn = {self.rn:.4g}, sn = {self.sn:.4g}')
+				self.print_search_progress()
 
 			rn.append(self.rn)
 			sn.append(self.sn)
@@ -257,3 +261,5 @@ class FindOptimalGammaChromatin:
 		pos_left = max_pos - boundary
 		pos_right = max_pos + boundary
 		elbow_gamma = gammas[max_pos]
+
+		return elbow_gamma, flag, gammas, rn, sn
