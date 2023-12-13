@@ -162,7 +162,7 @@ class FindOptimalGammaChromatin:
 
 	def binarysearch(self, gamma_min, gamma_max, rn_goal, SILENCE, DEFAULT_RN_CUTOFF):
 
-		
+		GM_SMALL = 1e-3
 		RN_SMALL = 1e-3
 		LR_SMALL = 5e-4
 		flag = 1
@@ -175,6 +175,10 @@ class FindOptimalGammaChromatin:
 		while right - left > LR_SMALL:
 			cur_gamma = (left + right) / 2
 			runs += 1
+
+			# Check if gamma steps are getting small enough to end early
+			if abs(self.gamma - cur_gamma) <= GM_SMALL:
+				break
 
 			self.gamma = cur_gamma
 			self.conv_optim()
@@ -198,7 +202,7 @@ class FindOptimalGammaChromatin:
 
 	def print_search_progress(self):
 		rn_rate = (self.rn / self.base_rn - 1) * 100
-		print_fl(f'  ...   gm = {self.gamma:.4f}, rn = {self.rn:.4f}, rate = {rn_rate:.1f}, ' +
+		print_fl(f'  ...   gm = {self.gamma:.4f}, rn = {self.rn:.4f}, rate = {rn_rate:.2f}, ' +
 				 f'time = {self.timer.get_time()}')
 
 	def find_elbow(self, gammas, SILENCE, DEFAULT_RN_CUTOFF):
