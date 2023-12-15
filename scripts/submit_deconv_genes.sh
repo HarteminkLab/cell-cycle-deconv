@@ -3,13 +3,14 @@
 
 OUTDIR=output/deconvolve_chromatin_2023_12_13
 
-# There are 5774 in total, so 5774 jobs
+# There are 5774 in total, so 5774 jobs. We will split them into 1000 batch jobs (because of a limitation on the size
+# of the array on the slurm computing cluster. Therefore we also need a batch argument in ARGS)
 
-# Max Array size is 1001, so let's do 6 super-batches
-# sbatch -a 0-1000%10 -D ./slurm-logs/ -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR" scripts/cpu_array_job.sh
-
-# TODO:
-# Current constraint to work around, max array size is 1001, meaning we can't specify an array from 1001-2000,
-# So we'll need to add another argument to the python runner to multiply the array index to the correct orf...
-#
-
+# Each batch will run 1000 genes, second argument in ARGS is the batch index that will be multiplied against the
+# array index
+SBATCH -a 0-999%10 -D ./slurm-logs/ -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR 0" scripts/cpu_array_job.sh
+SBATCH -a 0-999%10 -D ./slurm-logs/ -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR 1" scripts/cpu_array_job.sh
+SBATCH -a 0-999%10 -D ./slurm-logs/ -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR 2" scripts/cpu_array_job.sh
+SBATCH -a 0-999%10 -D ./slurm-logs/ -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR 3" scripts/cpu_array_job.sh
+SBATCH -a 0-999%10 -D ./slurm-logs/ -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR 4" scripts/cpu_array_job.sh
+SBATCH -a 0-773%10 -D ./slurm-logs/ -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR 5" scripts/cpu_array_job.sh
