@@ -1,0 +1,16 @@
+name: cell-cycle-deconvolution
+channels:
+  - defaults
+dependencies:
+  - python=3.8
+  - matplotlib
+  - jupyter
+  - pandas
+  - numpy
+  - scikit-learn
+  - statsmodels
+  - pytables
+  - pip:
+    - cvxpy
+    - pysam
+
