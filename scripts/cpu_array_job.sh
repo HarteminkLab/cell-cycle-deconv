@@ -21,3 +21,4 @@ python $PYFILE $ARGS $SLURM_ARRAY_TASK_ID
 
 echo $(date)
 echo "cpu_job.sh: completed job, date: $(date)"
+

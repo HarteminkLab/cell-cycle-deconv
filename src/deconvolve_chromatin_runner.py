@@ -16,7 +16,7 @@ def main():
 	Run the deconvolution on a gene, indexed by the command-line argument
 	"""
 
-	(_, out_dir, index, batch_idx) = tuple(sys.argv)
+	(_, out_dir, batch_idx, index) = tuple(sys.argv)
 
 	geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv')
 
@@ -24,7 +24,7 @@ def main():
 	# will be multiplied against the array index
 	gene_index = int(batch_idx)*1000 + int(index)
 
-	printf(f"Running batch: {batch_idx}, array index: {index}, or gene_index: {gene_index}...")
+	print(f"Running batch: {batch_idx}, array index: {index}, or gene_index: {gene_index}...")
 	sys.stdout.flush()
 
 	gene = geneset.iloc[gene_index]
