@@ -37,16 +37,12 @@ def main():
 	# Initialize the chromatin grid
 	timer = Timer()
 
-	# find_gamma_chromatin = FindOptimalGammaChromatin(model, chromatin_gridder)
-	# found_optimal_success = find_gamma_chromatin.find_optimal()
-	# using_default_flag = not found_optimal_success
-
-	# f = find_gamma_chromatin.f
+	# TODO: Deconvolve gene expression here
 
 	# print(f"Finished finding the optimal gamma in : {timer.get_time()}")
 	# sys.stdout.flush()
 
-	# chromatin_gridder.save_deconvolved_outputs(out_dir, index, model, f, using_default_flag)
+	# Save f, g, meta, ptr values
 
 
 if __name__ == '__main__':
