@@ -28,21 +28,23 @@ def main():
 
 	gene = geneset.iloc[gene_index]
 
+	print(f"Index: [{gene_index}/{len(geneset)}] Deconvolving gene: {model.gene_name}/{model.orf_name}...")
+	sys.stdout.flush()
+
 	config = load_yl_replicate2_rg1_config()
 	model = Model(config, gene.orf_name, 0.001)
 
-	print(f"Index: [{gene_index}/{len(geneset)}] Deconvolving gene: {model.gene_name}/{model.orf_name}...")
-	sys.stdout.flush()
+	find_gamma = FindOptimalGamma(model)
+	find_gamma.find_optimal()
 
 	# Initialize the chromatin grid
 	timer = Timer()
 
-	# TODO: Deconvolve gene expression here
-
-	# print(f"Finished finding the optimal gamma in : {timer.get_time()}")
-	# sys.stdout.flush()
+	print(f"Finished finding the optimal gamma in : {timer.get_time()}")
+	sys.stdout.flush()
 
 	# Save f, g, meta, ptr values
+	model.save(out_dir)
 
 
 if __name__ == '__main__':

@@ -212,6 +212,33 @@ class Model:
 
 		return color_for_key(key)
 
+	def save_deconvolved_outputs(self, out_dir):
+
+		orf_name = model.orf_name
+
+		g_save_path = f'{out_dir}/{index}_g_{orf_name}.npy'
+		f_save_path = f'{out_dir}/{index}_f_{orf_name}.npy'
+		ptr_save_path = f'{out_dir}/{index}_ptr_{orf_name}.npy'
+		meta_save_path = f'{out_dir}/{index}_meta_{orf_name}.csv'
+
+		#---------- Save to disk -------------
+
+		# Save the g to disk
+		np.save(g_save_path, self.g)
+
+		# Save the f to disk
+		np.save(f_save_path, self.f)
+
+		# Save meta information
+		df = pd.DataFrame({'rn': self.rn, 'sn': self.sn, 'gm': self.gamma, 'ptr': self.ptr}, 
+			index=[self.orf_name])
+		df.to_csv(meta_save_path, float_format="%.4f")
+
+		print(f"Saved to {g_save_path}...")
+		print(f"Saved to {f_save_path}...")
+		print(f"Saved to {meta_save_path}...")
+		sys.stdout.flush()
+
 
 def color_for_key(key):
 	"""Predefined colors for phases and keys for gene plots"""
