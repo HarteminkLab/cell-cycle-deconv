@@ -253,7 +253,7 @@ class ChromatinGrid:
 		self.deconv_hist = reshaped_hist
 
 
-	def create_deconvolution_plots_abbreviated(self, f, model):
+	def create_deconvolution_plots_abbreviated(self, f, model, ax_rows):
 
 		from src.model import color_for_key
 
@@ -277,8 +277,6 @@ class ChromatinGrid:
 			color = color_for_key(phase)
 			return color
 
-		fig, ax_rows = plt.subplots(4, 6, figsize=(13, 5))
-		plt.subplots_adjust(hspace=0.6)
 		x_bins, y_bins = self.define_histogram_bins()
 
 		plotting_index = 0
@@ -287,57 +285,86 @@ class ChromatinGrid:
 		row_titles = ["Recovery", "Mother G1", "Daughter G1", "Post G1"]
 		phase_keys = ['RG1', 'CG1', 'DG1', 'postG1']
 
-		is_crick = self.gene.strand == '-'
 
 		# Plot for each deconvolved cell phase
 		for row in range(len(ax_rows)):
 
 			phase_axs = ax_rows[row]
+			num_columns = len(phase_axs)
 			phase = phase_keys[row]
 
-			phase_f_indices = model.config.phase_columns[key]
-
-			for column in range(len(phase_axs)):
+			for column in range(num_columns):
 
 				ax = phase_axs[column]
 
 				if column == 0:
 					ax.set_ylabel(row_titles[row], rotation=0, ha='right')
 
-				f_index, index, len_sub_f = self.f_index_for_column(model, phase, column, len(phase_axs))
+				self.plot_f_img(ax, model, f, phase, column, num_columns)
 
-				img = reshaped_f[f_index]
-				im = ax.imshow(img, origin='lower', cmap='magma_r', aspect='auto', vmax=500,
-					extent=self.bin_extents)
-				ax.axvline(self.computed_plus_one, c='black', lw=1, linestyle='dotted')
-				ax.set_yticks([])
-				ax.set_xticks([])
 
-				ax.set_title(f"{index+1}/{len_sub_f} ({(index/(len_sub_f-1))*100:.0f}%)", fontsize=9)
+	def plot_f_img(self, ax, model, f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0):
 
-				if is_crick:
+		is_crick = self.gene.strand == '-'
 
-					# flip the xlims
-					xlims = ax.get_xlim()
-					ax.set_xlim(xlims[1], xlims[0])
-				
+		shape = self.all_hists[0].shape
+		reshaped_f = f.reshape(-1, shape[0], shape[1])
+
+		# Get the index within the f matrix of the appropriate image
+		# by phase and column, num_columns signifies how many subsets of the phase
+		# we are going to plot, the other returned items are for logging and for the title
+		f_index, index, len_sub_f = self.f_index_for_column(model, phase, column, num_columns)
+		if show_title:
+			ax.set_title(f"{index+1}/{len_sub_f} ({(index/(len_sub_f-1))*100:.0f}%)", fontsize=9)
+
+		bin_extents = self.bin_extents
+
+		# pad the extents using xlim and ylim
+		xlims = bin_extents[0]-x_padding, \
+			bin_extents[1]+x_padding
+		ylims = bin_extents[2]-y_padding, \
+			bin_extents[3]+y_padding
+
+		ax.set_xlim(*xlims)
+		ax.set_ylim(*ylims)
+
+		# Plot the deconvolved chromatin for the appropriate column
+		img = reshaped_f[f_index]
+		im = ax.imshow(img, origin='lower', cmap='magma_r', aspect='auto', vmax=500,
+			extent=self.bin_extents, zorder=1)
+		ax.plot([self.computed_plus_one, self.computed_plus_one], 
+				[bin_extents[2], bin_extents[3]], c='black', linestyle='solid', linewidth=5, alpha=1, zorder=0)
+
+		ax.set_yticks([])
+		ax.set_xticks([])
+
+		# Hide the spines
+		ax.spines['top'].set_visible(False)
+		ax.spines['right'].set_visible(False)
+		ax.spines['bottom'].set_visible(False)
+		ax.spines['left'].set_visible(False)
+
+		if is_crick:
+			# flip the xlims
+			xlims = ax.get_xlim()
+			ax.set_xlim(xlims[1], xlims[0])
 
 
 	def f_index_for_column(self, model, phase, column, columns):
-	    """If we are plotting only a subset of all of the images for a phase, we can
-	    subdivide the number of f by some step determined by the number of columns.
-	    
-	    For example if we have 20 f values for a phase and we only have 3 columns, we will
-	    return 0, 10, 20 as the indices we are interested in.
-	    
-	    Also note, that the indices in H (and f) have their own indices per phase so 
-	    we will need to map into those values as well (phase_indices[phase_indices_index])
-	    """
-	    phase_indices = model.config.phase_columns[phase]
-	    phase_indices_index = len(phase_indices) / (columns-1) * column
-	    phase_indices_index = round(phase_indices_index)
-	    phase_indices_index = min(phase_indices_index, len(phase_indices)-1)
-	    return  phase_indices[phase_indices_index], phase_indices_index, len(phase_indices)
+		"""If we are plotting only a subset of all of the images for a phase, we can
+		subdivide the number of f by some step determined by the number of columns.
+		
+		For example if we have 20 f values for a phase and we only have 3 columns, we will
+		return 0, 10, 20 as the indices we are interested in.
+		
+		Also note, that the indices in H (and f) have their own indices per phase so 
+		we will need to map into those values as well (phase_indices[phase_indices_index])
+		"""
+		phase_indices = model.config.phase_columns[phase]
+		phase_indices_index = len(phase_indices) / (columns-1) * column
+		phase_indices_index = round(phase_indices_index)
+		phase_indices_index = min(phase_indices_index, len(phase_indices)-1)
+		return  phase_indices[phase_indices_index], phase_indices_index, len(phase_indices)
 
 
 	def create_deconvolution_plots_full(self, f, model):
@@ -511,8 +538,8 @@ class ChromatinGrid:
 
 		f_ptrs = np.zeros(f.shape[1])
 		for i in range(f.shape[1]):
-		    cptr, dpt, ptr = compute_ptr(model, f[:, i])
-		    f_ptrs[i] = ptr
+			cptr, dpt, ptr = compute_ptr(model, f[:, i])
+			f_ptrs[i] = ptr
 
 		reshaped_ptrs = f_ptrs.reshape(*shape)
 
