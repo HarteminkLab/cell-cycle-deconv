@@ -15,7 +15,7 @@ def main():
 	Run the deconvolution on a gene, indexed by the command-line argument
 	"""
 
-	(_, out_dir, index, batch_idx) = tuple(sys.argv)
+	(_, out_dir, batch_idx, index) = tuple(sys.argv)
 
 	geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv')
 
@@ -32,10 +32,13 @@ def main():
 	sys.stdout.flush()
 
 	config = load_yl_replicate2_rg1_config()
-	model = Model(config, gene.orf_name, 0.001)
+	model = Model(config, gene.orf_name, 0.004)
 
-	find_gamma = FindOptimalGamma(model)
-	find_gamma.find_optimal()
+	try:
+		find_gamma = FindOptimalGamma(model)
+		find_gamma.find_optimal()
+	except UnboundLocalError:
+		model.deconvolve()
 
 	# Initialize the chromatin grid
 	timer = Timer()
