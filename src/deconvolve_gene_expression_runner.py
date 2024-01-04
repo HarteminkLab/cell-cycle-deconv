@@ -6,7 +6,7 @@ import pandas as pd
 
 from src.timer import Timer
 from src.model import Model
-from src.find_gamma_chromatin import FindOptimalGammaChromatin
+from src.find_gamma import FindOptimalGamma
 from src.config import load_yl_replicate2_rg1_config
 
 
@@ -23,12 +23,12 @@ def main():
 	# will be multiplied against the array index
 	gene_index = int(batch_idx)*1000 + int(index)
 
-	printf(f"Running batch: {batch_idx}, array index: {index}, or gene_index: {gene_index}...")
+	print(f"Running batch: {batch_idx}, array index: {index}, or gene_index: {gene_index}...")
 	sys.stdout.flush()
 
 	gene = geneset.iloc[gene_index]
 
-	print(f"Index: [{gene_index}/{len(geneset)}] Deconvolving gene: {model.gene_name}/{model.orf_name}...")
+	print(f"Index: [{gene_index}/{len(geneset)}] Deconvolving gene: {gene.gene}/{gene.name}...")
 	sys.stdout.flush()
 
 	config = load_yl_replicate2_rg1_config()
@@ -44,7 +44,7 @@ def main():
 	sys.stdout.flush()
 
 	# Save f, g, meta, ptr values
-	model.save(out_dir)
+	model.save_deconvolved_outputs(gene_index, out_dir)
 
 
 if __name__ == '__main__':

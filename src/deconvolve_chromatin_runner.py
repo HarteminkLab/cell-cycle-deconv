@@ -16,17 +16,30 @@ def main():
 	Run the deconvolution on a gene, indexed by the command-line argument
 	"""
 
-	(_, out_dir, batch_idx, index) = tuple(sys.argv)
+	system_args = tuple(sys.argv)
 
 	geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv')
 
-	# Each batch will run 1000 genes, second argument in ARGS is the batch index that 
-	# will be multiplied against the array index
-	gene_index = int(batch_idx)*1000 + int(index)
+	# Running on the clustere requires batch index and index
+	# TODO: Change this in the slurm job script to do the math in the bash script rather than
+	# here in python to keep the logic separated
+	if len(system_args) == 5:
+		(_, out_dir, batch_idx, index) = system_args
 
-	print(f"Running batch: {batch_idx}, array index: {index}, or gene_index: {gene_index}...")
+	
+		# Each batch will run 1000 genes, second argument in ARGS is the batch index that 
+		# will be multiplied against the array index
+		gene_index = int(batch_idx)*1000 + int(index)
+
+		print(f"Running batch: {batch_idx}, array index: {index}, or gene_index: {gene_index}...")
+
+	# We have an orf name as the argument
+	else:
+		(_, out_dir, orf_name) = system_args
+		gene_index = geneset[geneset.orf_name == orf_name].index.values[0]
+		print(f"Running deconvolution for orf: {orf_name}, or gene_index: {gene_index}...")
+
 	sys.stdout.flush()
-
 	gene = geneset.iloc[gene_index]
 
 	config = load_yl_replicate2_rg1_chromatin_config()
@@ -55,7 +68,7 @@ def main():
 	print(f"Finished finding the optimal gamma in : {timer.get_time()}")
 	sys.stdout.flush()
 
-	chromatin_gridder.save_deconvolved_outputs(out_dir, index, model, f, using_default_flag)
+	chromatin_gridder.save_deconvolved_outputs(out_dir, gene_index, model, f, using_default_flag)
 
 
 if __name__ == '__main__':

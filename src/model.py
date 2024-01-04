@@ -138,7 +138,15 @@ class Model:
 			g = g1
 			predicted_g1 = predicted_g
 
+			g2 = None
+			predicted_g2 = None
+
 		f = self.f.value
+
+		self.plot_deconvolved_f(f, g, g1, predicted_g1, g2, predicted_g2)
+
+
+	def plot_deconvolved_f(self, f, g, g1, predicted_g1, g2=None, predicted_g2=None):
 
 		fig, axs = plt.subplots(2, 4, figsize=(16, 7))
 		(ax0, ax1, ax2, ax3, ax4, ax5, ax6, ax7) = np.array(axs).flatten()
@@ -152,7 +160,7 @@ class Model:
 
 		# -----------------
 
-		if self.config.has_two_replicates:
+		if g2 is not None:
 			timepoints2 = self.config.WT2_TIMEPOINTS
 			ax4.plot(timepoints2, g2, color=self.color_for_key('raw'), lw=4)
 			ax4.plot(timepoints2, predicted_g2, color=self.color_for_key('fit'), lw=4)
@@ -204,7 +212,7 @@ class Model:
 		_plot_branch(ax7, 'b', start_offset=i_timepoints[-1], linestyle='dashed', ylim=ylim)
 		ax7.set_title("Single cell profile")
 
-		plt.suptitle(f"{self.gene_name} / {self.orf_name}, gamma={self.gamma:.3f}\nrn={self.rn:.2f}, sn={self.sn:.2f}\nptr={self.ptr:.2f}")
+		#plt.suptitle(f"{self.gene_name} / {self.orf_name}, gamma={self.gamma:.3f}\nrn={self.rn:.2f}, sn={self.sn:.2f}\nptr={self.ptr:.2f}")
 
 
 	def color_for_key(self, key):
@@ -212,9 +220,11 @@ class Model:
 
 		return color_for_key(key)
 
-	def save_deconvolved_outputs(self, out_dir):
+	def save_deconvolved_outputs(self, index, out_dir):
 
-		orf_name = model.orf_name
+		import sys
+
+		orf_name = self.orf_name
 
 		g_save_path = f'{out_dir}/{index}_g_{orf_name}.npy'
 		f_save_path = f'{out_dir}/{index}_f_{orf_name}.npy'

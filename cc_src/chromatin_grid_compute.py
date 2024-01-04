@@ -28,6 +28,16 @@ class ChromatinGrid:
 		self.padding = 1000
 		self.geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
 
+
+	def load_deconvolution_results(self, gene_name):
+
+		from cc_src.sgd import get_gene_name_orf_name, get_gene
+
+
+		gene = get_gene(gene_name)
+
+
+
 	def set_gene(self, gene_name):
 
 		# Get some gene information
@@ -242,7 +252,95 @@ class ChromatinGrid:
 		# Reshape for deconvolution
 		self.deconv_hist = reshaped_hist
 
-	def create_deconvolution_plots(self, f, model):
+
+	def create_deconvolution_plots_abbreviated(self, f, model):
+
+		from src.model import color_for_key
+
+		shape = self.all_hists[0].shape
+		reshaped_f = f.reshape(-1, shape[0], shape[1])
+		phase_cols = model.config.phase_columns
+
+		phases = []
+		indices = []
+
+		for key, values in phase_cols.items():
+			phases = phases + [key] * len(values)
+			indices = indices + list(values)
+
+		phase_col_df = pd.DataFrame({'phase': phases, 'column': indices})
+		phase_col_df = phase_col_df.set_index('column')
+		phase_col_df.head()
+
+		def color_for_index(phase_col_df, index):
+			phase = phase_col_df.loc[index].phase
+			color = color_for_key(phase)
+			return color
+
+		fig, ax_rows = plt.subplots(4, 6, figsize=(13, 5))
+		plt.subplots_adjust(hspace=0.6)
+		x_bins, y_bins = self.define_histogram_bins()
+
+		plotting_index = 0
+		last_phase = None
+
+		row_titles = ["Recovery", "Mother G1", "Daughter G1", "Post G1"]
+		phase_keys = ['RG1', 'CG1', 'DG1', 'postG1']
+
+		is_crick = self.gene.strand == '-'
+
+		# Plot for each deconvolved cell phase
+		for row in range(len(ax_rows)):
+
+			phase_axs = ax_rows[row]
+			phase = phase_keys[row]
+
+			phase_f_indices = model.config.phase_columns[key]
+
+			for column in range(len(phase_axs)):
+
+				ax = phase_axs[column]
+
+				if column == 0:
+					ax.set_ylabel(row_titles[row], rotation=0, ha='right')
+
+				f_index, index, len_sub_f = self.f_index_for_column(model, phase, column, len(phase_axs))
+
+				img = reshaped_f[f_index]
+				im = ax.imshow(img, origin='lower', cmap='magma_r', aspect='auto', vmax=500,
+					extent=self.bin_extents)
+				ax.axvline(self.computed_plus_one, c='black', lw=1, linestyle='dotted')
+				ax.set_yticks([])
+				ax.set_xticks([])
+
+				ax.set_title(f"{index+1}/{len_sub_f} ({(index/(len_sub_f-1))*100:.0f}%)", fontsize=9)
+
+				if is_crick:
+
+					# flip the xlims
+					xlims = ax.get_xlim()
+					ax.set_xlim(xlims[1], xlims[0])
+				
+
+
+	def f_index_for_column(self, model, phase, column, columns):
+	    """If we are plotting only a subset of all of the images for a phase, we can
+	    subdivide the number of f by some step determined by the number of columns.
+	    
+	    For example if we have 20 f values for a phase and we only have 3 columns, we will
+	    return 0, 10, 20 as the indices we are interested in.
+	    
+	    Also note, that the indices in H (and f) have their own indices per phase so 
+	    we will need to map into those values as well (phase_indices[phase_indices_index])
+	    """
+	    phase_indices = model.config.phase_columns[phase]
+	    phase_indices_index = len(phase_indices) / (columns-1) * column
+	    phase_indices_index = round(phase_indices_index)
+	    phase_indices_index = min(phase_indices_index, len(phase_indices)-1)
+	    return  phase_indices[phase_indices_index], phase_indices_index, len(phase_indices)
+
+
+	def create_deconvolution_plots_full(self, f, model):
 		from src.model import color_for_key
 
 		shape = self.all_hists[0].shape
@@ -296,6 +394,16 @@ class ChromatinGrid:
 				plotting_index += 1
 
 			last_phase = phase
+
+
+	def plot_im_gene(self, ax, dat):
+
+		im = ax.imshow(dat, origin='lower', cmap='magma_r', aspect='auto',
+				extent=self.bin_extents)
+		# ax.set_xticks([])
+		#ax.set_yticks([])
+		ax.axvline(self.computed_plus_one, c='black', lw=1, linestyle='dotted')
+		return im
 
 	def plot_prediction_comparison(self, model, f):
 		times = self.times

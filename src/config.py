@@ -299,6 +299,8 @@ def load_yl_replicate2_chromatin_config():
 
 	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE)
 
+	raise ValueError("Deprecated")
+
 	return config
 
 
