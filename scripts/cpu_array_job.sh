@@ -11,10 +11,10 @@ cd /usr/xtmp/tqtran/deconvolution-project
 echo "cpu_job.sh: beginning job, date: $(date)"
 
 # activate conda and  environment
-. "/usr/xtmp/tqtran/miniconda3/etc/profile.d/conda.sh"
+. "/usr/project/compbio/tqtran/miniconda3/etc/profile.d/conda.sh"
 
 # activate environment
-conda activate cell-cycle-deconvolution
+conda activate /usr/project/compbio/tqtran/miniconda3/envs/cell-cycle-deconvolution
 
 # Run the python command with the task id (array index) as the last argument
 python $PYFILE $ARGS $SLURM_ARRAY_TASK_ID
