@@ -95,25 +95,28 @@ class Model:
 		prob = cp.Problem(objective, constraints)
 		result = prob.solve(solver=cp.CLARABEL)
 
+		# Convert it into a numpy array
+		f = f.value
+
 		# predicted g
-		self.pred_g = np.matmul(self.H, f.value)
+		self.pred_g = np.matmul(self.H, f)
 		
 		W1 = get_wavelet_kernel(len(f_it))
 		W2 = get_wavelet_kernel(len(f_b))
 
-		sn = (np.linalg.norm(np.matmul(W1, f.value[f_it]), 1) + np.linalg.norm(np.matmul(W2, f.value[f_b]), 1)) / np.mean(self.g)
-		rn = np.square(np.clip(np.linalg.norm(np.matmul(self.H, f.value) / (self.g) - 1), 0, None))
+		sn = (np.linalg.norm(np.matmul(W1, f[f_it]), 1) + np.linalg.norm(np.matmul(W2, f[f_b]), 1)) / np.mean(self.g)
+		rn = np.square(np.clip(np.linalg.norm(np.matmul(self.H, f) / (self.g) - 1), 0, None))
 
 		self.sn = sn
 		self.rn = rn
-		self.f = f 
+		self.f = f
 		self.compute_ptr()
 
 
 	def compute_ptr(self):
 		"""Compute the peak to trough ratio"""
 		from cc_src.peak_to_trough import compute_ptr
-		self.cptr, self.dptr, self.ptr = compute_ptr(self, self.f.value)
+		self.cptr, self.dptr, self.ptr = compute_ptr(self, self.f)
 
 
 	def plot_deconvolved_gene(self, title=None):
@@ -141,7 +144,7 @@ class Model:
 			g2 = None
 			predicted_g2 = None
 
-		f = self.f.value
+		f = self.f
 
 		self.plot_deconvolved_f(f, g, g1, predicted_g1, g2, predicted_g2)
 
@@ -308,7 +311,7 @@ def deconvolve_all_genes(config, save_dir):
 			index += 1
 			continue
 
-		gene_fs_df.loc[orf_name] = model.f.value
+		gene_fs_df.loc[orf_name] = model.f
 
 		(gene_meta_df.loc[orf_name, 'cptr'], gene_meta_df.loc[orf_name, 'dptr'], 
 		gene_meta_df.loc[orf_name, 'ptr'], gene_meta_df.loc[orf_name, 'rn'], 
