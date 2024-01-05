@@ -122,5 +122,6 @@ def deconvolve_chromatin(model, g):
 	 np.linalg.norm(np.matmul(W2, f.value[f_b]), 1)) / np.mean(g)
 
 	model.rn = np.square(np.clip(np.linalg.norm(np.matmul(model.H, f.value) / g - 1), 0, None))
+	model.f = f.value
 
 	return result, f.value

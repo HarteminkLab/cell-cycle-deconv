@@ -327,6 +327,8 @@ class ChromatinGrid:
 
 		ax.set_xlim(*xlims)
 		ax.set_ylim(*ylims)
+		ax.set_xticks([])
+		ax.set_yticks([])
 
 		# Plot the deconvolved chromatin for the appropriate column
 		img = reshaped_f[f_index]
@@ -334,15 +336,6 @@ class ChromatinGrid:
 			extent=self.bin_extents, zorder=1)
 		ax.plot([self.computed_plus_one, self.computed_plus_one], 
 				[bin_extents[2], bin_extents[3]], c='black', linestyle='solid', linewidth=5, alpha=1, zorder=0)
-
-		ax.set_yticks([])
-		ax.set_xticks([])
-
-		# Hide the spines
-		ax.spines['top'].set_visible(False)
-		ax.spines['right'].set_visible(False)
-		ax.spines['bottom'].set_visible(False)
-		ax.spines['left'].set_visible(False)
 
 		if is_crick:
 			# flip the xlims
