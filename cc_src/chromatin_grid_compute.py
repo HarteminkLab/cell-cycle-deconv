@@ -44,18 +44,18 @@ class ChromatinGrid:
 		self.computed_plus_one = None
 		self.orf_name, self.gene_name = get_gene_name_orf_name(gene_name)
 		self.gene = self.geneset.loc[self.orf_name]
-
-		self.chr_reads = pd.read_hdf(f'output/mnase/yl_rep2_mnase_reads/yl_rep2_mnase_reads_chr{self.gene.chr}.h5', 
-					'mnase_data')
-
 		self.mnase_span = self.gene.TSS-self.padding, self.gene.TSS+self.padding
 
+		print("Loading MNase reads...", end='')
+		# TODO: This may take a little while, when we've deconvolved already we may want to skip this step,
+		# But that will mean needing to save the +1 location to disk.
+		self.chr_reads = pd.read_hdf(f'output/mnase/yl_rep2_mnase_reads/yl_rep2_mnase_reads_chr{self.gene.chr}.h5', 
+					'mnase_data')
 		self.gene_reads = self.chr_reads[(self.chr_reads.mid > self.mnase_span[0]) & 
 			(self.chr_reads.mid < self.mnase_span[1])]
-
-		self.times = self.gene_reads['sample'].unique()
 		self.find_max_plusOne_pos()
 
+		self.times = self.gene_reads['sample'].unique()
 
 		# Now that we have the +1 position defined, let's realign on this position
 		#
@@ -64,6 +64,8 @@ class ChromatinGrid:
 		self.mnase_span = self.computed_plus_one-self.padding, self.computed_plus_one+self.padding
 		self.gene_reads = self.chr_reads[(self.chr_reads.mid > self.mnase_span[0]) & 
 			(self.chr_reads.mid < self.mnase_span[1])]
+
+		print("Done.")
 
 
 	def define_histogram_bins(self):
@@ -208,8 +210,15 @@ class ChromatinGrid:
 		for i in range(len(times)):
 			time = times[i]
 			raw_ax = raw_axes[i]
+			raw_ax.set_ylabel(f"{time} min")
+			raw_ax.set_yticks([])
 			grid_ax = grid_axes[i]
+			grid_ax.set_yticks([])
 			self.plot_sample(raw_ax, grid_ax, time, i)
+
+			if i < len(times)-1:
+				raw_ax.set_xticks([])
+				grid_ax.set_xticks([])
 
 
 	def create_deconvolution_matrices(self, plot=False):
@@ -425,7 +434,9 @@ class ChromatinGrid:
 		ax.axvline(self.computed_plus_one, c='black', lw=1, linestyle='dotted')
 		return im
 
-	def plot_prediction_comparison(self, model, f):
+	def plot_prediction_comparison(self, model):
+
+		f = model.f
 		times = self.times
 		predicted_g = np.matmul(model.H, f)
 		shape = self.all_hists[0].shape
@@ -458,6 +469,8 @@ class ChromatinGrid:
 							origin='lower', cmap='RdBu', aspect='auto', vmin=-300, vmax=300,
 							extent=self.bin_extents)
 			
+			g_ax.set_ylabel(f"{time}'", fontsize=12)
+
 			for ax in [g_ax, pred_ax, comp_ax]:
 				ax.set_xticks([])
 				ax.set_yticks([])

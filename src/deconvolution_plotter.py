@@ -1,6 +1,7 @@
 
 import numpy as np
 import matplotlib.pyplot as plt
+import pandas as pd
 import matplotlib.gridspec as gridspec
 
 
@@ -60,7 +61,7 @@ class DeconvolutionPlotter():
 		self.fig = fig
 
 
-	def plot_gene_expression(self, initial_axes, top_axes, bottom_axes, ymax=1000):
+	def plot_gene_expression(self, initial_axes, top_axes, bottom_axes, ymax=300):
 
 		from src.model import color_for_key
 		from cc_src.orf_plotter import plot_rect
@@ -68,10 +69,10 @@ class DeconvolutionPlotter():
 		branches = ['i', 't', 'b']
 		axes = [initial_axes, top_axes, bottom_axes]
 
-		f = self.ge_model.f.value
+		f = self.ge_model.f
 
-		phase_label_height = 250
-
+		# The phase label should be fixed as a proportion of the ymax value
+		phase_label_height = 0.25 * ymax
 
 		map_phase_name = {
 			'RG1': "Recovery G1",
@@ -151,12 +152,21 @@ class DeconvolutionPlotter():
 	def plot_deconvolved_models(self):
 
 		chrom_model, chromatin_gridder, ge_model = self.chrom_model, self.chromatin_gridder, self.ge_model
+		chrom_meta_data = chrom_model.chrom_meta_data
 
 		self.layout_axes()
 
 		gene_title = ge_model.gene_name + "\ /\ " + ge_model.orf_name
+		gene_title = "$\it{"+ gene_title + "}$"
 
-		title_string = "$\it{"+ gene_title + "}$"
+		chrom_meta = chrom_meta_data.iloc[0]
+		chrom_meta.rn, chrom_meta.sn, chrom_meta.gm
+		gene_name = chrom_model.gene_name
+		orf_name = chrom_model.orf_name
+
+		title_string = (f"{gene_title}, rn={chrom_meta.rn},"+
+		              f"sn={chrom_meta.sn}, gm={chrom_meta.gm}")
+		
 		plt.suptitle(title_string, fontsize=63)
 
 		# Plot the gene expression
@@ -168,22 +178,102 @@ class DeconvolutionPlotter():
 		f = chrom_model.f
 
 		self.plot_chrom_imgs_for(chrom_model, f, chromatin_gridder, 'RG1',
-		                                   self.initial_axes[1])
+										   self.initial_axes[1])
 		self.plot_chrom_imgs_for(chrom_model, f, chromatin_gridder, 'postG1',
-		                                   self.initial_axes[3])
+										   self.initial_axes[3])
 
 		self.plot_chrom_imgs_for(chrom_model, f, chromatin_gridder, 'CG1',
-		                                   self.top_axes[1])
+										   self.top_axes[1])
 		self.plot_chrom_imgs_for(chrom_model, f, chromatin_gridder, 'postG1',
-		                                   self.top_axes[3])
+										   self.top_axes[3])
 
 		self.plot_chrom_imgs_for(chrom_model, f, chromatin_gridder, 'DG1',
-		                                   self.bottom_axes[1])
+										   self.bottom_axes[1])
 		self.plot_chrom_imgs_for(chrom_model, f, chromatin_gridder, 'postG1',
-		                                   self.bottom_axes[3])
+										   self.bottom_axes[3])
 
 		# Bold the start of the branches axes
 		for ax in [initial_ge_axes[0], top_ge_axes[0], bottom_ge_axes[0], 
-		           self.initial_axes[1][0], self.top_axes[1][0], 
-		           self.bottom_axes[1][0], self.between_t_b_axis]:
-		    ax.spines['left'].set_linewidth(6)
+				   self.initial_axes[1][0], self.top_axes[1][0], 
+				   self.bottom_axes[1][0], self.between_t_b_axis]:
+			ax.spines['left'].set_linewidth(6)
+
+
+def load_deconvolution_models_from_disk(gene_name_or_orf_name, chromatin_directory_path, gene_expression_directory_path):
+
+	import glob
+	import os
+	import numpy as np
+
+	from cc_src.sgd import get_gene_name_orf_name
+
+	orf_name, gene_name = get_gene_name_orf_name(gene_name_or_orf_name)
+
+	def load_deconvolved_files(data_directory, orf_name, load_ptr=False):
+		"""Load the deconvolution data from disk"""
+		def get_file_path(prefix, orf_name):
+			pattern = os.path.join(data_directory, f'*{prefix}*{orf_name}*')
+			filepath = glob.glob(pattern)[0]
+			return filepath
+
+		meta_filepath = get_file_path('meta', orf_name)
+		f_filepath = get_file_path('f_', orf_name)
+		g_filepath = get_file_path('g_', orf_name)
+
+		meta_data = pd.read_csv(meta_filepath)
+		f_data = np.load(f_filepath, allow_pickle=True)
+		g_data = np.load(g_filepath, allow_pickle=True)
+
+		# For chromatin we have a file specifically for the ptr values
+		if load_ptr:
+			ptr_filepath = get_file_path('ptr_', orf_name)
+			ptrs = np.load(ptr_filepath)
+			ret = meta_data, f_data, g_data, ptrs
+		else:
+			ret = meta_data, f_data, g_data
+
+		return ret
+		
+	# Load the data from disk
+	chrom_meta_data, chrom_f_data, chrom_g_data, chrom_ptrs = load_deconvolved_files(chromatin_directory_path, 
+																 orf_name, load_ptr=True)
+
+	ge_meta_data, ge_f_data, ge_g_data = load_deconvolved_files(gene_expression_directory_path,
+																 orf_name)
+
+	# Load the chromatin model and grid computer, set the resulting deconvolution structures appropriately
+	from cc_src.chromatin_grid_compute import ChromatinGrid
+	from src.config import load_yl_replicate2_rg1_chromatin_config
+
+	config = load_yl_replicate2_rg1_chromatin_config()
+
+	chromatin_gridder = ChromatinGrid()
+	chromatin_gridder.set_gene(gene_name)
+	chromatin_gridder.times = config.WT1_TIMEPOINTS
+	chromatin_gridder.all_hists = chrom_g_data
+	chromatin_gridder.create_deconvolution_matrices()
+	chromatin_gridder.define_histogram_bins()
+
+	from src.model import Model
+
+	chrom_model = Model(config, gene_name, 0.1)
+	chrom_model.f = chrom_f_data.reshape((chrom_model.H.shape[1], -1))
+
+	# Set the meta data and ptrs in the model
+	# TODO: May want to put this somewhere else
+	chrom_model.chrom_meta_data = chrom_meta_data
+	chrom_model.ptrs = chrom_ptrs
+
+	# Load the gene expression model
+	from src.config import load_yl_replicate2_rg1_config
+
+	config = load_yl_replicate2_rg1_config()
+	ge_model = Model(config, gene_name, ge_meta_data.gm.values[0])
+	ge_model.g = ge_g_data
+	ge_model.f = ge_f_data
+
+	ge_model.pred_g = np.matmul(ge_model.H, ge_model.f)
+
+	deconv_plotter = DeconvolutionPlotter(ge_model, chromatin_gridder, chrom_model)
+
+	return deconv_plotter
