@@ -63,16 +63,20 @@ def main():
 	gene_title = f"{gene['gene']}_{gene['orf_name']}"
 
 	deconv_plotter.chromatin_gridder.plot_prediction_comparison(deconv_plotter.chrom_model)
-	plt.savefig(f"{out_dir}/{gene_index}_{gene_title}_data.png", dpi=250)
 
-	deconv_plotter.plot_deconvolved_models()
-	plt.savefig(f"{out_dir}/{gene_index}_{gene_title}_deconvolution.png", dpi=250)
-
-	print(f"Finished finding the optimal gamma in : {timer.get_time()}")
+	save_path = f"{out_dir}/{gene_index}_{gene_title}_data.png"
+	plt.savefig(save_path, dpi=250)
+	print(f"Saved figure {save_path}")
 	sys.stdout.flush()
 
-	# Save f, g, meta, ptr values
-	model.save_deconvolved_outputs(gene_index, out_dir)
+	deconv_plotter.plot_deconvolved_models()
+	save_path = f"{out_dir}/{gene_index}_{gene_title}_deconvolution.png"
+	plt.savefig(save_path, dpi=250)
+	print(f"Saved figure {save_path}")
+	sys.stdout.flush()
+
+	print(f"Finished creating plots.: {timer.get_time()}")
+	sys.stdout.flush()
 
 
 if __name__ == '__main__':
