@@ -445,14 +445,28 @@ class ChromatinGrid:
 
 		predicted_g_reshaped = predicted_g.reshape(n, shape[0], shape[1])
 
-		fig, axs = plt.subplots(n, 3, figsize=(7, 6))
+		fig, axs = plt.subplots(n, 4, figsize=(7, 10))
 		axs = np.array(axs).T
-		g_axs = axs[0]
-		pred_g_axs = axs[1]
-		comparison_axs = axs[2]
+		raw_axs = axs[0]
+		g_axs = axs[1]
+		pred_g_axs = axs[2]
+		comparison_axs = axs[3]
+
+		x_bins, y_bins = self.define_histogram_bins()
 
 		for i in range(n):
 			time = times[i]
+
+			raw_ax = raw_axs[i]
+
+			xlims = self.mnase_span
+			gene = self.gene
+
+			plotting_reads = self.all_plotting_reads[time]
+			plot_mnase_density(raw_ax, plotting_reads)
+			raw_ax.set_xticks([])
+			raw_ax.set_yticks([])
+			raw_ax.set_xlim(x_bins[0], x_bins[-1])
 
 			g_ax = g_axs[i]
 			im = g_ax.imshow(self.all_hists[i], origin='lower', cmap='magma_r', 
@@ -469,14 +483,15 @@ class ChromatinGrid:
 							origin='lower', cmap='RdBu', aspect='auto', vmin=-300, vmax=300,
 							extent=self.bin_extents)
 			
-			g_ax.set_ylabel(f"{time}'", fontsize=12)
+			raw_ax.set_ylabel(f"{time}'", fontsize=8)
 
-			for ax in [g_ax, pred_ax, comp_ax]:
+			for ax in [raw_ax, g_ax, pred_ax, comp_ax]:
 				ax.set_xticks([])
 				ax.set_yticks([])
-				ax.axvline(self.computed_plus_one, c='black', lw=2, linestyle='dotted')
+				ax.axvline(self.computed_plus_one, c='black', lw=1, linestyle='dashed')
 
-		g_axs[0].set_title("Original")
+		raw_axs[0].set_title("Raw")
+		g_axs[0].set_title("Binned")
 		pred_g_axs[0].set_title("Predicted")
 		comparison_axs[0].set_title("Difference")
 

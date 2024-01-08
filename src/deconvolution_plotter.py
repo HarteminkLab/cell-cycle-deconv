@@ -58,10 +58,14 @@ class DeconvolutionPlotter():
 		self.top_axes = _add_branch_plots(0, num_phase_cols*2)
 		self.bottom_axes = _add_branch_plots(4, num_phase_cols*2)
 		self.between_t_b_axis = _add_empty_ax(3, 3, (num_phase_cols*2), (num_phase_cols*4))
+
+		# For displaying statistics
+		self.stats_ax = _add_empty_ax(4, 4+gene_expression_plt_height, 0, num_phase_cols*2-1)
+
 		self.fig = fig
 
 
-	def plot_gene_expression(self, initial_axes, top_axes, bottom_axes, ymax=300):
+	def plot_gene_expression(self, initial_axes, top_axes, bottom_axes, ymax=None):
 
 		from src.model import color_for_key
 		from cc_src.orf_plotter import plot_rect
@@ -70,6 +74,9 @@ class DeconvolutionPlotter():
 		axes = [initial_axes, top_axes, bottom_axes]
 
 		f = self.ge_model.f
+
+		if ymax is None:
+			ymax = f.max()*1.25
 
 		# The phase label should be fixed as a proportion of the ymax value
 		phase_label_height = 0.25 * ymax
@@ -164,8 +171,17 @@ class DeconvolutionPlotter():
 		gene_name = chrom_model.gene_name
 		orf_name = chrom_model.orf_name
 
-		title_string = (f"{gene_title}, rn={chrom_meta.rn},"+
-		              f"sn={chrom_meta.sn}, gm={chrom_meta.gm}")
+		title_string = (f"{gene_title}")
+		stats_str = f"rn = {chrom_meta.rn:.3f}\nsn = {chrom_meta.sn:.3f}\ngm = {chrom_meta.gm:.4f}"
+
+
+		self.stats_ax.text(0, 0, stats_str, ha='center', va='center', fontsize=36)
+		self.stats_ax.set_ylim(-10, 10)
+		self.stats_ax.set_xlim(-10, 10)
+		self.stats_ax.spines['left'].set_visible(False)
+		self.stats_ax.spines['right'].set_visible(False)
+		self.stats_ax.spines['top'].set_visible(False)
+		self.stats_ax.spines['bottom'].set_visible(False)
 		
 		plt.suptitle(title_string, fontsize=63)
 
