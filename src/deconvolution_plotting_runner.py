@@ -43,7 +43,7 @@ def main():
 
 	# -------------------------------------------------
 
-	print(f"Index: [{gene_index}/{len(GENESET)}] Deconvolving gene: {gene.gene}/{gene.orf_name}...")
+	print(f"Index: [{gene_index}/{len(GENESET)}] Creating deconvolution plot for gene: {gene.gene}/{gene.orf_name}...")
 	sys.stdout.flush()
 
 	timer = Timer()
