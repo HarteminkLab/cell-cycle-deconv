@@ -82,3 +82,58 @@ class PeakToTroughAnalysis:
 		plt.yscale('log')
 		plt.title("Histogram of the\nmaximum PTR for each gene")
 
+
+	def examine_threshold_values(self):
+		"""This script tries a few quantiles/threshold values against
+		the flattened ptr values (all ptr values for a gene window for all genes)
+
+		And examines how many genes exceed or are stricly below this value.
+
+		TODO: 
+		Currently thinking through if thresholding is how we want to examine this data.
+		Possibly interesting when thinking of proportion of the local window around a gene TSS
+		as cycling rather than one cell of the window.
+
+		Will require further thought...
+
+		"""
+
+		# Drop nan values
+		all_ptr_values = self.all_ptr_arr.flatten()
+		all_ptr_values = all_ptr_values[~np.isnan(all_ptr_values)]
+
+		# Let's try some thresholds, then count how many genes are above and below these thresholds
+		prop_thresholds = [0.1, 0.15, 0.3, 0.6, 0.75, 0.9, 0.95, 0.975, 0.999]
+		threshold_values = []
+		higher_genes = []
+		lower_genes = []
+		n = len(max_ptr_values)
+
+		print(f"For Peak-to-trough (PTR) thresholds of:")
+		print("\n--------------------------------------------------------------------------\n")
+		for i in range(len(prop_thresholds)):
+		    prop = prop_thresholds[i]
+		    threshold = np.quantile(all_ptr_values, prop)
+
+		    genes_higher_than_thresh = len(max_ptr_values[max_ptr_values > threshold])
+		    genes_all_lower_than_thresh = len(max_ptr_values[max_ptr_values < threshold])
+		    
+		    threshold_values.append(threshold)
+		    higher_genes.append(genes_higher_than_thresh)
+		    lower_genes.append(genes_all_lower_than_thresh)
+		    
+		    print(f"{threshold:.1f} - percentile: {prop*100:.1f}%")
+		    print(f"    {(genes_higher_than_thresh)}/{n} "
+		          f"({(genes_higher_than_thresh)/n*100.:.1f}%) "
+		          "genes exceed this value for any cell")
+		    
+		    print(f"    {(genes_all_lower_than_thresh)}/{n} "
+		          f"({(genes_all_lower_than_thresh)/n*100.:.1f}%) "
+		          "genes are below this value for all cells")
+		    
+		    print("\n--------------------------------------------------------------------------\n")
+
+		threshold_counts_df = pd.DataFrame({'threshold': threshold_values, 
+		                                    'proportion': prop_thresholds,
+		                                    'num_higher': higher_genes,
+		                                    'num_less': lower_genes})
