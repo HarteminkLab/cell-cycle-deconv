@@ -5,6 +5,10 @@ import matplotlib.pyplot as plt
 
 
 
+CHROMATIN_DIR = 'output/deconvolve_chromatin_2023_12_15/'
+GENE_EXPRESSION_DIR = 'output/deconvolve_gene_expression_2024_01_04/'
+
+
 class PeakToTroughAnalysis:
 	"""This class will be used to process the chromatin peak to trough values, analyse,
 	and plot. 
@@ -20,8 +24,7 @@ class PeakToTroughAnalysis:
 		import os
 		import numpy as np
 
-		directory_path = 'output/deconvolve_chromatin_2023_12_15/'
-		pattern = os.path.join(directory_path, '*ptr*')
+		pattern = os.path.join(CHROMATIN_DIR, '*ptr*')
 		files_with_ptr = glob.glob(pattern)
 
 		# Let's store them in a dictionary indexed by the orf name to start, then we can reorder 
@@ -38,7 +41,7 @@ class PeakToTroughAnalysis:
 		print(f"So, there were { len(genes) - len(orf_name_ptrs_dic)} genes that did not deconvolve")
 
 		# Next, we let's make a numpy array ordered by the original genes list
-		all_ptr_arr = np.zeros((len(genes), gene_ptr.shape[0], gene_ptr.shape[1]))
+		all_chrom_ptr_arr = np.zeros((len(genes), gene_ptr.shape[0], gene_ptr.shape[1]))
 
 		for index in range(len(genes)):
 		    
@@ -47,40 +50,76 @@ class PeakToTroughAnalysis:
 		    # Skip if we don't have a deconvolution for the gene
 		    if orf_name in orf_name_ptrs_dic.keys():
 		        ptr_img = orf_name_ptrs_dic[orf_name]
-		        all_ptr_arr[index] = ptr_img
+		        all_chrom_ptr_arr[index] = ptr_img
 
-		print(f"Created a numpy array of all deconvolved gene PTRs of shape: {all_ptr_arr.shape}")
+		print(f"Created a numpy array of all deconvolved gene PTRs of shape: {all_chrom_ptr_arr.shape}")
 
-		self.all_ptr_arr = all_ptr_arr
+		# Next let's load the gene expresion PTRs
+		pattern = os.path.join(GENE_EXPRESSION_DIR, '*meta*')
+		files_with_ptr = glob.glob(pattern)
+
+		ge_metadata_df = pd.DataFrame()
+
+		# Let's store them in a dictionary indexed by the orf name to start, then we can reorder 
+		# them into a numpy array
+		orf_name_ptrs_dic = {}
+		for filename in files_with_ptr:
+		    meta_data = pd.read_csv(filename)
+		    ge_metadata_df = pd.concat([ge_metadata_df, meta_data])
+
+		ge_metadata_df = ge_metadata_df.rename(columns={'Unnamed: 0': 
+		    'orf_name'}).set_index('orf_name')
+
+		self.ge_metadata_df = ge_metadata_df
+		self.all_chrom_ptr_arr = all_chrom_ptr_arr
 		self.genes = genes
+
+		max_ptr_values = self.all_chrom_ptr_arr.max(axis=1).max(axis=1)
+		max_ptr_values_nonnan = max_ptr_values[~np.isnan(max_ptr_values)]
+		print(f"{len(max_ptr_values_nonnan)} genes have non-nan deconvolution chromatin PTRs")
+
+		max_chrom_ptr_df = self.genes[[]].copy()
+		max_chrom_ptr_df['max_chrom_ptr'] = max_ptr_values
+
+		ge_metadata_df = ge_metadata_df[['ptr']].join(max_chrom_ptr_df)
+		self.combined_ptr_dfs = ge_metadata_df.rename(columns={'ptr': 'ge_ptr'})
+
 
 
 	def plot_histograms(self):
 		"""
 		Plot the histograms of every PTR value for every gene, as well as the maximum values.
 		"""
-		self.threshold = 100
 
-		all_ptr_values = self.all_ptr_arr.flatten()
+		plt.figure(figsize=(9, 2))
+
+		all_ptr_values = self.all_chrom_ptr_arr.flatten()
 
 		# Let's get an idea of the range of PTR values we have for each gene, this will be
 		# agnostic to the bin location in the gene
-		plt.subplot(2, 2, 1)
+		plt.subplot(1, 3, 1)
 		plt.hist(all_ptr_values, bins=100)
 		plt.yscale('log')
-		plt.title("Histogram of PTR values\nfor every bin for every gene")
-
-		print(np.quantile(all_ptr_values, [0.8, 0.9, 0.95]))
+		plt.title("All local chromatin PTR\nvalues for every gene")
 
 		# We can try selecting the max PTR for each gene and plotting that
-		plt.subplot(2, 2, 2)
-		# Let's get an idea of the range of PTR values we have for each gene, this will be
-		# agnostic to the bin location in the gene
-		max_ptr_per_gene = self.all_ptr_arr.max(axis=1).max(axis=1)
-
-		plt.hist(max_ptr_per_gene, bins=100)
+		plt.subplot(1, 3, 2)
+		plt.hist(self.combined_ptr_dfs.max_chrom_ptr, bins=100, color="purple")
 		plt.yscale('log')
-		plt.title("Histogram of the\nmaximum PTR for each gene")
+		plt.title("Max PTR (local chromatin)\nfor each gene")
+
+		plt.subplot(1, 3, 3)
+
+		ptr_values = self.combined_ptr_dfs.ge_ptr
+		ptr_values_truncated = ptr_values[ptr_values < 5000]
+		print(f"Truncating large PTR outlier values " +
+		      f"({len(ptr_values) - len(ptr_values_truncated)} gene). " +
+		      f"So N={len(ptr_values_truncated)}")
+
+		plt.hist(ptr_values_truncated, bins=200, color='orange')
+		plt.yscale('log')
+		plt.title(f"Gene expression PTR values")
+
 
 
 	def examine_threshold_values(self):
@@ -99,7 +138,7 @@ class PeakToTroughAnalysis:
 		"""
 
 		# Drop nan values
-		all_ptr_values = self.all_ptr_arr.flatten()
+		all_ptr_values = self.all_chrom_ptr_arr.flatten()
 		all_ptr_values = all_ptr_values[~np.isnan(all_ptr_values)]
 
 		# Let's try some thresholds, then count how many genes are above and below these thresholds
