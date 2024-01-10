@@ -83,3 +83,25 @@ def rescale(x, y, interval=1):
 	newy[-1] = newy[-2]
 
 	return newx, newy
+
+
+def get_chrom_g_ptr(gene_g_chrom):
+	"""
+	Compute the chromatin ptr for g for yulong replicate 2 model.
+
+	Assumes 15 timepoints and we should skip the first two for recovery in the 
+	ptr calculation
+	"""
+
+	# TODO: Hard-coded (15 timepoints)
+	gene_g_chrom = gene_g_chrom.reshape(15, -1)
+	gene_g_ptrs = np.zeros((gene_g_chrom.shape[1], 1))
+
+	# Compute the PTR for each grid element in the G matrix
+	for i in range(gene_g_chrom.shape[1]):
+
+		# Skip the first 2 timepoints (as recovery is 23 minutes)
+		ptr = compute_80_20_ptr(gene_g_chrom[2:, i])
+		gene_g_ptrs[i] = ptr
+
+	return gene_g_ptrs, np.max(gene_g_ptrs)

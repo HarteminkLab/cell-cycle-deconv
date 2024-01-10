@@ -215,6 +215,9 @@ class DeconvolutionPlotter():
 			ax.spines['left'].set_linewidth(6)
 
 
+
+		
+
 def load_deconvolution_models_from_disk(gene_name_or_orf_name, chromatin_directory_path, gene_expression_directory_path):
 
 	import glob
@@ -293,3 +296,5 @@ def load_deconvolution_models_from_disk(gene_name_or_orf_name, chromatin_directo
 	deconv_plotter = DeconvolutionPlotter(ge_model, chromatin_gridder, chrom_model)
 
 	return deconv_plotter
+
+

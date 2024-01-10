@@ -85,6 +85,10 @@ class PeakToTroughAnalysis:
 		self.combined_ptr_dfs = ge_metadata_df.rename(columns={'ptr': 'ge_ptr'})
 
 
+	def load_g_data_and_compute_ptrs(self):
+		pass
+
+
 
 	def plot_histograms(self):
 		"""
@@ -100,12 +104,14 @@ class PeakToTroughAnalysis:
 		plt.subplot(1, 3, 1)
 		plt.hist(all_ptr_values, bins=100)
 		plt.yscale('log')
+		plt.xscale('log')
 		plt.title("All local chromatin PTR\nvalues for every gene")
 
 		# We can try selecting the max PTR for each gene and plotting that
 		plt.subplot(1, 3, 2)
 		plt.hist(self.combined_ptr_dfs.max_chrom_ptr, bins=100, color="purple")
 		plt.yscale('log')
+		plt.xscale('log')
 		plt.title("Max PTR (local chromatin)\nfor each gene")
 
 		plt.subplot(1, 3, 3)
@@ -118,6 +124,7 @@ class PeakToTroughAnalysis:
 
 		plt.hist(ptr_values_truncated, bins=200, color='orange')
 		plt.yscale('log')
+		plt.xscale('log')
 		plt.title(f"Gene expression PTR values")
 
 
@@ -176,3 +183,58 @@ class PeakToTroughAnalysis:
 		                                    'proportion': prop_thresholds,
 		                                    'num_higher': higher_genes,
 		                                    'num_less': lower_genes})
+	def plot_chrom_ge_ptr_scatter(self):
+
+		from cc_src.DensityScatterPlotter import DensityScatterPlotter
+
+		plt.figure(figsize=(8, 7))
+		plt_data = self.combined_ptr_dfs.copy()
+		plt_data = plt_data.dropna()
+
+		density_plotter = DensityScatterPlotter()
+		density_plotter.bw = [0.01, 1]
+		density_plotter.cmap = 'Spectral_r'
+
+		ax = plt.gca()
+
+		x, y = plt_data.ge_ptr, plt_data.max_chrom_ptr
+
+		density_plotter.set_data(x, y)
+		ax = density_plotter.plot_ax(plt.gca(), plot_colorbar=True, vmax=0.1)
+
+		ax.set_xscale('log')
+		ax.set_yscale('log')
+		ax.set_xlabel("Gene expression PTR")
+		ax.set_ylabel("Max (in gene window) chromatin PTR")
+
+		xlim = 0.5, 1e4
+		ylim = 0.5, 1e4
+		cutoff = 20, 8
+
+		ax.set_xlim(*xlim)
+		ax.set_ylim(*ylim)
+		ax.set_title("Gene expression vs Max chromatin\nPeak-to-trough ratios")
+
+		ax.axvline(cutoff[0], c='red', alpha=0.236, lw=2)
+		ax.axhline(cutoff[1], c='red', alpha=0.236, lw=2)
+
+
+		def _plot_num_genes(ax, x, y, num_quad):
+			import matplotlib.patheffects as path_effects
+			text = ax.text(x, y, f"{num_quad} genes", zorder=100, color='black', fontsize=11,
+						   ha='center')
+			text.set_path_effects([path_effects.Stroke(linewidth=3, foreground='white'),
+								   path_effects.Normal()])
+
+		num_quad = len(plt_data[(x > cutoff[0]) & (y > cutoff[1])])
+		_plot_num_genes(ax, 1000, 1000, num_quad)
+
+		num_quad = len(plt_data[(x < cutoff[0]) & (y < cutoff[1])])
+		_plot_num_genes(ax, 5, 2, num_quad)
+
+		num_quad = len(plt_data[(x > cutoff[0]) & (y < cutoff[1])])
+		_plot_num_genes(ax, 1000, 2, num_quad)
+
+		num_quad = len(plt_data[(x < cutoff[0]) & (y > cutoff[1])])
+		_plot_num_genes(ax, 5, 1000, num_quad)
+
