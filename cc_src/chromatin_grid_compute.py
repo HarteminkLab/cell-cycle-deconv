@@ -490,6 +490,12 @@ class ChromatinGrid:
 				ax.set_yticks([])
 				ax.axvline(self.computed_plus_one, c='black', lw=1, linestyle='dashed')
 
+
+				#if model.gene.strand == '-':
+					# Flip the x-axis
+				#xlim = ax.get_xlim()
+				#ax.set_xlim(xlim[1], xlim[0])
+
 		raw_axs[0].set_title("Raw")
 		g_axs[0].set_title("Binned")
 		pred_g_axs[0].set_title("Predicted")

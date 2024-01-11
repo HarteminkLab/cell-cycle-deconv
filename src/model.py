@@ -160,6 +160,13 @@ class Model:
 		ax0.plot(timepoints1, g1, color=self.color_for_key('raw'), lw=4)
 		ax0.plot(timepoints1, predicted_g1, color=self.color_for_key('fit'), lw=4)
 		ax0.set_yscale('log')
+		ax0.set_xticks(np.arange(0, 200, 50))
+		ax0.set_xticks(np.arange(0, 200, 10), minor=True)
+		ax0.set_xlim(timepoints1[0], timepoints1[-1])
+
+		ax0.axvline(23)
+
+		plt.suptitle(f"{self.gene_name}, gamma={self.gamma:.4f}", fontsize=35)
 
 		# -----------------
 
