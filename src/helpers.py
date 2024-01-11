@@ -73,6 +73,7 @@ def calcH(model_intervals, timepoints):
     Hsegments = {}
     for i in range(len(relations)):
         relation = relations[i]
+
         for idx in range(1, len(relation) - 1, 2):
             label = relation[idx]
             num = int(relation[idx + 1])

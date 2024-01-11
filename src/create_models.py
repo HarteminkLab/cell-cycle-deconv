@@ -81,7 +81,7 @@ def get_sub_interval_str(model):
     return intervals_str
 
 
-def get_model_cfg_str(params, model_dic, Rname="R", CG1_intervals="i 1 t 0", PG1_intervals="i 2 t 1 b 1"):
+def get_model_cfg_str(params, model_dic, Rname="R", CG1_intervals="t 0", PG1_intervals="i 1 t 1 b 1"):
 
     mu0, lambd, delta, sigma0, sigmav, alpha = params
 
