@@ -2,32 +2,14 @@
 import numpy as np
 import pandas as pd
 
-#
-# This class is a port of the model creation from the original matlab code. There are some changes, as we had to port to Python
-# But most of the meat is here. In our case, we are only concerned with creating the RG1 model, so we will be refactoring this 
-# file to simplify things.
-#
-
-def create_model_rg1_model(posteriors_filepath):
+def create_model_rg1_rpostg1(posteriors_filepath):
     """
 
-    The RG1 model modeled after the original 1.2.1 model in the deconvolution code
+    This model is an iteration on the RG1 model defined in create_models.py
 
-    # ------------------
-    # 1.2.1 MODEL (ALL_DIFF_G1, ibt)
-    # ------------------ 
-    my ($diff_g1_rg1, $diff_g1_cg1, $diff_g1_dg1, $diff_g1_postg1) = (192, 64, 192, 64);
-    print OUT <<DIFF_G1;
-            "1.2.1":{
-                "RG1":[{"i":["-mu0","lambda*beta","$diff_g1_rg1"]}],
-                "CG1":[{"t":["-alpha","lambda*beta","$diff_g1_cg1"]}],
-                "DG1":[{"b":["-delta-alpha","lambda*beta","$diff_g1_dg1"]}],
-                "postG1":[{"t":["lambda*beta","-alpha+lambda","$diff_g1_postg1"]},
-                    {"b":["lambda*beta","-alpha+lambda","$diff_g1_postg1"]},
-                    {"i":["lambda*beta","-alpha+lambda","$diff_g1_postg1"]}]
-            },
-    DIFF_G1
+    Intention is to add a new phase called RpostG1 distinct from postG1 that Mother (C) and Daughters (D) use.
     """
+
     params = {}
     with open(posteriors_filepath, 'r') as f:
         lines = f.readlines()
@@ -42,28 +24,26 @@ def create_model_rg1_model(posteriors_filepath):
     gamma1 = params['gamma1']
     start_of_S = gamma1*lambd
 
-    print(start_of_S)
-
     params = mu0, lambd, delta, sigma0, sigmav, 0
     model_dic = {
-
         "RG1": [
             {"i":[mu0, start_of_S, 49]}],
         "CG1":[
             {"t":[0, start_of_S, 49]}],
         "DG1":[
             {"b":[-delta, start_of_S, 49]}],
+        "RpostG1":[
+            {"i":[start_of_S, lambd, 79]}],
         "postG1":[
             {"t":[start_of_S, lambd, 79]},
-            {"i":[start_of_S, lambd, 79]},
-            {"b":[start_of_S, lambd, 79]}],
+            {"b":[start_of_S, lambd, 79]}]
         }
 
     return params, model_dic
 
 
 def get_sub_interval_str(model):
-    subnames = ['R', 'RG1', 'CG1', 'DG1', 'postG1']
+    subnames = ['R', 'RG1', 'CG1', 'DG1', 'RpostG1', 'postG1']
     branches = ['i', 't', 'b']
 
     intervals_str = ""
@@ -83,7 +63,7 @@ def get_sub_interval_str(model):
     return intervals_str
 
 
-def get_model_cfg_str(params, model_dic, Rname="R", CG1_intervals="i 1 t 0", PG1_intervals="i 2 t 1 b 1"):
+def get_model_cfg_str(params, model_dic):
 
     mu0, lambd, delta, sigma0, sigmav, alpha = params
 
@@ -101,31 +81,18 @@ sigmav %f
 alpha %f
 beta %f
 # description
-%s i 0
-CG1 %s
+RG1 i 0
+CG1 t 0
 DG1 b 0
-postG1 %s
-%s""" % (-mu0, lambd, delta, sigma0, sigmav, alpha, beta,
-         Rname, CG1_intervals, PG1_intervals, intervals)
+postRG1 i 1
+postG1 t 1 b 1
+%s""" % (-mu0, lambd, delta, sigma0, sigmav, alpha, beta, intervals)
 
     return s
 
 
 def create_wt1_model():
-    output_model_path = 'models/yl_cell_cycle/wt1_rg1.label'
-    posteriors_filepath = 'data/cloccs_output_yl_replicate1/posteriors.txt'
-
-    wt1_params, rep2_model = create_model_rg1_model(posteriors_filepath)
-    wt1_cfg = get_model_cfg_str(wt1_params, rep2_model)
-
-    with open(output_model_path, 'w') as f:
-        f.write(wt1_cfg)
-
-    return output_model_path
-
-
-def create_wt2_model():
-    output_model_path = 'models/yl_cell_cycle/wt2_rg1.label'
+    output_model_path = 'models/yl_cell_cycle/wt1_rg1_postrg1.label'
     posteriors_filepath = 'data/cloccs_output_yl_replicate2/posteriors.txt'
 
     wt2_params, rep2_model = create_model_rg1_model(posteriors_filepath)
@@ -134,17 +101,25 @@ def create_wt2_model():
     with open(output_model_path, 'w') as f:
         f.write(wt2_cfg)
 
-    return output_model_path
+
+def create_wt2_model():
+    output_model_path = 'models/yl_cell_cycle/wt2_rg1_postrg1.label'
+    posteriors_filepath = 'data/cloccs_output_yl_replicate2/posteriors.txt'
+
+    wt2_params, rep2_model = create_model_rg1_model(posteriors_filepath)
+    wt2_cfg = get_model_cfg_str(wt2_params, rep2_model)
+
+    with open(output_model_path, 'w') as f:
+        f.write(wt2_cfg)
 
 
 def main():
 
-    create_wt1_model()
-    create_wt2_model()
+    
 
-    # If we want to plot the resulting models, we can use this code
-    # from src.ModelFile import ModelFile
-    # model_file = ModelFile()
-    # model_file.load_model(output_model_path)
-    # model_file.plot_model()
+    from src.ModelFile import ModelFile
+
+    model_file = ModelFile()
+    model_file.load_model(output_model_path)
+    model_file.plot_model()
     
