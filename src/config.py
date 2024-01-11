@@ -254,34 +254,6 @@ def load_xg_gammas():
 	return deconvv2_gene_gammas
 
 
-def load_yl_replicate2_chromatin_config():
-
-	# Time points
-	WT1_TP = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 130, 140]
-
-	# dataset files
-	DATA_WT1_FILE = 'datasets/yl_cell_cycle/replicate2_gene_expression.txt'
-	GENE_SET_FILE = 'datasets/yl_cell_cycle/genes.lst'
-
-	orf_names = pd.read_csv(GENE_SET_FILE, sep='\t', header=None)[0].values
-
-	wt1 = pd.read_csv(DATA_WT1_FILE, sep='\t', header=None)
-	wt1.columns = WT1_TP
-	wt1.index = orf_names
-
-	# model files
-	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.label'
-
-	# TODO: Testing purposes using known good model
-	MODEL_WT1_FILE = 'models/original_budflow/wt1_budflow/1.1.1.26.label'
-
-	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE)
-
-	raise ValueError("Deprecated")
-
-	return config
-
-
 
 def load_yl_replicate2_rg1_chromatin_config():
 

@@ -110,3 +110,8 @@ def read_park_TSS_PAS():
     data.loc['YOL164W', 'manually_curated'] = True
 
     return data
+
+
+def read_nondubious_genes_dataset():
+    genes_nondub = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
+    return genes_nondub
