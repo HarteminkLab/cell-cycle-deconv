@@ -42,8 +42,6 @@ def create_model_rg1_model(posteriors_filepath):
     gamma1 = params['gamma1']
     start_of_S = gamma1*lambd
 
-    print(start_of_S)
-
     params = mu0, lambd, delta, sigma0, sigmav, 0
     model_dic = {
 
@@ -121,6 +119,8 @@ def create_wt1_model():
     with open(output_model_path, 'w') as f:
         f.write(wt1_cfg)
 
+    print(f"Created model and saved to file: {output_model_path}")
+
     return output_model_path
 
 
@@ -133,6 +133,8 @@ def create_wt2_model():
 
     with open(output_model_path, 'w') as f:
         f.write(wt2_cfg)
+
+    print(f"Created model and saved to file: {output_model_path}")
 
     return output_model_path
 

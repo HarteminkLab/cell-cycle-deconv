@@ -75,6 +75,10 @@ def main():
 	print(f"Saved figure {save_path}")
 	sys.stdout.flush()
 
+	# TODO: Add a few more plots:
+	# peak to trough ratio plot for chromatin
+	# and gene expression fit.
+
 	print(f"Finished creating plots.: {timer.get_time()}")
 	sys.stdout.flush()
 

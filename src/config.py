@@ -317,7 +317,7 @@ def load_yl_replicate2_rg1_chromatin_config():
 	orf_names = pd.read_csv(GENE_SET_FILE, sep='\t', header=None)[0].values
 
 	# model files
-	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt2_rg1_2023_12_06_update.label'
+	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt2_rg1.label'
 
 	config = Config(wt1=None, model_wt1_file=MODEL_WT1_FILE, wt1_timepoints=WT1_TP)
 
