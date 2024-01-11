@@ -317,11 +317,36 @@ def load_yl_replicate2_rg1_chromatin_config():
 	orf_names = pd.read_csv(GENE_SET_FILE, sep='\t', header=None)[0].values
 
 	# model files
-	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt2_rg1_2023_12_06_update.label'
+	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt2_rg1.label'
 
 	config = Config(wt1=None, model_wt1_file=MODEL_WT1_FILE, wt1_timepoints=WT1_TP)
 
 	return config
+
+
+def load_yl_replicate1_rg1_config():
+
+	# Time points
+	WT1_TP = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 130, 140]
+
+	# dataset files
+	DATA_WT1_FILE = 'datasets/yl_cell_cycle/replicate1_gene_expression.txt'
+	GENE_SET_FILE = 'datasets/yl_cell_cycle/genes.lst'
+
+	orf_names = pd.read_csv(GENE_SET_FILE, sep='\t', header=None)[0].values
+
+	wt1 = pd.read_csv(DATA_WT1_FILE, sep='\t', header=None)
+	wt1.columns = WT1_TP
+	wt1.index = orf_names
+
+	# model files
+	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.label'
+
+	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE)
+
+	return config
+
+
 
 def load_yl_replicate2_rg1_config():
 
@@ -339,7 +364,7 @@ def load_yl_replicate2_rg1_config():
 	wt1.index = orf_names
 
 	# model files
-	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt2_rg1_2023_12_06_update.label'
+	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt2_rg1.label'
 
 	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE)
 

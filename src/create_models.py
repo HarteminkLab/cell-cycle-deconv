@@ -42,8 +42,6 @@ def create_model_rg1_model(posteriors_filepath):
     gamma1 = params['gamma1']
     start_of_S = gamma1*lambd
 
-    print(start_of_S)
-
     params = mu0, lambd, delta, sigma0, sigmav, 0
     model_dic = {
 
@@ -110,21 +108,45 @@ postG1 %s
 
     return s
 
-def main():
 
-    output_model_path = 'models/yl_cell_cycle/wt2_rg1_updated.label'
+def create_wt1_model():
+    output_model_path = 'models/yl_cell_cycle/wt1_rg1.label'
+    posteriors_filepath = 'data/cloccs_output_yl_replicate1/posteriors.txt'
+
+    wt1_params, rep2_model = create_model_rg1_model(posteriors_filepath)
+    wt1_cfg = get_model_cfg_str(wt1_params, rep2_model)
+
+    with open(output_model_path, 'w') as f:
+        f.write(wt1_cfg)
+
+    print(f"Created model and saved to file: {output_model_path}")
+
+    return output_model_path
+
+
+def create_wt2_model():
+    output_model_path = 'models/yl_cell_cycle/wt2_rg1.label'
     posteriors_filepath = 'data/cloccs_output_yl_replicate2/posteriors.txt'
 
     wt2_params, rep2_model = create_model_rg1_model(posteriors_filepath)
-    wt2_cfg = get_model_cfg_str(wt2_params, rep2_model, Rname="RG1", CG1_intervals="t 0", 
-        PG1_intervals="i 1 t 1 b 1")
+    wt2_cfg = get_model_cfg_str(wt2_params, rep2_model)
 
     with open(output_model_path, 'w') as f:
         f.write(wt2_cfg)
 
-    from src.ModelFile import ModelFile
+    print(f"Created model and saved to file: {output_model_path}")
 
-    model_file = ModelFile()
-    model_file.load_model(output_model_path)
-    model_file.plot_model()
+    return output_model_path
+
+
+def main():
+
+    create_wt1_model()
+    create_wt2_model()
+
+    # If we want to plot the resulting models, we can use this code
+    # from src.ModelFile import ModelFile
+    # model_file = ModelFile()
+    # model_file.load_model(output_model_path)
+    # model_file.plot_model()
     
