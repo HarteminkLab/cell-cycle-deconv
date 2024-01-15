@@ -113,8 +113,6 @@ class Config:
 		lengths, relations, initial_tps, top_tps, bottom_tps, \
 		(initial_phase_map, top_phase_map, bottom_phase_map) = self.intervals_wt1
 
-		print(len(initial_tps))
-
 		def get_branch_timepoints_by_index(branch, phase_tp_index):
 
 			if branch == 'i':
@@ -260,12 +258,6 @@ def load_yl_replicate2_rg1_chromatin_config():
 	# Time points
 	WT1_TP = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140]
 
-	# dataset files
-	DATA_WT1_FILE = 'datasets/yl_cell_cycle/replicate2_gene_expression.txt'
-	GENE_SET_FILE = 'datasets/yl_cell_cycle/genes.lst'
-
-	orf_names = pd.read_csv(GENE_SET_FILE, sep='\t', header=None)[0].values
-
 	# model files
 	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt2_rg1.label'
 
@@ -277,17 +269,7 @@ def load_yl_replicate2_rg1_chromatin_config():
 def load_yl_replicate1_rg1_config():
 
 	# Time points
-	WT1_TP = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 130, 140]
-
-	# dataset files
-	DATA_WT1_FILE = 'datasets/yl_cell_cycle/replicate1_gene_expression.txt'
-	GENE_SET_FILE = 'datasets/yl_cell_cycle/genes.lst'
-
-	orf_names = pd.read_csv(GENE_SET_FILE, sep='\t', header=None)[0].values
-
-	wt1 = pd.read_csv(DATA_WT1_FILE, sep='\t', header=None)
-	wt1.columns = WT1_TP
-	wt1.index = orf_names
+	wt1 = pd.read_csv('datasets/yl_cell_cycle/replicate1_gene_expression.csv').set_index('orf_name')
 
 	# model files
 	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.label'
@@ -300,23 +282,14 @@ def load_yl_replicate1_rg1_config():
 
 def load_yl_replicate2_rg1_config():
 
-	# Time points
-	WT2_TP = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 120, 130, 140]
 
 	# dataset files
-	DATA_WT2_FILE = 'datasets/yl_cell_cycle/replicate2_gene_expression.txt'
-	GENE_SET_FILE = 'datasets/yl_cell_cycle/genes.lst'
-
-	orf_names = pd.read_csv(GENE_SET_FILE, sep='\t', header=None)[0].values
-
-	wt1 = pd.read_csv(DATA_WT2_FILE, sep='\t', header=None)
-	wt1.columns = WT2_TP
-	wt1.index = orf_names
+	wt2 = pd.read_csv('datasets/yl_cell_cycle/replicate2_gene_expression.csv').set_index('orf_name')
 
 	# model files
 	MODEL_WT2_FILE = 'models/yl_cell_cycle/wt2_rg1.label'
 
-	config = Config(wt1=wt1, model_wt1_file=MODEL_WT2_FILE)
+	config = Config(wt1=wt2, model_wt1_file=MODEL_WT2_FILE)
 
 	return config
 

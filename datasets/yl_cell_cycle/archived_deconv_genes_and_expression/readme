@@ -1,0 +1,5 @@
+
+Previously, deconv from matlab used a genes, gene expression, and mapping table to hold the genes list ordering
+gene expression and mapping as separate files. This directory contains this version.
+
+We have now moved to a dataframe with labeled rows by orfs for the gene expression table.
