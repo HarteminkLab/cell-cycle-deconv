@@ -238,6 +238,7 @@ class Model:
 		f_save_path = f'{out_dir}/{index}_f_{orf_name}.npy'
 		ptr_save_path = f'{out_dir}/{index}_ptr_{orf_name}.npy'
 		meta_save_path = f'{out_dir}/{index}_meta_{orf_name}.csv'
+		plot_save_path = f'{out_dir}/{index}_plot_{orf_name}.png'
 
 		#---------- Save to disk -------------
 
@@ -252,9 +253,14 @@ class Model:
 			index=[self.orf_name])
 		df.to_csv(meta_save_path, float_format="%.4f")
 
+		# Save the plot to disk
+		model.plot_deconvolved_gene()
+		plt.savefig(plot_save_path, dpi=200)
+
 		print(f"Saved to {g_save_path}...")
 		print(f"Saved to {f_save_path}...")
 		print(f"Saved to {meta_save_path}...")
+		print(f"Saved to {plot_save_path}...")
 		sys.stdout.flush()
 
 

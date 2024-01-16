@@ -7,7 +7,7 @@ import pandas as pd
 from src.timer import Timer
 from src.model import Model
 from src.find_gamma import FindOptimalGamma
-from src.config import load_yl_replicate1_rg1_config
+from src.config import load_combined_yl_vst_gene_expression_config
 
 
 def main():
@@ -31,13 +31,15 @@ def main():
 	print(f"Index: [{gene_index}/{len(geneset)}] Deconvolving gene: {gene.gene}/{gene.name}...")
 	sys.stdout.flush()
 
-	config = load_yl_replicate1_rg1_config()
-	model = Model(config, gene.orf_name, 0.004)
+	config = load_combined_yl_vst_gene_expression_config()
+	model = Model(config, gene.orf_name, 0.001)
 
 	try:
 		find_gamma = FindOptimalGamma(model)
 		find_gamma.find_optimal()
 	except UnboundLocalError:
+
+		# If find gamma failed, deconvolve with the default gamma value of 0.001
 		model.deconvolve()
 
 	# Initialize the chromatin grid
