@@ -280,8 +280,25 @@ def load_yl_replicate1_rg1_config():
 
 
 
-def load_yl_replicate2_rg1_config():
+def load_yl_replicate1_rg1_vst_config():
 
+	# TODO: Rename the columns
+	wt1_tpm = pd.read_csv('datasets/yl_cell_cycle/replicate1_gene_expression_TPM.csv')
+	wt1 = pd.read_csv('datasets/yl_cell_cycle/replicate1_deseq2_vst_counts.csv')
+
+	wt1.columns = wt1_tpm.columns
+	wt1 = wt1.set_index('orf_name')
+
+	# model files
+	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.label'
+	#MODEL_WT1_FILE = 'models/original_budflow/wt1_budflow/1.1.1.26.label'
+
+	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE)
+
+	return config
+
+
+def load_yl_replicate2_rg1_config():
 
 	# dataset files
 	wt2 = pd.read_csv('datasets/yl_cell_cycle/replicate2_gene_expression.csv').set_index('orf_name')
@@ -315,6 +332,7 @@ def load_xg_gene_expression_config():
 	MODEL_WT1_FILE = 'models/original_budflow/wt1_budflow/1.1.1.26.label'
 	MODEL_WT2_FILE = 'models/original_budflow/wt2_budflow/1.1.1.27.label'
 
-	config = Config(WT1, WT2, MODEL_WT1_FILE, MODEL_WT2_FILE)
+	config = Config(wt1=WT1, wt2=WT2, model_wt1_file=MODEL_WT1_FILE, 
+		model_wt2_file=MODEL_WT2_FILE)
 
 	return config

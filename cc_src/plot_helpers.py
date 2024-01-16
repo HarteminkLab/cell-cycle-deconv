@@ -17,37 +17,19 @@ def plot_phase_stack(tp, prev_vec, cur_vec, name):
 
     
 def plot_H_as_growth_curve(model):
-    
-    H = model.H
+
+    plt.figure(figsize=(8, 2))
+    plt.subplot(1, 2, 1)
+    plt.imshow(model.H, aspect='auto', vmax=0.02, cmap='viridis')
+    from cc_src.plot_helpers import plot_H_as_growth_curve
+
+    plt.subplot(1, 2, 2)
     tp = model.config.WT1_TIMEPOINTS
+    H = model.H[:len(tp)]
+
     phase_columns = model.config.phase_columns
     keys = list(phase_columns.keys())
 
-    plt.figure(figsize=(6, 4))
-    plt.ylim(0, 2.)
-
-    for i in range(len(keys)):
-        key = keys[i]
-
-        if i == 0:
-            previous_stack = None
-    
-        cur_columns = phase_columns[key]
-        cur_vector = H[:, cur_columns].sum(axis=1)
-
-        previous_stack = plot_phase_stack(tp, prev_vec=previous_stack, cur_vec=cur_vector, 
-                                         name=key)
-
-    plt.legend()
-
-def plot_H_as_growth_curve(model):
-    
-    H = model.H
-    tp = model.config.WT1_TIMEPOINTS
-    phase_columns = model.config.phase_columns
-    keys = list(phase_columns.keys())
-
-    plt.figure(figsize=(6, 4))
     plt.ylim(0, 2.)
 
     phases = []
@@ -61,6 +43,7 @@ def plot_H_as_growth_curve(model):
     plot_stacked_curves(tp, vectors, phases)
 
     plt.legend()
+
 
 def plot_stacked_curves(x, vectors, names):
     
