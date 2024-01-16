@@ -35,10 +35,16 @@ class FindOptimalGamma:
 		SMALL = 5e-5
 
 		# some settings
+
+		# Note the Gamma min and max were decreased by a power of 10
+		# The motivation is that for Xin/Orlando data was microarrays
+		# We are now using RNA-seq normalized by VST so the scale and variation
+		# appears to be lower. For a few of the genes this seemed to have a positive
+		# effect on the found gamma values. Previously: gamma min and max were (0.001, and 0.01)
 		DEFAULT_RN_CUTOFF = 10
-		DEFAULT_GM = 0.004
-		GAMMA_MIN = 0.001
-		GAMMA_MAX = 0.01
+		DEFAULT_GM = 0.001
+		GAMMA_MIN = 0.0001
+		GAMMA_MAX = 0.004
 
 		# left boundary
 		rn_rate_left = 1.10

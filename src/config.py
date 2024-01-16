@@ -266,47 +266,47 @@ def load_yl_replicate2_rg1_chromatin_config():
 	return config
 
 
-def load_yl_replicate1_rg1_config():
-
-	# Time points
-	wt1 = pd.read_csv('datasets/yl_cell_cycle/replicate1_gene_expression.csv').set_index('orf_name')
-
-	# model files
-	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.label'
-
-	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE)
-
-	return config
-
-
+def read_yl_vst_data_rep(replicate):
+	wt_data = pd.read_csv(f'datasets/yl_cell_cycle/replicate{replicate}_deseq2_vst_counts.csv')
+	wt_data = wt_data.rename(columns={"Unnamed: 0": "orf_name"}).set_index('orf_name')
+	wt_data.columns = [int(s.replace('X', '')) for s in wt_data.columns.values]
+	return wt_data
 
 def load_yl_replicate1_rg1_vst_config():
 
-	# TODO: Rename the columns
-	wt1_tpm = pd.read_csv('datasets/yl_cell_cycle/replicate1_gene_expression_TPM.csv')
-	wt1 = pd.read_csv('datasets/yl_cell_cycle/replicate1_deseq2_vst_counts.csv')
+	wt1 = read_yl_vst_data_rep(1)
 
-	wt1.columns = wt1_tpm.columns
-	wt1 = wt1.set_index('orf_name')
-
-	# model files
+	# model file
 	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.label'
-	#MODEL_WT1_FILE = 'models/original_budflow/wt1_budflow/1.1.1.26.label'
-
+	
 	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE)
 
 	return config
 
 
-def load_yl_replicate2_rg1_config():
+def load_yl_replicate2_rg1_vst_config():
 
-	# dataset files
-	wt2 = pd.read_csv('datasets/yl_cell_cycle/replicate2_gene_expression.csv').set_index('orf_name')
+	wt1 = read_yl_vst_data_rep(2)
+
+	# model file
+	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt2_rg1.label'
+	
+	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE)
+
+	return config
+
+
+def load_combined_yl_vst_gene_expression_config():
+
+	WT1 = read_yl_vst_data_rep(1)
+	WT2 = read_yl_vst_data_rep(2)
 
 	# model files
+	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.label'
 	MODEL_WT2_FILE = 'models/yl_cell_cycle/wt2_rg1.label'
 
-	config = Config(wt1=wt2, model_wt1_file=MODEL_WT2_FILE)
+	config = Config(wt1=WT1, wt2=WT2, model_wt1_file=MODEL_WT1_FILE, 
+		model_wt2_file=MODEL_WT2_FILE)
 
 	return config
 

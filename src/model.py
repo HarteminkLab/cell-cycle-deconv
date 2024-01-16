@@ -164,8 +164,6 @@ class Model:
 		ax0.set_xticks(np.arange(0, 200, 10), minor=True)
 		ax0.set_xlim(timepoints1[0], timepoints1[-1])
 
-		ax0.axvline(23)
-
 		plt.suptitle(f"{self.gene_name}, gamma={self.gamma:.4f}", fontsize=35)
 
 		# -----------------
