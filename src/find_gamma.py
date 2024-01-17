@@ -41,7 +41,13 @@ class FindOptimalGamma:
 		# We are now using RNA-seq normalized by VST so the scale and variation
 		# appears to be lower. For a few of the genes this seemed to have a positive
 		# effect on the found gamma values. Previously: gamma min and max were (0.001, and 0.01)
-		DEFAULT_RN_CUTOFF = 10
+		#
+		# Also, if the RN is too high, let's end and use the default gamma.
+		# Changing the maximum rn: from 10 to 1
+		#
+
+		DEFAULT_RN_CUTOFF = 1
+
 		DEFAULT_GM = 0.001
 		GAMMA_MIN = 0.0001
 		GAMMA_MAX = 0.004

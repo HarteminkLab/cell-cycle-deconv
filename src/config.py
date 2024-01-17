@@ -8,7 +8,10 @@ class Config:
 	A config class to read data and initialize the model.
 	"""
 
-	def __init__(self, wt1=None, wt2=None, wt1_timepoints=None, wt2_timepoints=None, model_wt1_file=None, model_wt2_file=None):
+	def __init__(self, wt1=None, wt2=None, wt1_timepoints=None, wt2_timepoints=None, 
+			model_wt1_file=None, model_wt2_file=None, name=None):
+
+		self.name = name
 
 		# Replicate 1 configuration
 		if wt1 is not None:
@@ -272,15 +275,23 @@ def read_yl_vst_data_rep(replicate):
 	wt_data.columns = [int(s.replace('X', '')) for s in wt_data.columns.values]
 	return wt_data
 
+def load_yl_replicate1_rg1_TPM_config():
+
+	wt1 = pd.read_csv('datasets/yl_cell_cycle/replicate1_gene_expression_TPM.csv').set_index('orf_name')
+
+	# model file
+	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.label'
+	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE, name='YL Replicate 1 TPM')
+	return config
+
+
 def load_yl_replicate1_rg1_vst_config():
 
 	wt1 = read_yl_vst_data_rep(1)
 
 	# model file
 	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.label'
-	
-	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE)
-
+	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE, name='YL Replicate 1 VST')
 	return config
 
 
@@ -290,9 +301,7 @@ def load_yl_replicate2_rg1_vst_config():
 
 	# model file
 	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt2_rg1.label'
-	
-	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE)
-
+	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE, name='YL Replicate 2 VST')
 	return config
 
 
@@ -306,7 +315,7 @@ def load_combined_yl_vst_gene_expression_config():
 	MODEL_WT2_FILE = 'models/yl_cell_cycle/wt2_rg1.label'
 
 	config = Config(wt1=WT1, wt2=WT2, model_wt1_file=MODEL_WT1_FILE, 
-		model_wt2_file=MODEL_WT2_FILE)
+		model_wt2_file=MODEL_WT2_FILE, name='YL Combined VST')
 
 	return config
 
@@ -333,6 +342,6 @@ def load_xg_gene_expression_config():
 	MODEL_WT2_FILE = 'models/original_budflow/wt2_budflow/1.1.1.27.label'
 
 	config = Config(wt1=WT1, wt2=WT2, model_wt1_file=MODEL_WT1_FILE, 
-		model_wt2_file=MODEL_WT2_FILE)
+		model_wt2_file=MODEL_WT2_FILE, name='Xin/Orlando Combined Microarray')
 
 	return config

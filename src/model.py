@@ -119,7 +119,7 @@ class Model:
 		self.cptr, self.dptr, self.ptr = compute_ptr(self, self.f)
 
 
-	def plot_deconvolved_gene(self, title=None):
+	def plot_deconvolved_gene(self, title=None, abbreviated=False):
 
 		# If I want to plot the initial branch,
 		# I need the branch name: i
@@ -146,13 +146,22 @@ class Model:
 
 		f = self.f
 
-		self.plot_deconvolved_f(f, g, g1, predicted_g1, g2, predicted_g2)
+		self.plot_deconvolved_f(f, g, g1, predicted_g1, g2, predicted_g2, abbreviated=abbreviated)
 
 
-	def plot_deconvolved_f(self, f, g, g1, predicted_g1, g2=None, predicted_g2=None):
+	def plot_deconvolved_f(self, f, g, g1, predicted_g1, g2=None, predicted_g2=None, abbreviated=False):
 
-		fig, axs = plt.subplots(2, 4, figsize=(16, 7))
-		(ax0, ax1, ax2, ax3, ax4, ax5, ax6, ax7) = np.array(axs).flatten()
+
+		if abbreviated:
+			fig, axs = plt.subplots(2, 2, figsize=(9, 9))
+			plt.subplots_adjust(top=0.77)
+			(ax0, ax1, ax4, ax5) = np.array(axs).flatten()
+		else:
+			fig, axs = plt.subplots(2, 4, figsize=(16, 9))
+			plt.subplots_adjust(top=0.77)
+
+			(ax0, ax1, ax2, ax3, ax4, ax5, ax6, ax7) = np.array(axs).flatten()
+			
 
 		# -----------------
 
@@ -163,8 +172,6 @@ class Model:
 		ax0.set_xticks(np.arange(0, 200, 50))
 		ax0.set_xticks(np.arange(0, 200, 10), minor=True)
 		ax0.set_xlim(timepoints1[0], timepoints1[-1])
-
-		plt.suptitle(f"{self.gene_name}, gamma={self.gamma:.4f}", fontsize=35)
 
 		# -----------------
 
@@ -203,25 +210,33 @@ class Model:
 
 		ax1.set_title("Deconvolved, f")
 
-		_plot_branch(ax2, 't', ylim)
-		ax2.set_title("Top branch")
+		if not abbreviated:
+			_plot_branch(ax2, 't', ylim)
+			ax2.set_title("Top branch")
 
-		_plot_branch(ax3, 'b', ylim)
-		ax3.set_title("Bottom branch")
+		if not abbreviated:
+			_plot_branch(ax3, 'b', ylim)
+			ax3.set_title("Bottom branch")
 
 		ax5.imshow(self.H, aspect='auto')
 		ax5.set_title('Convolution kernel, H')
 
-		_plot_branch(ax6, 'i', ylim)
-		ax6.set_title("Initial branch")
+		if not abbreviated:
+			_plot_branch(ax6, 'i', ylim)
+			ax6.set_title("Initial branch")
 
-		i_timepoints = _plot_branch(ax7, 'i', linestyle='dashed', ylim=ylim)
-		#t_timepoints = _plot_branch(ax7, 't', start_offset=i_timepoints[-1], linestyle='dashed')
-		_plot_branch(ax7, 'b', start_offset=i_timepoints[-1], linestyle='dashed', ylim=ylim)
-		ax7.set_title("Single cell profile")
 
-		#plt.suptitle(f"{self.gene_name} / {self.orf_name}, gamma={self.gamma:.3f}\nrn={self.rn:.2f}, sn={self.sn:.2f}\nptr={self.ptr:.2f}")
+		if not abbreviated:
+			i_timepoints = _plot_branch(ax7, 'i', linestyle='dashed', ylim=ylim)
+			_plot_branch(ax7, 'b', start_offset=i_timepoints[-1], linestyle='dashed', ylim=ylim)
+			ax7.set_title("Single cell profile")
 
+		title = f"{self.gene_name} / {self.orf_name}, gamma={self.gamma:.4f}\nrn={self.rn:.4f}, sn={self.sn:.2f}"
+
+		if self.config.name is not None:
+			title = f"{self.config.name}\n" + title
+
+		plt.suptitle(title, fontsize=23)
 
 	def color_for_key(self, key):
 		"""Predefined colors for phases and keys for gene plots"""
