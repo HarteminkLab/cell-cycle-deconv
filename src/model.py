@@ -91,7 +91,7 @@ class Model:
 		objective = cp.Minimize(cp.square(cp.pos(cp.norm(self.H@f/self.g - 1))) 
 								+ self.gamma * (cp.norm(W1@f[f_it_mirror], 1) 
 								+ factor_fb * cp.norm(W2@f[f_b_mirror], 1))/self.g.mean())
-		constraints = [f >= 0]
+		constraints = []#f >= 0]
 		prob = cp.Problem(objective, constraints)
 		result = prob.solve(solver=cp.CLARABEL)
 
@@ -196,7 +196,8 @@ class Model:
 				ax.plot(timepoints+offset, f[indices], color=self.color_for_key(phase), 
 					lw=5, linestyle=linestyle)
 
-			ax.set_ylim(*ylim)
+			ax.axhline(0, c='black', lw=1, linestyle='dotted', zorder=0)
+			#ax.set_ylim(*ylim)
 
 			# return timepoints in case we want to append more branches on to the plot
 			return timepoints.values
@@ -205,6 +206,7 @@ class Model:
 
 		for phase, indices in self.config.phase_columns.items():
 			ax1.plot(indices, f[indices], color=self.color_for_key(phase), lw=5)
+			ax1.axhline(0, c='black', lw=1, linestyle='dotted', zorder=0)
 
 		ylim = 0, np.max(f)*1.1
 
