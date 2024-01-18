@@ -71,7 +71,7 @@ class Model:
 		f_b = np.array(f_b)
 		return f_b
 
-	def deconvolve(self):
+	def deconvolve(self, enforce_non_negative=True):
 
 		f_it = self.get_f_it()	
 		f_b = self.get_f_b()
@@ -91,7 +91,14 @@ class Model:
 		objective = cp.Minimize(cp.square(cp.pos(cp.norm(self.H@f/self.g - 1))) 
 								+ self.gamma * (cp.norm(W1@f[f_it_mirror], 1) 
 								+ factor_fb * cp.norm(W2@f[f_b_mirror], 1))/self.g.mean())
-		constraints = []#f >= 0]
+
+		# To debug suboptimal fits, some genes need a non-negative solution.
+		# This flag is to confirm that this is indeed the reason for the suboptimal fits.
+		if enforce_non_negative:
+			constraints = [f >= 0]
+		else:
+			constraints = []
+
 		prob = cp.Problem(objective, constraints)
 		result = prob.solve(solver=cp.CLARABEL)
 
@@ -197,7 +204,7 @@ class Model:
 					lw=5, linestyle=linestyle)
 
 			ax.axhline(0, c='black', lw=1, linestyle='dotted', zorder=0)
-			#ax.set_ylim(*ylim)
+			ax.set_ylim(ax.get_ylim()[0], ylim[1])
 
 			# return timepoints in case we want to append more branches on to the plot
 			return timepoints.values
