@@ -88,6 +88,7 @@ class Model:
 
 		# Convex optimization
 		f = cp.Variable(self.H.shape[1])
+
 		objective = cp.Minimize(cp.square(cp.pos(cp.norm(self.H@f/self.g - 1))) 
 								+ self.gamma * (cp.norm(W1@f[f_it_mirror], 1) 
 								+ factor_fb * cp.norm(W2@f[f_b_mirror], 1))/self.g.mean())
