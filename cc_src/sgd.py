@@ -51,6 +51,10 @@ def read_sgd_genes(filename='data/reference_data/sgd_R64-1-1_20110208.gff'):
 def get_gene(genename_or_orfname):
     genes = read_sgd_genes()
     found_genes = genes[(genes['gene'] == genename_or_orfname) | (genes.index == genename_or_orfname)]
+
+    if len(found_genes) == 0:
+        raise ValueError(f"Could not find gene {genename_or_orfname}")
+
     return found_genes.iloc[0]
 
 def get_gene_name(orf_name):

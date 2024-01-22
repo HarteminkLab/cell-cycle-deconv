@@ -50,7 +50,7 @@ class FindOptimalGamma:
 
 		DEFAULT_GM = 0.001
 		GAMMA_MIN = 0.0001
-		GAMMA_MAX = 0.004
+		GAMMA_MAX = 0.001
 
 		# left boundary
 		rn_rate_left = 1.10
