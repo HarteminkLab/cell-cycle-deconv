@@ -93,8 +93,6 @@ class Model:
 								+ self.gamma * (cp.norm(W1@f[f_it_mirror], 1) 
 								+ factor_fb * cp.norm(W2@f[f_b_mirror], 1))/self.g.mean())
 
-		# self.g = np.log(self.g+1)
-
 		# objective = cp.Minimize(cp.square(cp.pos(cp.norm(self.H@f - self.g))) 
 		# 						+ self.gamma * (cp.norm(W1@f[f_it_mirror], 1) 
 		# 						+ factor_fb * cp.norm(W2@f[f_b_mirror], 1))/self.g.mean())
@@ -182,7 +180,7 @@ class Model:
 		timepoints1 = self.config.WT1_TIMEPOINTS
 		ax0.plot(timepoints1, g1, color=self.color_for_key('raw'), lw=4)
 		ax0.plot(timepoints1, predicted_g1, color=self.color_for_key('fit'), lw=4)
-		ax0.set_yscale('log')
+		# ax0.set_yscale('log')
 		ax0.set_xticks(np.arange(0, 200, 50))
 		ax0.set_xticks(np.arange(0, 200, 10), minor=True)
 		ax0.set_xlim(timepoints1[0], timepoints1[-1])
@@ -193,7 +191,7 @@ class Model:
 			timepoints2 = self.config.WT2_TIMEPOINTS
 			ax4.plot(timepoints2, g2, color=self.color_for_key('raw'), lw=4)
 			ax4.plot(timepoints2, predicted_g2, color=self.color_for_key('fit'), lw=4)
-			ax4.set_yscale('log')
+			# ax4.set_yscale('log')
 
 		# -----------------
 

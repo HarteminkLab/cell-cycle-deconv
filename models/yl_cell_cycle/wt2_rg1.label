@@ -7,7 +7,7 @@ sigmav 0.161100
 alpha 0.000000
 beta 0.000000
 # description
-R i 0
+RG1 i 0
 CG1 t 0
 DG1 b 0
 postG1 i 1 t 1 b 1

@@ -82,6 +82,7 @@ class DeconvolutionPlotter():
 		phase_label_height = 0.25 * ymax
 
 		map_phase_name = {
+			'R': "Recovery G1",
 			'RG1': "Recovery G1",
 			'CG1': "Mother G1",
 			'DG1': "Daughter G1",
@@ -159,23 +160,23 @@ class DeconvolutionPlotter():
 	def plot_deconvolved_models(self):
 
 		chrom_model, chromatin_gridder, ge_model = self.chrom_model, self.chromatin_gridder, self.ge_model
-		chrom_meta_data = chrom_model.chrom_meta_data
+		# chrom_meta_data = chrom_model.chrom_meta_data
 
 		self.layout_axes()
 
-		gene_title = ge_model.gene_name + "\ /\ " + ge_model.orf_name
-		gene_title = "$\it{"+ gene_title + "}$"
+		# gene_title = ge_model.gene_name + "\ /\ " + ge_model.orf_name
+		# gene_title = "$\it{"+ gene_title + "}$"
 
-		chrom_meta = chrom_meta_data.iloc[0]
-		chrom_meta.rn, chrom_meta.sn, chrom_meta.gm
-		gene_name = chrom_model.gene_name
-		orf_name = chrom_model.orf_name
+		# chrom_meta = chrom_meta_data.iloc[0]
+		# chrom_meta.rn, chrom_meta.sn, chrom_meta.gm
+		# gene_name = chrom_model.gene_name
+		# orf_name = chrom_model.orf_name
 
-		title_string = (f"{gene_title}")
-		stats_str = f"rn = {chrom_meta.rn:.3f}\nsn = {chrom_meta.sn:.3f}\ngm = {chrom_meta.gm:.4f}"
+		# title_string = (f"{gene_title}")
+		# stats_str = f"rn = {chrom_meta.rn:.3f}\nsn = {chrom_meta.sn:.3f}\ngm = {chrom_meta.gm:.4f}"
 
 
-		self.stats_ax.text(0, 0, stats_str, ha='center', va='center', fontsize=36)
+		# self.stats_ax.text(0, 0, stats_str, ha='center', va='center', fontsize=36)
 		self.stats_ax.set_ylim(-10, 10)
 		self.stats_ax.set_xlim(-10, 10)
 		self.stats_ax.spines['left'].set_visible(False)
@@ -183,7 +184,7 @@ class DeconvolutionPlotter():
 		self.stats_ax.spines['top'].set_visible(False)
 		self.stats_ax.spines['bottom'].set_visible(False)
 		
-		plt.suptitle(title_string, fontsize=63)
+		# plt.suptitle(title_string, fontsize=63)
 
 		# Plot the gene expression
 		initial_ge_axes = self.initial_axes[0], self.initial_axes[2]

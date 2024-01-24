@@ -256,15 +256,30 @@ def load_xg_gammas():
 
 
 
+def load_yl_replicate1_rg1_chromatin_config():
+
+	# Time points
+	WT1_TP = [0, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140]
+
+	# model files
+	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.label'
+	config = Config(wt1=None, model_wt1_file=MODEL_WT1_FILE, wt1_timepoints=WT1_TP)
+
+	return config
+
 def load_yl_replicate2_rg1_chromatin_config():
 
 	# Time points
-	WT1_TP = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140]
+	WT2_TP = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140]
+	MODEL_WT2_FILE = 'models/yl_cell_cycle/wt2_rg1.label'
 
-	# model files
-	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt2_rg1.label'
+	# Ignore the wt1 data, because we will be using chromatin data in the deconvolve_chromatin.py file
+	# TODO: Refactor this to be able to load the data in one place or refactor by subclassing the config
+	# for gene expression and chromatin separately.
 
-	config = Config(wt1=None, model_wt1_file=MODEL_WT1_FILE, wt1_timepoints=WT1_TP)
+	# Because we are just deconvolving one replicate, we are placing the replicate 2 data
+	# into the wt1 parameters
+	config = Config(wt1=None, model_wt1_file=MODEL_WT2_FILE, wt1_timepoints=WT2_TP)
 
 	return config
 
