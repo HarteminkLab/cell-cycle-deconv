@@ -259,7 +259,7 @@ def load_xg_gammas():
 def load_yl_replicate1_rg1_chromatin_config():
 
 	# Time points
-	WT1_TP = [0, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140]
+	WT1_TP = [0, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]
 
 	# model files
 	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.label'

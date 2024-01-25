@@ -38,7 +38,7 @@ class ChromatinGrid:
 
 
 
-	def set_gene(self, gene_name):
+	def set_gene(self, gene_name, replicate):
 
 		# Get some gene information
 		self.computed_plus_one = None
@@ -49,7 +49,7 @@ class ChromatinGrid:
 		print("Loading MNase reads...", end='')
 		# TODO: This may take a little while, when we've deconvolved already we may want to skip this step,
 		# But that will mean needing to save the +1 location to disk.
-		self.chr_reads = pd.read_hdf(f'output/mnase/yl_rep2_mnase_reads/yl_rep2_mnase_reads_chr{self.gene.chr}.h5', 
+		self.chr_reads = pd.read_hdf(f'output/mnase/yl_rep{replicate}_mnase_reads/yl_rep{replicate}_mnase_reads_chr{self.gene.chr}.h5', 
 					'mnase_data')
 		self.gene_reads = self.chr_reads[(self.chr_reads.mid > self.mnase_span[0]) & 
 			(self.chr_reads.mid < self.mnase_span[1])]
@@ -190,7 +190,6 @@ class ChromatinGrid:
 			ax.set_xticklabels(xtick_labels)
 			ax.axvline(self.computed_plus_one, c='black')
 			ax.set_ylim(0, 225)
-
 
 		ax1.set_xlim(*xlims)
 		ax2.set_xlim(*xlims)
