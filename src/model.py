@@ -178,12 +178,24 @@ class Model:
 		# -----------------
 
 		timepoints1 = self.config.WT1_TIMEPOINTS
+		timepoints2 = self.config.WT2_TIMEPOINTS
+
+		if timepoints2 is not None:
+			xlims = timepoints1[0], max(timepoints1[-1], timepoints2[-1])
+		else:
+			xlims = timepoints1[0], timepoints1[-1]
+			ax4.spines['top'].set_visible(False)
+			ax4.spines['bottom'].set_visible(False)
+			ax4.spines['left'].set_visible(False)
+			ax4.spines['right'].set_visible(False)
+			ax4.set_xticks([])
+			ax4.set_yticks([])
+
 		ax0.plot(timepoints1, g1, color=self.color_for_key('raw'), lw=4)
 		ax0.plot(timepoints1, predicted_g1, color=self.color_for_key('fit'), lw=4)
-		# ax0.set_yscale('log')
-		ax0.set_xticks(np.arange(0, 200, 50))
-		ax0.set_xticks(np.arange(0, 200, 10), minor=True)
-		ax0.set_xlim(timepoints1[0], timepoints1[-1])
+		ax0.set_xticks(np.arange(0, xlims[1]+50, 50))
+		ax0.set_xticks(np.arange(0, xlims[1]+10, 10), minor=True)
+		ax0.set_xlim(*xlims)
 
 		# -----------------
 
@@ -217,11 +229,7 @@ class Model:
 		# ------------------
 
 		for phase, indices in self.config.phase_columns.items():
-
-
 			plot_f_values = f[indices]
-			
-
 			ax1.plot(indices, plot_f_values, color=self.color_for_key(phase), lw=5)
 			ax1.axhline(0, c='black', lw=1, linestyle='dotted', zorder=0)
 
@@ -232,25 +240,24 @@ class Model:
 		ax1.set_title("Deconvolved, f")
 
 		if not abbreviated:
-			_plot_branch(ax2, 't', ylim)
-			ax2.set_title("Top branch")
+			_plot_branch(ax3, 't', ylim)
+			ax3.set_title("Top branch")
 
 		if not abbreviated:
-			_plot_branch(ax3, 'b', ylim)
-			ax3.set_title("Bottom branch")
-
-		ax5.imshow(self.H, aspect='auto')
-		ax5.set_title('Convolution kernel, H')
+			_plot_branch(ax2, 'i', ylim)
+			ax2.set_title("Initial branch")
 
 		if not abbreviated:
-			_plot_branch(ax6, 'i', ylim)
-			ax6.set_title("Initial branch")
-
+			i_timepoints = _plot_branch(ax5, 'i', linestyle='dashed', ylim=ylim)
+			_plot_branch(ax5, 'b', start_offset=i_timepoints[-1], linestyle='dashed', ylim=ylim)
+			ax5.set_title("Single cell profile")
 
 		if not abbreviated:
-			i_timepoints = _plot_branch(ax7, 'i', linestyle='dashed', ylim=ylim)
-			_plot_branch(ax7, 'b', start_offset=i_timepoints[-1], linestyle='dashed', ylim=ylim)
-			ax7.set_title("Single cell profile")
+			_plot_branch(ax7, 'b', ylim)
+			ax7.set_title("Bottom branch")
+
+		ax6.imshow(self.H, aspect='auto')
+		ax6.set_title('Convolution kernel, H')
 
 		title = f"{self.gene_name} / {self.orf_name}, gamma={self.gamma:.4f}\nrn={self.rn:.4f}, sn={self.sn:.2f}"
 

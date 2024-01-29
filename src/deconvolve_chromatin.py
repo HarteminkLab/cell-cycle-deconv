@@ -59,7 +59,7 @@ def plot_deconvolved_chromatin(H, f, g):
 
 	
 
-def deconvolve_chromatin(model, g):
+def deconvolve_chromatin(model, g, allow_negative=False):
 	"""
 	Deconvolve the chromatin array
 
@@ -105,7 +105,10 @@ def deconvolve_chromatin(model, g):
 		+ factor_fb * cp.norm(W2@f[f_b_mirror], 1))/g.mean())
 
 	# Where f is non-negative
-	constraints = [f >= 0]
+	if allow_negative:
+		constraints = []
+	else:
+		constraints = [f >= 0]
 
 	# Perform the convex optimization
 	prob = cp.Problem(objective, constraints)

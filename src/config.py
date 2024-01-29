@@ -18,9 +18,21 @@ class Config:
 			self.wt1_df = wt1
 			self.WT1_TIMEPOINTS = wt1.columns.values.astype(int)
 			self.model_wt1_file = model_wt1_file
+
+			self.wt2_df = None
+			self.WT2_TIMEPOINTS = None
+			self.model_wt2_file = None
+
+		# TODO: Assuming we are using the configuration without the data.
+		# Currently this is used for deconvolving the chromatin in which
+		# the data is handled by the chromatin_grid_compute.py class
 		else:
 			self.wt1_df = None
 			self.WT1_TIMEPOINTS = wt1_timepoints
+
+			self.model_wt2_file = None
+			self.wt2_df = None
+			self.WT2_TIMEPOINTS = None
 
 		self.intervals_wt1 = self.read_model_format(model_wt1_file)
 

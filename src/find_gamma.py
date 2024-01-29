@@ -48,7 +48,7 @@ class FindOptimalGamma:
 
 		DEFAULT_RN_CUTOFF = 1
 
-		DEFAULT_GM = 0.001
+		DEFAULT_GM = 0.0004
 		GAMMA_MIN = 0.0001
 		GAMMA_MAX = 0.001
 
