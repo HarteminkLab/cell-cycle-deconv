@@ -8,6 +8,13 @@ import pandas as pd
 # file to simplify things.
 #
 
+
+# Via Xin, beta is when the bud first appears in the bud flow model per the Orlando paper
+# Because we are using Flow only, we do not have a beta value. So we refer to the previously reported beta value
+# This is to describe the timepoint offsets between CG1/DG1 and PostG1
+BETA = 0.153
+
+
 def create_model_rg1_model(posteriors_filepath):
     """
 
@@ -40,7 +47,7 @@ def create_model_rg1_model(posteriors_filepath):
                                          params['halted'])
 
     gamma1 = params['gamma1']
-    start_of_S = gamma1*lambd
+    start_of_S = BETA*lambd
 
     params = mu0, lambd, delta, sigma0, sigmav, 0
     model_dic = {
@@ -85,9 +92,6 @@ def get_model_cfg_str(params, model_dic, Rname="RG1", CG1_intervals="t 0", PG1_i
 
     mu0, lambd, delta, sigma0, sigmav, alpha = params
 
-    # Unused parameter beta
-    beta = 0
-
     intervals = get_sub_interval_str(model_dic)
 
     s = """# lengths
@@ -103,7 +107,7 @@ beta %f
 CG1 %s
 DG1 b 0
 postG1 %s
-%s""" % (-mu0, lambd, delta, sigma0, sigmav, alpha, beta,
+%s""" % (-mu0, lambd, delta, sigma0, sigmav, alpha, BETA,
          Rname, CG1_intervals, PG1_intervals, intervals)
 
     return s
