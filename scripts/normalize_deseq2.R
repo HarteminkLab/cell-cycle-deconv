@@ -29,6 +29,6 @@ save_path <- "datasets/yl_cell_cycle/replicate1_deseq2_vst_counts.csv"
 read_count_to_vst(read_path, save_path)
 
 # For replicate 2
-read_path <- "datasets/yl_cell_cycle/replicate2_gene_expression_counts.csv"
-save_path <- "datasets/yl_cell_cycle/replicate2_deseq2_vst_counts.csv"
-read_count_to_vst(read_path, save_path)
+#read_path <- "datasets/yl_cell_cycle/replicate2_gene_expression_counts.csv"
+#save_path <- "datasets/yl_cell_cycle/replicate2_deseq2_vst_counts.csv"
+#read_count_to_vst(read_path, save_path)

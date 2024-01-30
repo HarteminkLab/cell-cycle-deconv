@@ -47,7 +47,6 @@ class Config:
 		self.has_two_replicates = wt2 is not None
 
 		self.create_helper_structures()
-		self.xg_gammas = load_xg_gammas()
 
 	def all_orfs(self):
 		return self.wt1_df.index.values
