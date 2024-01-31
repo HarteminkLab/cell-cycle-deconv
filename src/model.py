@@ -71,6 +71,13 @@ class Model:
 		f_b = np.array(f_b)
 		return f_b
 
+
+	def deconvolve_find_optimal_gamma(self):
+		from src.find_gamma import FindOptimalGamma
+		find_gamma = FindOptimalGamma(self)
+		find_gamma.find_optimal(silence=True)
+
+
 	def deconvolve(self, enforce_non_negative=True):
 
 		f_it = self.get_f_it()	
@@ -229,12 +236,15 @@ class Model:
 					lw=5, linestyle=linestyle)
 
 			ax.axhline(0, c='black', lw=1, linestyle='dotted', zorder=0)
-			ax.set_ylim(ax.get_ylim()[0], ylim[1])
+			ax.set_ylim(ylim[0], ylim[1])
 
 			# return timepoints in case we want to append more branches on to the plot
 			return timepoints.values
 
 		# ------------------
+
+		diff = np.max(f) - np.min(f)
+		ylim = np.min(f)-diff*0.1, np.max(f)+diff*1.1
 
 		# Halted cells are the last element in f
 		halted_f = f[len(f)-1]
@@ -244,8 +254,7 @@ class Model:
 			plot_f_values = f[indices]
 			ax1.plot(indices, plot_f_values, color=self.color_for_key(phase), lw=5)
 			ax1.axhline(0, c='black', lw=1, linestyle='dotted', zorder=0)
-
-		ylim = 0, np.max(f)*1.1
+		ax1.set_ylim(*ylim)
 
 		ax1.set_title("Deconvolved, f")
 
@@ -266,7 +275,13 @@ class Model:
 			_plot_branch(ax7, 'b', ylim)
 			ax7.set_title("Bottom branch")
 
-		ax6.imshow(self.H, aspect='auto')
+		im = ax6.imshow(self.H, aspect='auto', cmap='Spectral_r', vmax=0.1)
+		ax6.spines['top'].set_visible(False)
+		ax6.spines['bottom'].set_visible(False)
+		ax6.spines['left'].set_visible(False)
+		ax6.spines['right'].set_visible(False)
+		ax6.set_xticks([])
+		ax6.set_yticks([])
 		ax6.set_title('Convolution kernel, H')
 
 		title = f"{self.gene_name} / {self.orf_name}, gamma={self.gamma:.4f}\nrn={self.rn:.4f}, sn={self.sn:.2f}"
@@ -339,10 +354,10 @@ def color_for_key(key):
 
 
 def deconvolve_gene(config, gene_or_orfname, gamma=None, plot=False):
-    model = Model(config=config, gene_or_orfname=gene_or_orfname, gamma=gamma)
-    model.deconvolve()
-    if plot: model.plot_deconvolved_gene()
-    return model
+	model = Model(config=config, gene_or_orfname=gene_or_orfname, gamma=gamma)
+	model.deconvolve()
+	if plot: model.plot_deconvolved_gene()
+	return model
 
 
 def deconvolve_all_genes(config, save_dir):
