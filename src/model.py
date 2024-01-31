@@ -87,15 +87,23 @@ class Model:
 		W2 = np.concatenate((np.concatenate((W2, W2pad)), np.concatenate((W2pad, np.fliplr(W2)))), axis=1)
 
 		# Convex optimization
-		f = cp.Variable(self.H.shape[1])
+		n, m = self.H.shape
+		f = cp.Variable(m)
 
-		objective = cp.Minimize(cp.square(cp.pos(cp.norm(self.H@f/self.g - 1))) 
-								+ self.gamma * (cp.norm(W1@f[f_it_mirror], 1) 
-								+ factor_fb * cp.norm(W2@f[f_b_mirror], 1))/self.g.mean())
+		objective = cp.Minimize(
 
-		# objective = cp.Minimize(cp.square(cp.pos(cp.norm(self.H@f - self.g))) 
-		# 						+ self.gamma * (cp.norm(W1@f[f_it_mirror], 1) 
-		# 						+ factor_fb * cp.norm(W2@f[f_b_mirror], 1))/self.g.mean())
+			# Fitting norm
+			cp.square(cp.pos(cp.norm(self.H@f/self.g - 1))) + 
+
+			# Enforce that halted cells should be close in value to the recovery cells
+			# at the start of the experiment
+			cp.square(cp.pos(cp.norm(f[0] - f[m-1]))) + 
+
+			# Smoothing norm
+			self.gamma * (cp.norm(W1@f[f_it_mirror], 1) +
+						  factor_fb * cp.norm(W2@f[f_b_mirror], 1))
+						  /self.g.mean()
+		)
 
 		# To debug suboptimal fits, some genes need a non-negative solution.
 		# This flag is to confirm that this is indeed the reason for the suboptimal fits.
@@ -228,12 +236,14 @@ class Model:
 
 		# ------------------
 
+		# Halted cells are the last element in f
+		halted_f = f[len(f)-1]
+		ax1.scatter(len(f), halted_f, color='gray', s=50, marker='H')
+
 		for phase, indices in self.config.phase_columns.items():
 			plot_f_values = f[indices]
 			ax1.plot(indices, plot_f_values, color=self.color_for_key(phase), lw=5)
 			ax1.axhline(0, c='black', lw=1, linestyle='dotted', zorder=0)
-
-			#ax1.set_yscale('log')
 
 		ylim = 0, np.max(f)*1.1
 

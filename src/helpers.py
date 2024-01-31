@@ -99,7 +99,13 @@ def calcH(model_intervals, timepoints):
         w = np.sum(H[i, :])
         H[i, :] = H[i, :] / w
 
-    return H, Hpos
+
+    # Next, we will add a column for the halted cells on the end of the matrix
+    H_w_halted = np.zeros((H.shape[0], H.shape[1]+1))
+    H_w_halted[:, :-1] = H*(1-halted)
+    H_w_halted[:, -1] = halted
+
+    return H_w_halted, Hpos
     
 
 def Qr(mu0, sigma0, sigmav, delta, lambda_val, t, r, alpha):
