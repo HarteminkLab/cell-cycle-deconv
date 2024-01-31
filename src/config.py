@@ -111,7 +111,7 @@ class Config:
 
 	def parse_lengths(self, line):
 		segments = line.split(' ')
-		if segments[0] in ('mu0', 'lambda', 'delta', 'sigma0', 'sigmav', 'alpha', 'beta'):
+		if segments[0] in ('mu0', 'lambda', 'delta', 'sigma0', 'sigmav', 'alpha', 'beta', 'halted'):
 			value = float(segments[1])
 		else:
 			raise ValueError(f'Wrong parameter {segments[0]} in line {line}')

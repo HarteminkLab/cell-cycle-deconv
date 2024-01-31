@@ -4,7 +4,7 @@ from math import comb
 
 def calcH(model_intervals, timepoints):
     parameters, relations, initial_timepoints, top_timepoints, bottom_timepoints, _ = model_intervals
-    mu0, lambda_val, delta, sigma0, sigmav, alpha, beta = parameters
+    mu0, lambda_val, delta, sigma0, sigmav, alpha, beta, halted = parameters
     max_runs = 10
 
     initial_partial_H = [np.zeros((len(timepoints), len(lst)-1)) for lst in initial_timepoints]
