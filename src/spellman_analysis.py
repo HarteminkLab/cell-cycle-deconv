@@ -27,7 +27,7 @@ class SpellmanAnalysis:
 	def plot_cluster_maxes(self, replicate):
 
 		plt.figure(figsize=(8, 8))
-		plt.subplots_adjust(top=0.95)
+		plt.subplots_adjust(top=0.9, hspace=0.4)
 
 		if replicate == 1:
 			plot_data = self.wt1_spellman_normalized.copy()
@@ -50,6 +50,7 @@ class SpellmanAnalysis:
 			for orf_name, row in cluster_data.iterrows():
 				plt.plot(times, row[times], c='red', alpha=0.05)
 			plt.plot(times, mean_data[times], c='blue')
+			plt.title(f"Clust {cluster+1}, n={len(cluster_data)}")
 
 			maxes = get_maxes(cluster_data[times])
 			max_times = times[maxes]
