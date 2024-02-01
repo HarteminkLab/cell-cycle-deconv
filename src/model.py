@@ -244,7 +244,7 @@ class Model:
 		# ------------------
 
 		diff = np.max(f) - np.min(f)
-		ylim = np.min(f)-diff*0.1, np.max(f)+diff*1.1
+		ylim = np.min(f)-diff*0.1, np.min(f)+diff*1.1
 
 		# Halted cells are the last element in f
 		halted_f = f[len(f)-1]

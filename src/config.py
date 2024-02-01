@@ -301,6 +301,7 @@ def read_yl_vst_data_rep(replicate):
 	wt_data.columns = [int(s.replace('X', '')) for s in wt_data.columns.values]
 	return wt_data
 
+
 def load_yl_replicate1_rg1_TPM_config():
 
 	wt1 = pd.read_csv('datasets/yl_cell_cycle/replicate1_gene_expression_TPM.csv').set_index('orf_name')
@@ -311,40 +312,38 @@ def load_yl_replicate1_rg1_TPM_config():
 	return config
 
 
-def load_yl_replicate1_rg1_vst_config():
+def load_yl_replicate2_rg1_a26_vst_config():
+	"""Load the model in which alpha is set to 26 minutes (delay between separation and cytokinesis)"""
+	wt2 = read_yl_vst_data_rep(2)
+
+	# model file
+	MODEL_WT2_FILE = 'models/yl_cell_cycle/wt2_rg1.26.label'
+	config = Config(wt1=wt2, model_wt1_file=MODEL_WT2_FILE, name='YL Replicate 2 VST')
+	return config
+
+def load_yl_replicate1_rg1_a26_vst_config():
+	"""Load the model in which alpha is set to 26 minutes (delay between separation and cytokinesis)"""
 
 	wt1 = read_yl_vst_data_rep(1)
 
 	# model file
-	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.label'
+	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.26.label'
 	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE, name='YL Replicate 1 VST')
 	return config
 
-
-def load_yl_replicate2_rg1_vst_config():
-
-	wt1 = read_yl_vst_data_rep(2)
-
-	# model file
-	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt2_rg1.label'
-	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE, name='YL Replicate 2 VST')
-	return config
-
-
-def load_combined_yl_vst_gene_expression_config():
+def load_combined_yl_a26_vst_gene_expression_config():
 
 	WT1 = read_yl_vst_data_rep(1)
 	WT2 = read_yl_vst_data_rep(2)
 
 	# model files
-	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.label'
-	MODEL_WT2_FILE = 'models/yl_cell_cycle/wt2_rg1.label'
+	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.26.label'
+	MODEL_WT2_FILE = 'models/yl_cell_cycle/wt2_rg1.26.label'
 
 	config = Config(wt1=WT1, wt2=WT2, model_wt1_file=MODEL_WT1_FILE, 
 		model_wt2_file=MODEL_WT2_FILE, name='YL Combined VST')
 
 	return config
-
 
 
 def read_xin_published_wt_data(wildtype):    

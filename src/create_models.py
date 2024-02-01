@@ -6,7 +6,7 @@ import pandas as pd
 # Via Xin, beta is when the bud first appears in the bud flow model per the Orlando paper
 # Because we are using Flow only, we do not have a beta value. So we refer to the previously reported beta value
 # This is to describe the timepoint offsets between CG1/DG1 and PostG1
-BETA_DEFAULT = 0.153
+BETA_DEFAULT = 0.
 
 class ModelCreation:
 	"""This class is a port of the model creation from the original matlab code. There are some changes, 
@@ -21,7 +21,7 @@ class ModelCreation:
 
 		self.output_model_path = output_model_path
 		self.posteriors_filepath = posteriors_filepath
-
+		self.alpha = 0
 
 	def create_model(self):
 
@@ -68,15 +68,18 @@ class ModelCreation:
 		gamma1 = params['gamma1']
 		gamma2 = params['gamma2']
 
+		# Time between mother and daughter separation, previously 26/27 from xin.
+		alpha = self.alpha
+
 		# Previoulsy, beta was used from the budding index model. However, for the flow cytometry model
 		# we do not have beta, but we will instead use the average between gamma1 and gamma2 to estimate
 		# the S phase position
-		beta = (gamma1 + gamma2)/2.0
-		position_of_s = beta*lambd
 
+		#beta = (gamma1 + gamma2)/2.0
+		beta = BETA_DEFAULT
 
-		# TODO: no alpha for flow cytometry model at the moment
-		alpha = 0
+		#position_of_s = beta*lambd
+		position_of_s = gamma1*lambd
 
 		ret_params = mu0, lambd, delta, sigma0, sigmav, alpha, beta, halted
 		model_dic = {
@@ -84,13 +87,13 @@ class ModelCreation:
 			"RG1": [
 				{"i":[mu0, position_of_s, 49]}],
 			"CG1":[
-				{"t":[0, position_of_s, 49]}],
+				{"t":[-alpha, position_of_s, 49]}],
 			"DG1":[
-				{"b":[-delta, position_of_s, 49]}],
+				{"b":[-delta-alpha, position_of_s, 49]}],
 			"postG1":[
-				{"t":[position_of_s, lambd, 79]},
-				{"i":[position_of_s, lambd, 79]},
-				{"b":[position_of_s, lambd, 79]}],
+				{"t":[position_of_s, lambd-alpha, 79]},
+				{"i":[position_of_s, lambd-alpha, 79]},
+				{"b":[position_of_s, lambd-alpha, 79]}],
 			}
 
 		return ret_params, model_dic
@@ -147,20 +150,19 @@ postG1 %s
 		return ret_str
 
 
-def create_wt1_model():
-	output_model_path = 'models/yl_cell_cycle/wt1_rg1.label'
+def create_wt1_model(output_model_path, alpha):
 	posteriors_filepath = 'data/yl_2019_replicate1/posteriors.txt'
-
 	model_creator = ModelCreation(posteriors_filepath, output_model_path)
+	model_creator.alpha = alpha
 	model_creator.create_model()
 
 	return output_model_path
 
 
-def create_wt2_model():
-	output_model_path = 'models/yl_cell_cycle/wt2_rg1.label'
+def create_wt2_model(output_model_path, alpha):
 	posteriors_filepath = 'data/yl_2019_replicate2/posteriors.txt'
 	model_creator = ModelCreation(posteriors_filepath, output_model_path)
+	model_creator.alpha = alpha
 	model_creator.create_model()
 	return output_model_path
 
