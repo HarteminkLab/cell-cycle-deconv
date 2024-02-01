@@ -104,7 +104,7 @@ class Model:
 
 			# Enforce that halted cells should be close in value to the recovery cells
 			# at the start of the experiment
-			cp.square(cp.pos(cp.norm(f[0] - f[m-1]))) + 
+			# cp.square(cp.pos(cp.norm(f[0] - f[m-1]))) + 
 
 			# Smoothing norm
 			self.gamma * (cp.norm(W1@f[f_it_mirror], 1) +

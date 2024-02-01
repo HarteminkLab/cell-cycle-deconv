@@ -149,7 +149,7 @@ postG1 %s
 
 def create_wt1_model():
 	output_model_path = 'models/yl_cell_cycle/wt1_rg1.label'
-	posteriors_filepath = 'data/cloccs_output_yl_replicate1/posteriors.txt'
+	posteriors_filepath = 'data/yl_2019_replicate1/posteriors.txt'
 
 	model_creator = ModelCreation(posteriors_filepath, output_model_path)
 	model_creator.create_model()
@@ -159,7 +159,7 @@ def create_wt1_model():
 
 def create_wt2_model():
 	output_model_path = 'models/yl_cell_cycle/wt2_rg1.label'
-	posteriors_filepath = 'data/cloccs_output_yl_replicate2/posteriors.txt'
+	posteriors_filepath = 'data/yl_2019_replicate2/posteriors.txt'
 	model_creator = ModelCreation(posteriors_filepath, output_model_path)
 	model_creator.create_model()
 	return output_model_path
@@ -170,7 +170,7 @@ def main():
 	create_wt1_model()
 	create_wt2_model()
 
-	If we want to plot the resulting models, we can use this code
+	# If we want to plot the resulting models, we can use this code
 	from src.ModelFile import ModelFile
 	model_file = ModelFile()
 	model_file.load_model(output_model_path)
