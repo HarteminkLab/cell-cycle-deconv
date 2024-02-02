@@ -3,6 +3,7 @@ from src.model import Model
 from src.dynamic_config_alpha import create_dynamic_alpha_config
 import numpy as np
 import pandas as pd
+from src.timer import Timer
 
 
 def compute_prop_in_dg1(model1):
@@ -43,24 +44,61 @@ def search_alphas(gene_name, posteriors_filepath, alphas):
 	return ret_df
 
 
-from src.timer import Timer
+def perform_alpha_search_gene(gene_name, alphas = np.arange(0, 40, 1), replicate=1, timer=None):
+	"""
+	Performs the DG1 proportion calculation for each alpha value and returns
+	a dataframe of the results
+	"""
+	
+	if replicate == 1:
+		posteriors_filepath = 'data/yl_2019_replicate1/posteriors.txt'
+	elif replicate == 2:
+		posteriors_filepath = 'data/yl_2019_replicate2/posteriors.txt'
+	else:
+		raise ValueError(f"Invalid replicate {replicate}")
+	
+	if timer is None:
+		timer = Timer()
 
-def perform_alpha_search_gene(gene_name, alphas = np.arange(0, 40, 1), replicate=1):
-    """
-    Performs the DG1 proportion calculation for each alpha value and returns
-    a dataframe of the results
-    """
-    
-    if replicate == 1:
-        posteriors_filepath = 'data/yl_2019_replicate1/posteriors.txt'
-    elif replicate == 2:
-        posteriors_filepath = 'data/yl_2019_replicate2/posteriors.txt'
-    else:
-        raise ValueError(f"Invalid replicate {replicate}")
-    
-    timer = Timer()
-    print(f"Computing {len(alphas)} alpha values for {gene_name}...", end="")
-    dg1_df = search_alphas(gene_name, posteriors_filepath, alphas)
-    print(f"Done in {timer.get_time()}")
+	print(f"Computing {len(alphas)} alpha values for {gene_name}...", end="")
+	dg1_df = search_alphas(gene_name, posteriors_filepath, alphas)
+	print(f"Done in {timer.get_time()}")
 
-    return dg1_df
+	return dg1_df
+
+
+def main():
+
+	timer = Timer()
+
+	genes = ["DSE1", "DSE2", "DSE3", "DSE4"]
+	alpha_values = [20, 22, 24]
+
+	# Perform alpha search for replicate 1
+	dg1_rep1_all_genes_df = pd.DataFrame()
+	for gene in genes:
+	    dg1_df = perform_alpha_search_gene(gene, alphas=alpha_values)
+	    dg1_df['gene'] = gene
+	    dg1_rep1_all_genes_df = pd.concat([dg1_rep1_all_genes_df, dg1_df])
+
+	# Perform alpha search for replicate 2
+	dg1_rep2_all_genes_df = pd.DataFrame()
+	for gene in genes:
+	    dg1_df = perform_alpha_search_gene(gene, alphas=alpha_values, replicate=2)
+	    dg1_df['gene'] = gene
+	    dg1_rep2_all_genes_df = pd.concat([dg1_rep2_all_genes_df, dg1_df])
+
+
+	# Combine results and save to disk
+	dg1_rep1_all_genes_df['replicate'] = 1
+	dg1_rep2_all_genes_df['replicate'] = 2
+	combined_dg1_df = pd.concat([dg1_rep1_all_genes_df, dg1_rep2_all_genes_df])
+
+	save_file = 'output/dg1_alpha_search.csv'
+	combined_dg1_df.to_csv(save_file)
+
+	print(f"Save to: {save_file}")
+	
+
+if __name__ == '__main__':	
+	main()
