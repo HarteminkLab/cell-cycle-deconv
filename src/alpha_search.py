@@ -84,7 +84,7 @@ def main():
 	timer = Timer()
 
 	genes = ["DSE1", "DSE2", "DSE3", "DSE4"]
-	alpha_values = np.arange(10, 40, 4)
+	alpha_values = np.arange(0, 40, 1)
 
 	# Perform alpha search for replicate 1
 	dg1_rep1_all_genes_df = pd.DataFrame()
