@@ -84,7 +84,8 @@ def main():
 	timer = Timer()
 
 	genes = ["DSE1", "DSE2", "DSE3", "DSE4"]
-	alpha_values = np.arange(0, 40, 1)
+	min_a, max_a, step_a = 0, 50, 1
+	alpha_values = np.arange(min_a, max_a, step_a)
 
 	# Perform alpha search for replicate 1
 	dg1_rep1_all_genes_df = pd.DataFrame()
@@ -105,7 +106,7 @@ def main():
 	dg1_rep2_all_genes_df['replicate'] = 2
 	combined_dg1_df = pd.concat([dg1_rep1_all_genes_df, dg1_rep2_all_genes_df])
 
-	save_file = 'output/dg1_alpha_search.csv'
+	save_file = f'output/dg1_alpha_search_{min_a}_{max_a}_{step_a}.csv'
 	combined_dg1_df.to_csv(save_file)
 
 	print(f"Save to: {save_file}")

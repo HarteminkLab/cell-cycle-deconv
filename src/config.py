@@ -317,46 +317,47 @@ def read_yl_vst_data_rep(replicate):
 	return wt_data
 
 
-def load_yl_replicate1_rg1_TPM_config():
+def load_yl_replicate1_rg1_TPM_config(alpha=30):
 
 	wt1 = pd.read_csv('datasets/yl_cell_cycle/replicate1_gene_expression_TPM.csv').set_index('orf_name')
 
 	# model file
-	MODEL_WT1_FILE = f'models/yl_cell_cycle/wt1_rg1.label'
-	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE, name='YL Replicate 1 TPM')
+	MODEL_WT1_FILE = f'models/yl_cell_cycle/wt1_rg1.{alpha}.label'
+	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE, name=f'Replicate 1 TPM, $\\alpha$={alpha}')
 	return config
 
 
-def load_yl_replicate2_rg1_alpha_vst_config(alpha=0):
-	"""Load the model in which alpha is set to delay between separation and cytokinesis"""
-	wt2 = read_yl_vst_data_rep(2)
-
-	# model file
-	MODEL_WT2_FILE = f'models/yl_cell_cycle/wt2_rg1.{alpha}.label'
-	config = Config(wt1=wt2, model_wt1_file=MODEL_WT2_FILE, name='YL Replicate 2 VST')
-	return config
-
-def load_yl_replicate1_rg1_alpha_vst_config(alpha=0):
+def load_yl_replicate1_rg1_alpha_vst_config(alpha=30):
 	"""Load the model in which alpha is set to delay between separation and cytokinesis"""
 
 	wt1 = read_yl_vst_data_rep(1)
 
 	# model file
 	MODEL_WT1_FILE = f'models/yl_cell_cycle/wt1_rg1.{alpha}.label'
-	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE, name='YL Replicate 1 VST')
+	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE, name=f'Replicate 1, $\\alpha$={alpha}')
 	return config
 
-def load_combined_yl_alpha_vst_gene_expression_config(alpha=0):
+def load_yl_replicate2_rg1_alpha_vst_config(alpha=17):
+	"""Load the model in which alpha is set to delay between separation and cytokinesis"""
+	wt2 = read_yl_vst_data_rep(2)
+
+	# model file
+	MODEL_WT2_FILE = f'models/yl_cell_cycle/wt2_rg1.{alpha}.label'
+	config = Config(wt1=wt2, model_wt1_file=MODEL_WT2_FILE, name=f'Replicate 2, $\\alpha$={alpha}')
+	return config
+
+
+def load_combined_yl_alpha_vst_gene_expression_config(alphas=[30, 17]):
 
 	WT1 = read_yl_vst_data_rep(1)
 	WT2 = read_yl_vst_data_rep(2)
 
 	# model files
-	MODEL_WT1_FILE = f'models/yl_cell_cycle/wt1_rg1.{alpha}.label'
-	MODEL_WT2_FILE = f'models/yl_cell_cycle/wt2_rg1.{alpha}.label'
+	MODEL_WT1_FILE = f'models/yl_cell_cycle/wt1_rg1.{alphas[0]}.label'
+	MODEL_WT2_FILE = f'models/yl_cell_cycle/wt2_rg1.{alphas[1]}.label'
 
 	config = Config(wt1=WT1, wt2=WT2, model_wt1_file=MODEL_WT1_FILE, 
-		model_wt2_file=MODEL_WT2_FILE, name='YL Combined VST')
+		model_wt2_file=MODEL_WT2_FILE, name=f'Combined, $\\alpha$={alphas[0]},{alphas[1]}')
 
 	return config
 

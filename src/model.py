@@ -72,10 +72,10 @@ class Model:
 		return f_b
 
 
-	def deconvolve_find_optimal_gamma(self):
+	def deconvolve_find_optimal_gamma(self, silence=True):
 		from src.find_gamma import FindOptimalGamma
 		find_gamma = FindOptimalGamma(self)
-		find_gamma.find_optimal(silence=True)
+		find_gamma.find_optimal(silence=silence)
 
 
 	def deconvolve(self, enforce_non_negative=True):
@@ -173,11 +173,11 @@ class Model:
 
 		f = self.f
 
-		self.plot_deconvolved_f(f, g, g1, predicted_g1, g2, predicted_g2, abbreviated=abbreviated)
+		fig = self.plot_deconvolved_f(f, g, g1, predicted_g1, g2, predicted_g2, abbreviated=abbreviated)
+		return fig
 
 
 	def plot_deconvolved_f(self, f, g, g1, predicted_g1, g2=None, predicted_g2=None, abbreviated=False):
-
 
 		if abbreviated:
 			fig, axs = plt.subplots(2, 2, figsize=(9, 9))
@@ -235,7 +235,6 @@ class Model:
 				ax.plot(timepoints+offset, f[indices], color=self.color_for_key(phase), 
 					lw=5, linestyle=linestyle)
 
-			ax.axhline(0, c='black', lw=1, linestyle='dotted', zorder=0)
 			ax.set_ylim(ylim[0], ylim[1])
 
 			# return timepoints in case we want to append more branches on to the plot
@@ -243,6 +242,7 @@ class Model:
 
 		# ------------------
 
+		# Set the ylim appropriate to the values in f
 		diff = np.max(f) - np.min(f)
 		ylim = np.min(f)-diff*0.1, np.min(f)+diff*1.1
 
@@ -253,7 +253,6 @@ class Model:
 		for phase, indices in self.config.phase_columns.items():
 			plot_f_values = f[indices]
 			ax1.plot(indices, plot_f_values, color=self.color_for_key(phase), lw=5)
-			ax1.axhline(0, c='black', lw=1, linestyle='dotted', zorder=0)
 		ax1.set_ylim(*ylim)
 
 		ax1.set_title("Deconvolved, f")
@@ -275,7 +274,7 @@ class Model:
 			_plot_branch(ax7, 'b', ylim)
 			ax7.set_title("Bottom branch")
 
-		im = ax6.imshow(self.H, aspect='auto', cmap='Spectral_r', vmax=0.1)
+		im = ax6.imshow(self.H, aspect='auto', interpolation='Nearest', cmap='Spectral_r', vmax=0.1)
 		ax6.spines['top'].set_visible(False)
 		ax6.spines['bottom'].set_visible(False)
 		ax6.spines['left'].set_visible(False)
@@ -290,6 +289,8 @@ class Model:
 			title = f"{self.config.name}\n" + title
 
 		plt.suptitle(title, fontsize=23)
+		return fig
+
 
 	def color_for_key(self, key):
 		"""Predefined colors for phases and keys for gene plots"""
