@@ -273,7 +273,7 @@ def load_yl_replicate1_rg1_chromatin_config():
 	WT1_TP = [0, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]
 
 	# model files
-	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.label'
+	MODEL_WT1_FILE = f'models/yl_cell_cycle/wt1_rg1.label'
 	config = Config(wt1=None, model_wt1_file=MODEL_WT1_FILE, wt1_timepoints=WT1_TP)
 
 	return config
@@ -282,7 +282,7 @@ def load_yl_replicate2_rg1_chromatin_config():
 
 	# Time points
 	WT2_TP = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140]
-	MODEL_WT2_FILE = 'models/yl_cell_cycle/wt2_rg1.label'
+	MODEL_WT2_FILE = f'models/yl_cell_cycle/wt2_rg1.label'
 
 	# Ignore the wt1 data, because we will be using chromatin data in the deconvolve_chromatin.py file
 	# TODO: Refactor this to be able to load the data in one place or refactor by subclassing the config
@@ -307,38 +307,38 @@ def load_yl_replicate1_rg1_TPM_config():
 	wt1 = pd.read_csv('datasets/yl_cell_cycle/replicate1_gene_expression_TPM.csv').set_index('orf_name')
 
 	# model file
-	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.label'
+	MODEL_WT1_FILE = f'models/yl_cell_cycle/wt1_rg1.label'
 	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE, name='YL Replicate 1 TPM')
 	return config
 
 
-def load_yl_replicate2_rg1_a26_vst_config():
-	"""Load the model in which alpha is set to 26 minutes (delay between separation and cytokinesis)"""
+def load_yl_replicate2_rg1_alpha_vst_config(alpha=0):
+	"""Load the model in which alpha is set to delay between separation and cytokinesis"""
 	wt2 = read_yl_vst_data_rep(2)
 
 	# model file
-	MODEL_WT2_FILE = 'models/yl_cell_cycle/wt2_rg1.26.label'
+	MODEL_WT2_FILE = f'models/yl_cell_cycle/wt2_rg1.{alpha}.label'
 	config = Config(wt1=wt2, model_wt1_file=MODEL_WT2_FILE, name='YL Replicate 2 VST')
 	return config
 
-def load_yl_replicate1_rg1_a26_vst_config():
-	"""Load the model in which alpha is set to 26 minutes (delay between separation and cytokinesis)"""
+def load_yl_replicate1_rg1_alpha_vst_config(alpha=0):
+	"""Load the model in which alpha is set to delay between separation and cytokinesis"""
 
 	wt1 = read_yl_vst_data_rep(1)
 
 	# model file
-	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.26.label'
+	MODEL_WT1_FILE = f'models/yl_cell_cycle/wt1_rg1.{alpha}.label'
 	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE, name='YL Replicate 1 VST')
 	return config
 
-def load_combined_yl_a26_vst_gene_expression_config():
+def load_combined_yl_alpha_vst_gene_expression_config(alpha=0):
 
 	WT1 = read_yl_vst_data_rep(1)
 	WT2 = read_yl_vst_data_rep(2)
 
 	# model files
-	MODEL_WT1_FILE = 'models/yl_cell_cycle/wt1_rg1.26.label'
-	MODEL_WT2_FILE = 'models/yl_cell_cycle/wt2_rg1.26.label'
+	MODEL_WT1_FILE = f'models/yl_cell_cycle/wt1_rg1.{alpha}.label'
+	MODEL_WT2_FILE = f'models/yl_cell_cycle/wt2_rg1.{alpha}.label'
 
 	config = Config(wt1=WT1, wt2=WT2, model_wt1_file=MODEL_WT1_FILE, 
 		model_wt2_file=MODEL_WT2_FILE, name='YL Combined VST')
@@ -357,16 +357,3 @@ def read_xin_published_wt_data(wildtype):
     return wt1_web_df
 
 
-def load_xg_gene_expression_config():
-
-	WT1 = read_xin_published_wt_data(1)
-	WT2 = read_xin_published_wt_data(2)
-
-	# model files
-	MODEL_WT1_FILE = 'models/original_budflow/wt1_budflow/1.1.1.26.label'
-	MODEL_WT2_FILE = 'models/original_budflow/wt2_budflow/1.1.1.27.label'
-
-	config = Config(wt1=WT1, wt2=WT2, model_wt1_file=MODEL_WT1_FILE, 
-		model_wt2_file=MODEL_WT2_FILE, name='Xin/Orlando Combined Microarray')
-
-	return config

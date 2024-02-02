@@ -2,10 +2,15 @@ import numpy as np
 from scipy.stats import norm
 from math import comb
 
+# The initial population mass, used in the Qr and Mgr calculations
+START = 1000
+
+# Maximum number of cell cycle "runs"
+MAX_RUNS = 10
+
 def calcH(model_intervals, timepoints):
     parameters, relations, initial_timepoints, top_timepoints, bottom_timepoints, _ = model_intervals
     mu0, lambda_val, delta, sigma0, sigmav, alpha, beta, halted = parameters
-    max_runs = 10
 
     initial_partial_H = [np.zeros((len(timepoints), len(lst)-1)) for lst in initial_timepoints]
     top_partial_H = [np.zeros((len(timepoints), len(lst)-1)) for lst in top_timepoints]
@@ -18,7 +23,7 @@ def calcH(model_intervals, timepoints):
 
         # Compute the Qr value or mass at a given timepoint in the experiment
         # We are doing this for each run (cell cycle)
-        for r in range(max_runs + 1):
+        for r in range(MAX_RUNS + 1):
             Q += Qr(mu0, sigma0, sigmav, delta, lambda_val, t, r, alpha)
 
         # We also want to have a fraction of the initial population, so t=0
@@ -36,7 +41,7 @@ def calcH(model_intervals, timepoints):
         # For the top timepoint, we will be computing the cdf
         # to compute the mass for each timepoint interval
         # i.e.   CG1, and postG1
-        for runs in range(1, max_runs + 1):
+        for runs in range(1, MAX_RUNS + 1):
 
             # Enumerate through the timepoints for each subinterval belonging to the to top timepoints
             for idx, tp in enumerate(top_timepoints):
@@ -47,8 +52,7 @@ def calcH(model_intervals, timepoints):
 
                 
         # Now we will do the same for the top and bottom, with the distinction...
-
-        for r in range(1, max_runs + 1):
+        for r in range(1, MAX_RUNS + 1):
             for g in range(1, r + 1):
 
                 frac_rest = Mgr(mu0, sigma0, sigmav, delta, lambda_val, t, g, r, alpha) / Q
@@ -59,7 +63,7 @@ def calcH(model_intervals, timepoints):
                     trun_denom = 1 - trun_cdf
 
                     for idx, tp in enumerate(top_timepoints):
-                        for runs in range(r + 1, max_runs + 1):
+                        for runs in range(r + 1, MAX_RUNS + 1):
                             cdf = norm.cdf(tp + runs * lambda_val + g * delta, loc=t-mu0, 
                                     scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
                             portion = cdf * 0 if trun_denom == 0 else (cdf - trun_cdf) / trun_denom
@@ -100,10 +104,20 @@ def calcH(model_intervals, timepoints):
         H[i, :] = H[i, :] / w
 
 
-    # Next, we will add a column for the halted cells on the end of the matrix
+    # compute the expected alive and halted mass at each timepoint
+    mass_dic = get_alive_halted_mass(model_intervals, timepoints)
     H_w_halted = np.zeros((H.shape[0], H.shape[1]+1))
-    H_w_halted[:, :-1] = H*(1-halted)
-    H_w_halted[:, -1] = halted
+
+    for i in range(len(timepoints)):
+        time = timepoints[i]
+        halted, alive, total = mass_dic[time]
+
+        # Adjust the H matrix for the alive cells
+        # columns up to the last column
+        H_w_halted[i, :-1] = H[i, :]*(alive/total)
+
+        # Add the halted cells proportion as the last column
+        H_w_halted[i, -1] = halted/total
 
     return H_w_halted, Hpos
     
@@ -113,7 +127,6 @@ def Qr(mu0, sigma0, sigmav, delta, lambda_val, t, r, alpha):
     I believe this returns the mass of cells at a given time and reproductive instance. Seemingly starting with a mass
     of 1000
     """
-    START = 1000
     if r == 0:
         return START
     else:
@@ -128,7 +141,6 @@ def Qr(mu0, sigma0, sigmav, delta, lambda_val, t, r, alpha):
 
 
 def Mgr(mu0, sigma0, sigmav, delta, lambda_val, t, g, r, alpha):
-    START = 1000
     if g == 0:
         if r == 0:
             return START
@@ -251,3 +263,25 @@ def MakeONFilter(Type, Par):
         f = f / np.linalg.norm(f)
 
     return f
+
+
+def get_alive_halted_mass(model_intervals, timepoints):
+    
+    parameters, relations, initial_timepoints, top_timepoints, bottom_timepoints, _ = model_intervals
+    mu0, lambda_val, delta, sigma0, sigmav, alpha, beta, halted = parameters
+
+    haltedMass = None
+    mass_dic = {}
+    for time in timepoints:
+
+        Q = 0
+        for r in range(MAX_RUNS + 1):
+                Q += Qr(mu0, sigma0, sigmav, delta, lambda_val, time, r, alpha)
+        if time == 0:
+            haltedMass = Q*halted
+        aliveMass = Q-haltedMass
+
+        # dictionary of halted, alive, and total mass
+        mass_dic[time] = (haltedMass, aliveMass, Q)
+
+    return mass_dic
