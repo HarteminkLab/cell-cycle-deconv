@@ -23,15 +23,16 @@ class ModelCreation:
 		self.posteriors_filepath = posteriors_filepath
 		self.alpha = 0
 
-	def create_model(self):
+	def create_model(self, save=True):
 
 		self.params, self.model_dic = self.create_model_rg1_model()
 		self.model_cfg = self.get_model_cfg_str()
 
-		with open(self.output_model_path, 'w') as f:
-			f.write(self.model_cfg)
+		if save:
+			with open(self.output_model_path, 'w') as f:
+				f.write(self.model_cfg)
 
-		print(f"Created model and saved to file: {self.output_model_path}")
+			print(f"Created model and saved to file: {self.output_model_path}")
 
 
 	def create_model_rg1_model(self):

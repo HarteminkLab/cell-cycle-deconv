@@ -9,7 +9,8 @@ class Config:
 	"""
 
 	def __init__(self, wt1=None, wt2=None, wt1_timepoints=None, wt2_timepoints=None, 
-			model_wt1_file=None, model_wt2_file=None, name=None):
+			model_wt1_file=None, model_wt2_file=None, name=None, model_wt1_lines=None,
+			model_wt2_lines=None):
 
 		self.name = name
 
@@ -34,14 +35,21 @@ class Config:
 			self.wt2_df = None
 			self.WT2_TIMEPOINTS = None
 
-		self.intervals_wt1 = self.read_model_format(model_wt1_file)
+		if model_wt1_file is not None:
+			self.intervals_wt1 = self.read_model_format(model_wt1_file)
+		elif model_wt1_lines is not None:
+			self.intervals_wt1 = self.read_model_lines(model_wt1_lines)
 
 		# Replicate 2 configuration
 		if wt2 is not None:
 			self.WT2_TIMEPOINTS = wt2.columns.values.astype(int)
 			self.wt2_df = wt2
 			self.model_wt2_file = model_wt2_file
-			self.intervals_wt2 = self.read_model_format(model_wt2_file)
+			
+			if model_wt2_file is not None:
+				self.intervals_wt2 = self.read_model_format(model_wt2_file)
+			elif model_wt2_lines is not None:
+				self.intervals_wt2 = self.read_model_lines(model_wt2_lines)
 
 		# Boolean flag to indicate whether we have 1 or 2 replicates
 		self.has_two_replicates = wt2 is not None
@@ -55,44 +63,51 @@ class Config:
 		if not os.path.exists(modelfile):
 			raise FileNotFoundError(f"The model file {modelfile} does not exist")
 
+		with open(modelfile, 'r') as f:
+			lines = f.readlines()
+			ret = self.read_model_lines(lines)
+
+		return ret
+
+	def read_model_lines(self, f):
+
 		LENGTHS, DESCRIPTION, I, T, B = '# lengths', '# description', '# i', '# t', '# b' 
 		lengths, relations, initial_tps, top_tps, bottom_tps, parseFlag = [], [], [], [], [], -1
 
-		with open(modelfile, 'r') as f:
-			for line in f:
-				line = line.strip()
-				if not line:
-					continue
-				if line == LENGTHS:
-					parseFlag = 1
-				elif line == DESCRIPTION:
-					parseFlag = 2
-				elif line == I:
-					parseFlag = 3
-				elif line == T:
-					parseFlag = 4
-				elif line == B:
-					parseFlag = 5
-				# lengths
-				elif parseFlag == 1:
-					value = self.parse_lengths(line)
-					lengths.append(value)
-				# description
-				elif parseFlag == 2:
-					relation = line.split(' ')
-					relations.append(relation)
-				# interval i
-				elif parseFlag == 3:
-					interval = np.array(line.split(' '), dtype=np.float64)
-					initial_tps.append(interval)
-				# interval t
-				elif parseFlag == 4:
-					interval = np.array(line.split(' '), dtype=np.float64)
-					top_tps.append(interval)
-				# interval b
-				elif parseFlag == 5:
-					interval = np.array(line.split(' '), dtype=np.float64)
-					bottom_tps.append(interval)
+		for line in f:
+			line = line.strip()
+			if not line:
+				continue
+			if line == LENGTHS:
+				parseFlag = 1
+			elif line == DESCRIPTION:
+				parseFlag = 2
+			elif line == I:
+				parseFlag = 3
+			elif line == T:
+				parseFlag = 4
+			elif line == B:
+				parseFlag = 5
+			# lengths
+			elif parseFlag == 1:
+				value = self.parse_lengths(line)
+				lengths.append(value)
+			# description
+			elif parseFlag == 2:
+				relation = line.split(' ')
+				relations.append(relation)
+			# interval i
+			elif parseFlag == 3:
+				interval = np.array(line.split(' '), dtype=np.float64)
+				initial_tps.append(interval)
+			# interval t
+			elif parseFlag == 4:
+				interval = np.array(line.split(' '), dtype=np.float64)
+				top_tps.append(interval)
+			# interval b
+			elif parseFlag == 5:
+				interval = np.array(line.split(' '), dtype=np.float64)
+				bottom_tps.append(interval)
 
 		initial_phase_map, top_phase_map, bottom_phase_map = {}, {}, {}
 		for i, relation in enumerate(relations):

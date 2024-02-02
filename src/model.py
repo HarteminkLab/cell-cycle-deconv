@@ -248,7 +248,7 @@ class Model:
 
 		# Halted cells are the last element in f
 		halted_f = f[len(f)-1]
-		ax1.scatter(len(f), halted_f, color='gray', s=50, marker='H')
+		ax1.scatter(-1, halted_f, color='gray', s=50, marker='H')
 
 		for phase, indices in self.config.phase_columns.items():
 			plot_f_values = f[indices]
