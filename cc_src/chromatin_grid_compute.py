@@ -32,10 +32,7 @@ class ChromatinGrid:
 	def load_deconvolution_results(self, gene_name):
 
 		from cc_src.sgd import get_gene_name_orf_name, get_gene
-
-
 		gene = get_gene(gene_name)
-
 
 
 	def set_gene(self, gene_name, replicate):
@@ -368,7 +365,9 @@ class ChromatinGrid:
 		return  phase_indices[phase_indices_index], phase_indices_index, len(phase_indices)
 
 
-	def create_deconvolution_plots_full(self, f, model):
+	def create_deconvolution_plots_full(self, model):
+
+		f = model.f
 		from src.model import color_for_key
 
 		shape = self.all_hists[0].shape

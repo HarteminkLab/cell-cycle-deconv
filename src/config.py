@@ -273,39 +273,20 @@ class Config:
 		return genelist_orfs
 
 
-def load_xg_gammas():
-	# Load the precomputed gamma values from Xin Guo's deconv.v2 codebase
-	deconvv2_gene_gammas = pd.read_csv('allgenes/from_deconvv2/allgenes.gm', sep='\t', header=None)
-	deconvv2_gene_gammas.columns = ['gene', 'orf_name', 'gamma']
-	deconvv2_gene_gammas = deconvv2_gene_gammas.set_index('orf_name')
-	return deconvv2_gene_gammas
-
-
-
-def load_yl_replicate1_rg1_chromatin_config():
-
-	# Time points
-	WT1_TP = [0, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]
-
-	# model files
-	MODEL_WT1_FILE = f'models/yl_cell_cycle/wt1_rg1.label'
-	config = Config(wt1=None, model_wt1_file=MODEL_WT1_FILE, wt1_timepoints=WT1_TP)
-
-	return config
-
 def load_yl_replicate2_rg1_chromatin_config():
 
+	alpha = 30
+
+	model_wt1_file = f'models/yl_cell_cycle/wt1_rg1.{alpha}.label'
+
 	# Time points
-	WT2_TP = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140]
-	MODEL_WT2_FILE = f'models/yl_cell_cycle/wt2_rg1.label'
+	wt1_timepoints = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140]
 
 	# Ignore the wt1 data, because we will be using chromatin data in the deconvolve_chromatin.py file
 	# TODO: Refactor this to be able to load the data in one place or refactor by subclassing the config
 	# for gene expression and chromatin separately.
-
-	# Because we are just deconvolving one replicate, we are placing the replicate 2 data
-	# into the wt1 parameters
-	config = Config(wt1=None, model_wt1_file=MODEL_WT2_FILE, wt1_timepoints=WT2_TP)
+	config = Config(wt1=None, wt1_timepoints=wt1_timepoints, model_wt1_file=model_wt1_file, 
+		name=f'Replicate 1, $\\alpha$={alpha}')
 
 	return config
 
@@ -317,24 +298,11 @@ def read_yl_vst_data_rep(replicate):
 	return wt_data
 
 
-def load_yl_replicate1_rg1_TPM_config(alpha=30):
-
-	wt1 = pd.read_csv('datasets/yl_cell_cycle/replicate1_gene_expression_TPM.csv').set_index('orf_name')
-
-	# model file
-	MODEL_WT1_FILE = f'models/yl_cell_cycle/wt1_rg1.{alpha}.label'
-	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE, name=f'Replicate 1 TPM, $\\alpha$={alpha}')
-	return config
-
-
 def load_yl_replicate1_rg1_alpha_vst_config(alpha=30):
 	"""Load the model in which alpha is set to delay between separation and cytokinesis"""
-
 	wt1 = read_yl_vst_data_rep(1)
-
-	# model file
-	MODEL_WT1_FILE = f'models/yl_cell_cycle/wt1_rg1.{alpha}.label'
-	config = Config(wt1=wt1, model_wt1_file=MODEL_WT1_FILE, name=f'Replicate 1, $\\alpha$={alpha}')
+	model_wt1_file = f'models/yl_cell_cycle/wt1_rg1.{alpha}.label'
+	config = Config(wt1=wt1, model_wt1_file=model_wt1_file, name=f'Replicate 1, $\\alpha$={alpha}')
 	return config
 
 def load_yl_replicate2_rg1_alpha_vst_config(alpha=17):
@@ -342,8 +310,8 @@ def load_yl_replicate2_rg1_alpha_vst_config(alpha=17):
 	wt2 = read_yl_vst_data_rep(2)
 
 	# model file
-	MODEL_WT2_FILE = f'models/yl_cell_cycle/wt2_rg1.{alpha}.label'
-	config = Config(wt1=wt2, model_wt1_file=MODEL_WT2_FILE, name=f'Replicate 2, $\\alpha$={alpha}')
+	model_wt2_file = f'models/yl_cell_cycle/wt2_rg1.{alpha}.label'
+	config = Config(wt1=wt2, model_wt1_file=model_wt2_file, name=f'Replicate 2, $\\alpha$={alpha}')
 	return config
 
 
@@ -353,11 +321,11 @@ def load_combined_yl_alpha_vst_gene_expression_config(alphas=[30, 17]):
 	WT2 = read_yl_vst_data_rep(2)
 
 	# model files
-	MODEL_WT1_FILE = f'models/yl_cell_cycle/wt1_rg1.{alphas[0]}.label'
-	MODEL_WT2_FILE = f'models/yl_cell_cycle/wt2_rg1.{alphas[1]}.label'
+	model_wt1_file = f'models/yl_cell_cycle/wt1_rg1.{alphas[0]}.label'
+	model_wt2_file = f'models/yl_cell_cycle/wt2_rg1.{alphas[1]}.label'
 
-	config = Config(wt1=WT1, wt2=WT2, model_wt1_file=MODEL_WT1_FILE, 
-		model_wt2_file=MODEL_WT2_FILE, name=f'Combined, $\\alpha$={alphas[0]},{alphas[1]}')
+	config = Config(wt1=WT1, wt2=WT2, model_wt1_file=model_wt1_file, 
+		model_wt2_file=model_wt2_file, name=f'Combined, $\\alpha$={alphas[0]},{alphas[1]}')
 
 	return config
 
