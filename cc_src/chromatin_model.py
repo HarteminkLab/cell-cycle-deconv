@@ -8,7 +8,7 @@ from cc_src.mnase_plotting import plot_mnase_density
 import sys
 
 
-class ChromatinGrid:
+class ChromatinModel:
 	"""
 	In this class, we will be taking mnase-seq reads for a gene, and computing a grid of occupancy 
 	values for the gene's locus.
@@ -23,10 +23,13 @@ class ChromatinGrid:
 	"""
 
 
-	def __init__(self):
+	def __init__(self, config):
 
+		# Padding defines the window around the TSS to retrieve MNase data
 		self.padding = 1000
 		self.geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
+		self.config = config
+		self.gamma = 0.01
 
 
 	def load_deconvolution_results(self, gene_name):
@@ -35,7 +38,7 @@ class ChromatinGrid:
 		gene = get_gene(gene_name)
 
 
-	def set_gene(self, gene_name, replicate):
+	def load_mnase_gene(self, gene_name, replicate):
 
 		# Get some gene information
 		self.computed_plus_one = None
@@ -43,7 +46,7 @@ class ChromatinGrid:
 		self.gene = self.geneset.loc[self.orf_name]
 		self.mnase_span = self.gene.TSS-self.padding, self.gene.TSS+self.padding
 
-		print("Loading MNase reads...", end='')
+		print(f"Loading MNase reads for {gene_name}...", end='')
 		# TODO: This may take a little while, when we've deconvolved already we may want to skip this step,
 		# But that will mean needing to save the +1 location to disk.
 		self.chr_reads = pd.read_hdf(f'output/mnase/yl_rep{replicate}_mnase_reads/yl_rep{replicate}_mnase_reads_chr{self.gene.chr}.h5', 
@@ -63,6 +66,15 @@ class ChromatinGrid:
 			(self.chr_reads.mid < self.mnase_span[1])]
 
 		print("Done.")
+
+		self.create_binned_structures()
+
+
+	def create_binned_structures(self):
+		"""Create binning structures from the loaded MNase data"""
+		self.define_histogram_bins()
+		self.create_bins_per_all_sample()
+		self.create_deconvolution_matrices(False)
 
 
 	def define_histogram_bins(self):
@@ -88,11 +100,11 @@ class ChromatinGrid:
 
 		from cc_src.chromatin_metrics import yl_replicate_length_bins
 
-		x_bin_size = 40
+		x_bin_size = 80
 		y_bin_size = 100
 
-		num_promoter_bins = 6
-		num_gb_bins = 10
+		num_promoter_bins = 3
+		num_gb_bins = 5
 		num_bins = num_promoter_bins+num_gb_bins+1 # Plus one, because we are centered on a bin
 
 		y_bins = yl_replicate_length_bins()
@@ -110,15 +122,15 @@ class ChromatinGrid:
 		x_bins = np.arange(x_start, x_end+x_bin_size, x_bin_size)
 
 		self.bin_extents = [x_bins[0], x_bins[-1], 0, 225]
-
-		return x_bins, y_bins
+		self.x_bins = x_bins
+		self.y_bins = y_bins
 
 		
 	def compute_bin_counts_sample(self, sample):
 
 		plotting_reads = self.gene_reads[self.gene_reads['sample'] == sample]
 
-		x_bins, y_bins = self.define_histogram_bins()
+		x_bins, y_bins = self.x_bins, self.y_bins
 
 		hist, x_edges, y_edges = np.histogram2d(plotting_reads['mid'], 
 			plotting_reads['length'], bins=[x_bins, y_bins])
@@ -152,7 +164,7 @@ class ChromatinGrid:
 
 	def plot_sample(self, ax1, ax2, sample, i):
 		
-		x_bins, y_bins = self.define_histogram_bins()
+		x_bins, y_bins = self.x_bins, self.y_bins
 
 		xlims = self.mnase_span
 		gene = self.gene
@@ -254,13 +266,19 @@ class ChromatinGrid:
 		self.deconv_hist = reshaped_hist
 
 
-	def create_deconvolution_plots_abbreviated(self, f, model, ax_rows):
+	def create_deconvolution_plots_abbreviated(self, ax_rows=None):
+
+		f = self.f
+
+		if ax_rows is None:
+			fig, ax_rows = plt.subplots(4, 6, figsize=(16, 6))
+			plt.subplots_adjust(hspace=0.5)
 
 		from src.model import color_for_key
 
 		shape = self.all_hists[0].shape
 		reshaped_f = f.reshape(-1, shape[0], shape[1])
-		phase_cols = model.config.phase_columns
+		phase_cols = self.config.phase_columns
 
 		phases = []
 		indices = []
@@ -278,14 +296,13 @@ class ChromatinGrid:
 			color = color_for_key(phase)
 			return color
 
-		x_bins, y_bins = self.define_histogram_bins()
+		x_bins, y_bins = self.x_bins, self.y_bins
 
 		plotting_index = 0
 		last_phase = None
 
 		row_titles = ["Recovery", "Mother G1", "Daughter G1", "Post G1"]
 		phase_keys = ['RG1', 'CG1', 'DG1', 'postG1']
-
 
 		# Plot for each deconvolved cell phase
 		for row in range(len(ax_rows)):
@@ -301,10 +318,10 @@ class ChromatinGrid:
 				if column == 0:
 					ax.set_ylabel(row_titles[row], rotation=0, ha='right')
 
-				self.plot_f_img(ax, model, f, phase, column, num_columns)
+				self.plot_f_img(ax, f, phase, column, num_columns)
 
 
-	def plot_f_img(self, ax, model, f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0):
+	def plot_f_img(self, ax, f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0):
 
 		is_crick = self.gene.strand == '-'
 
@@ -314,7 +331,7 @@ class ChromatinGrid:
 		# Get the index within the f matrix of the appropriate image
 		# by phase and column, num_columns signifies how many subsets of the phase
 		# we are going to plot, the other returned items are for logging and for the title
-		f_index, index, len_sub_f = self.f_index_for_column(model, phase, column, num_columns)
+		f_index, index, len_sub_f = self.f_index_for_column(phase, column, num_columns)
 		if show_title:
 			ax.set_title(f"{index+1}/{len_sub_f} ({(index/(len_sub_f-1))*100:.0f}%)", fontsize=9)
 
@@ -344,7 +361,7 @@ class ChromatinGrid:
 			ax.set_xlim(xlims[1], xlims[0])
 
 
-	def f_index_for_column(self, model, phase, column, columns):
+	def f_index_for_column(self, phase, column, columns):
 		"""If we are plotting only a subset of all of the images for a phase, we can
 		subdivide the number of f by some step determined by the number of columns.
 		
@@ -354,7 +371,7 @@ class ChromatinGrid:
 		Also note, that the indices in H (and f) have their own indices per phase so 
 		we will need to map into those values as well (phase_indices[phase_indices_index])
 		"""
-		phase_indices = model.config.phase_columns[phase]
+		phase_indices = self.config.phase_columns[phase]
 		phase_indices_index = len(phase_indices) / (columns-1) * column
 		phase_indices_index = round(phase_indices_index)
 		phase_indices_index = min(phase_indices_index, len(phase_indices)-1)
@@ -389,7 +406,7 @@ class ChromatinGrid:
 		fig, axs = plt.subplots(26, 10, figsize=(13, 9))
 		axs = np.array(axs).T.flatten()
 
-		x_bins, y_bins = self.define_histogram_bins()
+		x_bins, y_bins = self.x_bins, self.y_bins
 
 		plotting_index = 0
 		last_phase = None
@@ -428,11 +445,11 @@ class ChromatinGrid:
 		ax.axvline(self.computed_plus_one, c='black', lw=1, linestyle='dotted')
 		return im
 
-	def plot_prediction_comparison(self, model):
+	def plot_prediction_comparison(self):
 
-		f = model.f
+		f = self.f
 		times = self.times
-		predicted_g = np.matmul(model.H, f)
+		predicted_g = np.matmul(self.deconv_model.H, f)
 		shape = self.all_hists[0].shape
 
 		n = predicted_g.shape[0]
@@ -446,7 +463,7 @@ class ChromatinGrid:
 		pred_g_axs = axs[2]
 		comparison_axs = axs[3]
 
-		x_bins, y_bins = self.define_histogram_bins()
+		x_bins, y_bins = self.x_bins, self.y_bins
 
 		for i in range(n):
 			time = times[i]
@@ -502,11 +519,8 @@ class ChromatinGrid:
 
 		For the currently selected gene
 		"""
-
-		from cc_src.chromatin_metrics import yl_replicate_length_bins
-
-		ret = yl_replicate_length_bins()
-		small_lens, med_lens, nuc_lens = (ret[0], ret[1]), (ret[1], ret[2]), (ret[2], ret[3])
+		from cc_src.chromatin_metrics import yl_rep2_len_spans
+		small_lens, med_lens, nuc_lens = yl_rep2_len_spans()
 
 		# Next, we will align at the +1
 		# from the TSS, stack up all timepoints, then look up and dowstream (200 bp window) for the
@@ -585,3 +599,25 @@ class ChromatinGrid:
 		print(f"Saved to {ptr_save_path}...")
 		print(f"Saved to {meta_save_path}...")
 		sys.stdout.flush()
+
+
+	def deconvolve(self):
+		"""
+		Deconvolve the chromatin using the gene expression's deconvolution model class
+
+		Currently a lot of deconvolution parameters and configuration
+		are built into the Model class used for gene expression.
+
+		TODO: We will want to generalize those so that we can subclass or have a parent
+		class that the chromatin and gene expression can use separately
+		for now we will just instantiate this model class for use for the chromatin 
+		deconvolution.
+
+		We will try to not use the deconv_model object externally, such that it will be easier to 
+		refactor in the future
+		"""
+		from src.deconvolve_chromatin import deconvolve_chromatin
+		from src.model import Model
+
+		self.deconv_model = Model(self.config, self.gene_name, self.gamma)
+		self.f, self.rn, self.sn = deconvolve_chromatin(self.deconv_model, self.deconv_hist)

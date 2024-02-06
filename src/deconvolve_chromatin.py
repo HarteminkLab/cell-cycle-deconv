@@ -3,60 +3,6 @@ import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 import cvxpy as cp
-
-
-def load_yl_chromatin_data(orf_name):
-
-	# Load the chromatin data
-	prom_sm_occ = pd.read_csv('datasets/yl_rep2_occupancy_for_deconv_2023_10_06/'\
-							  'chrom_yl_rep2_prom_sm_occ.tsv', header=None,
-							  sep='\t')
-	orf_names = pd.read_csv('datasets/yl_rep2_occupancy_for_deconv_2023_10_06/orf_names.csv', 
-							header=None)[0].values
-	prom_sm_occ.index = orf_names
-
-	nuc_gb_occ = pd.read_csv('datasets/yl_rep2_occupancy_for_deconv_2023_10_06/'\
-							 'chrom_yl_rep2_gb_nuc_occ.tsv', header=None,
-							  sep='\t')
-	nuc_gb_occ.index = orf_names
-
-	# Load for the gene
-	prom_g = prom_sm_occ.loc[orf_name].values
-	nuc_g = nuc_gb_occ.loc[orf_name].values
-
-	# Stack the promoter small fragments and gene body nucleosomes
-	# into a matrix of dimension: (time x 2)
-	chromatin_g = np.stack([prom_g, nuc_g], axis=1)
-
-	# Drop the 110 timepoint (4th from the end). 
-	# TODO: I'm not sure if we still need to do this
-	# But the gene expression data has it dropped. We can come back to this later...
-	chromatin_g = np.concatenate([chromatin_g[:-4], chromatin_g[-3:]])
-
-	# print("The shape of the chromatin matrix, G is: ", chromatin_g.shape)
-
-	return chromatin_g
-
-
-def plot_deconvolved_chromatin(H, f, g):
-	# Plot the result
-	predicted_G = np.matmul(H, f)
-
-	# Thus, this simple example is resolved.
-	plt.figure(figsize=(6, 2))
-	plt.subplot(1, 2, 1)
-	plt.plot(predicted_G[:, 0])
-	plt.title("The raw data 1")
-	plt.plot(g[:, 0])
-	plt.title("The fit 1, H*f")
-
-	plt.subplot(1, 2, 2)
-	plt.plot(predicted_G[:, 1])
-	plt.title("The raw data 2")
-
-	plt.plot(g[:, 1])
-	plt.title("The fit 2, H*f")
-
 	
 
 def deconvolve_chromatin(model, g, allow_negative=False):
@@ -69,18 +15,16 @@ def deconvolve_chromatin(model, g, allow_negative=False):
 	So we may want to refactor to just have one method 
 	"""
 
-
 	# We will add a very small value to g, to avoid divide by zero errors
 	eps = 1e-5
 	g = g + eps
-
 
 	H = model.H
 	gamma = model.gamma
 	factor_fb = 1.5
 
-	# And we are trying to determine the best f (4x1) that
-	# minimizes Hxf / g - 1, (4x4) * (4x2) / (4x2) - 1
+	# f whose rows span the columns of H
+	# and columns are the length of g's columns
 	f = cp.Variable((H.shape[1], g.shape[1]))
 
 	from src.helpers import get_wavelet_kernel
@@ -121,10 +65,9 @@ def deconvolve_chromatin(model, g, allow_negative=False):
 	W1 = get_wavelet_kernel(len(f_it))
 	W2 = get_wavelet_kernel(len(f_b))
 
-	model.sn = (np.linalg.norm(np.matmul(W1, f.value[f_it]), 1) +
+	sn = (np.linalg.norm(np.matmul(W1, f.value[f_it]), 1) +
 	 np.linalg.norm(np.matmul(W2, f.value[f_b]), 1)) / np.mean(g)
 
-	model.rn = np.square(np.clip(np.linalg.norm(np.matmul(model.H, f.value) / g - 1), 0, None))
-	model.f = f.value
+	rn = np.square(np.clip(np.linalg.norm(np.matmul(model.H, f.value) / g - 1), 0, None))
 
-	return result, f.value
+	return f.value, rn, sn
