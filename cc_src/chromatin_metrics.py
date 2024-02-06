@@ -18,7 +18,7 @@ class ChromatinMetrics:
 		self.nucleosome_len_span = nucleosome_len_span
 		self.mid_frag_span = mid_frag_span
 		self.small_frag_span = small_frag_span
-		self.geneset = pd.read_csv('data/geneset_nondub_w_prom_genebodies.csv')\
+		self.geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv')\
 			.set_index('orf_name')
 		self.chroms = np.arange(1, 17)
 
@@ -151,7 +151,7 @@ class ChromatinMetrics:
 		
 		fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 4))
 		
-		from src.orf_plotter import ORFAnnotationPlotter, plot_rect
+		from cc_src.orf_plotter import ORFAnnotationPlotter, plot_rect
 
 		orf_plotter = ORFAnnotationPlotter(self.geneset)
 		orf_plotter.set_span_chrom(gene_window, 1)

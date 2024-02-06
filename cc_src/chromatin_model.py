@@ -618,6 +618,9 @@ class ChromatinModel:
 		"""
 		from src.deconvolve_chromatin import deconvolve_chromatin
 		from src.model import Model
+		from src.timer import Timer
 
+		timer = Timer()
 		self.deconv_model = Model(self.config, self.gene_name, self.gamma)
 		self.f, self.rn, self.sn = deconvolve_chromatin(self.deconv_model, self.deconv_hist)
+		print(f"Deconvolved in : {timer.get_time()}")
