@@ -273,31 +273,14 @@ class Config:
 		return genelist_orfs
 
 
-def load_yl_replicate2_rg1_chromatin_config():
-
-	alpha = 17
-
-	model_wt2_file = f'models/yl_cell_cycle/wt2_rg1.{alpha}.label'
-
-	# Time points
-	wt2_timepoints = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140]
-
-	# Ignore the wt1 data, because we will be using chromatin data in the deconvolve_chromatin.py file
-	# TODO: Refactor this to be able to load the data in one place or refactor by subclassing the config
-	# for gene expression and chromatin separately.
-	config = Config(wt1_timepoints=wt2_timepoints, model_wt1_file=model_wt2_file, 
-		name=f'Replicate 2, $\\alpha$={alpha}')
-
-	return config
-
-
 def load_yl_replicate1_rg1_chromatin_config():
 
 	alpha = 30
 
 	model_wt1_file = f'models/yl_cell_cycle/wt1_rg1.{alpha}.label'
 
-	# Time points
+	# Time points are needed for H, however with refactoring we may not need this
+	# and can use the read in MNase-seq reads to compute the timepoints
 	wt1_timepoints = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]
 
 	# Ignore the wt1 data, because we will be using chromatin data in the deconvolve_chromatin.py file
@@ -305,6 +288,25 @@ def load_yl_replicate1_rg1_chromatin_config():
 	# for gene expression and chromatin separately.
 	config = Config(wt1_timepoints=wt1_timepoints, model_wt1_file=model_wt1_file, 
 		name=f'Replicate 1, $\\alpha$={alpha}')
+
+	return config
+
+
+def load_yl_replicate2_rg1_chromatin_config():
+
+	alpha = 17
+
+	model_wt2_file = f'models/yl_cell_cycle/wt2_rg1.{alpha}.label'
+
+	# Time points are needed for H, however with refactoring we may not need this
+	# and can use the read in MNase-seq reads to compute the timepoints
+	wt2_timepoints = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140]
+
+	# Ignore the wt1 data, because we will be using chromatin data in the deconvolve_chromatin.py file
+	# TODO: Refactor this to be able to load the data in one place or refactor by subclassing the config
+	# for gene expression and chromatin separately.
+	config = Config(wt1_timepoints=wt2_timepoints, model_wt1_file=model_wt2_file, 
+		name=f'Replicate 2, $\\alpha$={alpha}')
 
 	return config
 
