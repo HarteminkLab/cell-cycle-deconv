@@ -86,20 +86,16 @@ class ChromatinGrid:
 		440 bp wide will be the gene body (including sitting on the +1 nucleosome)
 		"""
 
-		from cc_src.chromatin_metrics import yl_rep2_len_spans
+		from cc_src.chromatin_metrics import yl_replicate_length_bins
 
-		x_bin_size = 80
-		y_bin_size = 50
+		x_bin_size = 40
+		y_bin_size = 100
 
-		num_promoter_bins = 3
-		num_gb_bins = 5
+		num_promoter_bins = 6
+		num_gb_bins = 10
 		num_bins = num_promoter_bins+num_gb_bins+1 # Plus one, because we are centered on a bin
 
-		
-		# Defined by the fragment lengths we previously defined
-		small_lens, med_lens, nuc_lens = yl_rep2_len_spans()
-		y_bins = [small_lens[0], small_lens[1], nuc_lens[0], nuc_lens[1]]
-		
+		y_bins = yl_replicate_length_bins()
 		
 		# from the center we will 
 		center = self.computed_plus_one
@@ -507,9 +503,10 @@ class ChromatinGrid:
 		For the currently selected gene
 		"""
 
-		from cc_src.chromatin_metrics import yl_rep2_len_spans
+		from cc_src.chromatin_metrics import yl_replicate_length_bins
 
-		small_lens, med_lens, nuc_lens = yl_rep2_len_spans()
+		ret = yl_replicate_length_bins()
+		small_lens, med_lens, nuc_lens = (ret[0], ret[1]), (ret[1], ret[2]), (ret[2], ret[3])
 
 		# Next, we will align at the +1
 		# from the TSS, stack up all timepoints, then look up and dowstream (200 bp window) for the

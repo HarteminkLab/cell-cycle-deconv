@@ -364,6 +364,22 @@ def compute_entropy(flat_data):
 	return entropy
 
 
+
+def yl_replicate_length_bins_doubled():
+	"""Predifined bins for length fragments"""
+
+	return [
+		50, 100, 122, 145, 170, 195, 225
+	]
+
+def yl_replicate_length_bins():
+	"""Predifined bins for length fragments"""
+
+	return [
+		50, 100, 145, 195
+	]
+
+
 def yl_rep2_len_spans():
 	nucleosome_len_span=(145, 195)
 	mid_frag_span=(100, 145)
