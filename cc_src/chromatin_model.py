@@ -67,6 +67,10 @@ class ChromatinModel:
 
 		print("Done.")
 
+		# This will work for the single replicate model
+		timepoints = self.chr_reads['sample'].unique()
+		self.config.WT1_TIMEPOINTS = timepoints
+
 		self.create_binned_structures()
 
 
@@ -106,6 +110,7 @@ class ChromatinModel:
 		num_promoter_bins = 3
 		num_gb_bins = 5
 		num_bins = num_promoter_bins+num_gb_bins+1 # Plus one, because we are centered on a bin
+		self.num_bins = num_bins
 
 		y_bins = yl_replicate_length_bins()
 		
@@ -266,13 +271,18 @@ class ChromatinModel:
 		self.deconv_hist = reshaped_hist
 
 
-	def create_deconvolution_plots_abbreviated(self, ax_rows=None):
+	def create_deconvolution_plots_abbreviated(self, ax_rows=None, num_columns=5, ge_model=None):
 
 		f = self.f
 
 		if ax_rows is None:
-			fig, ax_rows = plt.subplots(4, 6, figsize=(16, 6))
-			plt.subplots_adjust(hspace=0.5)
+
+			# We will add to the last column the deconvolved gene expression
+			if ge_model is not None:
+				num_columns = num_columns+1
+
+			fig, ax_rows = plt.subplots(4, num_columns, figsize=(16, 8))
+			plt.subplots_adjust(hspace=0.5, top=0.72)
 
 		from src.model import color_for_key
 
@@ -301,14 +311,20 @@ class ChromatinModel:
 		plotting_index = 0
 		last_phase = None
 
-		row_titles = ["Recovery", "Mother G1", "Daughter G1", "Post G1"]
+		row_titles = ["Recovery G1", "Mother G1", "Daughter G1", "Post G1"]
 		phase_keys = ['RG1', 'CG1', 'DG1', 'postG1']
+
 
 		# Plot for each deconvolved cell phase
 		for row in range(len(ax_rows)):
 
 			phase_axs = ax_rows[row]
-			num_columns = len(phase_axs)
+
+			if ge_model is None:
+				num_columns = len(phase_axs)
+			else:
+				num_columns = len(phase_axs)-1
+
 			phase = phase_keys[row]
 
 			for column in range(num_columns):
@@ -316,9 +332,74 @@ class ChromatinModel:
 				ax = phase_axs[column]
 
 				if column == 0:
-					ax.set_ylabel(row_titles[row], rotation=0, ha='right')
+					ax.set_ylabel(row_titles[row], rotation=0, ha='right', fontsize=16, labelpad=10)
 
-				self.plot_f_img(ax, f, phase, column, num_columns)
+				self.plot_f_img(ax, f, phase, column, num_columns, show_title=False)
+
+				if row == 0:
+					ax.set_title(column+1, fontsize=16)
+
+
+		# Add some xtick and xtick labels to the first column last row
+		first_col_last_row = ax_rows[-1][0]
+
+		xticks = self.bin_extents[0], \
+				 self.computed_plus_one, \
+				 self.bin_extents[1]
+		xtick_labels = [str(x-self.computed_plus_one) for x in xticks]
+		xtick_labels[1] = 'TSS'
+		xtick_labels[2] = '+'+xtick_labels[2]
+
+		first_col_last_row.set_xticks(xticks)
+		first_col_last_row.set_xticklabels(xtick_labels)
+
+		# ---------------------
+
+		# If we have deconvolved gene expression, add it to the last column
+		if ge_model is not None:
+
+			from src.model import color_for_key
+
+			ge_f = ge_model.f
+			ge_f_diff = ge_f.max() - ge_f.min()
+			ylim = ge_f.min()-ge_f_diff*.1, ge_f.min()+ge_f_diff*1.3, 
+
+			for row in range(len(ax_rows)):
+
+				phase = phase_keys[row]
+				hindices = self.config.get_Hpositions_for_phase(phase)
+
+				# The last subplot in the row
+				ax = ax_rows[row][num_columns]
+				y = ge_f[hindices]
+				x = np.arange(len(y))
+				ax.fill_between(x, 0, y, color=color_for_key(phase))
+				ax.set_ylim(*ylim)
+				ax.set_xlim(x.min(), x.max())
+				ax.set_yticks([])
+
+
+				# Add some grid lines to help show where the chromatin images map to
+				xgridlines = np.linspace(0, x.max(), num_columns)
+				for xval in xgridlines:
+					ax.axvline(xval, c='black', alpha=0.15, lw=1, linestyle='solid')
+				ax.set_xticks([])
+
+				# This is in the for loop so we can get the grid lines as they
+				# will be different per row
+				if row == 0:
+					# Label the last column first row
+					ax.set_xticks(xgridlines)
+					ax.set_xticklabels([f"{i+1}" for i in np.arange(len(xgridlines))], fontsize=12)
+					ax.xaxis.set_tick_params(labeltop='on', labelbottom=False, 
+						top=False, bottom=False, pad=0)
+					ax.set_title("Deconvolved\ngene expression", fontsize=16, pad=10)
+
+		title = ("$\\it{" + self.gene_name + "}$ / $\\it{" + self.orf_name + "}$\n" +
+			    self.config.name + "\n" +
+				f"$\\gamma$={self.gamma:.4g}, rn={self.rn:.1f}, sn={self.sn:.1f}")
+
+		plt.suptitle(title, fontsize=32)
 
 
 	def plot_f_img(self, ax, f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0):
@@ -352,8 +433,8 @@ class ChromatinModel:
 		img = reshaped_f[f_index]
 		im = ax.imshow(img, origin='lower', cmap='magma_r', aspect='auto', vmax=500,
 			extent=self.bin_extents, zorder=1)
-		ax.plot([self.computed_plus_one, self.computed_plus_one], 
-				[bin_extents[2], bin_extents[3]], c='black', linestyle='solid', linewidth=5, alpha=1, zorder=0)
+		ax.axvline(self.computed_plus_one+40, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
+		ax.axvline(self.computed_plus_one-40, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
 
 		if is_crick:
 			# flip the xlims
@@ -624,3 +705,7 @@ class ChromatinModel:
 		self.deconv_model = Model(self.config, self.gene_name, self.gamma)
 		self.f, self.rn, self.sn = deconvolve_chromatin(self.deconv_model, self.deconv_hist)
 		print(f"Deconvolved in : {timer.get_time()}")
+
+		print(f"The fitting norm is {self.rn:.2f}, "
+		      f"the smoothing norm is: {self.sn:.2f}")
+

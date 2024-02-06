@@ -21,14 +21,9 @@ class Model:
 		g (list of float): Measured time series population data.
 	"""
 	
-	def __init__(self, config, gene_or_orfname, gamma=None):
+	def __init__(self, config, gene_or_orfname, gamma=0.0):
 
 		self.orf_name, self.gene_name = get_gene_name_orf_name(gene_or_orfname)
-
-		if gamma is None:
-			gammas = config.xg_gammas
-			gamma = gammas.loc[self.orf_name].gamma
-
 		self.config = config
 		self.gamma = gamma
 

@@ -246,6 +246,27 @@ class Config:
 		return branch_indices
 
 
+	def get_Hpositions_for_phase(self, phase):
+		"""
+		TODO: This is strictly for the RG1 model with hard-coded locations for each phase
+		in each branch. 
+
+		Refactor this if we start using other models. This method is used for plotting purposes.
+		"""
+
+		dg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[0][2]
+		postg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[1][2]
+		cg1_indices = self.get_timepoints_phases_Hpositions_for_branch('t')[0][2]
+		rg1_indices = self.get_timepoints_phases_Hpositions_for_branch('i')[0][2]
+
+		Hpositions_dic = {
+			'DG1': dg1_indices,
+			'postG1': postg1_indices,
+			'CG1': cg1_indices,
+			'RG1': rg1_indices,
+		}
+		return Hpositions_dic[phase]
+
 
 	def get_geneset_df(self):
 		"""
@@ -271,44 +292,6 @@ class Config:
 		genelist_orfs = genelist_orfs.join(genes).sort_values('data_idx')
 
 		return genelist_orfs
-
-
-def load_yl_replicate1_rg1_chromatin_config():
-
-	alpha = 30
-
-	model_wt1_file = f'models/yl_cell_cycle/wt1_rg1.{alpha}.label'
-
-	# Time points are needed for H, however with refactoring we may not need this
-	# and can use the read in MNase-seq reads to compute the timepoints
-	wt1_timepoints = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]
-
-	# Ignore the wt1 data, because we will be using chromatin data in the deconvolve_chromatin.py file
-	# TODO: Refactor this to be able to load the data in one place or refactor by subclassing the config
-	# for gene expression and chromatin separately.
-	config = Config(wt1_timepoints=wt1_timepoints, model_wt1_file=model_wt1_file, 
-		name=f'Replicate 1, $\\alpha$={alpha}')
-
-	return config
-
-
-def load_yl_replicate2_rg1_chromatin_config():
-
-	alpha = 17
-
-	model_wt2_file = f'models/yl_cell_cycle/wt2_rg1.{alpha}.label'
-
-	# Time points are needed for H, however with refactoring we may not need this
-	# and can use the read in MNase-seq reads to compute the timepoints
-	wt2_timepoints = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140]
-
-	# Ignore the wt1 data, because we will be using chromatin data in the deconvolve_chromatin.py file
-	# TODO: Refactor this to be able to load the data in one place or refactor by subclassing the config
-	# for gene expression and chromatin separately.
-	config = Config(wt1_timepoints=wt2_timepoints, model_wt1_file=model_wt2_file, 
-		name=f'Replicate 2, $\\alpha$={alpha}')
-
-	return config
 
 
 def read_yl_vst_data_rep(replicate):
