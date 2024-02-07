@@ -2,8 +2,8 @@
 import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
-import cvxpy as cp
-	
+import cvxpy
+
 
 def deconvolve_chromatin(model, g, allow_negative=False):
 	"""
@@ -25,7 +25,7 @@ def deconvolve_chromatin(model, g, allow_negative=False):
 
 	# f whose rows span the columns of H
 	# and columns are the length of g's columns
-	f = cp.Variable((H.shape[1], g.shape[1]))
+	f = cvxpy.Variable((H.shape[1], g.shape[1]))
 
 	from src.helpers import get_wavelet_kernel
 
@@ -44,9 +44,9 @@ def deconvolve_chromatin(model, g, allow_negative=False):
 						 np.concatenate((W2pad, np.fliplr(W2)))), axis=1)
 
 	# Add the wavelet smoothing constraint to the convex optimization
-	objective = cp.Minimize(cp.square(cp.pos(cp.norm(H@f/g - 1))) 
-		+ gamma * (cp.norm(W1@f[f_it_mirror], 1) 
-		+ factor_fb * cp.norm(W2@f[f_b_mirror], 1))/g.mean())
+	objective = cvxpy.Minimize(cvxpy.square(cvxpy.pos(cvxpy.norm(H@f/g - 1))) 
+		+ gamma * (cvxpy.norm(W1@f[f_it_mirror], 1) 
+		+ factor_fb * cvxpy.norm(W2@f[f_b_mirror], 1))/g.mean())
 
 	# Where f is non-negative
 	if allow_negative:
@@ -55,8 +55,8 @@ def deconvolve_chromatin(model, g, allow_negative=False):
 		constraints = [f >= 0]
 
 	# Perform the convex optimization
-	prob = cp.Problem(objective, constraints)
-	result = prob.solve(solver=cp.CLARABEL)
+	prob = cvxpy.Problem(objective, constraints)
+	result = prob.solve(solver=cvxpy.CLARABEL)
 
 	# ------- Compute the smoothing norm and fitting/residual norms --------------
 
@@ -66,8 +66,7 @@ def deconvolve_chromatin(model, g, allow_negative=False):
 	W2 = get_wavelet_kernel(len(f_b))
 
 	sn = (np.linalg.norm(np.matmul(W1, f.value[f_it]), 1) +
-	 np.linalg.norm(np.matmul(W2, f.value[f_b]), 1)) / np.mean(g)
-
+		np.linalg.norm(np.matmul(W2, f.value[f_b]), 1)) / np.mean(g)
 	rn = np.square(np.clip(np.linalg.norm(np.matmul(model.H, f.value) / g - 1), 0, None))
 
 	return f.value, rn, sn

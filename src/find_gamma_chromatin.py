@@ -25,6 +25,7 @@ class FindOptimalGammaChromatin:
 
 		# Gamma is being set in find optimal, so set it in the deconv_model as well
 		self.deconv_model.gamma = self.gamma
+		self.chromatin_model.gamma = self.gamma
 
 		# Perform the deconvolution with our deconvolve chromatin function
 		self.f, self.rn, self.sn = deconvolve_chromatin(self.deconv_model, self.chromatin_model.deconv_hist)
@@ -38,7 +39,8 @@ class FindOptimalGammaChromatin:
 		SMALL = 5e-5
 
 		# some settings
-		DEFAULT_RN_CUTOFF = 50
+		# The default rn cutoff is much higher, may be we should normalize by the size of the grid space
+		DEFAULT_RN_CUTOFF = 100
 		DEFAULT_GM = 0.004
 
 		# This was change from 0.001-0.1

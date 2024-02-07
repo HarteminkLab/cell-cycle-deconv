@@ -22,16 +22,14 @@ class ChromatinMetrics:
 			.set_index('orf_name')
 		self.chroms = np.arange(1, 17)
 
-	def read_bam_file(self, filename, sample_name):
-		self.sample_name = sample_name
-		self.mnase_reads = read_mnase_bam(filename, sample=sample_name, 
-			timer=self.timer, chroms=self.chroms)
-
-	def set_chrom(self, chrom):
-		chrom_reads = self.mnase_reads[self.mnase_reads['chr'] == chrom]
+	def set_chrom(self, chrom, replicate):
+		chrom_reads = pd.read_hdf(f'output/mnase/yl_rep{replicate}_mnase_reads/yl_rep{replicate}_mnase_reads_chr{chrom}.h5', 
+					'mnase_data')
 		chrom_genes = self.geneset[self.geneset['chr'] == chrom]
+
 		self.chrom_reads = chrom_reads
 		self.chrom_genes = chrom_genes
+
 
 	def plot_len_dist(self):
 
@@ -310,10 +308,11 @@ class ChromatinMetrics:
 		self.gene_counts = gene_counts
 		return gene_counts
 
-	def compute_length_hist(self):
-		mnase_reads = self.mnase_reads
-		mn_min, mn_max = mnase_reads['length'].min(), mnase_reads['length'].max()
-		print(f"The minimum length of reads is {mn_min}, the maximal length is {mn_max}.")
+	def compute_length_hist(self, sample, len_span=(0, 250)):
+		mnase_reads = self.chrom_reads
+		sample_reads = mnase_reads[mnase_reads['sample'] == sample]
+
+		mn_min, mn_max = len_span
 
 		# Add 2 because we want to include the last length count, and 1 more to create bins that:
 		# encompass the length read:
@@ -324,8 +323,10 @@ class ChromatinMetrics:
 
 		# Range add one to include last value, add one more to create bin edge greater than last value:
 		bins = np.arange(mn_min, mn_max+1+1)
-		counts, bins = np.histogram(mnase_reads['length'], bins=bins)
+		counts, bins = np.histogram(sample_reads['length'], bins=bins)
 		self.counts, self.bins = counts, bins
+
+		return bins[:-1], counts
 
 
 	def compute_partition_entropy(self, genome_span, len_span):
@@ -386,51 +387,119 @@ def yl_rep2_len_spans():
 	small_frag_span=(0, 100)
 	return small_frag_span, mid_frag_span, nucleosome_len_span
 
+
+def plot_len_counts(len_counts_df):
 	
+	small_frag_span, mid_frag_span, nucleosome_len_span = yl_rep2_len_spans()
+	len_counts_df = len_counts_df.copy().T
+	cmap = plt.get_cmap('viridis')
+	colors = [cmap(i/(len(len_counts_df))) for i in range(len(len_counts_df))]
+
+	for i in range(len(len_counts_df)):
+		row = len_counts_df.iloc[i]
+		plt.plot(row, color=colors[i], label=f"{row.name} min")
+		
+	plt.legend(ncol=2)
+	plt.xlim(30, 250)
+	
+	og_max_ylim = plt.ylim()[1]
+	og_ylim = -og_max_ylim*0.1, og_max_ylim
+
+	y = -og_max_ylim*0.025
+	plt.text(small_frag_span[1]//2+25, y, "Small\nfragments", ha='center', va='bottom',
+			 color='red', fontsize=12)
+	plt.text((mid_frag_span[1]+mid_frag_span[0])//2, y, "Mid\nlength\nfragments", 
+			 ha='center', va='bottom', 
+			 color='red', fontsize=12)
+	plt.text((nucleosome_len_span[1]+nucleosome_len_span[0])//2, y,
+			 "Nucleosome\nlength\nfragments", ha='center', va='bottom',
+			 color='red', fontsize=12)
+	plt.xlabel("Fragment length, nt")
+	plt.ylabel("Frequency")
+
+	plt.ylim(*og_ylim)
+	for len_spans in [small_frag_span, mid_frag_span, nucleosome_len_span]:
+		plt.axvline(len_spans[1], linestyle='dotted', c='red')
+
+
+def compute_scaling_matrix(tp_counts):
+	# Compute the minimum fragment occupancy for each length 
+	# (what time had the fewest number of reads for 
+	# a given fragment length)
+	len_counts_df = tp_counts.copy().T
+
+	min_counts_per_len = len_counts_df.min(axis=0)
+
+	# Then compute a scaling matrix, the factor in which we need to 
+	# multiply the lengths matrix in order for each timepoint to be equivalent 
+	# to this min counts vector
+	min_len_scaling_matrix = min_counts_per_len / len_counts_df
+	min_len_scaling_matrix = min_len_scaling_matrix.fillna(0)
+
+	return min_len_scaling_matrix.T
+
+
+def convert_scaling_matrix_to_len_bins(min_len_scaling_matrix):
+	
+	min_len_scaling_matrix = min_len_scaling_matrix.T
+	small_len, mid_len, nuc_len = yl_rep2_len_spans()
+	subset_scaling_mat = min_len_scaling_matrix[[]].copy()
+
+	def _add_subset_by_len(subset_scaling_mat, len_span):
+		subset_lens = min_len_scaling_matrix[np.arange(*len_span)]
+		subset_mean_scales = subset_lens.mean(axis=1)
+		subset_scaling_mat[str(len_span)] = subset_mean_scales
+		return subset_scaling_mat
+
+	_add_subset_by_len(subset_scaling_mat, small_len)
+	_add_subset_by_len(subset_scaling_mat, mid_len)
+	_add_subset_by_len(subset_scaling_mat, nuc_len)
+
+	return subset_scaling_mat
 def make_matrix_pvt_df(all_gene_chrom_occs, chrom_col_name):
-    # Make a pivot table (matrix) where the rows are each gene,
-    # the columns are the time points, and the values of each cell are one of the measures
-    pvt = all_gene_chrom_occs[[chrom_col_name]].reset_index().pivot_table(index='orf_name', 
-        columns='time', values=chrom_col_name)
-    return pvt
+	# Make a pivot table (matrix) where the rows are each gene,
+	# the columns are the time points, and the values of each cell are one of the measures
+	pvt = all_gene_chrom_occs[[chrom_col_name]].reset_index().pivot_table(index='orf_name', 
+		columns='time', values=chrom_col_name)
+	return pvt
 
 
 # Normalize the occupancy counts
 def normalize_length_dist_pvt(prom_sm_occ_pvt, scaling_counts_df):
-    """
-    Normalize the fragment counts using the precomputed per lengths scaling factors
-    """
-    prom_sm_occ_pvt_normed = prom_sm_occ_pvt.copy()
+	"""
+	Normalize the fragment counts using the precomputed per lengths scaling factors
+	"""
+	prom_sm_occ_pvt_normed = prom_sm_occ_pvt.copy()
 
-    # Select the specific span of lengths we want to scale
-    # For example if we want small fragments (0-100), we are going to retrieve these columns
-    # from the scaling matrix and take the average scaling value to apply to fragment 
-    # occupancy counts for small fragments for each time point
-    small_span = list(chromatin_metrics.small_frag_span)
-    small_span[0] = max(small_span[0], min(scaling_counts_df.columns))
+	# Select the specific span of lengths we want to scale
+	# For example if we want small fragments (0-100), we are going to retrieve these columns
+	# from the scaling matrix and take the average scaling value to apply to fragment 
+	# occupancy counts for small fragments for each time point
+	small_span = list(chromatin_metrics.small_frag_span)
+	small_span[0] = max(small_span[0], min(scaling_counts_df.columns))
 
-    # The scaling terms for each time point for given length spans
-    scaling_term_per_time = scaling_counts_df[range(small_span[0], 
-                                                    small_span[1])].mean(axis=1)
+	# The scaling terms for each time point for given length spans
+	scaling_term_per_time = scaling_counts_df[range(small_span[0], 
+													small_span[1])].mean(axis=1)
 
-    for gene in prom_sm_occ_pvt.index:
-        prom_sm_occ_pvt_normed.loc[gene] = prom_sm_occ_pvt.loc[gene] * \
-        scaling_term_per_time
+	for gene in prom_sm_occ_pvt.index:
+		prom_sm_occ_pvt_normed.loc[gene] = prom_sm_occ_pvt.loc[gene] * \
+		scaling_term_per_time
 
-    return prom_sm_occ_pvt_normed
+	return prom_sm_occ_pvt_normed
 
 
 def create_save_deconvolution_datasets(counts_df, key, save_filename):
 
-    # Now we need to make this formatted for how Matlab expects the input data to look
-    counts_df.to_csv(save_filename, sep='\t', index=False, 
-                                              header=False)
-    # A table with just the orf names, one per line
-    counts_df.reset_index()[['orf_name']].to_csv('output/orf_names.csv', 
-        index=False, header=False)
+	# Now we need to make this formatted for how Matlab expects the input data to look
+	counts_df.to_csv(save_filename, sep='\t', index=False, 
+											  header=False)
+	# A table with just the orf names, one per line
+	counts_df.reset_index()[['orf_name']].to_csv('output/orf_names.csv', 
+		index=False, header=False)
 
-    # And a list of the time points that we will put into the config file
-    counts_df.iloc[[]].to_csv('output/times.csv', index=False)
+	# And a list of the time points that we will put into the config file
+	counts_df.iloc[[]].to_csv('output/times.csv', index=False)
 
-    print(f"Saved {save_filename}")
+	print(f"Saved {save_filename}")
 

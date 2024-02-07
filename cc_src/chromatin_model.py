@@ -78,6 +78,39 @@ class ChromatinModel:
 		self.create_binned_structures()
 
 
+	def normalize_3len_bins_hist(self, scaling_mat):
+		"""
+		We will use a precomputed scaling matrix to ensure the histogram is similar
+		across the timepoints. This is a matrix that scales per the three predefined lengths
+
+		TODO: It's possible we will want to scale the mnase reads first, which would mean
+		we won't need this step.
+		"""
+
+		normalized_tps_hists = self.all_hists.copy()
+
+		for time in self.times:
+			tp_idx = np.where(self.times == time)[0][0]
+			tp_normalized_hist = self.normalize_3len_bins_hist_tp(scaling_mat, time)
+			normalized_tps_hists[tp_idx] = tp_normalized_hist
+
+		self.normalized_tps_hists = normalized_tps_hists
+
+
+	def normalize_3len_bins_hist_tp(self, scaling_mat, timepoint):
+		"""Scale the bins by timepoint"""
+		
+		tp_idx = np.where(self.times == timepoint)[0][0]
+		tp_hist = self.all_hists[tp_idx]
+		
+		tp_scaling = scaling_mat.loc[timepoint].values
+		tp_hist_normalized = tp_hist.copy()
+		for col in range(tp_hist_normalized.shape[1]):
+			tp_hist_normalized[:, col] = tp_hist[:, col]*tp_scaling
+
+		return tp_hist_normalized
+
+
 	def create_binned_structures(self):
 		"""Create binning structures from the loaded MNase data"""
 		self.define_histogram_bins()
@@ -277,7 +310,7 @@ class ChromatinModel:
 
 	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None):
 
-		f = self.f
+		f = self.f.copy()
 
 		if ax_cols is None:
 
@@ -343,7 +376,7 @@ class ChromatinModel:
 				# Our first row is for the gene expression, so +1
 				ax = phase_axs[row+1]
 
-				self.plot_f_img(ax, f, phase, row, num_rows, show_title=False)
+				self.plot_f_img(ax, f, phase, row, num_chromatin_rows, show_title=False)
 
 				if col == 0:
 					ax.set_ylabel(f"{row+1}", rotation=0, ha='right', labelpad=10, fontsize=16)
@@ -546,7 +579,8 @@ class ChromatinModel:
 		plt.suptitle(title, fontsize=32)
 
 
-	def plot_f_img(self, ax, f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0):
+	def plot_f_img(self, ax, f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0,
+		vmax=300):
 
 		is_crick = self.gene.strand == '-'
 
@@ -575,7 +609,7 @@ class ChromatinModel:
 
 		# Plot the deconvolved chromatin for the appropriate column
 		img = reshaped_f[f_index]
-		im = ax.imshow(img, origin='lower', cmap='magma_r', aspect='auto', vmax=500,
+		im = ax.imshow(img, origin='lower', cmap='magma_r', aspect='auto', vmax=vmax,
 			extent=self.bin_extents, zorder=1)
 		ax.axvline(self.computed_plus_one+40, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
 		ax.axvline(self.computed_plus_one-40, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
