@@ -271,6 +271,146 @@ class ChromatinModel:
 		self.deconv_hist = reshaped_hist
 
 
+	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None):
+
+		f = self.f
+
+		if ax_cols is None:
+
+			# We will add the first row as the deconvolved gene expression
+			if ge_model is not None:
+				num_rows = num_rows+1
+
+			fig, ax_cols = plt.subplots(num_rows, 4, figsize=(11, 8))
+			plt.subplots_adjust(hspace=0.5, top=0.72)
+
+		from src.model import color_for_key
+
+		shape = self.all_hists[0].shape
+		reshaped_f = f.reshape(-1, shape[0], shape[1])
+		phase_cols = self.config.phase_columns
+
+		phases = []
+		indices = []
+
+		for key, values in phase_cols.items():
+			phases = phases + [key] * len(values)
+			indices = indices + list(values)
+
+		phase_col_df = pd.DataFrame({'phase': phases, 'column': indices})
+		phase_col_df = phase_col_df.set_index('column')
+		phase_col_df.head()
+
+		def color_for_index(phase_col_df, index):
+			phase = phase_col_df.loc[index].phase
+			color = color_for_key(phase)
+			return color
+
+		x_bins, y_bins = self.x_bins, self.y_bins
+
+		plotting_index = 0
+		last_phase = None
+
+		column_titles = ["Recovery G1", "Mother G1", "Daughter G1", "Post G1"]
+		phase_keys = ['RG1', 'CG1', 'DG1', 'postG1']
+
+
+		# Flip
+		ax_cols = np.array(ax_cols).T
+
+		# Plot for each deconvolved cell phase
+		for index in range(len(ax_cols)):
+
+			col = index
+			phase_axs = ax_cols[col]
+
+			if ge_model is None:
+				num_chromatin_rows = len(phase_axs)
+			else:
+				num_chromatin_rows = len(phase_axs)-1
+
+			phase = phase_keys[col]
+
+			# Set the title as the phase
+			phase_axs[0].set_title(column_titles[col], fontsize=16)
+
+			for row in range(num_chromatin_rows):
+
+				# Our first row is for the gene expression, so +1
+				ax = phase_axs[row+1]
+
+				self.plot_f_img(ax, f, phase, row, num_rows, show_title=False)
+
+				if col == 0:
+					ax.set_ylabel(f"{row+1}", rotation=0, ha='right', labelpad=10, fontsize=16)
+
+
+		# Add some xtick and xtick labels to the first column last row
+		first_col_last_row = ax_cols[0][-1]
+
+		xticks = self.bin_extents[0], \
+				 self.computed_plus_one, \
+				 self.bin_extents[1]
+		xtick_labels = [str(x-self.computed_plus_one) for x in xticks]
+		xtick_labels[1] = 'TSS'
+		xtick_labels[2] = '+'+xtick_labels[2]
+
+		first_col_last_row.set_xticks(xticks)
+		first_col_last_row.set_xticklabels(xtick_labels)
+
+		# ---------------------
+
+		# If we have deconvolved gene expression, add it to the last column
+		if ge_model is not None:
+
+			from src.model import color_for_key
+
+			ge_f = ge_model.f
+			ge_f_diff = ge_f.max() - ge_f.min()
+			ylim = ge_f.min()-ge_f_diff*.1, ge_f.min()+ge_f_diff*1.3, 
+
+			for col in range(len(ax_cols)):
+
+				phase = phase_keys[col]
+				hindices = self.config.get_Hpositions_for_phase(phase)
+
+				# The last subplot in the row
+				ax = ax_cols[col][0]
+				y = ge_f[hindices]
+				x = np.arange(len(y))
+
+				ax.fill_between(x, 0, y, color=color_for_key(phase))
+				ax.set_ylim(*ylim)
+				ax.set_xlim(x.min(), x.max())
+				ax.set_yticks([])
+
+				# Add some grid lines to help show where the chromatin images map to
+				xgridlines = np.linspace(0, x.max(), num_chromatin_rows)
+				for xval in xgridlines:
+					ax.axvline(xval, c='black', alpha=0.15, lw=1, linestyle='solid')
+				ax.set_xticks([])
+
+				# This is in the for loop so we can get the grid lines as they
+				# will be different per row
+				# Label the last column first row
+				ax.set_xticks(xgridlines)
+				ax.set_xticklabels([f"{i+1}" for i in np.arange(len(xgridlines))], fontsize=9)
+				ax.xaxis.set_tick_params(pad=3, length=0)
+
+				if col == 0:
+					ax.set_ylabel("Deconvolved\ngene expression", fontsize=16, labelpad=10, 
+						ha='right', rotation=0, va='center')
+
+		title = ("$\\it{" + self.gene_name + "}$ / $\\it{" + self.orf_name + "}$\n" +
+			    self.config.name + "\n" +
+				f"$\\gamma$={self.gamma:.4g}, rn={self.rn:.1f}, sn={self.sn:.1f}")
+
+		# # TODO: change the second and third lines to be different font sizes like this example from 
+		# #   stack overflow
+		# #   plt.title(r'\fontsize{30pt}{3em}\selectfont{}{Mean WRFv3.5 LHF\r}{\fontsize{18pt}{3em}\selectfont{}(September 16 - October 30, 2012)}')
+
+		plt.suptitle(title, fontsize=28)
+
 	def create_deconvolution_plots_abbreviated(self, ax_rows=None, num_columns=5, ge_model=None):
 
 		f = self.f
@@ -398,6 +538,10 @@ class ChromatinModel:
 		title = ("$\\it{" + self.gene_name + "}$ / $\\it{" + self.orf_name + "}$\n" +
 			    self.config.name + "\n" +
 				f"$\\gamma$={self.gamma:.4g}, rn={self.rn:.1f}, sn={self.sn:.1f}")
+
+		# TODO: change the second and third lines to be different font sizes like this example from 
+		#   stack overflow
+		#   plt.title(r'\fontsize{30pt}{3em}\selectfont{}{Mean WRFv3.5 LHF\r}{\fontsize{18pt}{3em}\selectfont{}(September 16 - October 30, 2012)}')
 
 		plt.suptitle(title, fontsize=32)
 
