@@ -1,11 +1,15 @@
 
+import sys
 import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 
 from cc_src.sgd import get_gene_name_orf_name
 from cc_src.mnase_plotting import plot_mnase_density
-import sys
+
+from src.deconvolve_chromatin import deconvolve_chromatin
+from src.model import Model
+from src.timer import Timer
 
 
 class ChromatinModel:
@@ -282,7 +286,7 @@ class ChromatinModel:
 				num_rows = num_rows+1
 
 			fig, ax_cols = plt.subplots(num_rows, 4, figsize=(11, 8))
-			plt.subplots_adjust(hspace=0.5, top=0.72)
+			plt.subplots_adjust(hspace=0.5, top=0.77)
 
 		from src.model import color_for_key
 
@@ -398,18 +402,14 @@ class ChromatinModel:
 				ax.xaxis.set_tick_params(pad=3, length=0)
 
 				if col == 0:
-					ax.set_ylabel("Deconvolved\ngene expression", fontsize=16, labelpad=10, 
+					ax.set_ylabel("Expression", fontsize=16, labelpad=10, 
 						ha='right', rotation=0, va='center')
 
 		title = ("$\\it{" + self.gene_name + "}$ / $\\it{" + self.orf_name + "}$\n" +
-			    self.config.name + "\n" +
-				f"$\\gamma$={self.gamma:.4g}, rn={self.rn:.1f}, sn={self.sn:.1f}")
+				self.config.name + ", " +
+				f"$\\gamma$={self.gamma:.4g}\nrn={self.rn:.1f}, sn={self.sn:.1f}")
+		plt.suptitle(title, fontsize=24)
 
-		# # TODO: change the second and third lines to be different font sizes like this example from 
-		# #   stack overflow
-		# #   plt.title(r'\fontsize{30pt}{3em}\selectfont{}{Mean WRFv3.5 LHF\r}{\fontsize{18pt}{3em}\selectfont{}(September 16 - October 30, 2012)}')
-
-		plt.suptitle(title, fontsize=28)
 
 	def create_deconvolution_plots_abbreviated(self, ax_rows=None, num_columns=5, ge_model=None):
 
@@ -536,7 +536,7 @@ class ChromatinModel:
 					ax.set_title("Deconvolved\ngene expression", fontsize=16, pad=10)
 
 		title = ("$\\it{" + self.gene_name + "}$ / $\\it{" + self.orf_name + "}$\n" +
-			    self.config.name + "\n" +
+				self.config.name + "\n" +
 				f"$\\gamma$={self.gamma:.4g}, rn={self.rn:.1f}, sn={self.sn:.1f}")
 
 		# TODO: change the second and third lines to be different font sizes like this example from 
@@ -841,9 +841,6 @@ class ChromatinModel:
 		We will try to not use the deconv_model object externally, such that it will be easier to 
 		refactor in the future
 		"""
-		from src.deconvolve_chromatin import deconvolve_chromatin
-		from src.model import Model
-		from src.timer import Timer
 
 		timer = Timer()
 		self.deconv_model = Model(self.config, self.gene_name, self.gamma)
@@ -851,5 +848,20 @@ class ChromatinModel:
 		print(f"Deconvolved in : {timer.get_time()}")
 
 		print(f"The fitting norm is {self.rn:.2f}, "
-		      f"the smoothing norm is: {self.sn:.2f}")
+			  f"the smoothing norm is: {self.sn:.2f}")
+
+	def deconvolve_find_optimal(self):
+
+		from src.find_gamma_chromatin import FindOptimalGammaChromatin
+
+		timer = Timer()
+
+		self.deconv_model = Model(self.config, self.gene_name, self.gamma)
+		self.find_gamma_chromatin = FindOptimalGammaChromatin(self.deconv_model, self)
+		self.found_optimal_success = self.find_gamma_chromatin.find_optimal(silence=False)
+
+		print(f"Deconvolved in : {timer.get_time()}")
+
+		print(f"The fitting norm is {self.rn:.2f}, "
+			  f"the smoothing norm is: {self.sn:.2f}")
 
