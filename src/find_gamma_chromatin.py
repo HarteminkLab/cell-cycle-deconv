@@ -44,10 +44,9 @@ class FindOptimalGammaChromatin:
 		DEFAULT_GM = 0.004
 
 		# This was change from 0.001-0.1
-		# For the chromatin values for the 3x9, it appears that 0.1 may be too high of a smoothness
-		# value
-		GAMMA_MIN = 0.001
-		GAMMA_MAX = 0.1
+		# Lower values seem possible with the chromatin, so the min was dropped down to 0.0001
+		GAMMA_MIN = 0.0001
+		GAMMA_MAX = 0.01
 
 		# left boundary
 		rn_rate_left = 1.10

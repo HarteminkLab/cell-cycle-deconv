@@ -77,6 +77,14 @@ class ChromatinModel:
 
 		self.create_binned_structures()
 
+		# Applies the scaling normalization matrix and recreates the deconvolution histogram
+		# for deconvolution
+		norm_scaling_mat_filename = f'output/mnase/rep{replicate}_len_scaling_3len_bins.csv'
+		subset_scaling_mat = pd.read_csv(norm_scaling_mat_filename)
+		subset_scaling_mat = subset_scaling_mat.rename(columns={"Unnamed: 0": "time"}).set_index('time')
+		print(f'Applying normalization using scaling matrix: {norm_scaling_mat_filename}')
+		self.apply_normalization(subset_scaling_mat)
+
 
 	def normalize_3len_bins_hist(self, scaling_mat):
 		"""
@@ -301,8 +309,7 @@ class ChromatinModel:
 		# TODO: At least for now, as we have assumed we should drop this point as per 
 		# Yulong's analysis
 		# We probably don't need to do this anymore.
-		print("Now we have a data structure that we can try to deconvolve of shape:", 
-			  reshaped_hist.shape)
+		print("The shape of the unflattened grid to be deconvolved is:", reshaped_hist.shape)
 
 		# Reshape for deconvolution
 		self.deconv_hist = reshaped_hist
@@ -443,7 +450,7 @@ class ChromatinModel:
 
 		title = ("$\\it{" + self.gene_name + "}$ / $\\it{" + self.orf_name + "}$\n" +
 				self.config.name + ", " +
-				f"$\\gamma$={self.gamma:.4g}\nrn={self.rn:.2f}, sn={self.sn:.2f}")
+				f"$\\gamma$={self.gamma:.3f}\nrn={self.rn:.2f}, sn={self.sn:.2f}")
 		plt.suptitle(title, fontsize=24)
 
 

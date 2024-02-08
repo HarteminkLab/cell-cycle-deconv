@@ -23,9 +23,6 @@ def deconvolve_chromatin(model, g, allow_negative=False):
 	gamma = model.gamma
 	factor_fb = 1.5
 
-	# f whose rows span the columns of H
-	# and columns are the length of g's columns
-	f = cvxpy.Variable((H.shape[1], g.shape[1]))
 
 	from src.helpers import get_wavelet_kernel
 
@@ -49,25 +46,29 @@ def deconvolve_chromatin(model, g, allow_negative=False):
 
 	# -------- Define the optimization ------------
 
-	# The 
+	# f whose rows span the columns of H
+	# and columns are the length of g's columns
+	f = cvxpy.Variable((H.shape[1], g.shape[1]))
+
+	# The fitting constraint of HF / g
 	elementwise_result = cvxpy.multiply(H@f, 1.0/g) - 1
 
-
-	# W1 is a (u' x u') matrix
-	# and f[f_it] is (u' x m)
-
-	# So, we will need to do the same, l1 norm sum
-	# This may not require a change to the sn calculation
+	# The smoothing constraints
 	smooth_f_it_result = W1@f[f_it_mirror]
 	smooth_f_b_result = W2@f[f_b_mirror]
 
 	m = g.shape[1]
 
 	objective = cvxpy.Minimize(
+
+		# The objective is a series of column-wise optimization, compute the l2 norm of each
+		# and sum
 	    sum(
 	    	cvxpy.square(
 	    		cvxpy.norm(elementwise_result[:, column], 2)) for column in range(m)
     	)
+
+		# Like-wise, for smoothing compute the l1 norm along each column and compute the sum
 	 	+ gamma * (sum(cvxpy.norm(smooth_f_it_result[:, column], 1) for column in range(m)) 
 	 	+ factor_fb * sum(cvxpy.norm(smooth_f_b_result[:, column], 1) for column in range(m)))/g_mean
 	)

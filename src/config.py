@@ -306,6 +306,7 @@ def load_yl_replicate1_rg1_alpha_vst_config(alpha=30):
 	wt1 = read_yl_vst_data_rep(1)
 	model_wt1_file = f'models/yl_cell_cycle/wt1_rg1.{alpha}.label'
 	config = Config(wt1=wt1, model_wt1_file=model_wt1_file, name=f'Replicate 1, $\\alpha$={alpha}')
+
 	return config
 
 def load_yl_replicate2_rg1_alpha_vst_config(alpha=17):
