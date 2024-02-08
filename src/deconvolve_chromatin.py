@@ -37,16 +37,33 @@ def deconvolve_chromatin(model, g, allow_negative=False):
 	f_it_mirror = np.concatenate((f_it, np.flip(f_it)))
 	factor_fb = 1.5
 
+	# Add the wavelet smoothing constraint to the convex optimization
 	W1 = get_wavelet_kernel(len(f_it_mirror))
 	W2 = get_wavelet_kernel(len(f_b))
 	W2pad = np.zeros((len(f_b), len(f_b)))
 	W2 = np.concatenate((np.concatenate((W2, W2pad)), 
 						 np.concatenate((W2pad, np.fliplr(W2)))), axis=1)
 
-	# Add the wavelet smoothing constraint to the convex optimization
-	objective = cvxpy.Minimize(cvxpy.square(cvxpy.pos(cvxpy.norm(H@f/g - 1))) 
-		+ gamma * (cvxpy.norm(W1@f[f_it_mirror], 1) 
-		+ factor_fb * cvxpy.norm(W2@f[f_b_mirror], 1))/g.mean())
+	g_mean = g.mean()
+
+
+	# -------- Define the optimization ------------
+
+	# The 
+	elementwise_result = cvxpy.multiply(H@f, 1.0/g) - 1
+	smooth_f_it_result = W1@f[f_it_mirror]
+	smooth_f_b_result = W2@f[f_b_mirror]
+
+	m = g.shape[1]
+
+	objective = cvxpy.Minimize(
+	    sum(
+	    	cvxpy.square(
+	    		cvxpy.norm(elementwise_result[:, column], 2)) for column in range(m)
+    	)
+	 	+ gamma * (cvxpy.norm(smooth_f_it_result, 1) 
+	 	+ factor_fb * cvxpy.norm(smooth_f_b_result, 1))/g_mean
+	)
 
 	# Where f is non-negative
 	if allow_negative:
@@ -54,19 +71,27 @@ def deconvolve_chromatin(model, g, allow_negative=False):
 	else:
 		constraints = [f >= 0]
 
+	# -------- End definition of the optimization ------------
+
 	# Perform the convex optimization
 	prob = cvxpy.Problem(objective, constraints)
 	result = prob.solve(solver=cvxpy.CLARABEL)
 
 	# ------- Compute the smoothing norm and fitting/residual norms --------------
 
+	f = f.value
+
 	# We will use the non-mirrored wavelet kernel sizes, because we are operating on the 
 	# final f values
 	W1 = get_wavelet_kernel(len(f_it))
 	W2 = get_wavelet_kernel(len(f_b))
 
-	sn = (np.linalg.norm(np.matmul(W1, f.value[f_it]), 1) +
-		np.linalg.norm(np.matmul(W2, f.value[f_b]), 1)) / np.mean(g)
-	rn = np.square(np.clip(np.linalg.norm(np.matmul(model.H, f.value) / g - 1), 0, None))
+	sn = (np.linalg.norm(np.matmul(W1, f[f_it]), 1) +
+		np.linalg.norm(np.matmul(W2, f[f_b]), 1)) / g_mean
 
-	return f.value, rn, sn
+	# Take the column-wise l2 norm, then take the mean of these columns
+	# this should keep the fitting norm agnostic to the size of the grid
+	columnwise_l2 = np.square(np.linalg.norm(np.matmul(H, f) / g - 1, 2, axis=0))
+	rn = np.mean(columnwise_l2)
+
+	return f, rn, sn

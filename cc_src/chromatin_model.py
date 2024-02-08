@@ -443,7 +443,7 @@ class ChromatinModel:
 
 		title = ("$\\it{" + self.gene_name + "}$ / $\\it{" + self.orf_name + "}$\n" +
 				self.config.name + ", " +
-				f"$\\gamma$={self.gamma:.4g}\nrn={self.rn:.1f}, sn={self.sn:.1f}")
+				f"$\\gamma$={self.gamma:.4g}\nrn={self.rn:.2f}, sn={self.sn:.2f}")
 		plt.suptitle(title, fontsize=24)
 
 
