@@ -51,6 +51,13 @@ def deconvolve_chromatin(model, g, allow_negative=False):
 
 	# The 
 	elementwise_result = cvxpy.multiply(H@f, 1.0/g) - 1
+
+
+	# W1 is a (u' x u') matrix
+	# and f[f_it] is (u' x m)
+
+	# So, we will need to do the same, l1 norm sum
+	# This may not require a change to the sn calculation
 	smooth_f_it_result = W1@f[f_it_mirror]
 	smooth_f_b_result = W2@f[f_b_mirror]
 
@@ -61,8 +68,8 @@ def deconvolve_chromatin(model, g, allow_negative=False):
 	    	cvxpy.square(
 	    		cvxpy.norm(elementwise_result[:, column], 2)) for column in range(m)
     	)
-	 	+ gamma * (cvxpy.norm(smooth_f_it_result, 1) 
-	 	+ factor_fb * cvxpy.norm(smooth_f_b_result, 1))/g_mean
+	 	+ gamma * (sum(cvxpy.norm(smooth_f_it_result[:, column], 1) for column in range(m)) 
+	 	+ factor_fb * sum(cvxpy.norm(smooth_f_b_result[:, column], 1) for column in range(m)))/g_mean
 	)
 
 	# Where f is non-negative
@@ -86,12 +93,14 @@ def deconvolve_chromatin(model, g, allow_negative=False):
 	W1 = get_wavelet_kernel(len(f_it))
 	W2 = get_wavelet_kernel(len(f_b))
 
-	sn = (np.linalg.norm(np.matmul(W1, f[f_it]), 1) +
-		np.linalg.norm(np.matmul(W2, f[f_b]), 1)) / g_mean
-
 	# Take the column-wise l2 norm, then take the mean of these columns
 	# this should keep the fitting norm agnostic to the size of the grid
-	columnwise_l2 = np.square(np.linalg.norm(np.matmul(H, f) / g - 1, 2, axis=0))
-	rn = np.mean(columnwise_l2)
+	columnwise_rn_l2 = np.square(np.linalg.norm(np.matmul(H, f) / g - 1, 2, axis=0))
+	rn = np.mean(columnwise_rn_l2)
+
+	# Likewise, take the column-wise l1 norms of both smoothing constraints
+	# take the mean of the column-wise norms
+	sn = (np.linalg.norm(np.matmul(W1, f[f_it]), 1, axis=0).mean() +
+      factor_fb * np.linalg.norm(np.matmul(W2, f[f_b]), 1, axis=0).mean()) / g_mean
 
 	return f, rn, sn
