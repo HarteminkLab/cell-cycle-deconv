@@ -73,7 +73,7 @@ class ChromatinModel:
 
 		# This will work for the single replicate model
 		timepoints = self.chr_reads['sample'].unique()
-		self.config.WT1_TIMEPOINTS = timepoints
+		self.timepoints = timepoints
 
 		self.create_binned_structures()
 
@@ -374,7 +374,10 @@ class ChromatinModel:
 			for row in range(num_chromatin_rows):
 
 				# Our first row is for the gene expression, so +1
-				ax = phase_axs[row+1]
+				if ge_model is None:
+					ax = phase_axs[row]
+				else:
+					ax = phase_axs[row+1]
 
 				self.plot_f_img(ax, f, phase, row, num_chromatin_rows, show_title=False)
 
@@ -579,8 +582,18 @@ class ChromatinModel:
 		plt.suptitle(title, fontsize=32)
 
 
+	def apply_normalization(self, scaling_mat):
+
+		self.unnormalized_all_hists = self.all_hists.copy()
+		self.normalize_3len_bins_hist(scaling_mat)
+		self.all_hists = self.normalized_tps_hists
+
+		# Recreate the deconvolution matrix
+		self.create_deconvolution_matrices()
+
+
 	def plot_f_img(self, ax, f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0,
-		vmax=300):
+		vmax=100):
 
 		is_crick = self.gene.strand == '-'
 
@@ -740,17 +753,17 @@ class ChromatinModel:
 
 			g_ax = g_axs[i]
 			im = g_ax.imshow(self.all_hists[i], origin='lower', cmap='magma_r', 
-						   aspect='auto', vmax=300,
+						   aspect='auto', vmax=150,
 						   extent=self.bin_extents)
 			
 			pred_ax = pred_g_axs[i]
 			im = pred_ax.imshow(predicted_g_reshaped[i], origin='lower', cmap='magma_r', 
-						   aspect='auto', vmax=300,
+						   aspect='auto', vmax=150,
 						   extent=self.bin_extents)
 
 			comp_ax = comparison_axs[i]
 			im = comp_ax.imshow(predicted_g_reshaped[i]-self.all_hists[i], 
-							origin='lower', cmap='RdBu', aspect='auto', vmin=-300, vmax=300,
+							origin='lower', cmap='RdBu', aspect='auto', vmin=-100, vmax=100,
 							extent=self.bin_extents)
 			
 			raw_ax.set_ylabel(f"{time}'", fontsize=8)
@@ -860,9 +873,9 @@ class ChromatinModel:
 		sys.stdout.flush()
 
 
-	def deconvolve(self):
-		"""
-		Deconvolve the chromatin using the gene expression's deconvolution model class
+	def	setup_deconv_model(self):
+		"""Set up the deconvolution model from the config, the model class was originally for gene expression
+		but has built-in functions that will be useful for chromatin deconvolution
 
 		Currently a lot of deconvolution parameters and configuration
 		are built into the Model class used for gene expression.
@@ -875,9 +888,22 @@ class ChromatinModel:
 		We will try to not use the deconv_model object externally, such that it will be easier to 
 		refactor in the future
 		"""
+		from src.helpers import calcH
 
-		timer = Timer()
 		self.deconv_model = Model(self.config, self.gene_name, self.gamma)
+
+		# The config for MNase and RNA-seq have a different number of timepoints, so 
+		# we need to recalculate H with the chromatin number of timepoints
+		self.deconv_model.H, self.deconv_model.Hpos = calcH(self.config.intervals_wt1, self.timepoints)
+
+
+	def deconvolve(self):
+		"""
+		Deconvolve the chromatin for a single gamma value
+		"""
+		timer = Timer()
+		self.setup_deconv_model()
+
 		self.f, self.rn, self.sn = deconvolve_chromatin(self.deconv_model, self.deconv_hist)
 		print(f"Deconvolved in : {timer.get_time()}")
 
@@ -885,14 +911,22 @@ class ChromatinModel:
 			  f"the smoothing norm is: {self.sn:.2f}")
 
 	def deconvolve_find_optimal(self):
+		"""
+		Find the optimal gamma value
+		"""
 
 		from src.find_gamma_chromatin import FindOptimalGammaChromatin
 
 		timer = Timer()
 
-		self.deconv_model = Model(self.config, self.gene_name, self.gamma)
+		self.setup_deconv_model()
 		self.find_gamma_chromatin = FindOptimalGammaChromatin(self.deconv_model, self)
 		self.found_optimal_success = self.find_gamma_chromatin.find_optimal(silence=False)
+
+		# Set the solution results
+		self.f = self.find_gamma_chromatin.f
+		self.rn = self.find_gamma_chromatin.rn
+		self.sn = self.find_gamma_chromatin.sn
 
 		print(f"Deconvolved in : {timer.get_time()}")
 
