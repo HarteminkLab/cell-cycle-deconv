@@ -593,7 +593,7 @@ class ChromatinModel:
 
 
 	def plot_f_img(self, ax, f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0,
-		vmax=100):
+		vmax=200):
 
 		is_crick = self.gene.strand == '-'
 
