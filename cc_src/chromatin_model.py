@@ -930,7 +930,7 @@ class ChromatinModel:
 		print(f"The fitting norm is {self.rn:.2f}, "
 			  f"the smoothing norm is: {self.sn:.2f}")
 
-	def deconvolve_find_optimal(self):
+	def deconvolve_find_optimal_gamma(self):
 		"""
 		Find the optimal gamma value
 		"""
