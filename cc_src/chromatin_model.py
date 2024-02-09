@@ -33,7 +33,7 @@ class ChromatinModel:
 		self.padding = 1000
 		self.geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
 		self.config = config
-		self.gamma = 0.01
+		self.gamma = 0.001
 
 
 	def load_deconvolution_results(self, gene_name):
@@ -448,10 +448,15 @@ class ChromatinModel:
 					ax.set_ylabel("Expression", fontsize=16, labelpad=10, 
 						ha='right', rotation=0, va='center')
 
+		title = self.define_title()
+		plt.suptitle(title, fontsize=24)
+		return fig
+
+	def define_title(self):
 		title = ("$\\it{" + self.gene_name + "}$ / $\\it{" + self.orf_name + "}$\n" +
 				self.config.name + ", " +
 				f"$\\gamma$={self.gamma:.3f}\nrn={self.rn:.2f}, sn={self.sn:.2f}")
-		plt.suptitle(title, fontsize=24)
+		return title
 
 
 	def create_deconvolution_plots_abbreviated(self, ax_rows=None, num_columns=5, ge_model=None):
@@ -736,6 +741,8 @@ class ChromatinModel:
 		predicted_g_reshaped = predicted_g.reshape(n, shape[0], shape[1])
 
 		fig, axs = plt.subplots(n, 4, figsize=(7, 10))
+		plt.subplots_adjust(top=0.82)
+
 		axs = np.array(axs).T
 		raw_axs = axs[0]
 		g_axs = axs[1]
@@ -790,6 +797,12 @@ class ChromatinModel:
 		g_axs[0].set_title("Binned")
 		pred_g_axs[0].set_title("Predicted")
 		comparison_axs[0].set_title("Difference")
+
+		title = self.define_title()
+		plt.suptitle(title, fontsize=24)
+
+		return fig
+
 
 	def find_max_plusOne_pos(self):
 		"""
