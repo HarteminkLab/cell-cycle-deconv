@@ -6,12 +6,20 @@ import cvxpy
 
 
 def deconvolve_chromatin(model, g, allow_negative=False):
-	"""
-	Deconvolve the chromatin array
+	"""This method is for the single replicate models in which H is defined in the model.
+	The combined replicates model will have a custom H"""
+	return deconvolve_chromatin_H(model, model.gamma, model.H, g, allow_negative=allow_negative)
 
+
+def deconvolve_chromatin_H(model, H, g, allow_negative=False):
+	"""
+	Deconvolve the chromatin array. In the case of the combined replicates model, use the
+	combined H defined outside of this function.
+
+	For single replicate models, H is built-into the model so use the deconvolve_chromatin function.
 
 	TODO: this is nearly identical
-	to the Model.deconvolve() method.
+	to the gene expression Model.deconvolve() method.
 	So we may want to refactor to just have one method 
 	"""
 
@@ -19,10 +27,8 @@ def deconvolve_chromatin(model, g, allow_negative=False):
 	eps = 1e-5
 	g = g + eps
 
-	H = model.H
 	gamma = model.gamma
 	factor_fb = 1.5
-
 
 	from src.helpers import get_wavelet_kernel
 
