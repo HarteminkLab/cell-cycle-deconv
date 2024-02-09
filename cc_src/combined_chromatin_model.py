@@ -152,10 +152,10 @@ class CombinedChromatinModel:
 		"""Plot the resulting comparison between the raw and predicted data"""
 
 		if replicate == 1:
-			title = self.chrom1_model.define_title().replace("Combined", "Combined model, Rep.1")
+			title = self.chrom1_model.define_title().replace("Combined", "Combined-Rep.1")
 			fig = self.chrom1_model.plot_prediction_comparison(self.pred_G1, title)
 		else:
-			title = self.chrom1_model.define_title().replace("Combined", "Combined model, Rep.2")
+			title = self.chrom1_model.define_title().replace("Combined", "Combined-Rep.2")
 			fig = self.chrom2_model.plot_prediction_comparison(self.pred_G2, title)
 
 		return fig
