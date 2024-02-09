@@ -18,6 +18,7 @@ class CombinedChromatinModel:
 		# the combined model name is used.
 		# Config2 will not be used for plotting
 		config1.name = f"Combined, $\\alpha$={config1.alpha},{config2.alpha}"
+		config2.name = f"Combined, $\\alpha$={config1.alpha},{config2.alpha}"
 
 		self.chrom1_model = ChromatinModel(config1)
 		self.chrom2_model = ChromatinModel(config2)
@@ -75,18 +76,13 @@ class CombinedChromatinModel:
 		# these should be identical for both replicates
 		#
 		# Also the gamma value will be built-into this model
-		self.f, self.rn, self.sn = deconvolve_chromatin_H(self.deconv_model, self.H, self.G)
+		f, rn, sn = deconvolve_chromatin_H(self.deconv_model, self.H, self.G)
+		self.set_results(f, rn, sn, self.chrom1_model.gamma)
 
 		print(f"Deconvolved in : {timer.get_time()}")
 
 		print(f"The fitting norm is {self.rn:.2f}, "
 			  f"the smoothing norm is: {self.sn:.2f}")
-
-		# Set the f, rn, and sn from the results to the model
-		# We will not be using chrom2 model for plotting
-		self.chrom1_model.f = self.f
-		self.chrom1_model.rn = self.rn
-		self.chrom1_model.sn = self.sn
 
 
 	def deconvolve_find_optimal_gamma(self):
@@ -108,19 +104,58 @@ class CombinedChromatinModel:
 		self.find_gamma_chromatin = FindOptimalGammaChromatin(self.deconv_model, G=self.G)
 		self.found_optimal_success = self.find_gamma_chromatin.find_optimal(silence=False)
 
-		# Set the f, rn, and sn from the results to the model
-		# We will not be using chrom2 model for plotting
-		self.chrom1_model.f = self.f
-		self.chrom1_model.rn = self.rn
-		self.chrom1_model.sn = self.sn
+		self.set_results(self.find_gamma_chromatin.f, 
+			self.find_gamma_chromatin.rn, self.find_gamma_chromatin.sn, self.find_gamma_chromatin.gamma)
 
 		print(f"Deconvolved in : {timer.get_time()}")
 		print(f"The fitting norm is {self.chrom1_model.rn:.2f}, "
 			  f"the smoothing norm is: {self.chrom1_model.sn:.2f}")
 
 
-	def create_deconvolution_plots_abbreviated_flipped(self):
+	def set_results(self, f, rn, sn, gamma):
+		"""Following completion of deconvolution or find gamma deconvolution, we
+		will need to set the results to the appropriate fields.
+
+		TODO: This may need to be cleaned up but for now each of the chrom models
+		have plotting code individually, so we set the results in each of them
+		"""
+
+		self.f = f
+		self.rn = rn
+		self.sn = sn
+		self.gamma = gamma
+
+		self.chrom1_model.f = f
+		self.chrom1_model.rn = rn
+		self.chrom1_model.sn = sn
+		self.chrom1_model.gamma = gamma
+
+		self.chrom2_model.f = f
+		self.chrom2_model.rn = rn
+		self.chrom2_model.sn = sn
+		self.chrom2_model.gamma = gamma
+
+		# Set the f, rn, and sn from the results to the model
+		self.pred_G = np.matmul(self.H, f) 
+		tp1 = self.chrom1_model.timepoints
+		self.pred_G1 = self.pred_G[0:len(tp1)]
+		self.pred_G2 = self.pred_G[len(tp1):]
+
+
+	def create_deconvolution_plots_abbreviated_flipped(self, ge_model=None):
 		"""Create the deconvolution plot defined in chromatin_model.py
 		"""
-		fig = self.chrom1_model.create_deconvolution_plots_abbreviated_flipped()
+		fig = self.chrom1_model.create_deconvolution_plots_abbreviated_flipped(ge_model=ge_model)
+		return fig
+
+	def plot_raw_prediction(self, replicate):
+		"""Plot the resulting comparison between the raw and predicted data"""
+
+		if replicate == 1:
+			title = self.chrom1_model.define_title().replace("Combined", "Combined model, Rep.1")
+			fig = self.chrom1_model.plot_prediction_comparison(self.pred_G1, title)
+		else:
+			title = self.chrom1_model.define_title().replace("Combined", "Combined model, Rep.2")
+			fig = self.chrom2_model.plot_prediction_comparison(self.pred_G2, title)
+
 		return fig

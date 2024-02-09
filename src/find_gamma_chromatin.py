@@ -39,6 +39,7 @@ class FindOptimalGammaChromatin:
 
 
 	def find_optimal(self, silence=True):
+
 		self.timer = Timer()
 		if not silence:
 			print_fl('Running the find optimal gamma procedure...')

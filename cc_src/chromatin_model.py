@@ -729,11 +729,14 @@ class ChromatinModel:
 		ax.axvline(self.computed_plus_one, c='black', lw=1, linestyle='dotted')
 		return im
 
-	def plot_prediction_comparison(self):
+	def plot_prediction_comparison(self, predicted_g=None, title=None):
 
-		f = self.f
 		times = self.times
-		predicted_g = np.matmul(self.deconv_model.H, f)
+
+		if predicted_g is None:
+			f = self.f
+			predicted_g = np.matmul(self.deconv_model.H, f)
+
 		shape = self.all_hists[0].shape
 
 		n = predicted_g.shape[0]
@@ -798,7 +801,9 @@ class ChromatinModel:
 		pred_g_axs[0].set_title("Predicted")
 		comparison_axs[0].set_title("Difference")
 
-		title = self.define_title()
+		if title is None:
+			title = self.define_title()
+
 		plt.suptitle(title, fontsize=24)
 
 		return fig
