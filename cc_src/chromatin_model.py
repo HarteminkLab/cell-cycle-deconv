@@ -33,7 +33,7 @@ class ChromatinModel:
 		self.padding = 1000
 		self.geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
 		self.config = config
-		self.gamma = 0.001
+		self.gamma = 0.01
 
 
 	def load_deconvolution_results(self, gene_name):
@@ -412,9 +412,14 @@ class ChromatinModel:
 
 			from src.model import color_for_key
 
-			ge_f = ge_model.f
+			# f data minus the halted f
+			# TODO: How do we plot the halted data if it is off the chart?
+			# Do we keep the ylim names?
+			ge_f = ge_model.f[:-1]
 			ge_f_diff = ge_f.max() - ge_f.min()
-			ylim = ge_f.min()-ge_f_diff*.1, ge_f.min()+ge_f_diff*1.3, 
+			ylim = [ge_f.min()-ge_f_diff*.1, ge_f.min()+ge_f_diff*1.3]
+
+			ylim[0] = max(ylim[0], 0)
 
 			for col in range(len(ax_cols)):
 
@@ -427,9 +432,15 @@ class ChromatinModel:
 				x = np.arange(len(y))
 
 				ax.fill_between(x, 0, y, color=color_for_key(phase))
-				ax.set_ylim(*ylim)
 				ax.set_xlim(x.min(), x.max())
-				ax.set_yticks([])
+
+				ax.set_ylim(*ylim)
+
+				if col < len(ax_cols)-1:
+					ax.set_yticks([])
+				else:
+					ax.yaxis.tick_right()
+					ax.yaxis.set_tick_params(pad=3, length=3)
 
 				# Add some grid lines to help show where the chromatin images map to
 				xgridlines = np.linspace(0, x.max(), num_chromatin_rows)
@@ -788,13 +799,15 @@ class ChromatinModel:
 			for ax in [raw_ax, g_ax, pred_ax, comp_ax]:
 				ax.set_xticks([])
 				ax.set_yticks([])
-				ax.axvline(self.computed_plus_one, c='black', lw=1, linestyle='dashed')
 
+				# Identify the plus 1 location
+				ax.axvline(self.computed_plus_one+40, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
+				ax.axvline(self.computed_plus_one-40, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
 
-				#if model.gene.strand == '-':
-					# Flip the x-axis
-				#xlim = ax.get_xlim()
-				#ax.set_xlim(xlim[1], xlim[0])
+				if self.gene.strand == '-':
+					# flip the xlims
+					xlims = ax.get_xlim()
+					ax.set_xlim(xlims[1], xlims[0])
 
 		raw_axs[0].set_title("Raw")
 		g_axs[0].set_title("Binned")

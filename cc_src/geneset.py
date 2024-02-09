@@ -1,5 +1,20 @@
 
 
+def cyclin_genes():
+
+	genes = [
+		# three G1 cyclins:
+		'CLN1', 'CLN2', 'CLN3',
+
+		# Two S-phase cyclins:
+		'CLB5', 'CLB6',
+
+		# And four mitotic cyclins:
+		'CLB1', 'CLB2', 'CLB3', 'CLB4']
+
+	return genes
+
+
 def positive_control_genes():
 
 	genes = [
