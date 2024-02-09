@@ -10,10 +10,11 @@ class Config:
 
 	def __init__(self, wt1=None, wt2=None, wt1_timepoints=None, wt2_timepoints=None, 
 			model_wt1_file=None, model_wt2_file=None, name=None, model_wt1_lines=None,
-			model_wt2_lines=None, replicate=None):
+			model_wt2_lines=None, replicate=None, alpha=None):
 
 		self.name = name
 		self.replicate = replicate
+		self.alpha = alpha
 
 		# Replicate 1 configuration
 		if wt1 is not None:
@@ -306,7 +307,8 @@ def load_yl_replicate1_rg1_alpha_vst_config(alpha=30):
 	"""Load the model in which alpha is set to delay between separation and cytokinesis"""
 	wt1 = read_yl_vst_data_rep(1)
 	model_wt1_file = f'models/yl_cell_cycle/wt1_rg1.{alpha}.label'
-	config = Config(wt1=wt1, model_wt1_file=model_wt1_file, name=f'Replicate 1, $\\alpha$={alpha}', replicate=1)
+	config = Config(wt1=wt1, model_wt1_file=model_wt1_file, name=f'Replicate 1, $\\alpha$={alpha}', 
+		replicate=1, alpha=alpha)
 
 	return config
 
@@ -316,7 +318,8 @@ def load_yl_replicate2_rg1_alpha_vst_config(alpha=17):
 
 	# model file
 	model_wt2_file = f'models/yl_cell_cycle/wt2_rg1.{alpha}.label'
-	config = Config(wt1=wt2, model_wt1_file=model_wt2_file, name=f'Replicate 2, $\\alpha$={alpha}', replicate=1)
+	config = Config(wt1=wt2, model_wt1_file=model_wt2_file, name=f'Replicate 2, $\\alpha$={alpha}',
+		replicate=1, alpha=alpha)
 	return config
 
 

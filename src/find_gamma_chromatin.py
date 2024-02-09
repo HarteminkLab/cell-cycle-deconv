@@ -15,20 +15,27 @@ def print_fl(*args, **kwargs):
 
 class FindOptimalGammaChromatin:
 
-	def __init__(self, deconv_model, chromatin_model):
+	def __init__(self, deconv_model, chromatin_model=None, G=None):
 		self.chromatin_model = chromatin_model
 		self.deconv_model = deconv_model
 		self.gamma = deconv_model.gamma
 
+		if chromatin_model is None:
+			self.G = G
+		else:
+			self.G = chromatin_model.deconv_hist
 
 	def conv_optim(self):
 
 		# Gamma is being set in find optimal, so set it in the deconv_model as well
 		self.deconv_model.gamma = self.gamma
-		self.chromatin_model.gamma = self.gamma
+
+		if self.chromatin_model is not None:
+			self.chromatin_model.gamma = self.gamma
 
 		# Perform the deconvolution with our deconvolve chromatin function
-		self.f, self.rn, self.sn = deconvolve_chromatin(self.deconv_model, self.chromatin_model.deconv_hist)
+		self.f, self.rn, self.sn = deconvolve_chromatin(model=self.deconv_model, 
+			g=self.G)
 
 
 	def find_optimal(self, silence=True):

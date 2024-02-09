@@ -8,7 +8,7 @@ import cvxpy
 def deconvolve_chromatin(model, g, allow_negative=False):
 	"""This method is for the single replicate models in which H is defined in the model.
 	The combined replicates model will have a custom H"""
-	return deconvolve_chromatin_H(model, model.gamma, model.H, g, allow_negative=allow_negative)
+	return deconvolve_chromatin_H(model, model.H, g, allow_negative=allow_negative)
 
 
 def deconvolve_chromatin_H(model, H, g, allow_negative=False):
