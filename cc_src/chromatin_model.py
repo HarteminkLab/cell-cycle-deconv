@@ -309,7 +309,7 @@ class ChromatinModel:
 		# TODO: At least for now, as we have assumed we should drop this point as per 
 		# Yulong's analysis
 		# We probably don't need to do this anymore.
-		print("The shape of the unflattened grid to be deconvolved is:", reshaped_hist.shape)
+		print("The shape of the flattened grid to be deconvolved is:", reshaped_hist.shape)
 
 		# Reshape for deconvolution
 		self.deconv_hist = reshaped_hist
