@@ -173,12 +173,9 @@ class ChromatinModel:
 		self.y_bins = y_bins
 
 		
-	def compute_bin_counts_sample(self, sample):
+	def compute_bin_counts_sample(self, sample, x_bins, y_bins):
 
 		plotting_reads = self.gene_reads[self.gene_reads['sample'] == sample]
-
-		x_bins, y_bins = self.x_bins, self.y_bins
-
 		hist, x_edges, y_edges = np.histogram2d(plotting_reads['mid'], 
 			plotting_reads['length'], bins=[x_bins, y_bins])
 
@@ -190,10 +187,11 @@ class ChromatinModel:
 
 		self.all_plotting_reads = {}
 		self.all_hists = None
+		x_bins, y_bins = self.x_bins, self.y_bins
 
 		i = 0
 		for sample in samples:
-			plotting_reads, hist, x_edges, y_edges = self.compute_bin_counts_sample(sample)
+			plotting_reads, hist, x_edges, y_edges = self.compute_bin_counts_sample(sample, x_bins, y_bins)
 
 			# Tranpose so its easier to plot (matches columns and rows more intuitively)
 			hist = hist.T
@@ -827,7 +825,7 @@ class ChromatinModel:
 		return fig
 
 
-	def plot_prediction_comparison(self, predicted_g=None, title=None):
+	def plot_prediction_comparison(self, predicted_g=None, title=None, vmax=1):
 
 		times = self.times
 
@@ -859,25 +857,25 @@ class ChromatinModel:
 			xlims = self.mnase_span
 			gene = self.gene
 
-			plotting_reads = self.all_plotting_reads[time]
-			plot_mnase_density(raw_ax, plotting_reads)
+			# plotting_reads = self.all_plotting_reads[time]
+			# plot_mnase_density(raw_ax, plotting_reads)
 			raw_ax.set_xticks([])
 			raw_ax.set_yticks([])
 			raw_ax.set_xlim(x_bins[0], x_bins[-1])
 
 			g_ax = g_axs[i]
 			im = g_ax.imshow(self.all_hists[i], origin='lower', cmap='magma_r', 
-						   aspect='auto', vmax=150,
+						   aspect='auto', vmax=vmax,
 						   extent=self.bin_extents)
 			
 			pred_ax = pred_g_axs[i]
 			im = pred_ax.imshow(predicted_g_reshaped[i], origin='lower', cmap='magma_r', 
-						   aspect='auto', vmax=150,
+						   aspect='auto', vmax=vmax,
 						   extent=self.bin_extents)
 
 			comp_ax = comparison_axs[i]
 			im = comp_ax.imshow(predicted_g_reshaped[i]-self.all_hists[i], 
-							origin='lower', cmap='RdBu', aspect='auto', vmin=-100, vmax=100,
+							origin='lower', cmap='RdBu', aspect='auto', vmin=-vmax/2, vmax=vmax/2,
 							extent=self.bin_extents)
 			
 			raw_ax.set_ylabel(f"{time}'", fontsize=8)

@@ -21,7 +21,7 @@ def create_2d_gaussian_kernel(k_size=5, sigma=1, plot=False):
 
 	if plot:
 		plt.figure(figsize=(1, 1))
-		plt.imshow(g_kernel)
+		plt.imshow(g_kernel, extent=[x.min(), x.max(), y.min(), y.max()])
 
 	return g_kernel
 
