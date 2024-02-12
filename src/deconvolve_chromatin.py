@@ -85,7 +85,7 @@ def deconvolve_chromatin_H(model, H, g, allow_negative=False):
 
 	# Perform the convex optimization
 	prob = cvxpy.Problem(objective, constraints)
-	result = prob.solve(solver=cvxpy.CLARABEL)
+	result = prob.solve(solver=cvxpy.CLARABEL, warm_start=True)
 
 	# ------- Compute the smoothing norm and fitting/residual norms --------------
 
@@ -102,7 +102,7 @@ def deconvolve_chromatin_H(model, H, g, allow_negative=False):
 	# individual elements in the matrix result
 	# Normalize by the result by the size of the grid, m
 	matmul_res = np.matmul(H, f) / g - 1
-	rn = np.linalg.norm(matmul_res, ord='fro')**2 / m
+	rn = np.sum(matmul_res**2) / m # Equivalent to: np.linalg.norm(matmul_res, ord='fro')**2 / m
 
 	# Extending the smoothing term, is a little trickier
 	# There is no predefined name for the L1 norm type of
