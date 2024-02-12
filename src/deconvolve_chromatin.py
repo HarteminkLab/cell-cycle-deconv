@@ -67,16 +67,12 @@ def deconvolve_chromatin_H(model, H, g, allow_negative=False):
 
 	objective = cvxpy.Minimize(
 
-		# The objective is a series of column-wise optimization, compute the l2 norm of each
-		# and sum
-	    sum(
-	    	cvxpy.square(
-	    		cvxpy.norm(elementwise_result[:, column], 2)) for column in range(m)
-    	)
+		# Compute the sum of squares on the result
+		cvxpy.sum_squares(elementwise_result)
 
 		# Like-wise, for smoothing compute the l1 norm along each column and compute the sum
-	 	+ gamma * (sum(cvxpy.norm(smooth_f_it_result[:, column], 1) for column in range(m)) 
-	 	+ factor_fb * sum(cvxpy.norm(smooth_f_b_result[:, column], 1) for column in range(m)))/g_mean
+		+ gamma * (cvxpy.sum(cvxpy.abs(smooth_f_it_result)) 
+		+ factor_fb * cvxpy.sum(cvxpy.abs(smooth_f_b_result)))/g_mean
 	)
 
 	# Where f is non-negative
@@ -100,14 +96,22 @@ def deconvolve_chromatin_H(model, H, g, allow_negative=False):
 	W1 = get_wavelet_kernel(len(f_it))
 	W2 = get_wavelet_kernel(len(f_b))
 
-	# Take the column-wise l2 norm, then take the mean of these columns
-	# this should keep the fitting norm agnostic to the size of the grid
-	columnwise_rn_l2 = np.square(np.linalg.norm(np.matmul(H, f) / g - 1, 2, axis=0))
-	rn = np.mean(columnwise_rn_l2)
+	# Extending the deconvolution a matrix form, 
+	# The norm is computing us the Frobeius norm
+	# Which is equivalent to the sum of squares of the
+	# individual elements in the matrix result
+	# Normalize by the result by the size of the grid, m
+	matmul_res = np.matmul(H, f) / g - 1
+	rn = np.linalg.norm(matmul_res, ord='fro')**2 / m
 
-	# Likewise, take the column-wise l1 norms of both smoothing constraints
-	# take the mean of the column-wise norms
-	sn = (np.linalg.norm(np.matmul(W1, f[f_it]), 1, axis=0).mean() +
-      factor_fb * np.linalg.norm(np.matmul(W2, f[f_b]), 1, axis=0).mean()) / g_mean
+	# Extending the smoothing term, is a little trickier
+	# There is no predefined name for the L1 norm type of
+	# computation on a matrix, so we manually take the absolute values
+	# and take the sum.
+	# Normalize by the gene expression level and the size of the grid, m
+	f_it_matmul_res = np.matmul(W1, f[f_it])
+	f_b_matmul_res = np.matmul(W2, f[f_b])
+	sn = (np.sum(np.abs(f_it_matmul_res)) + 
+		factor_fb * (np.sum(np.abs(f_b_matmul_res)))) / g_mean / m
 
 	return f, rn, sn
