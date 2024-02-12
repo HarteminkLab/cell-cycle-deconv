@@ -5,13 +5,14 @@ from matplotlib import pyplot as plt
 import cvxpy
 
 
-def deconvolve_chromatin(model, g, allow_negative=False):
+def deconvolve_chromatin(model, g, allow_negative=False, solver=cvxpy.CLARABEL, verbose=False):
 	"""This method is for the single replicate models in which H is defined in the model.
 	The combined replicates model will have a custom H"""
-	return deconvolve_chromatin_H(model, model.H, g, allow_negative=allow_negative)
+	return deconvolve_chromatin_H(model, model.H, g, solver=solver, verbose=verbose, allow_negative=allow_negative)
 
 
-def deconvolve_chromatin_H(model, H, g, allow_negative=False):
+def deconvolve_chromatin_H(model, H, g, allow_negative=False,
+		solver=cvxpy.CLARABEL, verbose=False):
 	"""
 	Deconvolve the chromatin array. In the case of the combined replicates model, use the
 	combined H defined outside of this function.
@@ -85,7 +86,9 @@ def deconvolve_chromatin_H(model, H, g, allow_negative=False):
 
 	# Perform the convex optimization
 	prob = cvxpy.Problem(objective, constraints)
-	result = prob.solve(solver=cvxpy.CLARABEL, warm_start=True)
+
+	# The epsilon value affects the precision of the solver
+	result = prob.solve(solver=solver, warm_start=True, verbose=verbose, eps=1e-4)
 
 	# ------- Compute the smoothing norm and fitting/residual norms --------------
 

@@ -1,4 +1,5 @@
 
+import cvxpy
 import sys
 import pandas as pd
 import numpy as np
@@ -126,7 +127,7 @@ class ChromatinModel:
 		self.create_deconvolution_matrices(False)
 
 
-	def define_histogram_bins(self):
+	def define_histogram_bins(self, x_bin_size=80, num_promoter_bins=3, num_gb_bins=5, y_bins=None):
 		"""
 		Here, we will define the genomic bin positions as centered around the
 		computed plus one location. Where we will want one bin. Then, 
@@ -149,15 +150,11 @@ class ChromatinModel:
 
 		from cc_src.chromatin_metrics import yl_replicate_length_bins
 
-		x_bin_size = 80
-		y_bin_size = 100
-
-		num_promoter_bins = 3
-		num_gb_bins = 5
 		num_bins = num_promoter_bins+num_gb_bins+1 # Plus one, because we are centered on a bin
 		self.num_bins = num_bins
 
-		y_bins = yl_replicate_length_bins()
+		if y_bins is None:
+			y_bins = yl_replicate_length_bins()
 		
 		# from the center we will 
 		center = self.computed_plus_one
@@ -292,15 +289,17 @@ class ChromatinModel:
 			print("Then, if we were to take that first vector and restore it to its original shape:", 
 				  restored_hist.shape)
 
+			plt.figure(figsize=(5, 0.5))
+
 			plt.subplot(1, 2, 1)
-			plt.imshow(self.all_hists[0], origin='lower', cmap='magma_r')
+			plt.imshow(self.all_hists[0], origin='lower', cmap='magma_r', aspect='auto')
 			plt.title("Original first histogram")
 			plt.xticks([])
 			plt.yticks([])
 
 
 			plt.subplot(1, 2, 2)
-			plt.imshow(restored_hist, origin='lower', cmap='magma_r')
+			plt.imshow(restored_hist, origin='lower', cmap='magma_r', aspect='auto')
 			plt.title("Restored histogram after flattening")
 			plt.xticks([])
 			plt.yticks([])
@@ -315,7 +314,7 @@ class ChromatinModel:
 		self.deconv_hist = reshaped_hist
 
 
-	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None):
+	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, vmax=200):
 
 		f = self.f.copy()
 
@@ -386,7 +385,7 @@ class ChromatinModel:
 				else:
 					ax = phase_axs[row+1]
 
-				self.plot_f_img(ax, f, phase, row, num_chromatin_rows, show_title=False)
+				self.plot_f_img(ax, f, phase, row, num_chromatin_rows, show_title=False, vmax=vmax)
 
 				if col == 0:
 					ax.set_ylabel(f"{row+1}", rotation=0, ha='right', labelpad=10, fontsize=16)
@@ -740,6 +739,94 @@ class ChromatinModel:
 		ax.axvline(self.computed_plus_one, c='black', lw=1, linestyle='dotted')
 		return im
 
+
+	def smooth_bins(self):
+
+		from src.preprocessing import create_2d_gaussian_kernel
+		g_kernel = create_2d_gaussian_kernel(k_size=5, sigma=1.5, plot=False)
+
+		from scipy.signal import convolve2d
+
+		n = self.all_hists.shape[0]
+		smoothed_hists = self.all_hists.copy()
+
+		for i in range(n):
+			chrom_img = self.all_hists[i]
+			smoothed_img = convolve2d(chrom_img, g_kernel, mode='same')
+			smoothed_hists[i] = smoothed_img
+
+		self.smoothed_hists = smoothed_hists
+
+		# Store the old hists, and set the updated
+		self.unsmoothed_all_hists = self.all_hists.copy()
+		self.all_hists = smoothed_hists
+
+
+	def plot_raw_bins(self, vmax=50):
+
+		times = self.times
+
+		shape = self.all_hists[0].shape
+		n = self.all_hists.shape[0]
+
+		fig, axs = plt.subplots(n, 3, figsize=(5, 10))
+		plt.subplots_adjust(top=0.82)
+
+		axs = np.array(axs).T
+		raw_axs = axs[0]
+		g_axs = axs[1]
+		smooth_axs = axs[2]
+
+		x_bins, y_bins = self.x_bins, self.y_bins
+
+		for i in range(n):
+			time = times[i]
+
+			g_ax = g_axs[i]
+			raw_ax = raw_axs[i]
+			smooth_ax = smooth_axs[i]
+
+			xlims = self.mnase_span
+			gene = self.gene
+
+			plotting_reads = self.all_plotting_reads[time]
+			plot_mnase_density(raw_ax, plotting_reads)
+			raw_ax.set_xticks([])
+			raw_ax.set_yticks([])
+			raw_ax.set_xlim(x_bins[0], x_bins[-1])
+
+			im = g_ax.imshow(self.unsmoothed_all_hists[i], origin='lower', cmap='magma_r', 
+						   aspect='auto', vmax=vmax,
+						   extent=self.bin_extents)
+
+			im = smooth_ax.imshow(self.smoothed_hists[i], origin='lower', cmap='magma_r', 
+						   aspect='auto', vmax=vmax,
+						   extent=self.bin_extents)
+			
+			raw_ax.set_ylabel(f"{time}'", fontsize=8)
+
+			for ax in [raw_ax, g_ax, smooth_ax]:
+				ax.set_xticks([])
+				ax.set_yticks([])
+
+				# Identify the plus 1 location
+				ax.axvline(self.computed_plus_one+40, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
+				ax.axvline(self.computed_plus_one-40, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
+
+				if self.gene.strand == '-':
+					# flip the xlims
+					xlims = ax.get_xlim()
+					ax.set_xlim(xlims[1], xlims[0])
+
+		raw_axs[0].set_title("Raw")
+		g_axs[0].set_title("Binned")
+
+		# title = f"{self.gene['name']}"
+		# plt.suptitle(title, fontsize=24)
+
+		return fig
+
+
 	def plot_prediction_comparison(self, predicted_g=None, title=None):
 
 		times = self.times
@@ -749,8 +836,7 @@ class ChromatinModel:
 			predicted_g = np.matmul(self.deconv_model.H, f)
 
 		shape = self.all_hists[0].shape
-
-		n = predicted_g.shape[0]
+		n = self.all_hists.shape[0]
 
 		predicted_g_reshaped = predicted_g.reshape(n, shape[0], shape[1])
 
@@ -935,14 +1021,16 @@ class ChromatinModel:
 		self.deconv_model.H, self.deconv_model.Hpos = calcH(self.config.intervals_wt1, self.timepoints)
 
 
-	def deconvolve(self):
+	def deconvolve(self, solver=cvxpy.CLARABEL, verbose=False):
 		"""
 		Deconvolve the chromatin for a single gamma value
 		"""
 		timer = Timer()
 		self.setup_deconv_model()
 
-		self.f, self.rn, self.sn = deconvolve_chromatin(self.deconv_model, self.deconv_hist)
+		self.f, self.rn, self.sn = deconvolve_chromatin(self.deconv_model, self.deconv_hist, solver=solver, 
+			verbose=verbose)
+
 		print(f"Deconvolved in : {timer.get_time()}")
 
 		print(f"The fitting norm is {self.rn:.2f}, "
