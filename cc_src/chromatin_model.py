@@ -76,94 +76,6 @@ class ChromatinModel:
 		timepoints = self.chr_reads['sample'].unique()
 		self.timepoints = timepoints
 
-		# TO DO: Bin, blur, normalize, bin-lower resolution
-
-
-	def normalize_3len_bins_hist(self, scaling_mat):
-		"""
-		We will use a precomputed scaling matrix to ensure the histogram is similar
-		across the timepoints. This is a matrix that scales per the three predefined lengths
-
-		TODO: It's possible we will want to scale the mnase reads first, which would mean
-		we won't need this step.
-		"""
-
-		normalized_tps_hists = self.all_hists.copy()
-
-		for time in self.times:
-			tp_idx = np.where(self.times == time)[0][0]
-			tp_normalized_hist = self.normalize_3len_bins_hist_tp(scaling_mat, time)
-			normalized_tps_hists[tp_idx] = tp_normalized_hist
-
-		self.normalized_tps_hists = normalized_tps_hists
-
-
-	def normalize_3len_bins_hist_tp(self, scaling_mat, timepoint):
-		"""Scale the bins by timepoint"""
-		
-		tp_idx = np.where(self.times == timepoint)[0][0]
-		tp_hist = self.all_hists[tp_idx]
-		
-		tp_scaling = scaling_mat.loc[timepoint].values
-		tp_hist_normalized = tp_hist.copy()
-		for col in range(tp_hist_normalized.shape[1]):
-			tp_hist_normalized[:, col] = tp_hist[:, col]*tp_scaling
-
-		return tp_hist_normalized
-
-
-	def create_binned_structures(self):
-		"""Create binning structures from the loaded MNase data"""
-		self.define_histogram_bins()
-		self.create_bins_per_all_sample()
-		self.create_deconvolution_matrices(False)
-
-
-	def define_histogram_bins(self, x_bin_size=80, num_promoter_bins=3, num_gb_bins=5, y_bins=None):
-		"""
-		Here, we will define the genomic bin positions as centered around the
-		computed plus one location. Where we will want one bin. Then, 
-
-		Define the promoter as apporximately 300 bp (3 bins backwards)
-		But also take into account half a bin width, since we are centering a 
-		bin on the +1 nucleosome.
-
-		3 * 80 = 240
-		+40 (the half bin from the center)
-		280 bp will be the promoter region
-
-		And the gene body as 5 bins forward:
-		5 bins forward, 
-		5 * 80 = 400
-		+ 40
-
-		440 bp wide will be the gene body (including sitting on the +1 nucleosome)
-		"""
-
-		from cc_src.chromatin_metrics import yl_replicate_length_bins
-
-		num_bins = num_promoter_bins+num_gb_bins+1 # Plus one, because we are centered on a bin
-		self.num_bins = num_bins
-
-		if y_bins is None:
-			y_bins = yl_replicate_length_bins()
-		
-		# from the center we will 
-		center = self.computed_plus_one
-
-		if self.gene.strand == "+":
-			x_start = center - x_bin_size//2 - num_promoter_bins*x_bin_size
-			x_end = x_start+num_bins*x_bin_size
-		else:
-			x_start = center - x_bin_size//2 - num_gb_bins*x_bin_size
-			x_end = x_start+num_bins*x_bin_size
-
-		x_bins = np.arange(x_start, x_end+x_bin_size, x_bin_size)
-
-		self.bin_extents = [x_bins[0], x_bins[-1], 0, 225]
-		self.x_bins = x_bins
-		self.y_bins = y_bins
-
 		
 	def compute_bin_counts_sample(self, sample, x_bins, y_bins):
 
@@ -172,136 +84,6 @@ class ChromatinModel:
 			plotting_reads['length'], bins=[x_bins, y_bins])
 
 		return plotting_reads, hist, x_edges, y_edges
-
-	def create_bins_per_all_sample(self):
-
-		samples = self.times
-
-		self.all_plotting_reads = {}
-		self.all_hists = None
-		x_bins, y_bins = self.x_bins, self.y_bins
-
-		i = 0
-		for sample in samples:
-			plotting_reads, hist, x_edges, y_edges = self.compute_bin_counts_sample(sample, x_bins, y_bins)
-
-			# Tranpose so its easier to plot (matches columns and rows more intuitively)
-			hist = hist.T
-
-
-			if self.all_hists is None:
-				self.all_hists = np.zeros((len(samples), hist.shape[0], hist.shape[1]))
-
-			self.all_plotting_reads[sample] = plotting_reads
-			self.all_hists[i] = hist
-			i += 1
-
-		print(f"The histogram shape around the TSS is:", 
-			hist.shape)
-
-	def plot_sample(self, ax1, ax2, sample, i):
-		
-		x_bins, y_bins = self.x_bins, self.y_bins
-
-		xlims = self.mnase_span
-		gene = self.gene
-
-		plotting_reads = self.all_plotting_reads[sample]
-		hist = self.all_hists[i]
-
-		plot_mnase_density(ax1, plotting_reads)
-		ax1.set_xticks([])
-
-		# This is the plot of the grid, so the extents are inset
-		ax2.imshow(hist, origin='lower', aspect='auto', cmap='magma_r',
-			extent=self.bin_extents)
-
-		center = self.computed_plus_one
-
-		for x in x_bins:
-			ax1.axvline(x, c='red', lw=1, alpha=0.5)
-
-		for y in y_bins:
-			ax1.axhline(y, c='red', lw=1, alpha=0.5)
-
-		for ax in [ax1, ax2]:
-			xticks = np.arange(center-1000, center+1500, 500)
-			xtick_labels = ['-1000', '-500', '+1 pos.', '500', '1000']
-
-			ax.set_xticks(xticks)
-			ax.set_xticklabels(xtick_labels)
-			ax.axvline(self.computed_plus_one, c='black')
-			ax.set_ylim(0, 225)
-
-		ax1.set_xlim(*xlims)
-		ax2.set_xlim(*xlims)
-
-
-	def plot_raw_and_grid(self):
-
-		times = self.times
-		fig, axs = plt.subplots(len(times), 2, figsize=(19, 19))
-
-		# Get a list of the raw and grid axes by transposing the axes
-		axs = np.array(axs).T
-		raw_axes = axs[0]
-		grid_axes = axs[1]
-
-		# Plot the raw data and the grid histograms for each of the time points
-		for i in range(len(times)):
-			time = times[i]
-			raw_ax = raw_axes[i]
-			raw_ax.set_ylabel(f"{time} min")
-			raw_ax.set_yticks([])
-			grid_ax = grid_axes[i]
-			grid_ax.set_yticks([])
-			self.plot_sample(raw_ax, grid_ax, time, i)
-
-			if i < len(times)-1:
-				raw_ax.set_xticks([])
-				grid_ax.set_xticks([])
-
-
-	def create_deconvolution_matrices(self, plot=False):
-
-		times = self.times
-
-		orig_shape = self.all_hists[0].shape
-
-		# Checking if we can collapse the rows and columns, then restore them
-		reshaped_hist = self.all_hists.reshape(len(times), -1)
-		first_hist = reshaped_hist[0]
-
-		if plot:
-			print("The first histogram is shape:", self.all_hists[0].shape)
-			print("Reshaping this histogram to a vector of shape:", first_hist.shape)
-			restored_hist = first_hist.reshape(orig_shape)
-			print("Then, if we were to take that first vector and restore it to its original shape:", 
-				  restored_hist.shape)
-
-			plt.figure(figsize=(5, 0.5))
-
-			plt.subplot(1, 2, 1)
-			plt.imshow(self.all_hists[0], origin='lower', cmap='magma_r', aspect='auto')
-			plt.title("Original first histogram")
-			plt.xticks([])
-			plt.yticks([])
-
-
-			plt.subplot(1, 2, 2)
-			plt.imshow(restored_hist, origin='lower', cmap='magma_r', aspect='auto')
-			plt.title("Restored histogram after flattening")
-			plt.xticks([])
-			plt.yticks([])
-
-		# We will need to drop the 110 time point for this deconvolution
-		# TODO: At least for now, as we have assumed we should drop this point as per 
-		# Yulong's analysis
-		# We probably don't need to do this anymore.
-		print("The shape of the flattened grid to be deconvolved is:", reshaped_hist.shape)
-
-		# Reshape for deconvolution
-		self.deconv_hist = reshaped_hist
 
 
 	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, vmax=200):
@@ -319,7 +101,7 @@ class ChromatinModel:
 
 		from src.model import color_for_key
 
-		shape = self.all_hists[0].shape
+		shape = self.deconv_hist_unflattened[0].shape
 		reshaped_f = f.reshape(-1, shape[0], shape[1])
 		phase_cols = self.config.phase_columns
 
@@ -346,7 +128,6 @@ class ChromatinModel:
 
 		column_titles = ["Recovery G1", "Mother G1", "Daughter G1", "Post G1"]
 		phase_keys = ['RG1', 'CG1', 'DG1', 'postG1']
-
 
 		# Flip
 		ax_cols = np.array(ax_cols).T
@@ -454,6 +235,7 @@ class ChromatinModel:
 		plt.suptitle(title, fontsize=24)
 		return fig
 
+
 	def define_title(self):
 		title = ("$\\it{" + self.gene_name + "}$ / $\\it{" + self.orf_name + "}$\n" +
 				self.config.name + ", " +
@@ -461,146 +243,11 @@ class ChromatinModel:
 		return title
 
 
-	def create_deconvolution_plots_abbreviated(self, ax_rows=None, num_columns=5, ge_model=None):
-
-		f = self.f
-
-		if ax_rows is None:
-
-			# We will add to the last column the deconvolved gene expression
-			if ge_model is not None:
-				num_columns = num_columns+1
-
-			fig, ax_rows = plt.subplots(4, num_columns, figsize=(16, 8))
-			plt.subplots_adjust(hspace=0.5, top=0.72)
-
-		from src.model import color_for_key
-
-		shape = self.all_hists[0].shape
-		reshaped_f = f.reshape(-1, shape[0], shape[1])
-		phase_cols = self.config.phase_columns
-
-		phases = []
-		indices = []
-
-		for key, values in phase_cols.items():
-			phases = phases + [key] * len(values)
-			indices = indices + list(values)
-
-		phase_col_df = pd.DataFrame({'phase': phases, 'column': indices})
-		phase_col_df = phase_col_df.set_index('column')
-		phase_col_df.head()
-
-		def color_for_index(phase_col_df, index):
-			phase = phase_col_df.loc[index].phase
-			color = color_for_key(phase)
-			return color
-
-		x_bins, y_bins = self.x_bins, self.y_bins
-
-		plotting_index = 0
-		last_phase = None
-
-		row_titles = ["Recovery G1", "Mother G1", "Daughter G1", "Post G1"]
-		phase_keys = ['RG1', 'CG1', 'DG1', 'postG1']
-
-
-		# Plot for each deconvolved cell phase
-		for row in range(len(ax_rows)):
-
-			phase_axs = ax_rows[row]
-
-			if ge_model is None:
-				num_columns = len(phase_axs)
-			else:
-				num_columns = len(phase_axs)-1
-
-			phase = phase_keys[row]
-
-			for column in range(num_columns):
-
-				ax = phase_axs[column]
-
-				if column == 0:
-					ax.set_ylabel(row_titles[row], rotation=0, ha='right', fontsize=16, labelpad=10)
-
-				self.plot_f_img(ax, f, phase, column, num_columns, show_title=False)
-
-				if row == 0:
-					ax.set_title(column+1, fontsize=16)
-
-
-		# Add some xtick and xtick labels to the first column last row
-		first_col_last_row = ax_rows[-1][0]
-
-		xticks = self.bin_extents[0], \
-				 self.computed_plus_one, \
-				 self.bin_extents[1]
-		xtick_labels = [str(x-self.computed_plus_one) for x in xticks]
-		xtick_labels[1] = 'TSS'
-		xtick_labels[2] = '+'+xtick_labels[2]
-
-		first_col_last_row.set_xticks(xticks)
-		first_col_last_row.set_xticklabels(xtick_labels)
-
-		# ---------------------
-
-		# If we have deconvolved gene expression, add it to the last column
-		if ge_model is not None:
-
-			from src.model import color_for_key
-
-			ge_f = ge_model.f
-			ge_f_diff = ge_f.max() - ge_f.min()
-			ylim = ge_f.min()-ge_f_diff*.1, ge_f.min()+ge_f_diff*1.3, 
-
-			for row in range(len(ax_rows)):
-
-				phase = phase_keys[row]
-				hindices = self.config.get_Hpositions_for_phase(phase)
-
-				# The last subplot in the row
-				ax = ax_rows[row][num_columns]
-				y = ge_f[hindices]
-				x = np.arange(len(y))
-				ax.fill_between(x, 0, y, color=color_for_key(phase))
-				ax.set_ylim(*ylim)
-				ax.set_xlim(x.min(), x.max())
-				ax.set_yticks([])
-
-
-				# Add some grid lines to help show where the chromatin images map to
-				xgridlines = np.linspace(0, x.max(), num_columns)
-				for xval in xgridlines:
-					ax.axvline(xval, c='black', alpha=0.15, lw=1, linestyle='solid')
-				ax.set_xticks([])
-
-				# This is in the for loop so we can get the grid lines as they
-				# will be different per row
-				if row == 0:
-					# Label the last column first row
-					ax.set_xticks(xgridlines)
-					ax.set_xticklabels([f"{i+1}" for i in np.arange(len(xgridlines))], fontsize=12)
-					ax.xaxis.set_tick_params(labeltop='on', labelbottom=False, 
-						top=False, bottom=False, pad=0)
-					ax.set_title("Deconvolved\ngene expression", fontsize=16, pad=10)
-
-		title = ("$\\it{" + self.gene_name + "}$ / $\\it{" + self.orf_name + "}$\n" +
-				self.config.name + "\n" +
-				f"$\\gamma$={self.gamma:.4g}, rn={self.rn:.1f}, sn={self.sn:.1f}")
-
-		# TODO: change the second and third lines to be different font sizes like this example from 
-		#   stack overflow
-		#   plt.title(r'\fontsize{30pt}{3em}\selectfont{}{Mean WRFv3.5 LHF\r}{\fontsize{18pt}{3em}\selectfont{}(September 16 - October 30, 2012)}')
-
-		plt.suptitle(title, fontsize=32)
-
-
 	def apply_normalization(self, scaling_mat):
 
-		self.unnormalized_all_hists = self.all_hists.copy()
+		self.unnormalized_deconv_hist_unflattened = self.deconv_hist_unflattened.copy()
 		self.normalize_3len_bins_hist(scaling_mat)
-		self.all_hists = self.normalized_tps_hists
+		self.deconv_hist_unflattened = self.normalized_tps_hists
 
 		# Recreate the deconvolution matrix
 		self.create_deconvolution_matrices()
@@ -611,7 +258,7 @@ class ChromatinModel:
 
 		is_crick = self.gene.strand == '-'
 
-		shape = self.all_hists[0].shape
+		shape = self.deconv_hist_unflattened[0].shape
 		reshaped_f = f.reshape(-1, shape[0], shape[1])
 
 		# Get the index within the f matrix of the appropriate image
@@ -638,8 +285,7 @@ class ChromatinModel:
 		img = reshaped_f[f_index]
 		im = ax.imshow(img, origin='lower', cmap='magma_r', aspect='auto', vmax=vmax,
 			extent=self.bin_extents, zorder=1)
-		ax.axvline(self.computed_plus_one+40, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
-		ax.axvline(self.computed_plus_one-40, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
+		ax.axvline(self.computed_plus_one, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
 
 		if is_crick:
 			# flip the xlims
@@ -669,7 +315,7 @@ class ChromatinModel:
 		f = model.f
 		from src.model import color_for_key
 
-		shape = self.all_hists[0].shape
+		shape = self.deconv_hist_unflattened[0].shape
 		reshaped_f = f.reshape(-1, shape[0], shape[1])
 		phase_cols = model.config.phase_columns
 
@@ -732,94 +378,7 @@ class ChromatinModel:
 		return im
 
 
-	def smooth_bins(self):
-
-		from src.preprocessing import create_2d_gaussian_kernel
-		g_kernel = create_2d_gaussian_kernel(k_size=5, sigma=1.5, plot=False)
-
-		from scipy.signal import convolve2d
-
-		n = self.all_hists.shape[0]
-		smoothed_hists = self.all_hists.copy()
-
-		for i in range(n):
-			chrom_img = self.all_hists[i]
-			smoothed_img = convolve2d(chrom_img, g_kernel, mode='same')
-			smoothed_hists[i] = smoothed_img
-
-		self.smoothed_hists = smoothed_hists
-
-		# Store the old hists, and set the updated
-		self.unsmoothed_all_hists = self.all_hists.copy()
-		self.all_hists = smoothed_hists
-
-
-	def plot_raw_bins(self, vmax=50):
-
-		times = self.times
-
-		shape = self.all_hists[0].shape
-		n = self.all_hists.shape[0]
-
-		fig, axs = plt.subplots(n, 3, figsize=(5, 10))
-		plt.subplots_adjust(top=0.82)
-
-		axs = np.array(axs).T
-		raw_axs = axs[0]
-		g_axs = axs[1]
-		smooth_axs = axs[2]
-
-		x_bins, y_bins = self.x_bins, self.y_bins
-
-		for i in range(n):
-			time = times[i]
-
-			g_ax = g_axs[i]
-			raw_ax = raw_axs[i]
-			smooth_ax = smooth_axs[i]
-
-			xlims = self.mnase_span
-			gene = self.gene
-
-			plotting_reads = self.all_plotting_reads[time]
-			plot_mnase_density(raw_ax, plotting_reads)
-			raw_ax.set_xticks([])
-			raw_ax.set_yticks([])
-			raw_ax.set_xlim(x_bins[0], x_bins[-1])
-
-			im = g_ax.imshow(self.unsmoothed_all_hists[i], origin='lower', cmap='magma_r', 
-						   aspect='auto', vmax=vmax,
-						   extent=self.bin_extents)
-
-			im = smooth_ax.imshow(self.smoothed_hists[i], origin='lower', cmap='magma_r', 
-						   aspect='auto', vmax=vmax,
-						   extent=self.bin_extents)
-			
-			raw_ax.set_ylabel(f"{time}'", fontsize=8)
-
-			for ax in [raw_ax, g_ax, smooth_ax]:
-				ax.set_xticks([])
-				ax.set_yticks([])
-
-				# Identify the plus 1 location
-				ax.axvline(self.computed_plus_one+40, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
-				ax.axvline(self.computed_plus_one-40, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
-
-				if self.gene.strand == '-':
-					# flip the xlims
-					xlims = ax.get_xlim()
-					ax.set_xlim(xlims[1], xlims[0])
-
-		raw_axs[0].set_title("Raw")
-		g_axs[0].set_title("Binned")
-
-		# title = f"{self.gene['name']}"
-		# plt.suptitle(title, fontsize=24)
-
-		return fig
-
-
-	def plot_prediction_comparison(self, predicted_g=None, title=None, vmax=1):
+	def plot_prediction_comparison(self, predicted_g=None, title=None, vmax=15):
 
 		times = self.times
 
@@ -827,8 +386,8 @@ class ChromatinModel:
 			f = self.f
 			predicted_g = np.matmul(self.deconv_model.H, f)
 
-		shape = self.all_hists[0].shape
-		n = self.all_hists.shape[0]
+		shape = self.deconv_hist_unflattened[0].shape
+		n = self.deconv_hist_unflattened.shape[0]
 
 		predicted_g_reshaped = predicted_g.reshape(n, shape[0], shape[1])
 
@@ -841,8 +400,6 @@ class ChromatinModel:
 		pred_g_axs = axs[2]
 		comparison_axs = axs[3]
 
-		x_bins, y_bins = self.x_bins, self.y_bins
-
 		for i in range(n):
 			time = times[i]
 
@@ -851,14 +408,15 @@ class ChromatinModel:
 			xlims = self.mnase_span
 			gene = self.gene
 
-			# plotting_reads = self.all_plotting_reads[time]
-			# plot_mnase_density(raw_ax, plotting_reads)
+			im = raw_ax.imshow(self.smooth_bins[i], origin='lower', cmap='magma_r', 
+						   aspect='auto', vmax=0.25,
+						   extent=self.exact_extent)
+			raw_ax.set_xlim(self.bin_extents[0], self.bin_extents[1])
 			raw_ax.set_xticks([])
 			raw_ax.set_yticks([])
-			raw_ax.set_xlim(x_bins[0], x_bins[-1])
 
 			g_ax = g_axs[i]
-			im = g_ax.imshow(self.all_hists[i], origin='lower', cmap='magma_r', 
+			im = g_ax.imshow(self.deconv_hist_unflattened[i], origin='lower', cmap='magma_r', 
 						   aspect='auto', vmax=vmax,
 						   extent=self.bin_extents)
 			
@@ -868,7 +426,7 @@ class ChromatinModel:
 						   extent=self.bin_extents)
 
 			comp_ax = comparison_axs[i]
-			im = comp_ax.imshow(predicted_g_reshaped[i]-self.all_hists[i], 
+			im = comp_ax.imshow(predicted_g_reshaped[i]-self.deconv_hist_unflattened[i], 
 							origin='lower', cmap='RdBu', aspect='auto', vmin=-vmax/2, vmax=vmax/2,
 							extent=self.bin_extents)
 			
@@ -879,8 +437,7 @@ class ChromatinModel:
 				ax.set_yticks([])
 
 				# Identify the plus 1 location
-				ax.axvline(self.computed_plus_one+40, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
-				ax.axvline(self.computed_plus_one-40, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
+				ax.axvline(self.computed_plus_one, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
 
 				if self.gene.strand == '-':
 					# flip the xlims
@@ -950,14 +507,14 @@ class ChromatinModel:
 
 		# ------- Reshape f ---------
 
-		shape = self.all_hists[0].shape
+		shape = self.deconv_hist_unflattened[0].shape
 		reshaped_f = f.reshape(-1, shape[0], shape[1])
 
 		# -------- Compute the PTR ---------
 
 		from cc_src.peak_to_trough import compute_ptr
 
-		shape = self.all_hists[0].shape
+		shape = self.deconv_hist_unflattened[0].shape
 		reshaped_f = f.reshape(-1, shape[0], shape[1])
 
 		f_ptrs = np.zeros(f.shape[1])
@@ -970,7 +527,7 @@ class ChromatinModel:
 		#---------- Save to disk -------------
 
 		# Save the g to disk
-		np.save(g_save_path, self.all_hists)
+		np.save(g_save_path, self.deconv_hist_unflattened)
 
 		# Save the f to disk
 		np.save(f_save_path, reshaped_f)
@@ -1094,7 +651,7 @@ class ChromatinModel:
 		return normalized_bins
 
 
-	def smooth_exact_bins(chromatin_model, exact_bins, k_size=20, k_sigma=0.75):
+	def smooth_exact_bins(chromatin_model, exact_bins, k_size=30, k_sigma=0.75):
 		"""Smooth the histogram of exact position and length counts"""
 
 		from scipy.signal import convolve2d
@@ -1116,22 +673,18 @@ class ChromatinModel:
 		# Currently a -1000, +1000 window
 		# Downscale to -300 + 500 approximately
 
-		# Or some iteration of nucleosme width, we started with 80 previously
-		# let's try 10
+		# 16x16 is the current balance between understandability and
+		# efficiency, or if it crashes/fails with higher resolutions
+		bin_width = 16
+		bin_height = 16
 
-
-		# 10 width bins
-		# (+50 bins) * (10 width) = 500 bp  gene body
-		# (-30 bins) * (10 width) = -300 bp promoter
 		new_span = self.computed_plus_one-288, self.computed_plus_one+512
 		self.new_span = new_span
 
 		# Next we will define our new bin locations
-		bin_width = 16
 		x_bins = np.arange(new_span[0], new_span[1], bin_width)
 
 		# And for y lengths
-		bin_height = 16
 		y_bins = np.arange(0, 240, bin_height)
 
 		# Now we will loop through each x and y bin to aggregate the counts to 
@@ -1171,11 +724,14 @@ class ChromatinModel:
 		
 		self.exact_extent = exact_extent
 		self.bin_extents = gene_extent
-		self.all_hists = downsampled_bins
+		self.deconv_hist_unflattened = downsampled_bins
 
 		self.exact_bins = exact_bins
 		self.smooth_bins = smooth_bins
 		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
+
+		print(f"Unflattened the input data is of shape: {self.deconv_hist_unflattened.shape}")
+		print(f"The size of our input data, G is: {self.G.shape}")
 		
 
 	def plot_bin_comparison(self):
@@ -1203,7 +759,7 @@ class ChromatinModel:
 			plt.axvline(self.computed_plus_one, c='black', lw=1)
 
 			plt.subplot(rows, cols, row*cols+3)
-			plt.imshow(self.all_hists[row], cmap='magma_r', vmax=20, origin='lower', aspect='auto',
+			plt.imshow(self.deconv_hist_unflattened[row], cmap='magma_r', vmax=20, origin='lower', aspect='auto',
 					  extent=self.bin_extents)
 			plt.axvline(self.computed_plus_one, c='black', lw=1)
 			plt.yticks([])

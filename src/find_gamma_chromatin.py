@@ -23,7 +23,7 @@ class FindOptimalGammaChromatin:
 		if chromatin_model is None:
 			self.G = G
 		else:
-			self.G = chromatin_model.deconv_hist
+			self.G = chromatin_model.G
 
 	def conv_optim(self):
 
