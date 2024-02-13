@@ -115,7 +115,7 @@ class Model:
 			constraints = []
 
 		prob = cp.Problem(objective, constraints)
-		result = prob.solve(solver=cp.CLARABEL)
+		result = prob.solve(solver=cp.MOSEK)
 
 		# Convert it into a numpy array
 		f = f.value

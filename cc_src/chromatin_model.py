@@ -86,9 +86,30 @@ class ChromatinModel:
 		return plotting_reads, hist, x_edges, y_edges
 
 
-	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, vmax=200):
+	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, vmax=200,
+		smooth=False):
 
 		f = self.f.copy()
+		f_imgs = f.reshape((-1, self.deconv_hist_unflattened.shape[1], self.deconv_hist_unflattened.shape[2]))
+
+		if smooth:
+
+			import cv2
+
+			n = f.shape[0]
+			# upscale the images
+			orig_shape = self.exact_bins[0].shape
+			f_imgs_upscaled = np.zeros((n, orig_shape[0], orig_shape[1]))
+
+			for i in range(n):
+				image = f_imgs[i]
+				f_img_upscaled = cv2.resize(image.T, dsize=orig_shape, interpolation=cv2.INTER_LINEAR)
+				f_img_upscaled[f_img_upscaled < 0] = 0
+				f_img_upscaled = f_img_upscaled.T
+				f_imgs_upscaled[i] = f_img_upscaled
+
+			# then smooth
+			smoothed_f_imgs = self.smooth_exact_bins(f_imgs_upscaled, k_size=5, k_sigma=0.5)
 
 		if ax_cols is None:
 
@@ -156,7 +177,12 @@ class ChromatinModel:
 				else:
 					ax = phase_axs[row+1]
 
-				self.plot_f_img(ax, f, phase, row, num_chromatin_rows, show_title=False, vmax=vmax)
+				if not smooth:
+					shape = self.deconv_hist_unflattened[0].shape
+					reshaped_f = f.reshape(-1, shape[0], shape[1])
+					self.plot_f_img(ax, reshaped_f, phase, row, num_chromatin_rows, show_title=False, vmax=vmax)
+				else:
+					self.plot_f_img(ax, smoothed_f_imgs, phase, row, num_chromatin_rows, show_title=False, vmax=vmax)
 
 				if col == 0:
 					ax.set_ylabel(f"{row+1}", rotation=0, ha='right', labelpad=10, fontsize=16)
@@ -253,13 +279,10 @@ class ChromatinModel:
 		self.create_deconvolution_matrices()
 
 
-	def plot_f_img(self, ax, f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0,
+	def plot_f_img(self, ax, reshaped_f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0,
 		vmax=200):
 
 		is_crick = self.gene.strand == '-'
-
-		shape = self.deconv_hist_unflattened[0].shape
-		reshaped_f = f.reshape(-1, shape[0], shape[1])
 
 		# Get the index within the f matrix of the appropriate image
 		# by phase and column, num_columns signifies how many subsets of the phase
@@ -391,29 +414,41 @@ class ChromatinModel:
 
 		predicted_g_reshaped = predicted_g.reshape(n, shape[0], shape[1])
 
-		fig, axs = plt.subplots(n, 4, figsize=(7, 10))
+		fig, axs = plt.subplots(n, 5, figsize=(9, 10))
 		plt.subplots_adjust(top=0.82)
 
 		axs = np.array(axs).T
 		raw_axs = axs[0]
-		g_axs = axs[1]
-		pred_g_axs = axs[2]
-		comparison_axs = axs[3]
+		smoothed_axs = axs[1]
+		g_axs = axs[2]
+		pred_g_axs = axs[3]
+		comparison_axs = axs[4]
 
 		for i in range(n):
 			time = times[i]
 
 			raw_ax = raw_axs[i]
+			smoothed_ax = smoothed_axs[i]
 
 			xlims = self.mnase_span
 			gene = self.gene
 
-			im = raw_ax.imshow(self.smooth_bins[i], origin='lower', cmap='magma_r', 
+			im = raw_ax.imshow(self.exact_bins[i], origin='lower', cmap='magma_r', 
 						   aspect='auto', vmax=0.25,
 						   extent=self.exact_extent)
 			raw_ax.set_xlim(self.bin_extents[0], self.bin_extents[1])
 			raw_ax.set_xticks([])
 			raw_ax.set_yticks([])
+
+			im = smoothed_ax.imshow(self.smooth_bins[i], origin='lower', cmap='magma_r', 
+						   aspect='auto', vmax=0.25,
+						   extent=self.exact_extent)
+			smoothed_ax.set_xlim(self.bin_extents[0], self.bin_extents[1])
+			smoothed_ax.set_xticks([])
+			smoothed_ax.set_yticks([])
+
+			if i == 0:
+				smoothed_ax.set_title("Smoothed")
 
 			g_ax = g_axs[i]
 			im = g_ax.imshow(self.deconv_hist_unflattened[i], origin='lower', cmap='magma_r', 
@@ -570,7 +605,7 @@ class ChromatinModel:
 		self.deconv_model.H, self.deconv_model.Hpos = calcH(self.config.intervals_wt1, self.timepoints)
 
 
-	def deconvolve(self, solver=cvxpy.CLARABEL, verbose=False):
+	def deconvolve(self, solver=cvxpy.MOSEK, verbose=False):
 		"""
 		Deconvolve the chromatin for a single gamma value
 		"""
@@ -634,6 +669,17 @@ class ChromatinModel:
 			exact_bins[time_idx] = hist
 		return exact_bins
 
+	def plot_halted_f_img(self):
+		plt.figure(figsize=(1.75, 0.5))
+		orig_shape = self.deconv_hist_unflattened.shape
+		f_imgs = self.f.reshape(-1, orig_shape[1], orig_shape[2])
+		plt.imshow(f_imgs[-1], origin='lower', cmap='magma_r', vmax=25, 
+				   extent=self.bin_extents, aspect='auto')
+		plt.axvline(self.computed_plus_one, c='black', lw=1, alpha=0.5)
+		plt.xticks([])
+		plt.yticks([])
+		plt.title("Halted cells")
+		
 
 	def normalize_bins(self, exact_bins):
 		"""Normalize the histogram of exact length, position counts"""
@@ -651,7 +697,7 @@ class ChromatinModel:
 		return normalized_bins
 
 
-	def smooth_exact_bins(chromatin_model, exact_bins, k_size=30, k_sigma=0.75):
+	def smooth_exact_bins(self, exact_bins, k_size=30, k_sigma=0.75):
 		"""Smooth the histogram of exact position and length counts"""
 
 		from scipy.signal import convolve2d
@@ -710,11 +756,16 @@ class ChromatinModel:
 		return downscaled_bins
 
 
-	def create_deconvolution_bins(self):
+	def create_deconvolution_bins(self, smoothing=True):
 		
 		exact_bins = self.create_exact_bins()
 		normalized_bins = self.normalize_bins(exact_bins)
-		smooth_bins = self.smooth_exact_bins(normalized_bins)
+
+		if smoothing:
+			smooth_bins = self.smooth_exact_bins(normalized_bins)
+		else:
+			smooth_bins = normalized_bins.copy()
+
 		downsampled_bins = self.downsample_bins(smooth_bins)
 		
 		exact_extent = [self.mnase_span[0], self.mnase_span[1],
