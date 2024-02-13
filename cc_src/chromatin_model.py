@@ -76,15 +76,7 @@ class ChromatinModel:
 		timepoints = self.chr_reads['sample'].unique()
 		self.timepoints = timepoints
 
-		self.create_binned_structures()
-
-		# Applies the scaling normalization matrix and recreates the deconvolution histogram
-		# for deconvolution
-		norm_scaling_mat_filename = f'output/mnase/rep{replicate}_len_scaling_3len_bins.csv'
-		subset_scaling_mat = pd.read_csv(norm_scaling_mat_filename)
-		subset_scaling_mat = subset_scaling_mat.rename(columns={"Unnamed: 0": "time"}).set_index('time')
-		print(f'Applying normalization using scaling matrix: {norm_scaling_mat_filename}')
-		self.apply_normalization(subset_scaling_mat)
+		# TO DO: Bin, blur, normalize, bin-lower resolution
 
 
 	def normalize_3len_bins_hist(self, scaling_mat):
