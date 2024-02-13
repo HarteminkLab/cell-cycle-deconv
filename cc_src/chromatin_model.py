@@ -339,7 +339,7 @@ class ChromatinModel:
 			color = color_for_key(phase)
 			return color
 
-		x_bins, y_bins = self.x_bins, self.y_bins
+		#x_bins, y_bins = self.x_bins, self.y_bins
 
 		plotting_index = 0
 		last_phase = None
@@ -383,6 +383,8 @@ class ChromatinModel:
 
 		# Add some xtick and xtick labels to the first column last row
 		first_col_last_row = ax_cols[0][-1]
+
+
 
 		xticks = self.bin_extents[0], \
 				 self.computed_plus_one, \
@@ -1115,21 +1117,21 @@ class ChromatinModel:
 		# Downscale to -300 + 500 approximately
 
 		# Or some iteration of nucleosme width, we started with 80 previously
-		# let's try 20
+		# let's try 10
 
 
 		# 20 width bins
 		# (+25 bins) * (20 width) = 500 bp  gene body
 		# (-15 bins) * (20 width) = -300 bp promoter
-
 		new_span = self.computed_plus_one-300, self.computed_plus_one+500
+		self.new_span = new_span
 
 		# Next we will define our new bin locations
-		bin_width = 20
+		bin_width = 10
 		x_bins = np.arange(new_span[0], new_span[1], bin_width)
 
 		# And for y lengths
-		bin_height = 20
+		bin_height = 10
 		y_bins = np.arange(0, 240, bin_height)
 
 		# Now we will loop through each x and y bin to aggregate the counts to 
@@ -1143,13 +1145,66 @@ class ChromatinModel:
 
 		for t_index in range(len(self.timepoints)):
 			for x_ind in range(1, len(x_bins)):
-			    for y_ind in range(1, len(y_bins)):
-			        x_start = coord_translator.translate(x_bins[x_ind-1])
-			        x_end = coord_translator.translate(x_bins[x_ind])
-			        y_start = y_bins[y_ind-1]
-			        y_end = y_bins[y_ind]
-			        
-			        bin_counts = smooth_bins[t_index][y_start:y_end, x_start:x_end].sum()
-			        downscaled_bins[t_index][y_ind-1][x_ind-1] = bin_counts
+				for y_ind in range(1, len(y_bins)):
+					x_start = coord_translator.translate(x_bins[x_ind-1])
+					x_end = coord_translator.translate(x_bins[x_ind])
+					y_start = y_bins[y_ind-1]
+					y_end = y_bins[y_ind]
+					
+					bin_counts = smooth_bins[t_index][y_start:y_end, x_start:x_end].sum()
+					downscaled_bins[t_index][y_ind-1][x_ind-1] = bin_counts
 
 		return downscaled_bins
+
+
+	def create_deconvolution_bins(self):
+		
+		exact_bins = self.create_exact_bins()
+		normalized_bins = self.normalize_bins(exact_bins)
+		smooth_bins = self.smooth_exact_bins(normalized_bins)
+		downsampled_bins = self.downsample_bins(smooth_bins)
+		
+		exact_extent = [self.mnase_span[0], self.mnase_span[1],
+					0, 250]
+		gene_extent = [self.new_span[0], self.new_span[1],
+						0, 250]
+		
+		self.exact_extent = exact_extent
+		self.bin_extents = gene_extent
+		self.all_hists = downsampled_bins
+
+		self.exact_bins = exact_bins
+		self.smooth_bins = smooth_bins
+		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
+		
+
+	def plot_bin_comparison(self):
+		cols = 3
+		rows = len(self.timepoints)
+
+		plt.figure(figsize=(6, 12))
+
+		for row in range(rows):
+
+			plt.subplot(rows, cols, row*cols+1)
+			plt.imshow(self.exact_bins[row], cmap='magma_r', vmax=0.25, origin='lower', aspect='auto',
+					  extent=self.exact_extent)
+			plt.xlim(self.bin_extents[0], self.bin_extents[1])
+			plt.yticks([])
+			plt.xticks([])
+			plt.axvline(self.computed_plus_one, c='black', lw=1)
+
+			plt.subplot(rows, cols, row*cols+2)
+			plt.imshow(self.smooth_bins[row], cmap='magma_r', vmax=0.25, origin='lower', aspect='auto',
+					  extent=self.exact_extent)
+			plt.xlim(self.bin_extents[0], self.bin_extents[1])
+			plt.yticks([])
+			plt.xticks([])
+			plt.axvline(self.computed_plus_one, c='black', lw=1)
+
+			plt.subplot(rows, cols, row*cols+3)
+			plt.imshow(self.all_hists[row], cmap='magma_r', vmax=50, origin='lower', aspect='auto',
+					  extent=self.bin_extents)
+			plt.axvline(self.computed_plus_one, c='black', lw=1)
+			plt.yticks([])
+			plt.xticks([])
