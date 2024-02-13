@@ -1049,3 +1049,107 @@ class ChromatinModel:
 		print(f"The fitting norm is {self.rn:.2f}, "
 			  f"the smoothing norm is: {self.sn:.2f}")
 
+
+	# --------------- Beginning of histogram refactor --------------------
+	#
+	# Many of the histogram creation functions above will need to be removed
+	#
+
+	def create_exact_bins(self):
+		xbins = np.arange(*self.mnase_span)
+		ybins = np.arange(0, 252)
+
+		n = len(self.timepoints)
+
+		# Bin histogram is one less than the bin definitions because the bins include the outer edges
+		# of the bins
+		exact_bins = np.zeros((n, len(ybins)-1, len(xbins)-1))
+
+		for time_idx in range(n):
+
+			sample = self.timepoints[time_idx]
+
+			plotting_reads, hist, \
+				x_edges, y_edges = self.compute_bin_counts_sample(sample, xbins, ybins)
+			hist = hist.T
+			exact_bins[time_idx] = hist
+		return exact_bins
+
+
+	def normalize_bins(self, exact_bins):
+		"""Normalize the histogram of exact length, position counts"""
+
+		from src.preprocessing import load_scaling_mat
+		scaling_mat = load_scaling_mat(self.config.replicate)
+
+		timepoints = self.timepoints
+		normalized_bins = exact_bins.copy()
+
+		for i in range(len(timepoints)):
+			time = timepoints[i]
+			cur_normalized_bins = (scaling_mat[time].values.reshape((-1, 1)) * exact_bins[i])
+			normalized_bins[i] = cur_normalized_bins
+		return normalized_bins
+
+
+	def smooth_exact_bins(chromatin_model, exact_bins, k_size=20, k_sigma=0.75):
+		"""Smooth the histogram of exact position and length counts"""
+
+		from scipy.signal import convolve2d
+		from src.preprocessing import create_2d_gaussian_kernel
+		
+		g_kernel = create_2d_gaussian_kernel(k_size=k_size, sigma=k_sigma, plot=False)
+
+		smooth_bins = exact_bins.copy()
+
+		for i in range(exact_bins.shape[0]):
+			cur_exact_hist = exact_bins[i]
+			smooth_bins[i] = convolve2d(cur_exact_hist, g_kernel, mode='same')
+		return smooth_bins
+
+
+	def downsample_bins(self, smooth_bins):
+		# Now downsample to the appropriate window and resolution
+
+		# Currently a -1000, +1000 window
+		# Downscale to -300 + 500 approximately
+
+		# Or some iteration of nucleosme width, we started with 80 previously
+		# let's try 20
+
+
+		# 20 width bins
+		# (+25 bins) * (20 width) = 500 bp  gene body
+		# (-15 bins) * (20 width) = -300 bp promoter
+
+		new_span = self.computed_plus_one-300, self.computed_plus_one+500
+
+		# Next we will define our new bin locations
+		bin_width = 20
+		x_bins = np.arange(new_span[0], new_span[1], bin_width)
+
+		# And for y lengths
+		bin_height = 20
+		y_bins = np.arange(0, 240, bin_height)
+
+		# Now we will loop through each x and y bin to aggregate the counts to 
+		# create our new downsampled histogram
+		downscaled_bins = np.zeros((smooth_bins.shape[0], len(y_bins), len(x_bins)))
+
+		from src.coordinate_translator import CoordinateTranslator
+
+		# Translate from the selected mnase span to np array space
+		coord_translator = CoordinateTranslator(self.mnase_span)
+
+		for t_index in range(len(self.timepoints)):
+			for x_ind in range(1, len(x_bins)):
+			    for y_ind in range(1, len(y_bins)):
+			        x_start = coord_translator.translate(x_bins[x_ind-1])
+			        x_end = coord_translator.translate(x_bins[x_ind])
+			        y_start = y_bins[y_ind-1]
+			        y_end = y_bins[y_ind]
+			        
+			        bin_counts = smooth_bins[t_index][y_start:y_end, x_start:x_end].sum()
+			        downscaled_bins[t_index][y_ind-1][x_ind-1] = bin_counts
+
+		return downscaled_bins

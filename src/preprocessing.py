@@ -25,3 +25,15 @@ def create_2d_gaussian_kernel(k_size=5, sigma=1, plot=False):
 
 	return g_kernel
 
+
+def load_scaling_mat(replicate):
+	import pandas as pd
+	len_scaling_mat = pd.read_csv('datasets/computed_mnase/combined_len_scaling.csv').set_index('length')
+	rep_cols = len_scaling_mat.columns[len_scaling_mat.columns.str.endswith(f'_replicate{replicate}')]
+	rep_scaling_mat = len_scaling_mat[rep_cols]
+	timepoints = [int(c) for c in rep_cols.str.replace(f'_replicate{replicate}', '')]
+	rep_scaling_mat.columns = timepoints
+	return rep_scaling_mat
+
+
+	
