@@ -1020,7 +1020,7 @@ class ChromatinModel:
 		timer = Timer()
 		self.setup_deconv_model()
 
-		self.f, self.rn, self.sn = deconvolve_chromatin(self.deconv_model, self.deconv_hist, solver=solver, 
+		self.f, self.rn, self.sn = deconvolve_chromatin(self.deconv_model, self.G, solver=solver, 
 			verbose=verbose)
 
 		print(f"Deconvolved in : {timer.get_time()}")
@@ -1120,18 +1120,18 @@ class ChromatinModel:
 		# let's try 10
 
 
-		# 20 width bins
-		# (+25 bins) * (20 width) = 500 bp  gene body
-		# (-15 bins) * (20 width) = -300 bp promoter
-		new_span = self.computed_plus_one-300, self.computed_plus_one+500
+		# 10 width bins
+		# (+50 bins) * (10 width) = 500 bp  gene body
+		# (-30 bins) * (10 width) = -300 bp promoter
+		new_span = self.computed_plus_one-288, self.computed_plus_one+512
 		self.new_span = new_span
 
 		# Next we will define our new bin locations
-		bin_width = 10
+		bin_width = 16
 		x_bins = np.arange(new_span[0], new_span[1], bin_width)
 
 		# And for y lengths
-		bin_height = 10
+		bin_height = 16
 		y_bins = np.arange(0, 240, bin_height)
 
 		# Now we will loop through each x and y bin to aggregate the counts to 
@@ -1203,7 +1203,7 @@ class ChromatinModel:
 			plt.axvline(self.computed_plus_one, c='black', lw=1)
 
 			plt.subplot(rows, cols, row*cols+3)
-			plt.imshow(self.all_hists[row], cmap='magma_r', vmax=50, origin='lower', aspect='auto',
+			plt.imshow(self.all_hists[row], cmap='magma_r', vmax=20, origin='lower', aspect='auto',
 					  extent=self.bin_extents)
 			plt.axvline(self.computed_plus_one, c='black', lw=1)
 			plt.yticks([])
