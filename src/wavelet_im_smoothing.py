@@ -5,13 +5,12 @@ import matplotlib.pyplot as plt
 import pywt
 
 
-class ChromatinWavelets():
+class ChromatinWaveletsComparison():
 	"""A class to compare different families of wavelets and thresholding values. Requires a chromatin model
 	to test the idea to easily retrieve a chromatin image."""
 
 	def __init__(self, chromatin_model):
 		self.chromatin_model = chromatin_model
-
 
 	def create_coefficients(self, wavelet_name='db1', thresholds_low=np.linspace(0, 4, 5), 
 		thresholds_hi=np.linspace(0, 4, 5)):
@@ -89,7 +88,7 @@ class SpatialWavelets():
 		self.coeffs = pywt.dwt2(self.img, self.wavelet_name)
 
 
-	def apply_threshold(self, threshold_cA, threshold_detail):
+	def apply_threshold(self, threshold_LL, threshold_detail):
 
 		coeffs = self.coeffs
 
@@ -101,7 +100,7 @@ class SpatialWavelets():
 				thresholded_coeffs.append(tuple(np.where(np.abs(c) > threshold_detail, c, 0) for c in coeff))
 			else:
 
-				thresholded_coeffs.append(np.where(np.abs(coeff) > threshold_cA, coeff, 0))
+				thresholded_coeffs.append(np.where(np.abs(coeff) > threshold_LL, coeff, 0))
 
 				# For approximation coefficients, you might choose not to threshold
 				# Or apply a different strategy
@@ -110,12 +109,12 @@ class SpatialWavelets():
 		self.coeffs = thresholded_coeffs
 
 	def how_many_non_zero_coeffs(self):
-		cA, (cH, cV, cD) = self.coeffs
+		LL, (HL, LH, HH) = self.coeffs
 
-		print("Non-zero cA, cH, cV, cD coefficients:\t", (cA > 0).sum(), end="\t")
-		print((cH > 0).sum(), end="\t")
-		print((cV > 0).sum(), end="\t")
-		print((cD > 0).sum())
+		print("Non-zero LL, HL, LH, HH coefficients:\t", (LL > 0).sum(), end="\t")
+		print((HL > 0).sum(), end="\t")
+		print((LH > 0).sum(), end="\t")
+		print((HH > 0).sum())
 
 	def plot_coefficients(self):
 		def _plot_coeff(c):
@@ -123,19 +122,39 @@ class SpatialWavelets():
 			plt.xticks([])
 			plt.yticks([])
 
-		cA, (cH, cV, cD) = self.coeffs
+		LL, (HL, LH, HH) = self.coeffs
 		plt.figure(figsize=(12, 1))
 		plt.subplot(1, 4, 1)
-		_plot_coeff(cA)
+		_plot_coeff(LL)
 
 		plt.subplot(1, 4, 2)
-		_plot_coeff(cH)
+		_plot_coeff(HL)
 
 		plt.subplot(1, 4, 3)
-		_plot_coeff(cV)
+		_plot_coeff(LH)
 
 		plt.subplot(1, 4, 4)
-		_plot_coeff(cD)
+		_plot_coeff(HH)
+
+
+	def coefficients_matrix(self):
+		"""Return the image's coefficients as a matrix, for easier manipulation
+
+
+		Returns a (4, rows, columns) matrix representing the LL, HL, LH, HH components of
+		the wavelet transformation
+		"""
+		
+		LL, (HL, LH, HH) = self.coeffs
+
+		coefficients = np.zeros((4, *LL.shape))
+		coefficients[0] = LL
+		coefficients[1] = HL
+		coefficients[2] = LH
+		coefficients[3] = HH
+
+		return coefficients
+
 
 	def plot_comparison(self, ax0=None, ax1=None):
 
@@ -149,53 +168,3 @@ class SpatialWavelets():
 		# Perform Inverse 2D Wavelet Transformation
 		self.reconstructed_image = pywt.idwt2(self.coeffs, self.wavelet_name)
 		self.reconstructed_image[self.reconstructed_image < 0] = 0
-
-
-# Ideas around Application to deconvolution objective:
-
-		# Let's say the data is coefficients
-		# We want enforce thresholding, such that we smooth data
-		# and try to enforce removing coefficients and representing the data with fewer
-		# coefficients.
-		#
-		# A bit hard to conceptualize, as this is happening in temporal space as well.
-		# Maybe we are interested in setting a global threshold along all of the timepoints.
-
-
-		# Let's say HF is our set of predicted images
-		# And we want to spatially smooth them
-		#
-		#   Then we can apply the wavelet on these images
-		#       get coefficients or image_smoothed
-		# 
-		#   then apply a threshold that minimizes 
-		#
-		#   the reconstruction compared to G
-		#
-		#    Applying an L1 norm to enforce sparsity of the coefficients
-		#
-
-		# Then the spatial smoothing term is the difference
-		# between the reconstructed data and the original data g
-		#
-		# Additional challenge is that the spatial dimension of G is flattened into a vector
-		# for each timepoint
-		#
-		#  So we'll need to flatten the wavelet...this is doable as well.
-		#
-		# + psi * cvxpy.sum(cvxpy.abs(approximated_wavelet_G - g))
-
-		
-	"""
-	What it could look like to enforce a spatial wavelet term on the optimization
-
-	spat_wavelet = some_wavelet('wavelent_name')
-
-	coeffs = wavelet_coefficients_of_(H@f, spat_wavelet)
-
-	# Then threshold the coefficients
-	coeffs[coeffs < threshold] = 0
-
-	approximated_wavelet_G = reconstruct(coeffs, spat_wavelet)
-	"""
-

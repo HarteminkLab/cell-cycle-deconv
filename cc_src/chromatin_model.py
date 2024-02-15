@@ -669,6 +669,7 @@ class ChromatinModel:
 			exact_bins[time_idx] = hist
 		return exact_bins
 
+
 	def plot_halted_f_img(self):
 		plt.figure(figsize=(1.75, 0.5))
 		orig_shape = self.deconv_hist_unflattened.shape
@@ -731,7 +732,7 @@ class ChromatinModel:
 		x_bins = np.arange(new_span[0], new_span[1], bin_width)
 
 		# And for y lengths
-		y_bins = np.arange(0, 240, bin_height)
+		y_bins = np.arange(0, 256, bin_height)
 
 		# Now we will loop through each x and y bin to aggregate the counts to 
 		# create our new downsampled histogram
