@@ -73,7 +73,7 @@ def deconvolve_chromatin_H(model, H, g, allow_negative=False,
 
 		# Like-wise, for smoothing compute the l1 norm along each column and compute the sum
 		+ gamma * (cvxpy.sum(cvxpy.abs(smooth_f_it_result)) 
-		+ factor_fb * cvxpy.sum(cvxpy.abs(smooth_f_b_result)))/g_mean
+		+ factor_fb * cvxpy.sum(cvxpy.abs(smooth_f_b_result)))/g_mean 
 	)
 
 	# Where f is non-negative
