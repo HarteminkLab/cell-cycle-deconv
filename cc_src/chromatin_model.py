@@ -86,8 +86,8 @@ class ChromatinModel:
 		return plotting_reads, hist, x_edges, y_edges
 
 
-	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, vmax=200,
-		smooth=False):
+	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, 
+		vmin=0, vmax=200, smooth=False):
 
 		f = self.f.copy()
 		f_imgs = f.reshape((-1, self.deconv_hist_unflattened.shape[1], self.deconv_hist_unflattened.shape[2]))
@@ -180,9 +180,9 @@ class ChromatinModel:
 				if not smooth:
 					shape = self.deconv_hist_unflattened[0].shape
 					reshaped_f = f.reshape(-1, shape[0], shape[1])
-					self.plot_f_img(ax, reshaped_f, phase, row, num_chromatin_rows, show_title=False, vmax=vmax)
+					self.plot_f_img(ax, reshaped_f, phase, row, num_chromatin_rows, show_title=False, vmax=vmax, vmin=vmin)
 				else:
-					self.plot_f_img(ax, smoothed_f_imgs, phase, row, num_chromatin_rows, show_title=False, vmax=vmax)
+					self.plot_f_img(ax, smoothed_f_imgs, phase, row, num_chromatin_rows, show_title=False, vmax=vmax, vmin=vmin)
 
 				if col == 0:
 					ax.set_ylabel(f"{row+1}", rotation=0, ha='right', labelpad=10, fontsize=16)
@@ -280,7 +280,7 @@ class ChromatinModel:
 
 
 	def plot_f_img(self, ax, reshaped_f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0,
-		vmax=200):
+		vmin=0, vmax=200):
 
 		is_crick = self.gene.strand == '-'
 
@@ -306,7 +306,7 @@ class ChromatinModel:
 
 		# Plot the deconvolved chromatin for the appropriate column
 		img = reshaped_f[f_index]
-		im = ax.imshow(img, origin='lower', cmap='magma_r', aspect='auto', vmax=vmax,
+		im = ax.imshow(img, origin='lower', cmap='RdBu_r', aspect='auto', vmax=vmax,
 			extent=self.bin_extents, zorder=1)
 		ax.axvline(self.computed_plus_one, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
 
