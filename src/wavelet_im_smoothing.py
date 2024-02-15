@@ -35,7 +35,6 @@ class ChromatinWaveletsComparison():
 				cur_gens.append(wavelets)
 
 			wavelet_generators.append(cur_gens)
-
 		
 		self.wavelet_generators = wavelet_generators
 
@@ -101,10 +100,6 @@ class SpatialWavelets():
 			else:
 
 				thresholded_coeffs.append(np.where(np.abs(coeff) > threshold_LL, coeff, 0))
-
-				# For approximation coefficients, you might choose not to threshold
-				# Or apply a different strategy
-				# thresholded_coeffs.append(coeff)
 
 		self.coeffs = thresholded_coeffs
 
