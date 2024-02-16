@@ -36,24 +36,23 @@ def create_upsampling_matrix(n, factor=2):
 
 
 def create_convolution_matrix(kernel, n):
-	"""Convert a kernel to a convolution matrix, so when applied with
-	a signal of length n, computes a convolution between the kernel and input"""
-
-	if not is_power_of_two_math(n): raise ValueError(f"n={n} must be a power of 2")
+	"""Convert a kernel to a convolution matrix for 'full' mode convolution."""
 
 	k = len(kernel)
-	# Output length of the convolution
-	output_length = n + k - 2
-	
-	# Initialize the convolution matrix with zeros
+	output_length = n
+
 	conv_matrix = np.zeros((output_length, n))
-	
+
 	# Fill in the convolution matrix
-	for i in range(output_length):
+	for i in range(0, output_length):
 		for j in range(k):
-			if 0 <= i - j < n:
-				conv_matrix[i, i - j] = kernel[j]
-				
+
+			row = i-k//2+1
+			col = (i - j)
+
+			if (0 <= row < output_length) and (0 <= col < n):
+				conv_matrix[row, col] = kernel[j]
+
 	return conv_matrix
 
 
