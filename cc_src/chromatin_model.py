@@ -306,7 +306,7 @@ class ChromatinModel:
 
 		# Plot the deconvolved chromatin for the appropriate column
 		img = reshaped_f[f_index]
-		im = ax.imshow(img, origin='lower', cmap='RdBu_r', aspect='auto', vmax=vmax,
+		im = ax.imshow(img, origin='lower', cmap='magma_r', aspect='auto', vmax=vmax,
 			extent=self.bin_extents, zorder=1)
 		ax.axvline(self.computed_plus_one, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
 
@@ -441,8 +441,8 @@ class ChromatinModel:
 			raw_ax.set_yticks([])
 
 			im = smoothed_ax.imshow(self.smooth_bins[i], origin='lower', cmap='magma_r', 
-						   aspect='auto', vmax=0.25,
-						   extent=self.exact_extent)
+						   aspect='auto', vmax=vmax,
+						   extent=self.bin_extents)
 			smoothed_ax.set_xlim(self.bin_extents[0], self.bin_extents[1])
 			smoothed_ax.set_xticks([])
 			smoothed_ax.set_yticks([])
@@ -803,15 +803,16 @@ class ChromatinModel:
 			plt.axvline(self.computed_plus_one, c='black', lw=1)
 
 			plt.subplot(rows, cols, row*cols+2)
-			plt.imshow(self.smooth_bins[row], cmap='magma_r', vmax=0.25, origin='lower', aspect='auto',
-					  extent=self.exact_extent)
+			plt.imshow(self.deconv_hist_unflattened[row], cmap='magma_r', vmax=20, origin='lower', aspect='auto',
+					  extent=self.bin_extents)
+			
 			plt.xlim(self.bin_extents[0], self.bin_extents[1])
 			plt.yticks([])
 			plt.xticks([])
 			plt.axvline(self.computed_plus_one, c='black', lw=1)
 
 			plt.subplot(rows, cols, row*cols+3)
-			plt.imshow(self.deconv_hist_unflattened[row], cmap='magma_r', vmax=20, origin='lower', aspect='auto',
+			plt.imshow(self.smooth_bins[row], cmap='magma_r', vmax=20, origin='lower', aspect='auto',
 					  extent=self.bin_extents)
 			plt.axvline(self.computed_plus_one, c='black', lw=1)
 			plt.yticks([])

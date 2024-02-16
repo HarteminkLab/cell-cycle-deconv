@@ -29,7 +29,7 @@ class ChromatinWavelets():
 			img = self.chromatin_model.deconv_hist_unflattened[i]
 			wavelets = SpatialWavelets(img, wavelet_name)
 			wavelets.compute_coeffs()
-			wavelets.apply_threshold(0, 0)
+			wavelets.apply_threshold(1, 1)
 			coeffs_mat = wavelets.coefficients_matrix()
 
 			# Lazy load to get the matrix dimensions
