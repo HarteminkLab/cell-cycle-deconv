@@ -29,7 +29,7 @@ def create_upsampling_matrix(n, factor=2):
 	up_matrix = np.zeros((n, cols))
 	
 	# Fill the matrix
-	for i in range(n):
+	for i in range(0, n):
 		up_matrix[i, i * factor] = 1
 	return up_matrix
 
@@ -38,6 +38,9 @@ def create_upsampling_matrix(n, factor=2):
 def create_convolution_matrix(kernel, n):
 	"""Convert a kernel to a convolution matrix, so when applied with
 	a signal of length n, computes a convolution between the kernel and input"""
+
+	if not is_power_of_two_math(n): raise ValueError(f"n={n} must be a power of 2")
+
 	k = len(kernel)
 	# Output length of the convolution
 	output_length = n + k - 2
@@ -66,6 +69,7 @@ def create_downsample_convolution_matrix(n, kernel):
 	downsample_conv_mat = np.matmul(kernel_conv_mat, down_matrix.T) # Perform convolution and then downsample
 	return downsample_conv_mat
 
+
 def create_upsample_convolution_matrix(n, kernel):
 	"""
 	Create a matrix that will upsample and preform a convolution. This matrix will be
@@ -78,3 +82,12 @@ def create_upsample_convolution_matrix(n, kernel):
 	conv_mat = create_convolution_matrix(kernel, n) # (n x n)
 	upsampled_conv_mat = np.matmul(up_matrix, conv_mat)
 	return upsampled_conv_mat
+
+
+def is_power_of_two_math(n):
+	"""For checking wavelet convolution kernel construction"""
+	if n <= 0:
+		return False
+	log_n = np.log2(n)
+	return log_n == int(log_n)
+
