@@ -35,7 +35,7 @@ def create_upsampling_matrix(n, factor=2):
 
 
 
-def create_convolution_matrix(kernel, n):
+def create_convolution_matrix(kernel, n, offset=0):
 	"""Convert a kernel to a convolution matrix for 'full' mode convolution."""
 
 	k = len(kernel)
@@ -47,7 +47,7 @@ def create_convolution_matrix(kernel, n):
 	for i in range(0, output_length):
 		for j in range(k):
 
-			row = i-k//2+1
+			row = i-k//2+1+offset
 			col = (i - j)
 
 			if (0 <= row < output_length) and (0 <= col < n):
@@ -78,7 +78,7 @@ def create_upsample_convolution_matrix(n, kernel):
 	"""
 	n_2 = n//2
 	up_matrix = create_upsampling_matrix(n_2, 2) # (n/2 x n)
-	conv_mat = create_convolution_matrix(kernel, n) # (n x n)
+	conv_mat = create_convolution_matrix(kernel, n, offset=-1) # (n x n)
 	upsampled_conv_mat = np.matmul(up_matrix, conv_mat)
 	return upsampled_conv_mat
 
