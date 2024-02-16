@@ -714,18 +714,10 @@ class ChromatinModel:
 		return smooth_bins
 
 
-	def downsample_bins(self, smooth_bins):
+	def downsample_bins(self, smooth_bins, bin_width=16, bin_height=16, prom_len=288, gb_len=512):
 		# Now downsample to the appropriate window and resolution
 
-		# Currently a -1000, +1000 window
-		# Downscale to -300 + 500 approximately
-
-		# 16x16 is the current balance between understandability and
-		# efficiency, or if it crashes/fails with higher resolutions
-		bin_width = 16
-		bin_height = 16
-
-		new_span = self.computed_plus_one-288, self.computed_plus_one+512
+		new_span = self.computed_plus_one-prom_len, self.computed_plus_one+gb_len
 		self.new_span = new_span
 
 		# Next we will define our new bin locations

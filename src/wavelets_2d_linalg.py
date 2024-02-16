@@ -55,13 +55,13 @@ def wave2d_decomposition(image, decom_mats):
 	(down_lo_horizontal_mat, down_lo_vertical_mat, 
 	 down_hi_horizontal_mat, down_hi_vertical_mat) = decom_mats
 
-	L = np.matmul(image, down_lo_horizontal_mat)
-	H = np.matmul(image, down_hi_horizontal_mat)
+	L = image@down_lo_horizontal_mat
+	H = image@down_hi_horizontal_mat
 
-	LL = np.matmul(down_lo_vertical_mat.T, L)
-	HL = np.matmul(down_lo_vertical_mat.T, H)
-	LH = np.matmul(down_hi_vertical_mat.T, L)
-	HH = np.matmul(down_hi_vertical_mat.T, H)
+	LL = down_lo_vertical_mat.T@L
+	HL = down_lo_vertical_mat.T@H
+	LH = down_hi_vertical_mat.T@L
+	HH = down_hi_vertical_mat.T@H
 
 	return LL, HL, LH, HH
 
@@ -73,16 +73,11 @@ def wave2d_reconstruction(coeffs, recon_mats):
 
 	(LL, HL, LH, HH) = coeffs
 
-	upsampled_vertical_LL = np.matmul(up_lo_vertical_mat.T, LL)
-	upsampled_vertical_HH = np.matmul(up_hi_vertical_mat.T, HH)
-	upsampled_vertical_HL = np.matmul(up_lo_vertical_mat.T, HL)
-	upsampled_vertical_LH = np.matmul(up_hi_vertical_mat.T, LH)
+	LL_reconstruction = up_lo_vertical_mat.T@LL@up_lo_horizontal_mat
+	HH_reconstruction = up_hi_vertical_mat.T@HH@up_hi_horizontal_mat
+	LH_reconstruction = up_hi_vertical_mat.T@LH@up_lo_horizontal_mat
+	HL_reconstruction = up_lo_vertical_mat.T@HL@up_hi_horizontal_mat
 
-	reconstructed_LL = np.matmul(upsampled_vertical_LL, up_lo_horizontal_mat)
-	reconstructed_HH = np.matmul(upsampled_vertical_HH, up_hi_horizontal_mat)
-	reconstructed_LH = np.matmul(upsampled_vertical_LH, up_lo_horizontal_mat)
-	reconstructed_HL = np.matmul(upsampled_vertical_HL, up_hi_horizontal_mat)
+	reconstruction = LL_reconstruction+HH_reconstruction+LH_reconstruction+HL_reconstruction
 
-	reconstructed = reconstructed_LL + reconstructed_LH + reconstructed_HL + reconstructed_HH + reconstructed_HL
-
-	return reconstructed
+	return reconstruction
