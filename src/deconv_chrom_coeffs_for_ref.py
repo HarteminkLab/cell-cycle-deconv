@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 from src.wavelets_2d_linalg import wave2d_decomposition, create_wavelet2d_convolution_matrices, wave2d_reconstruction
 
 
-def deconvolve_wavelet_chromatin(model, H, g, coeffs_shape, image_shape,
+def deconvolve_wavelet_chromatin_coeffs(model, H, g, coeffs_shape, image_shape,
 		solver=cvxpy.MOSEK, verbose=False):
 	
 	# --------------- Wavelet definitions -------------
@@ -73,55 +73,52 @@ def deconvolve_wavelet_chromatin(model, H, g, coeffs_shape, image_shape,
 	# g (n x m)
 
 	elementwise_result = cvxpy.multiply(H@f, 1.0/g) - 1
+	sum_square_Hf_g = 0
 	
-	total_reconstruction_sum_squares = 0
+	# Work through each column, we don't need to do this
+	# but it is a proof of concept for whether
+	# we will be able to perform wavelet decomposition
+	# and reconstruction on individual rows of f
+	for i in range(m):
 
-	# We want to set coefficients to zero if we can
-	l1_norm_on_coeffs = 0
+		# Get the column in f and g for the
+		# current metric
+		f_i = f[:, i]
+		g_i = g[:, i]
 
-	# Can I decompose and reconstruct the f images
-	# and use the reconstructed images as the sum of squares difference?
+		# Compute the sum of squares for the current problem
+		# (n x u) * (u x 1) ./ (n x 1)
+		curcol = cvxpy.multiply(H@f_i, 1.0/g_i) - 1
+		cur_ss = cvxpy.sum_squares(curcol)
+
+		sum_square_Hf_g += cur_ss
+
+	# Can I enforce that the first F coefficients, when reconstructed should be greater than zero?
+	reconstruction_constraints = []
+	first_reconstructed = 0
+
 	for i in range(u):
+		f_coeff = f[i, :].reshape((4, -1))
+		LL = f_coeff[0].reshape(coeffs_shape)
+		LH = f_coeff[1].reshape(coeffs_shape)
+		HL = f_coeff[2].reshape(coeffs_shape)
+		HH = f_coeff[3].reshape(coeffs_shape)
 
-		# Get the column of H that matches with the
-		# current f image
-		H_partial = H[:, i]
-
-		# Get the f image row we are going to reconstruct
-		f_img = f[i, :].reshape(image_shape)
-
-		# Decompose the image into coefficients
-		# We can place L1 norms on these somehow.
-		(LL, LH, HL, HH) = wave2d_decomposition(f_img, decomp_mats)
-
-		# Try setting an L1 norm on the coefficients, to drop them off to zero if we can
-		l1_norm_on_coeffs += cvxpy.sum(cvxpy.abs(LL) + cvxpy.abs(HL) + cvxpy.abs(LH) + cvxpy.abs(HH))
-
-		# Reconstruct the image and flatten
-		f_reconstruction = wave2d_reconstruction((LL, LH, HL, HH), recon_mats).reshape(m)
-		
-		# Now, here we can compare reconstruction to g one image at a time
-
-		partial_res = cvxpy.multiply(H_partial.reshape((-1, 1))@f_reconstruction.reshape((1, -1)), 1.0/g) - 1.0/u
-
-		total_reconstruction_sum_squares += cvxpy.sum_squares(partial_res)
-
+		reconstruction = wave2d_reconstruction((LL, LH, HL, HH), recon_mats)
+		reconstruction_constraints.append(reconstruction >= 10)
 
 	objective = cvxpy.Minimize(
 
 		# Compute the sum of squares on the result
 		# cvxpy.sum_squares(elementwise_result)
+		sum_square_Hf_g
 
 		# Like-wise, for smoothing compute the l1 norm along each column and compute the sum
 		+ gamma * (cvxpy.sum(cvxpy.abs(smooth_f_it_result)) 
-		+ factor_fb * cvxpy.sum(cvxpy.abs(smooth_f_b_result)))/g_mean  
-
-		+ total_reconstruction_sum_squares
-
-		+ (0.001)*l1_norm_on_coeffs
+		+ factor_fb * cvxpy.sum(cvxpy.abs(smooth_f_b_result)))/g_mean 
 	)
 
-	constraints = [f >= 0]
+	constraints = reconstruction_constraints
 
 	# -------- End definition of the optimization ------------
 

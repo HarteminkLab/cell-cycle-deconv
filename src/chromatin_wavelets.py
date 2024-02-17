@@ -24,6 +24,10 @@ class ChromatinWavelets():
 		exact_bins = chromatin_model.create_exact_bins()
 		G_images = chromatin_model.downsample_bins(exact_bins, 25, 32, 288, 512)
 		G = G_images.reshape((n, -1))
+
+		self.G_images = G_images
+		self.G = G
+
 		image_shape = G_images[0].shape
 		self.image_shape = image_shape
 
@@ -53,6 +57,8 @@ class ChromatinWavelets():
 
 			self.coefficients_matrix[i] = coeffs_mat
 			self.wavelet_generators.append(wavelets)
+
+		self.coeffs_shape = coeffs_mat[0].shape
 
 		self.create_coefficients_vectors()
 
