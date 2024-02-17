@@ -1,18 +1,15 @@
 
+import cvxpy
+import pywt
+
 import pandas as pd
 import numpy as np
+
 from matplotlib import pyplot as plt
-import cvxpy
-
-
-
-
-import pywt
 from src.wavelets_2d_linalg import wave2d_decomposition, create_wavelet2d_convolution_matrices, wave2d_reconstruction
 
 
-
-def deconvolve_wavelet_chromatin(model, H, g, coeffs_shape, image_shape, allow_negative=False,
+def deconvolve_wavelet_chromatin(model, H, g, coeffs_shape, image_shape,
 		solver=cvxpy.MOSEK, verbose=False):
 	
 	# --------------- Wavelet definitions -------------
@@ -96,23 +93,19 @@ def deconvolve_wavelet_chromatin(model, H, g, coeffs_shape, image_shape, allow_n
 
 		sum_square_Hf_g += cur_ss
 
+	# Can I enforce that the first F coefficients, when reconstructed should be greater than zero?
+	reconstruction_constraints = []
+	first_reconstructed = 0
 
-	def _apply_threshold(coeff, thresh=2):
-
-		for i in range(coeffs_shape[0]):
-			for j in range(coeffs_shape[1]):
-				coeff[i, j] = 0 if (coeff[i, j] >= thresh or coeff[i, j] <= thresh) else coeff[i, j]
-				
-	for i in range(1):
-		f_img = f[i, :].reshape(image_shape)
-		(LL, LH, HL, HH) = wave2d_decomposition(f_img, decomp_mats)
-		LL = _apply_threshold(LL)
-		LH = _apply_threshold(LH)
-		HL = _apply_threshold(HL)
-		HH = _apply_threshold(HH)
+	for i in range(u):
+		f_coeff = f[i, :].reshape((4, -1))
+		LL = f_coeff[0].reshape(coeffs_shape)
+		LH = f_coeff[1].reshape(coeffs_shape)
+		HL = f_coeff[2].reshape(coeffs_shape)
+		HH = f_coeff[3].reshape(coeffs_shape)
 
 		reconstruction = wave2d_reconstruction((LL, LH, HL, HH), recon_mats)
-
+		reconstruction_constraints.append(reconstruction >= 10)
 
 	objective = cvxpy.Minimize(
 
@@ -125,11 +118,7 @@ def deconvolve_wavelet_chromatin(model, H, g, coeffs_shape, image_shape, allow_n
 		+ factor_fb * cvxpy.sum(cvxpy.abs(smooth_f_b_result)))/g_mean 
 	)
 
-	# Where f is non-negative
-	if allow_negative:
-		constraints = []
-	else:
-		constraints = [f >= 0]
+	constraints = reconstruction_constraints
 
 	# -------- End definition of the optimization ------------
 

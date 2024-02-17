@@ -15,7 +15,22 @@ class ChromatinWavelets():
 		self.chromatin_model = chromatin_model
 
 
-	def create_coefficients(self, wavelet_name='bior4.4'):
+	def create_coefficients(self, wavelet_name='bior2.2'):
+
+
+		chromatin_model = self.chromatin_model
+		n = len(chromatin_model.timepoints)
+
+		exact_bins = chromatin_model.create_exact_bins()
+		G_images = chromatin_model.downsample_bins(exact_bins, 25, 32, 288, 512)
+		G = G_images.reshape((n, -1))
+		image_shape = G_images[0].shape
+		self.image_shape = image_shape
+
+		print("The shape of G is: ", G.shape)
+		print("The shape of G images is: ", G_images.shape)
+
+		# -----------
 
 		self.wavelet_name = wavelet_name
 
@@ -26,10 +41,10 @@ class ChromatinWavelets():
 
 		for i in range(n):
 
-			img = self.chromatin_model.deconv_hist_unflattened[i]
+			img = G_images[i]
+
 			wavelets = SpatialWavelets(img, wavelet_name)
 			wavelets.compute_coeffs()
-			wavelets.apply_threshold(1, 1)
 			coeffs_mat = wavelets.coefficients_matrix()
 
 			# Lazy load to get the matrix dimensions
@@ -95,13 +110,19 @@ class ChromatinWavelets():
 
 	def reconstruct_images(self, coeffs_mat):
 
+		from src.wavelets_2d_linalg import create_wavelet2d_convolution_matrices, wave2d_reconstruction
+
+		wavelet = pywt.Wavelet(self.wavelet_name)
+		_, recon_mats = create_wavelet2d_convolution_matrices(wavelet, self.image_shape)
+
 		n = coeffs_mat.shape[0]
 		reconstructed_images = None
 
 		for i in range(n):
 			cur_coeffs = coeffs_mat[i]
-			coeffs = cur_coeffs[0], (cur_coeffs[1], cur_coeffs[2], cur_coeffs[3])
-			reconstructed_image = pywt.idwt2(coeffs, self.wavelet_name)
+			coeffs = cur_coeffs[0], cur_coeffs[1], cur_coeffs[2], cur_coeffs[3]
+
+			reconstructed_image = wave2d_reconstruction(coeffs, recon_mats)
 
 			if reconstructed_images is None:
 				reconstructed_images = np.zeros((n, *reconstructed_image.shape))

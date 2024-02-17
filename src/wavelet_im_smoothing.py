@@ -83,8 +83,16 @@ class SpatialWavelets():
 
 	def compute_coeffs(self):
 
+		from src.wavelets_2d_linalg import create_wavelet2d_convolution_matrices, wave2d_decomposition
+
+		wavelet = pywt.Wavelet(self.wavelet_name)
+		input_shape = self.img.shape
+
 		# Perform 2D Wavelet Transformation
-		self.coeffs = pywt.dwt2(self.img, self.wavelet_name)
+		decom_mats, _ = create_wavelet2d_convolution_matrices(wavelet, input_shape)
+		(LL, HL, LH, HH) = wave2d_decomposition(self.img, decom_mats)
+
+		self.coeffs = (LL, HL, LH, HH)
 
 
 	def apply_threshold(self, threshold_LL, threshold_detail):
@@ -140,7 +148,7 @@ class SpatialWavelets():
 		the wavelet transformation
 		"""
 		
-		LL, (HL, LH, HH) = self.coeffs
+		(LL, HL, LH, HH) = self.coeffs
 
 		coefficients = np.zeros((4, *LL.shape))
 		coefficients[0] = LL
