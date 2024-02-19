@@ -37,9 +37,9 @@ def create_wavelet2d_convolution_matrices(wavelet, input_shape):
 
 	# --------- Reconstruction matrices -----------
 	up_lo_horizontal_mat = create_upsample_convolution_matrix(m, rec_lo)
-	up_lo_vertical_mat = create_upsample_convolution_matrix(n, rec_lo)
-
 	up_hi_horizontal_mat = create_upsample_convolution_matrix(m, rec_hi)
+
+	up_lo_vertical_mat = create_upsample_convolution_matrix(n, rec_lo)
 	up_hi_vertical_mat = create_upsample_convolution_matrix(n, rec_hi)
 
 	transform_matrices = ((down_lo_horizontal_mat, down_lo_vertical_mat, 
@@ -152,24 +152,10 @@ def create_kron_wavelet2d_convolution_matrices(wavelet, input_shape):
 	# along the vertical dimension, the downsample matrix will be half the size
 	# so use m//2
 	down_lo_kron_horizontal_mat = np.kron(np.eye(n), down_lo_horizontal_mat)
-	down_lo_kron_vertical_mat = np.kron(np.eye(m//2), up_lo_vertical_mat)
-
 	down_hi_kron_horizontal_mat = np.kron(np.eye(n), down_hi_horizontal_mat)
+
+	down_lo_kron_vertical_mat = np.kron(np.eye(m//2), down_lo_vertical_mat)
 	down_hi_kron_vertical_mat = np.kron(np.eye(m//2), down_hi_vertical_mat)
-
-
-	# We will need tranposition matrices to transpose the flattened image set in
-	# place, these images are in vectorized form, but we need a tranpose operation
-	# for the vertical transformation steps
-
-	# down tranpose shape
-	horizontal_tranpose_shape = n, m//2,
-
-	# up transpose shape
-	coeffs_transpose_shape = m//2, n
-
-	up_transpose_mat = create_flattened_transpose_permutation_matrix(coeffs_transpose_shape)
-	down_transpose_mat = create_flattened_transpose_permutation_matrix(horizontal_tranpose_shape)
 
 	decomp_kron_mats = (down_lo_kron_horizontal_mat,
 						down_lo_kron_vertical_mat,
@@ -177,14 +163,87 @@ def create_kron_wavelet2d_convolution_matrices(wavelet, input_shape):
 						down_hi_kron_vertical_mat)
 
 	up_lo_kron_horizontal_mat = np.kron(np.eye(n), up_lo_horizontal_mat)
-	up_lo_kron_vertical_mat = np.kron(np.eye(m//2), up_lo_vertical_mat.T)
+	up_lo_kron_vertical_mat = np.kron(np.eye(m//2), up_lo_vertical_mat)
 
 	up_hi_kron_horizontal_mat = np.kron(np.eye(n), up_hi_horizontal_mat)
-	up_hi_kron_vertical_mat = np.kron(np.eye(m//2), up_hi_vertical_mat.T)
+	up_hi_kron_vertical_mat = np.kron(np.eye(m//2), up_hi_vertical_mat)
 
 	reconst_kron_mats = (up_lo_kron_horizontal_mat,
 						up_lo_kron_vertical_mat,
 						up_hi_kron_horizontal_mat,
 						up_hi_kron_vertical_mat)
 
+	# -------------
+	# # We will need tranposition matrices to transpose the flattened image set in
+	# # place, these images are in vectorized form, but we need a tranpose operation
+	# # for the vertical transformation steps
+
+	# # down tranpose shape
+	# horizontal_tranpose_shape = n, m//2,
+
+	# # up transpose shape
+	# coeffs_transpose_shape = m//2, n
+
+	# up_transpose_mat = create_flattened_transpose_permutation_matrix(coeffs_transpose_shape)
+	# down_transpose_mat = create_flattened_transpose_permutation_matrix(horizontal_tranpose_shape)
+
+	hori_T_shape = n, m//2,
+	vert_T_shape = m//2, n
+	up_transpose_mat = create_flattened_transpose_permutation_matrix(vert_T_shape)
+	down_transpose_mat = create_flattened_transpose_permutation_matrix(hori_T_shape)
+
+	# The downsampling vertical operations need the tranposition operation on
+	t_down_lo_vertical_mat = down_transpose_mat @ down_lo_kron_vertical_mat
+	t_down_hi_vertical_mat = down_transpose_mat @ down_hi_kron_vertical_mat
+
+	# The upsampling horizontal operations need the tranposition operation on
+	t_up_lo_horizontal_mat = up_transpose_mat @ up_lo_kron_horizontal_mat
+	t_up_hi_horizontal_mat = up_transpose_mat @ up_hi_kron_horizontal_mat
+
+	#------------
+
+	decomp_kron_mats = (down_lo_kron_horizontal_mat,
+						t_down_lo_vertical_mat,
+						down_hi_kron_horizontal_mat,
+						t_down_hi_vertical_mat)
+
+	reconst_kron_mats = (t_up_lo_horizontal_mat,
+						up_lo_kron_vertical_mat,
+						t_up_hi_horizontal_mat,
+						up_hi_kron_vertical_mat)
+
 	return decomp_kron_mats, reconst_kron_mats
+
+
+def decompose_flattened_kron_coeffs(flattened_images, decomp_kron_mats):
+
+	print(flattened_images.shape)
+
+	(down_lo_kron_horizontal_mat,
+	 t_down_lo_vertical_mat,
+	 down_hi_kron_horizontal_mat,
+	 t_down_hi_vertical_mat) = decomp_kron_mats
+
+	LL = flattened_images @ down_lo_kron_horizontal_mat @ t_down_lo_vertical_mat
+	LH = flattened_images @ down_lo_kron_horizontal_mat @ t_down_hi_vertical_mat
+	HL = flattened_images @ down_hi_kron_horizontal_mat @ t_down_lo_vertical_mat
+	HH = flattened_images @ down_hi_kron_horizontal_mat @ t_down_hi_vertical_mat
+
+	return LL, LH, HL, HH
+
+
+def reconstruct_flattened_kron_coeffs(coeffs, reconst_kron_mats):
+
+	(LL, LH, HL, HH) = coeffs
+
+	(t_up_lo_horizontal_mat,
+	 up_lo_kron_vertical_mat,
+	 t_up_hi_horizontal_mat,
+	 up_hi_kron_vertical_mat) = reconst_kron_mats
+
+	reconstructed_LL = LL @ up_lo_kron_vertical_mat @ t_up_lo_horizontal_mat
+	reconstructed_HL = HL @ up_lo_kron_vertical_mat @ t_up_hi_horizontal_mat
+	reconstructed_LH = LH @ up_hi_kron_vertical_mat @ t_up_lo_horizontal_mat
+	reconstructed_HH = HH @ up_hi_kron_vertical_mat @ t_up_hi_horizontal_mat
+
+	return reconstructed_LL + reconstructed_HL + reconstructed_LH + reconstructed_HH
