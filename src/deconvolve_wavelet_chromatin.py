@@ -6,15 +6,16 @@ import pandas as pd
 import numpy as np
 
 from matplotlib import pyplot as plt
-from src.wavelets_2d_linalg import wave2d_decomposition, create_wavelet2d_convolution_matrices, wave2d_reconstruction
+from src.wavelets_2d_linalg import wave2d_decomposition, \
+	create_wavelet2d_convolution_matrices, wave2d_reconstruction
 
 
 def deconvolve_wavelet_chromatin(model, H, g, image_shape,
-		solver=cvxpy.MOSEK, verbose=False):
+		solver=cvxpy.MOSEK, verbose=False, wavelet_name='bior.2.2'):
 	
 	# --------------- Wavelet definitions -------------
 
-	wavelet = pywt.Wavelet('bior2.2')
+	wavelet = pywt.Wavelet(wavelet_name)
 
 	dec_lo, dec_hi = wavelet.dec_lo, wavelet.dec_hi
 	rec_lo, rec_hi = wavelet.rec_lo, wavelet.rec_hi
@@ -22,7 +23,6 @@ def deconvolve_wavelet_chromatin(model, H, g, image_shape,
 	(decomp_mats, recon_mats) = create_wavelet2d_convolution_matrices(wavelet, image_shape)
 
 	# --------------------------------------------------
-
 
 	# We will add a very small value to g, to avoid divide by zero errors
 	eps = 1e-5
@@ -84,16 +84,14 @@ def deconvolve_wavelet_chromatin(model, H, g, image_shape,
 	# wavelets?
 	for i in range(u):
 
-		# Get the f image row we are going to reconstruct
+		# Get the f image row we are going decompose
 		f_img = f[i, :].reshape(image_shape)
 
 		# Decompose the image into coefficients
-		# We can place L1 norms on these somehow.
 		(LL, LH, HL, HH) = wave2d_decomposition(f_img, decomp_mats)
 
-		# Try setting an L1 norm on the coefficients, to drop them off to zero if we can
+		# Set an L1 norm on the coefficients and add it to the sum
 		l1_norm_on_coeffs += cvxpy.sum(cvxpy.abs(LL) + cvxpy.abs(HL) + cvxpy.abs(LH) + cvxpy.abs(HH))
-
 
 	objective = cvxpy.Minimize(
 
@@ -104,6 +102,7 @@ def deconvolve_wavelet_chromatin(model, H, g, image_shape,
 		+ gamma * (cvxpy.sum(cvxpy.abs(smooth_f_it_result)) 
 		+ factor_fb * cvxpy.sum(cvxpy.abs(smooth_f_b_result)))/g_mean  
 
+		# Hard-coded parameter to apply the l1 norm on the coefficient representation
 		+ (0.001)*l1_norm_on_coeffs
 	)
 
