@@ -152,7 +152,7 @@ postG1 %s
 
 
 def create_wt1_model(output_model_path, alpha):
-	posteriors_filepath = 'data/yl_2019_replicate1/posteriors.txt'
+	posteriors_filepath = 'data/2019_cloccs_fits/yl_2019_replicate1/posteriors.txt'
 	model_creator = ModelCreation(posteriors_filepath, output_model_path)
 	model_creator.alpha = alpha
 	model_creator.create_model()
@@ -161,7 +161,7 @@ def create_wt1_model(output_model_path, alpha):
 
 
 def create_wt2_model(output_model_path, alpha):
-	posteriors_filepath = 'data/yl_2019_replicate2/posteriors.txt'
+	posteriors_filepath = 'data/2019_cloccs_fits/yl_2019_replicate2/posteriors.txt'
 	model_creator = ModelCreation(posteriors_filepath, output_model_path)
 	model_creator.alpha = alpha
 	model_creator.create_model()

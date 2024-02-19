@@ -95,7 +95,7 @@ def deconvolve_wavelet_chromatin(model, H, g, coeffs_shape, image_shape,
 		(LL, LH, HL, HH) = wave2d_decomposition(f_img, decomp_mats)
 
 		# Try setting an L1 norm on the coefficients, to drop them off to zero if we can
-		l1_norm_on_coeffs += cvxpy.sum(cvxpy.abs(LL) + cvxpy.abs(HL) + cvxpy.abs(LH) + cvxpy.abs(HH))
+		#l1_norm_on_coeffs += cvxpy.sum(cvxpy.abs(LL) + cvxpy.abs(HL) + cvxpy.abs(LH) + cvxpy.abs(HH))
 
 		# Reconstruct the image and flatten
 		f_reconstruction = wave2d_reconstruction((LL, LH, HL, HH), recon_mats).reshape(m)
@@ -118,7 +118,7 @@ def deconvolve_wavelet_chromatin(model, H, g, coeffs_shape, image_shape,
 
 		+ total_reconstruction_sum_squares
 
-		+ (0.001)*l1_norm_on_coeffs
+		#+ (0.001)*l1_norm_on_coeffs
 	)
 
 	constraints = [f >= 0]
