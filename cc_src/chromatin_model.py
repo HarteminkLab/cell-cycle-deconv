@@ -717,7 +717,11 @@ class ChromatinModel:
 	def downsample_bins(self, smooth_bins, bin_width=16, bin_height=16, prom_len=288, gb_len=512):
 		# Now downsample to the appropriate window and resolution
 
-		new_span = self.computed_plus_one-prom_len, self.computed_plus_one+gb_len
+		if self.gene.strand == '+':
+			new_span = self.computed_plus_one-prom_len, self.computed_plus_one+gb_len
+		else:
+			new_span = self.computed_plus_one-gb_len, self.computed_plus_one+prom_len
+
 		self.new_span = new_span
 
 		# Next we will define our new bin locations
@@ -749,7 +753,7 @@ class ChromatinModel:
 		return downscaled_bins
 
 
-	def create_deconvolution_bins(self, smoothing=True):
+	def create_deconvolution_bins(self, smoothing=False):
 		
 		exact_bins = self.create_exact_bins()
 		normalized_bins = self.normalize_bins(exact_bins)

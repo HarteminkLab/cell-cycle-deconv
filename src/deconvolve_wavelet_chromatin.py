@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 from src.wavelets_2d_linalg import wave2d_decomposition, create_wavelet2d_convolution_matrices, wave2d_reconstruction
 
 
-def deconvolve_wavelet_chromatin(model, H, g, coeffs_shape, image_shape,
+def deconvolve_wavelet_chromatin(model, H, g, image_shape,
 		solver=cvxpy.MOSEK, verbose=False):
 	
 	# --------------- Wavelet definitions -------------
@@ -74,18 +74,15 @@ def deconvolve_wavelet_chromatin(model, H, g, coeffs_shape, image_shape,
 
 	elementwise_result = cvxpy.multiply(H@f, 1.0/g) - 1
 	
-	total_reconstruction_sum_squares = 0
-
-	# We want to set coefficients to zero if we can
+	# Can we apply an L1 norm on the coefficients, set them to 0
+	# if they get close to zero?
 	l1_norm_on_coeffs = 0
 
-	# Can I decompose and reconstruct the f images
-	# and use the reconstructed images as the sum of squares difference?
+	# For each of the f images, when we decompose and represent these
+	# images in wavelet coefficient space, can we drop off coefficients
+	# such that the image is still effectively represented with fewer
+	# wavelets?
 	for i in range(u):
-
-		# Get the column of H that matches with the
-		# current f image
-		H_partial = H[:, i]
 
 		# Get the f image row we are going to reconstruct
 		f_img = f[i, :].reshape(image_shape)
@@ -95,30 +92,19 @@ def deconvolve_wavelet_chromatin(model, H, g, coeffs_shape, image_shape,
 		(LL, LH, HL, HH) = wave2d_decomposition(f_img, decomp_mats)
 
 		# Try setting an L1 norm on the coefficients, to drop them off to zero if we can
-		#l1_norm_on_coeffs += cvxpy.sum(cvxpy.abs(LL) + cvxpy.abs(HL) + cvxpy.abs(LH) + cvxpy.abs(HH))
-
-		# Reconstruct the image and flatten
-		f_reconstruction = wave2d_reconstruction((LL, LH, HL, HH), recon_mats).reshape(m)
-		
-		# Now, here we can compare reconstruction to g one image at a time
-
-		partial_res = cvxpy.multiply(H_partial.reshape((-1, 1))@f_reconstruction.reshape((1, -1)), 1.0/g) - 1.0/u
-
-		total_reconstruction_sum_squares += cvxpy.sum_squares(partial_res)
+		l1_norm_on_coeffs += cvxpy.sum(cvxpy.abs(LL) + cvxpy.abs(HL) + cvxpy.abs(LH) + cvxpy.abs(HH))
 
 
 	objective = cvxpy.Minimize(
 
 		# Compute the sum of squares on the result
-		# cvxpy.sum_squares(elementwise_result)
+		cvxpy.sum_squares(elementwise_result)
 
 		# Like-wise, for smoothing compute the l1 norm along each column and compute the sum
 		+ gamma * (cvxpy.sum(cvxpy.abs(smooth_f_it_result)) 
 		+ factor_fb * cvxpy.sum(cvxpy.abs(smooth_f_b_result)))/g_mean  
 
-		+ total_reconstruction_sum_squares
-
-		#+ (0.001)*l1_norm_on_coeffs
+		+ (0.001)*l1_norm_on_coeffs
 	)
 
 	constraints = [f >= 0]
