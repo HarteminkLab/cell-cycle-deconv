@@ -10,7 +10,7 @@ from src.helpers import get_wavelet_kernel
 
 
 def deconvolve_wavelet_chromatin(model, H, g, image_shape,
-		solver=cvxpy.MOSEK, verbose=False, wavelet_name='bior4.4'):
+		solver=cvxpy.MOSEK, verbose=False, wavelet_name='bior4.4', gamma_prime=0):
 	
 	# We will add a very small value to g, to avoid divide by zero errors
 	eps = 1e-5
@@ -54,21 +54,19 @@ def deconvolve_wavelet_chromatin(model, H, g, image_shape,
 	
 	# ---------- Spatial Wavelet Smoothing -------------
 
-	# How much spatial smoothing do we care about? That is, how much
-	# do we want to enforce coefficients crunching down to zero
-	# and essentially compressing, spatially smoothing the f images?
-	gamma_prime = 0.001
-
 	from src.wavelets_2d_linalg import decompose_flattened_kron_coeffs, \
     	create_kron_wavelet2d_convolution_matrices
 
 	wavelet = pywt.Wavelet(wavelet_name)
 
-	# Decompose the f matrix of flattened images using the kronecker version of the wavelet transformation
-	# matrices. Retrieve the wavelet coefficients and compute an L1 norm on these coefficients.
-	decomp_kron_mats, reconst_mats = create_kron_wavelet2d_convolution_matrices(wavelet, image_shape)
-	(LL, HL, LH, HH) = decompose_flattened_kron_coeffs(f, decomp_kron_mats)
-	l1_norm_on_coeffs = cvxpy.sum(cvxpy.abs(LL) + cvxpy.abs(HL) + cvxpy.abs(LH) + cvxpy.abs(HH))
+	if gamma_prime == 0:
+		l1_norm_on_coeffs = 0
+	else:
+		# Decompose the f matrix of flattened images using the kronecker version of the wavelet transformation
+		# matrices. Retrieve the wavelet coefficients and compute an L1 norm on these coefficients.
+		decomp_kron_mats, reconst_mats = create_kron_wavelet2d_convolution_matrices(wavelet, image_shape)
+		(LL, HL, LH, HH) = decompose_flattened_kron_coeffs(f, decomp_kron_mats)
+		l1_norm_on_coeffs = cvxpy.sum(cvxpy.abs(LL) + cvxpy.abs(HL) + cvxpy.abs(LH) + cvxpy.abs(HH))
 
 	# -------------------------------------------------
 
@@ -97,6 +95,7 @@ def deconvolve_wavelet_chromatin(model, H, g, image_shape,
 
 	# ------- Compute the smoothing norm and fitting/residual norms --------------
 
+	m = g.shape[1]
 	f = f.value
 
 	# We will use the non-mirrored wavelet kernel sizes, because we are operating on the 

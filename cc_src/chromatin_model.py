@@ -9,6 +9,7 @@ from cc_src.sgd import get_gene_name_orf_name
 from cc_src.mnase_plotting import plot_mnase_density
 
 from src.deconvolve_chromatin import deconvolve_chromatin
+from src.deconvolve_wavelet_chromatin import deconvolve_wavelet_chromatin
 from src.model import Model
 from src.timer import Timer
 
@@ -414,21 +415,19 @@ class ChromatinModel:
 
 		predicted_g_reshaped = predicted_g.reshape(n, shape[0], shape[1])
 
-		fig, axs = plt.subplots(n, 5, figsize=(9, 10))
+		fig, axs = plt.subplots(n, 4, figsize=(7, 8))
 		plt.subplots_adjust(top=0.82)
 
 		axs = np.array(axs).T
 		raw_axs = axs[0]
-		smoothed_axs = axs[1]
-		g_axs = axs[2]
-		pred_g_axs = axs[3]
-		comparison_axs = axs[4]
+		g_axs = axs[1]
+		pred_g_axs = axs[2]
+		comparison_axs = axs[3]
 
 		for i in range(n):
 			time = times[i]
 
 			raw_ax = raw_axs[i]
-			smoothed_ax = smoothed_axs[i]
 
 			xlims = self.mnase_span
 			gene = self.gene
@@ -439,16 +438,6 @@ class ChromatinModel:
 			raw_ax.set_xlim(self.bin_extents[0], self.bin_extents[1])
 			raw_ax.set_xticks([])
 			raw_ax.set_yticks([])
-
-			im = smoothed_ax.imshow(self.smooth_bins[i], origin='lower', cmap='magma_r', 
-						   aspect='auto', vmax=vmax,
-						   extent=self.bin_extents)
-			smoothed_ax.set_xlim(self.bin_extents[0], self.bin_extents[1])
-			smoothed_ax.set_xticks([])
-			smoothed_ax.set_yticks([])
-
-			if i == 0:
-				smoothed_ax.set_title("Smoothed")
 
 			g_ax = g_axs[i]
 			im = g_ax.imshow(self.deconv_hist_unflattened[i], origin='lower', cmap='magma_r', 
@@ -605,15 +594,16 @@ class ChromatinModel:
 		self.deconv_model.H, self.deconv_model.Hpos = calcH(self.config.intervals_wt1, self.timepoints)
 
 
-	def deconvolve(self, solver=cvxpy.MOSEK, verbose=False):
+	def deconvolve(self, solver=cvxpy.MOSEK, verbose=False, gamma_prime=0):
 		"""
 		Deconvolve the chromatin for a single gamma value
 		"""
 		timer = Timer()
 		self.setup_deconv_model()
 
-		self.f, self.rn, self.sn = deconvolve_chromatin(self.deconv_model, self.G, solver=solver, 
-			verbose=verbose)
+		image_shape = self.deconv_hist_unflattened.shape[1:]
+		self.f, self.rn, self.sn = deconvolve_wavelet_chromatin(self.deconv_model, self.deconv_model.H, self.G,
+	    	verbose=verbose, image_shape=image_shape, wavelet_name='bior4.4', gamma_prime=gamma_prime)
 
 		print(f"Deconvolved in : {timer.get_time()}")
 
@@ -696,22 +686,6 @@ class ChromatinModel:
 			cur_normalized_bins = (scaling_mat[time].values.reshape((-1, 1)) * exact_bins[i])
 			normalized_bins[i] = cur_normalized_bins
 		return normalized_bins
-
-
-	def smooth_exact_bins(self, exact_bins, k_size=30, k_sigma=0.75):
-		"""Smooth the histogram of exact position and length counts"""
-
-		from scipy.signal import convolve2d
-		from src.preprocessing import create_2d_gaussian_kernel
-		
-		g_kernel = create_2d_gaussian_kernel(k_size=k_size, sigma=k_sigma, plot=False)
-
-		smooth_bins = exact_bins.copy()
-
-		for i in range(exact_bins.shape[0]):
-			cur_exact_hist = exact_bins[i]
-			smooth_bins[i] = convolve2d(cur_exact_hist, g_kernel, mode='same')
-		return smooth_bins
 
 
 	def downsample_bins(self, bin_data, bin_width=16, bin_height=16, prom_len=288, gb_len=512):

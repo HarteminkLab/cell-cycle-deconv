@@ -47,15 +47,19 @@ def deconvolve_chromatin_H(model, H, g, allow_negative=False,
 	W2pad = np.zeros((len(f_b), len(f_b)))
 	W2 = np.concatenate((np.concatenate((W2, W2pad)), 
 						 np.concatenate((W2pad, np.fliplr(W2)))), axis=1)
-
 	g_mean = g.mean()
-
 
 	# -------- Define the optimization ------------
 
 	# f whose rows span the columns of H
 	# and columns are the length of g's columns
 	f = cvxpy.Variable((H.shape[1], g.shape[1]))
+	
+	print("W1", W1.shape)
+	print("W2", W2.shape)
+	print("f", f.shape)
+	print("H", H.shape)
+
 
 	# The fitting constraint of HF / g
 	elementwise_result = cvxpy.multiply(H@f, 1.0/g) - 1
