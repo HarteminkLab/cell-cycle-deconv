@@ -1,4 +1,4 @@
-name: cell-cycle-deconvolution
+name: chromatin-deconvolution
 channels:
   - defaults
 dependencies:
@@ -14,5 +14,5 @@ dependencies:
   - pip:
     - cvxpy
     - pysam
-    - pywt
+    - PyWavelets
 

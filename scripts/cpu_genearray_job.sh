@@ -14,7 +14,7 @@ echo "cpu_job.sh: beginning job, date: $(date)"
 . "/usr/project/compbio/tqtran/miniconda3/etc/profile.d/conda.sh"
 
 # activate environment
-conda activate /usr/project/compbio/tqtran/envs/cell-cycle-deconvolution
+conda activate chromatin-deconvolution
 
 GENE_INDEX=$(($BATCH*$SLURM_ARRAY_TASK_ID))
 
