@@ -16,7 +16,9 @@ echo "cpu_job.sh: beginning job, date: $(date)"
 # activate environment
 conda activate /usr/project/compbio/tqtran/envs/cell-cycle-deconvolution
 
-GENE_INDEX=(($BATCH*$SLURM_ARRAY_TASK_ID))
+GENE_INDEX=$(($BATCH*$SLURM_ARRAY_TASK_ID))
+
+echo "bash: outputs: $ARGS gene_index: $GENE_INDEX"
 
 # Run the python command with the task id (array index) as the last argument
 python $PYFILE $ARGS $GENE_INDEX
