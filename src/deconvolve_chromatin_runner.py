@@ -73,7 +73,7 @@ def main():
 	chromatin_model.create_deconvolution_bins()
 
 	if gamma is not None:
-		chromatin_model.deconvolve()
+		chromatin_model.deconvolve(verbose=True)
 	else:
 		chromatin_model.deconvolve_find_optimal_gamma()
 
