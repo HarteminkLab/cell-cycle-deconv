@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --time=3:00:00
-#SBATCH --mem 6G
+#SBATCH --mem 12G
 #SBATCH -p compsci
 
 # Example run:
@@ -16,6 +16,7 @@ echo "cpu_job.sh: beginning job, date: $(date)"
 # activate environment
 conda activate chromatin-deconvolution
 
+export MOSEKLM_LICENSE_FILE=/home/users/tqt3/mosek/mosek.lic
 GENE_INDEX=$(($BATCH*$SLURM_ARRAY_TASK_ID))
 
 echo "bash: outputs: $ARGS gene_index: $GENE_INDEX"

@@ -7,6 +7,7 @@ import numpy as np
 
 from matplotlib import pyplot as plt
 from src.helpers import get_wavelet_kernel
+from src.utils import print_fl
 
 
 class ChromatinDeconvolveSolver:
