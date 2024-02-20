@@ -6,20 +6,18 @@ import pandas as pd
 import numpy as np
 
 from matplotlib import pyplot as plt
+from src.helpers import get_wavelet_kernel
 
 
 def deconvolve_wavelet_chromatin(model, H, g, image_shape,
 		solver=cvxpy.MOSEK, verbose=False, wavelet_name='bior4.4'):
 	
-
 	# We will add a very small value to g, to avoid divide by zero errors
 	eps = 1e-5
 	g = g + eps
 
 	gamma = model.gamma
 	factor_fb = 1.5
-
-	from src.helpers import get_wavelet_kernel
 
 	f_it = model.get_f_it()	
 	f_b = model.get_f_b()
@@ -52,17 +50,14 @@ def deconvolve_wavelet_chromatin(model, H, g, image_shape,
 	smooth_f_it_result = W1@f[f_it_mirror]
 	smooth_f_b_result = W2@f[f_b_mirror]
 
-	n = H.shape[0]
-	u = H.shape[1]
-	m = g.shape[1]
-
-	# H (n x u)
-	# f (u x m)
-	# g (n x m)
-
 	elementwise_result = cvxpy.multiply(H@f, 1.0/g) - 1
 	
 	# ---------- Spatial Wavelet Smoothing -------------
+
+	# How much spatial smoothing do we care about? That is, how much
+	# do we want to enforce coefficients crunching down to zero
+	# and essentially compressing, spatially smoothing the f images?
+	gamma_prime = 0.001
 
 	from src.wavelets_2d_linalg import decompose_flattened_kron_coeffs, \
     	create_kron_wavelet2d_convolution_matrices
@@ -86,8 +81,8 @@ def deconvolve_wavelet_chromatin(model, H, g, image_shape,
 		+ gamma * (cvxpy.sum(cvxpy.abs(smooth_f_it_result)) 
 		+ factor_fb * cvxpy.sum(cvxpy.abs(smooth_f_b_result)))/g_mean  
 
-		# Hard-coded parameter to apply the l1 norm on the coefficient representation
-		+ (0.001)*l1_norm_on_coeffs
+		# How much to apply the l1 norm on the coefficient representation
+		+ gamma_prime*l1_norm_on_coeffs
 	)
 
 	constraints = [f >= 0]
