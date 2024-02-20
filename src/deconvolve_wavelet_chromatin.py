@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 
 
 def deconvolve_wavelet_chromatin(model, H, g, image_shape,
-		solver=cvxpy.MOSEK, verbose=False, wavelet_name='bior2.2'):
+		solver=cvxpy.MOSEK, verbose=False, wavelet_name='bior4.4'):
 	
 
 	# We will add a very small value to g, to avoid divide by zero errors
@@ -68,10 +68,11 @@ def deconvolve_wavelet_chromatin(model, H, g, image_shape,
     	create_kron_wavelet2d_convolution_matrices
 
 	wavelet = pywt.Wavelet(wavelet_name)
-    # Matrix transformation of wavelet coefficients
+
+	# Decompose the f matrix of flattened images using the kronecker version of the wavelet transformation
+	# matrices. Retrieve the wavelet coefficients and compute an L1 norm on these coefficients.
 	decomp_kron_mats, reconst_mats = create_kron_wavelet2d_convolution_matrices(wavelet, image_shape)
 	(LL, HL, LH, HH) = decompose_flattened_kron_coeffs(f, decomp_kron_mats)
-
 	l1_norm_on_coeffs = cvxpy.sum(cvxpy.abs(LL) + cvxpy.abs(HL) + cvxpy.abs(LH) + cvxpy.abs(HH))
 
 	# -------------------------------------------------
