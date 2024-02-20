@@ -323,7 +323,15 @@ def load_yl_replicate2_rg1_alpha_vst_config(alpha=19):
 	return config
 
 
-def load_combined_yl_alpha_vst_gene_expression_config(alphas=[30, 17]):
+def load_yl_rg1_vst_config(replicate):
+	if replicate == 1:
+		config = load_yl_replicate1_rg1_alpha_vst_config()
+	else:
+		config = load_yl_replicate2_rg1_alpha_vst_config()
+	return config
+
+
+def load_combined_yl_alpha_vst_gene_expression_config(alphas=[29, 19]):
 
 	WT1 = read_yl_vst_data_rep(1)
 	WT2 = read_yl_vst_data_rep(2)

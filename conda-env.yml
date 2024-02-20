@@ -13,4 +13,5 @@ dependencies:
   - pip:
     - cvxpy
     - pysam
+    - pywt
 

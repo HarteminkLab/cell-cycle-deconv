@@ -15,28 +15,15 @@ def print_fl(*args, **kwargs):
 
 class FindOptimalGammaChromatin:
 
-	def __init__(self, deconv_model, chromatin_model=None, G=None):
-		self.chromatin_model = chromatin_model
-		self.deconv_model = deconv_model
-		self.gamma = deconv_model.gamma
-
-		if chromatin_model is None:
-			self.G = G
-		else:
-			self.G = chromatin_model.G
+	def __init__(self, solver):
+		self.solver = solver
 
 	def conv_optim(self):
+		"""Each iteration of the find optimal gamma, update the solver's gamma value and collect
+		the results"""
 
-		# Gamma is being set in find optimal, so set it in the deconv_model as well
-		self.deconv_model.gamma = self.gamma
-
-		if self.chromatin_model is not None:
-			self.chromatin_model.gamma = self.gamma
-
-		# Perform the deconvolution with our deconvolve chromatin function
-		self.f, self.rn, self.sn = deconvolve_chromatin(model=self.deconv_model, 
-			g=self.G)
-
+		# Update the results from the solver
+		self.f, self.rn, self.sn, _ = self.solver.solve(self.gamma)
 
 	def find_optimal(self, silence=True):
 
@@ -163,7 +150,7 @@ class FindOptimalGammaChromatin:
 				if not silence:
 					print_fl(f'  ... findElbow: base_rn is too large or something wrong in search, use default {self.gamma:.4f}')
 
-		print_fl(f'{self.deconv_model.orf_name}: ... final gamma = {self.gamma:.5f}')
+		print_fl(f'{self.solver.deconv_model.orf_name}: ... final gamma = {self.gamma:.5f}')
 		self.conv_optim()
 		print_fl(f"Time to find optimal gamma: {self.timer.get_time()}")
 

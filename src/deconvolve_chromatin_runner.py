@@ -3,72 +3,100 @@ import sys
 sys.path.append('.')
 
 import pandas as pd
+from src.utils import print_fl, mkdirs_safe
 
 from src.timer import Timer
 from src.model import Model
-from src.find_gamma_chromatin import FindOptimalGammaChromatin
-from src.config import load_yl_replicate2_rg1_chromatin_config
-from cc_src.chromatin_grid_compute import ChromatinGrid
-
+from cc_src.chromatin_model import ChromatinModel
+from src.config import load_yl_rg1_vst_config
+from matplotlib import pyplot as plt
 
 def main():
 	"""
 	Run the deconvolution on a gene, indexed by the command-line argument
+
+	Usage:
+
+		<output> <replicate> <gamma_value> <gene_index>
+
+	or
+
+		<output> <replicate> <gene_index>
+
+	Will run the find optimal gamma procedure on the chromatin
+
+
+	Example script command for replicate 1, gene index 10, and gamma value of 0.006
+
+		python src/deconvolve_chromatin_runner.py output/deconvolution_results_006_2024-02-20/ 1 0.006 10
+
+
 	"""
 
 	system_args = tuple(sys.argv)
 
-	geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv')
+	from cc_src.geneset import get_sorted_geneset
 
-	# Running on the clustere requires batch index and index
-	# TODO: Change this in the slurm job script to do the math in the bash script rather than
-	# here in python to keep the logic separated
+	geneset = get_sorted_geneset()
+
+	# Specify replicate and gamma value
 	if len(system_args) == 5:
-		(_, out_dir, batch_idx, index) = system_args
+		(_, out_dir, replicate, gamma, gene_index) = system_args
+		gene_index = int(gene_index)
+		replicate = int(replicate)
+		gamma = float(gamma)
 
-	
-		# Each batch will run 1000 genes, second argument in ARGS is the batch index that 
-		# will be multiplied against the array index
-		gene_index = int(batch_idx)*1000 + int(index)
-
-		print(f"Running batch: {batch_idx}, array index: {index}, or gene_index: {gene_index}...")
-
-	# We have an orf name as the argument
-	else:
-		(_, out_dir, orf_name) = system_args
-		gene_index = geneset[geneset.orf_name == orf_name].index.values[0]
-		print(f"Running deconvolution for orf: {orf_name}, or gene_index: {gene_index}...")
+	# No gamma value, so find optimal gamma
+	elif len(system_args) == 4:
+		(_, out_dir, replicate, gene_index) = system_args
+		gene_index = int(gene_index)
+		replicate = int(replicate)
+		gamma = None
 
 	sys.stdout.flush()
 	gene = geneset.iloc[gene_index]
 
-	config = load_yl_replicate2_rg1_chromatin_config()
-	model = Model(config, gene.orf_name, 0.001)
+	print_fl(f"Index: [{gene_index}/{len(geneset)}] Deconvolving replicate={replicate}, gene: {gene['gene']}/{gene.name}...")
 
-	print(f"Index: [{gene_index}/{len(geneset)}] Deconvolving gene: {model.gene_name}/{model.orf_name}...")
-	sys.stdout.flush()
+	# -------------------------
 
-	# Initialize the chromatin grid
-	timer = Timer()
+	plot_dir = f'{out_dir}/plots'
+	chromatin_out_dir = f'{out_dir}/chromatin'
+	geneexpression_out_dir = f'{out_dir}/gene_expression'
+	mkdirs_safe([chromatin_out_dir, geneexpression_out_dir, plot_dir])
 
-	chromatin_gridder = ChromatinGrid()
+	# ----------------------
 
-	if model.gene_name is None: chromatin_gridder.set_gene(model.orf_name)
-	else: chromatin_gridder.set_gene(model.gene_name)
+	config = load_yl_rg1_vst_config(replicate=replicate)
+	chromatin_model = ChromatinModel(config)
+	chromatin_model.load_mnase_gene(gene['gene'])
+	chromatin_model.create_deconvolution_bins()
 
-	chromatin_gridder.create_bins_per_all_sample()
-	chromatin_gridder.create_deconvolution_matrices()
+	if gamma is not None:
+		chromatin_model.deconvolve()
+	else:
+		chromatin_model.deconvolve_find_optimal_gamma()
 
-	find_gamma_chromatin = FindOptimalGammaChromatin(model, chromatin_gridder)
-	found_optimal_success = find_gamma_chromatin.find_optimal()
-	using_default_flag = not found_optimal_success
+	# ----------------------
 
-	f = find_gamma_chromatin.f
+	ge_model = Model(config, gene['gene'])
+	ge_model.deconvolve_find_optimal_gamma()
 
-	print(f"Finished finding the optimal gamma in : {timer.get_time()}")
-	sys.stdout.flush()
+	fig = chromatin_model.create_deconvolution_plots_abbreviated_flipped(vmax=10, ge_model=ge_model)
+	save_path = f"{plot_dir}/{gene_index}_{gene['gene']}_{gene.name}_deconvolution.png"
+	plt.savefig(save_path, dpi=200)
+	plt.close(fig)
 
-	chromatin_gridder.save_deconvolved_outputs(out_dir, gene_index, model, f, using_default_flag)
+	fig = chromatin_model.plot_prediction_comparison()
+	save_path = f"{plot_dir}/{gene_index}_{gene['gene']}_{gene.name}_data.png"
+	plt.savefig(save_path, dpi=200)
+	plt.close(fig)
+
+	# -------------- Save the output ------------------
+
+	chromatin_model.save_deconvolved_outputs(chromatin_out_dir, gene_index, (not chromatin_model.found_optimal_success))
+	ge_model.save_deconvolved_outputs(geneexpression_out_dir, gene_index)
+
 
 
 if __name__ == '__main__':

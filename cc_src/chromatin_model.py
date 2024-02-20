@@ -9,9 +9,9 @@ from cc_src.sgd import get_gene_name_orf_name
 from cc_src.mnase_plotting import plot_mnase_density
 
 from src.deconvolve_chromatin import deconvolve_chromatin
-from src.deconvolve_wavelet_chromatin import deconvolve_wavelet_chromatin
 from src.model import Model
 from src.timer import Timer
+from src.utils import print_fl
 
 
 class ChromatinModel:
@@ -35,7 +35,7 @@ class ChromatinModel:
 		self.padding = 1000
 		self.geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
 		self.config = config
-		self.gamma = 0.01
+		self.gamma = 0.006 # default gamma value
 
 
 	def load_deconvolution_results(self, gene_name):
@@ -43,16 +43,16 @@ class ChromatinModel:
 		from cc_src.sgd import get_gene_name_orf_name, get_gene
 		gene = get_gene(gene_name)
 
-
-	def load_mnase_gene(self, gene_name, replicate):
+	def load_mnase_gene(self, gene_or_orfname):
 
 		# Get some gene information
+		replicate = self.config.replicate
 		self.computed_plus_one = None
-		self.orf_name, self.gene_name = get_gene_name_orf_name(gene_name)
+		self.orf_name, self.gene_name = get_gene_name_orf_name(gene_or_orfname)
 		self.gene = self.geneset.loc[self.orf_name]
 		self.mnase_span = self.gene.TSS-self.padding, self.gene.TSS+self.padding
 
-		print(f"Loading MNase reads for {gene_name}...", end='')
+		print_fl(f"Loading MNase reads for {self.orf_name}/{self.gene_name}...", end='')
 		# TODO: This may take a little while, when we've deconvolved already we may want to skip this step,
 		# But that will mean needing to save the +1 location to disk.
 		self.chr_reads = pd.read_hdf(f'output/mnase/yl_rep{replicate}_mnase_reads/yl_rep{replicate}_mnase_reads_chr{self.gene.chr}.h5', 
@@ -71,7 +71,7 @@ class ChromatinModel:
 		self.gene_reads = self.chr_reads[(self.chr_reads.mid > self.mnase_span[0]) & 
 			(self.chr_reads.mid < self.mnase_span[1])]
 
-		print("Done.")
+		print_fl("Done.")
 
 		# This will work for the single replicate model
 		timepoints = self.chr_reads['sample'].unique()
@@ -90,7 +90,7 @@ class ChromatinModel:
 	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, 
 		vmin=0, vmax=200, smooth=False):
 
-		f = self.f.copy()
+		f = self.solver.f.value.copy()
 		f_imgs = f.reshape((-1, self.deconv_hist_unflattened.shape[1], self.deconv_hist_unflattened.shape[2]))
 
 		if smooth:
@@ -266,7 +266,7 @@ class ChromatinModel:
 	def define_title(self):
 		title = ("$\\it{" + self.gene_name + "}$ / $\\it{" + self.orf_name + "}$\n" +
 				self.config.name + ", " +
-				f"$\\gamma$={self.gamma:.3f}\nrn={self.rn:.2f}, sn={self.sn:.2f}")
+				f"$\\gamma$={self.gamma:.3f}\nrn={self.solver.rn:.2f}, sn={self.solver.sn:.2f}")
 		return title
 
 
@@ -407,7 +407,7 @@ class ChromatinModel:
 		times = self.times
 
 		if predicted_g is None:
-			f = self.f
+			f = self.solver.f.value
 			predicted_g = np.matmul(self.deconv_model.H, f)
 
 		shape = self.deconv_hist_unflattened[0].shape
@@ -519,58 +519,7 @@ class ChromatinModel:
 
 		return pos_max
 
-
-	def save_deconvolved_outputs(self, out_dir, index, model, f, using_default_flag):
-
-		orf_name = model.orf_name
-
-		g_save_path = f'{out_dir}/{index}_g_{orf_name}.npy'
-		f_save_path = f'{out_dir}/{index}_f_{orf_name}.npy'
-		ptr_save_path = f'{out_dir}/{index}_ptr_{orf_name}.npy'
-		meta_save_path = f'{out_dir}/{index}_meta_{orf_name}.csv'
-
-		# ------- Reshape f ---------
-
-		shape = self.deconv_hist_unflattened[0].shape
-		reshaped_f = f.reshape(-1, shape[0], shape[1])
-
-		# -------- Compute the PTR ---------
-
-		from cc_src.peak_to_trough import compute_ptr
-
-		shape = self.deconv_hist_unflattened[0].shape
-		reshaped_f = f.reshape(-1, shape[0], shape[1])
-
-		f_ptrs = np.zeros(f.shape[1])
-		for i in range(f.shape[1]):
-			cptr, dpt, ptr = compute_ptr(model, f[:, i])
-			f_ptrs[i] = ptr
-
-		reshaped_ptrs = f_ptrs.reshape(*shape)
-
-		#---------- Save to disk -------------
-
-		# Save the g to disk
-		np.save(g_save_path, self.deconv_hist_unflattened)
-
-		# Save the f to disk
-		np.save(f_save_path, reshaped_f)
-
-		# Save the ptr to disk
-		np.save(ptr_save_path, reshaped_ptrs)
-
-		# Save meta information
-		df = pd.DataFrame({'rn': model.rn, 'sn': model.sn, 'gm': model.gamma, 'default_gamma': using_default_flag}, 
-			index=[model.orf_name])
-		df.to_csv(meta_save_path, float_format="%.4f")
-
-		print(f"Saved to {f_save_path}...")
-		print(f"Saved to {ptr_save_path}...")
-		print(f"Saved to {meta_save_path}...")
-		sys.stdout.flush()
-
-
-	def	setup_deconv_model(self):
+	def	setup_deconv_model(self, gamma_prime=0):
 		"""Set up the deconvolution model from the config, the model class was originally for gene expression
 		but has built-in functions that will be useful for chromatin deconvolution
 
@@ -586,52 +535,60 @@ class ChromatinModel:
 		refactor in the future
 		"""
 		from src.helpers import calcH
+		from src.deconvolve_wavelet_chromatin import ChromatinDeconvolveSolver
 
-		self.deconv_model = Model(self.config, self.gene_name, self.gamma)
+		self.deconv_model = Model(self.config, self.orf_name, self.gamma)
 
 		# The config for MNase and RNA-seq have a different number of timepoints, so 
 		# we need to recalculate H with the chromatin number of timepoints
 		self.deconv_model.H, self.deconv_model.Hpos = calcH(self.config.intervals_wt1, self.timepoints)
+
+		image_shape = self.deconv_hist_unflattened.shape[1:]
+		self.gamma_prime = gamma_prime
+		self.solver = ChromatinDeconvolveSolver(self.deconv_model, self.deconv_model.H, self.G, 
+			image_shape=image_shape, wavelet_name='bior4.4', gamma_prime=gamma_prime)
+		self.solver.define_deconvolution_problem()
+		self.found_optimal_success = None
 
 
 	def deconvolve(self, solver=cvxpy.MOSEK, verbose=False, gamma_prime=0):
 		"""
 		Deconvolve the chromatin for a single gamma value
 		"""
+
 		timer = Timer()
-		self.setup_deconv_model()
+		self.setup_deconv_model(gamma_prime)
 
-		image_shape = self.deconv_hist_unflattened.shape[1:]
-		self.f, self.rn, self.sn = deconvolve_wavelet_chromatin(self.deconv_model, self.deconv_model.H, self.G,
-	    	verbose=verbose, image_shape=image_shape, wavelet_name='bior4.4', gamma_prime=gamma_prime)
+		print_fl(f"Deconvolving with gamma={self.gamma}, gamma_prime={self.gamma_prime}")
 
-		print(f"Deconvolved in : {timer.get_time()}")
+		self.solver.solve(gamma_value=self.gamma, verbose=verbose)
 
-		print(f"The fitting norm is {self.rn:.2f}, "
-			  f"the smoothing norm is: {self.sn:.2f}")
+		print_fl(f"Deconvolved in : {timer.get_time()}")
+		print_fl(f"The fitting norm is {self.solver.rn:.2f}, "
+			  f"the smoothing norm is: {self.solver.sn:.2f}")
+
+	def get_deconv_results(self):
+		return self.solver.f, self.solver.rn, self.solver.sn
 
 	def deconvolve_find_optimal_gamma(self):
 		"""
-		Find the optimal gamma value
+		Find the optimal gamma value using a binary search as defined by Xin, 2011
 		"""
 
 		from src.find_gamma_chromatin import FindOptimalGammaChromatin
 
 		timer = Timer()
 
-		self.setup_deconv_model()
-		self.find_gamma_chromatin = FindOptimalGammaChromatin(self.deconv_model, self)
+		# Let's stick to no spatial smoothing for now
+		self.setup_deconv_model(gamma_prime=0)
+		self.find_gamma_chromatin = FindOptimalGammaChromatin(self.solver)
 		self.found_optimal_success = self.find_gamma_chromatin.find_optimal(silence=False)
+		self.gamma = self.find_gamma_chromatin.gamma
 
-		# Set the solution results
-		self.f = self.find_gamma_chromatin.f
-		self.rn = self.find_gamma_chromatin.rn
-		self.sn = self.find_gamma_chromatin.sn
-
-		print(f"Deconvolved in : {timer.get_time()}")
-
-		print(f"The fitting norm is {self.rn:.2f}, "
-			  f"the smoothing norm is: {self.sn:.2f}")
+		print_fl(f"Found optimal gamma in: {timer.get_time()}")
+		print_fl(f"Find optimal success: {self.found_optimal_success}")
+		print_fl(f"The fitting norm is {self.solver.rn:.2f}, "
+			  f"the smoothing norm is: {self.solver.sn:.2f}")
 
 
 	# --------------- Beginning of histogram refactor --------------------
@@ -747,8 +704,8 @@ class ChromatinModel:
 		self.exact_bins = exact_bins
 		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
 
-		print(f"Unflattened the input data is of shape: {self.deconv_hist_unflattened.shape}")
-		print(f"The size of our input data, G is: {self.G.shape}")
+		print_fl(f"Unflattened the input data is of shape: {self.deconv_hist_unflattened.shape}")
+		print_fl(f"The size of our input data, G is: {self.G.shape}")
 		
 
 	def plot_bin_comparison(self):
@@ -782,3 +739,54 @@ class ChromatinModel:
 			plt.axvline(self.computed_plus_one, c='black', lw=1)
 			plt.yticks([])
 			plt.xticks([])
+
+	def save_deconvolved_outputs(self, out_dir, index, using_default_flag):
+
+		orf_name = self.deconv_model.orf_name
+		gene_name = self.deconv_model.gene_name
+		f = self.solver.f.value
+
+		g_save_path = f'{out_dir}/{index}_g_{orf_name}_{gene_name}.npy'
+		f_save_path = f'{out_dir}/{index}_f_{orf_name}_{gene_name}.npy'
+		ptr_save_path = f'{out_dir}/{index}_ptr_{orf_name}_{gene_name}.npy'
+		meta_save_path = f'{out_dir}/{index}_meta_{orf_name}_{gene_name}.csv'
+
+		# ------- Reshape f ---------
+
+		shape = self.deconv_hist_unflattened[0].shape
+		reshaped_f = f.reshape((-1, shape[0], shape[1]))
+
+		# -------- Compute the PTR ---------
+
+		from cc_src.peak_to_trough import compute_ptr
+
+		shape = self.deconv_hist_unflattened[0].shape
+		reshaped_f = f.reshape(-1, shape[0], shape[1])
+
+		f_ptrs = np.zeros(f.shape[1])
+		for i in range(f.shape[1]):
+			cptr, dpt, ptr = compute_ptr(self.deconv_model, f[:, i])
+			f_ptrs[i] = ptr
+
+		reshaped_ptrs = f_ptrs.reshape(*shape)
+
+		#---------- Save to disk -------------
+
+		# Save the g to disk
+		np.save(g_save_path, self.deconv_hist_unflattened)
+
+		# Save the f to disk
+		np.save(f_save_path, reshaped_f)
+
+		# Save the ptr to disk
+		np.save(ptr_save_path, reshaped_ptrs)
+
+		# Save meta information
+		df = pd.DataFrame({'rn': self.solver.rn, 'sn': self.solver.sn, 'gm': self.gamma},
+			index=[self.deconv_model.orf_name])
+		df.to_csv(meta_save_path, float_format="%.4f")
+
+		print_fl(f"Saved to {g_save_path}...")
+		print_fl(f"Saved to {f_save_path}...")
+		print_fl(f"Saved to {ptr_save_path}...")
+		print_fl(f"Saved to {meta_save_path}...")

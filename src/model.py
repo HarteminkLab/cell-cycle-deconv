@@ -292,7 +292,7 @@ class Model:
 
 		return color_for_key(key)
 
-	def save_deconvolved_outputs(self, index, out_dir):
+	def save_deconvolved_outputs(self, out_dir, index):
 
 		import sys
 

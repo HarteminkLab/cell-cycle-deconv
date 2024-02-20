@@ -285,3 +285,5 @@ def get_alive_halted_mass(model_intervals, timepoints):
         mass_dic[time] = (haltedMass, aliveMass, Q)
 
     return mass_dic
+
+
