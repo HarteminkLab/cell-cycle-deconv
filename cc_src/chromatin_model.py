@@ -714,7 +714,7 @@ class ChromatinModel:
 		return smooth_bins
 
 
-	def downsample_bins(self, smooth_bins, bin_width=16, bin_height=16, prom_len=288, gb_len=512):
+	def downsample_bins(self, bin_data, bin_width=16, bin_height=16, prom_len=288, gb_len=512):
 		# Now downsample to the appropriate window and resolution
 
 		if self.gene.strand == '+':
@@ -732,7 +732,7 @@ class ChromatinModel:
 
 		# Now we will loop through each x and y bin to aggregate the counts to 
 		# create our new downsampled histogram
-		downscaled_bins = np.zeros((smooth_bins.shape[0], len(y_bins), len(x_bins)))
+		downscaled_bins = np.zeros((bin_data.shape[0], len(y_bins), len(x_bins)))
 
 		from src.coordinate_translator import CoordinateTranslator
 
@@ -747,23 +747,19 @@ class ChromatinModel:
 					y_start = y_bins[y_ind-1]
 					y_end = y_bins[y_ind]
 					
-					bin_counts = smooth_bins[t_index][y_start:y_end, x_start:x_end].sum()
+					bin_counts = bin_data[t_index][y_start:y_end, x_start:x_end].sum()
 					downscaled_bins[t_index][y_ind-1][x_ind-1] = bin_counts
 
 		return downscaled_bins
 
 
-	def create_deconvolution_bins(self, smoothing=False):
+	def create_deconvolution_bins(self, bin_width=16, bin_height=16, prom_len=288, gb_len=512):
 		
 		exact_bins = self.create_exact_bins()
 		normalized_bins = self.normalize_bins(exact_bins)
 
-		if smoothing:
-			smooth_bins = self.smooth_exact_bins(normalized_bins)
-		else:
-			smooth_bins = normalized_bins.copy()
-
-		downsampled_bins = self.downsample_bins(smooth_bins)
+		downsampled_bins = self.downsample_bins(normalized_bins, bin_width=bin_width,
+			bin_height=bin_height, prom_len=prom_len, gb_len=gb_len)
 		
 		exact_extent = [self.mnase_span[0], self.mnase_span[1],
 					0, 250]
@@ -775,7 +771,6 @@ class ChromatinModel:
 		self.deconv_hist_unflattened = downsampled_bins
 
 		self.exact_bins = exact_bins
-		self.smooth_bins = smooth_bins
 		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
 
 		print(f"Unflattened the input data is of shape: {self.deconv_hist_unflattened.shape}")

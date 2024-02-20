@@ -6,23 +6,11 @@ import pandas as pd
 import numpy as np
 
 from matplotlib import pyplot as plt
-from src.wavelets_2d_linalg import wave2d_decomposition, \
-	create_wavelet2d_convolution_matrices, wave2d_reconstruction
 
 
 def deconvolve_wavelet_chromatin(model, H, g, image_shape,
-		solver=cvxpy.MOSEK, verbose=False, wavelet_name='bior.2.2'):
+		solver=cvxpy.MOSEK, verbose=False, wavelet_name='bior2.2'):
 	
-	# --------------- Wavelet definitions -------------
-
-	wavelet = pywt.Wavelet(wavelet_name)
-
-	dec_lo, dec_hi = wavelet.dec_lo, wavelet.dec_hi
-	rec_lo, rec_hi = wavelet.rec_lo, wavelet.rec_hi
-
-	(decomp_mats, recon_mats) = create_wavelet2d_convolution_matrices(wavelet, image_shape)
-
-	# --------------------------------------------------
 
 	# We will add a very small value to g, to avoid divide by zero errors
 	eps = 1e-5
@@ -74,24 +62,19 @@ def deconvolve_wavelet_chromatin(model, H, g, image_shape,
 
 	elementwise_result = cvxpy.multiply(H@f, 1.0/g) - 1
 	
-	# Can we apply an L1 norm on the coefficients, set them to 0
-	# if they get close to zero?
-	l1_norm_on_coeffs = 0
+	# ---------- Spatial Wavelet Smoothing -------------
 
-	# For each of the f images, when we decompose and represent these
-	# images in wavelet coefficient space, can we drop off coefficients
-	# such that the image is still effectively represented with fewer
-	# wavelets?
-	for i in range(u):
+	from src.wavelets_2d_linalg import decompose_flattened_kron_coeffs, \
+    	create_kron_wavelet2d_convolution_matrices
 
-		# Get the f image row we are going decompose
-		f_img = f[i, :].reshape(image_shape)
+	wavelet = pywt.Wavelet(wavelet_name)
+    # Matrix transformation of wavelet coefficients
+	decomp_kron_mats, reconst_mats = create_kron_wavelet2d_convolution_matrices(wavelet, image_shape)
+	(LL, HL, LH, HH) = decompose_flattened_kron_coeffs(f, decomp_kron_mats)
 
-		# Decompose the image into coefficients
-		(LL, LH, HL, HH) = wave2d_decomposition(f_img, decomp_mats)
+	l1_norm_on_coeffs = cvxpy.sum(cvxpy.abs(LL) + cvxpy.abs(HL) + cvxpy.abs(LH) + cvxpy.abs(HH))
 
-		# Set an L1 norm on the coefficients and add it to the sum
-		l1_norm_on_coeffs += cvxpy.sum(cvxpy.abs(LL) + cvxpy.abs(HL) + cvxpy.abs(LH) + cvxpy.abs(HH))
+	# -------------------------------------------------
 
 	objective = cvxpy.Minimize(
 
