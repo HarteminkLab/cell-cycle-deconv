@@ -10,6 +10,10 @@ from src.helpers import get_wavelet_kernel
 from src.utils import print_fl
 
 
+from src.wavelets_2d_linalg import decompose_flattened_kron_coeffs, \
+	create_kron_wavelet2d_convolution_matrices
+
+
 class ChromatinDeconvolveSolver:
 	"""Class to handle chromatin deconvolution, will be useful for scanning for gamma values and reusing the same
 	problem definition"""
@@ -79,9 +83,6 @@ class ChromatinDeconvolveSolver:
 		
 		# ---------- Spatial Wavelet Smoothing -------------
 
-		from src.wavelets_2d_linalg import decompose_flattened_kron_coeffs, \
-	    	create_kron_wavelet2d_convolution_matrices
-
 		decomp_kron_mats, reconst_mats = create_kron_wavelet2d_convolution_matrices(wavelet, image_shape)
 
 		if gamma_prime == 0:
@@ -127,6 +128,8 @@ class ChromatinDeconvolveSolver:
 		f = self.f.value
 
 		# ------- Upon completion, compute the smoothing norm and fitting/residual norms --------------
+
+		decomp_kron_mats, reconst_mats = create_kron_wavelet2d_convolution_matrices(self.wavelet, self.image_shape)
 
 		H = self.H
 		G = self.G

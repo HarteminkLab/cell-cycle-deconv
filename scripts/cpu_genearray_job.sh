@@ -25,5 +25,5 @@ echo "bash: outputs: $ARGS gene_index: $GENE_INDEX"
 python $PYFILE $ARGS $GENE_INDEX
 
 echo $(date)
-echo "cpu_job.sh: completed job, date: $(date)"
+echo "cpu_genearray_job.sh: completed job, date: $(date)"
 
