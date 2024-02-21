@@ -88,9 +88,11 @@ class ChromatinModel:
 
 
 	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, 
-		vmin=0, vmax=200, smooth=False):
+		vmin=0, vmax=200, smooth=False, f=None):
 
-		f = self.solver.f.value.copy()
+		if f is None:
+			f = self.solver.f.value.copy()
+
 		f_imgs = f.reshape((-1, self.deconv_hist_unflattened.shape[1], self.deconv_hist_unflattened.shape[2]))
 
 		if smooth:
