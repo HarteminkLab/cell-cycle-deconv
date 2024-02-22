@@ -77,10 +77,9 @@ def main():
 	else:
 		chromatin_model.deconvolve_find_optimal_gamma()
 
-	# ----------------------
-
-	# Compute PTR
 	chromatin_model.compute_ptr()
+
+	# ----------------------
 
 	# Deconvolve the gene expression
 	ge_model = Model(config, gene['gene'])
