@@ -432,10 +432,6 @@ class ChromatinModel:
 			ax.set_xticks([])
 			ax.set_yticks([])
 
-			if self.gene.strand == '-':
-				# flip the xlims
-				xlims = ax.get_xlim()
-				ax.set_xlim(xlims[1], xlims[0])
 
 			if i > 0:
 				ax.spines['top'].set_visible(False)
@@ -448,6 +444,11 @@ class ChromatinModel:
 			origin='lower', cmap='Spectral_r', vmax=10)
 		ptr_ax.axvline(self.computed_plus_one, c='white', alpha=0.5)
 		ptr_ax.set_title("PTRs")
+
+		if self.gene.strand == '-':
+			# flip the xlims
+			xlims = ptr_ax.get_xlim()
+			ptr_ax.set_xlim(xlims[1], xlims[0])
 
 		for i in range(n):
 			time = times[i]
