@@ -417,7 +417,7 @@ class ChromatinModel:
 
 		predicted_g_reshaped = predicted_g.reshape(n, shape[0], shape[1])
 
-		fig, axs = plt.subplots(n, 4, figsize=(7, 8))
+		fig, axs = plt.subplots(n, 5, figsize=(13, 13))
 		plt.subplots_adjust(top=0.82)
 
 		axs = np.array(axs).T
@@ -425,6 +425,29 @@ class ChromatinModel:
 		g_axs = axs[1]
 		pred_g_axs = axs[2]
 		comparison_axs = axs[3]
+		ptr_axs = axs[4]
+
+		for i in range(len(ptr_axs)):
+			ax = ptr_axs[i]
+			ax.set_xticks([])
+			ax.set_yticks([])
+
+			if self.gene.strand == '-':
+				# flip the xlims
+				xlims = ax.get_xlim()
+				ax.set_xlim(xlims[1], xlims[0])
+
+			if i > 0:
+				ax.spines['top'].set_visible(False)
+				ax.spines['bottom'].set_visible(False)
+				ax.spines['left'].set_visible(False)
+				ax.spines['right'].set_visible(False)
+
+		ptr_ax = ptr_axs[0]
+		ptr_ax.imshow(self.f_ptrs.reshape(shape), aspect='auto', extent=self.bin_extents, 
+			origin='lower', cmap='Spectral_r', vmax=10)
+		ptr_ax.axvline(self.computed_plus_one, c='white', alpha=0.5)
+		ptr_ax.set_title("PTRs")
 
 		for i in range(n):
 			time = times[i]
@@ -568,6 +591,29 @@ class ChromatinModel:
 		print_fl(f"Deconvolved in : {timer.get_time()}")
 		print_fl(f"The fitting norm is {self.solver.rn:.2f}, "
 			  f"the smoothing norm is: {self.solver.sn:.2f}")
+
+	def compute_ptr(self):
+
+		# ------- Reshape f ---------
+
+		f = self.solver.f.value
+		shape = self.deconv_hist_unflattened[0].shape
+		reshaped_f = f.reshape((-1, shape[0], shape[1]))
+
+		# -------- Compute the PTR ---------
+
+		from cc_src.peak_to_trough import compute_ptr
+
+		shape = self.deconv_hist_unflattened[0].shape
+		reshaped_f = f.reshape(-1, shape[0], shape[1])
+
+		f_ptrs = np.zeros(f.shape[1])
+		for i in range(f.shape[1]):
+			cptr, dpt, ptr = compute_ptr(self.deconv_model, f[:, i])
+			f_ptrs[i] = ptr
+
+		self.f_ptrs = f_ptrs
+
 
 	def get_deconv_results(self):
 		return self.solver.f, self.solver.rn, self.solver.sn
@@ -757,20 +803,7 @@ class ChromatinModel:
 
 		shape = self.deconv_hist_unflattened[0].shape
 		reshaped_f = f.reshape((-1, shape[0], shape[1]))
-
-		# -------- Compute the PTR ---------
-
-		from cc_src.peak_to_trough import compute_ptr
-
-		shape = self.deconv_hist_unflattened[0].shape
-		reshaped_f = f.reshape(-1, shape[0], shape[1])
-
-		f_ptrs = np.zeros(f.shape[1])
-		for i in range(f.shape[1]):
-			cptr, dpt, ptr = compute_ptr(self.deconv_model, f[:, i])
-			f_ptrs[i] = ptr
-
-		reshaped_ptrs = f_ptrs.reshape(*shape)
+		reshaped_ptrs = self.f_ptrs.reshape(*shape)
 
 		#---------- Save to disk -------------
 

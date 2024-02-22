@@ -79,11 +79,19 @@ def main():
 
 	# ----------------------
 
+	# Compute PTR
+	chromatin_model.compute_ptr()
+
+	# Deconvolve the gene expression
 	ge_model = Model(config, gene['gene'])
 	ge_model.deconvolve_find_optimal_gamma()
+	fig = ge_model.plot_deconvolved_gene()
+	save_path = f"{plot_dir}/{gene_index}_{gene['gene']}_{gene.name}_gene_expression_deconvolution.png"
+	plt.savefig(save_path, dpi=200)
+	plt.close(fig)
 
 	fig = chromatin_model.create_deconvolution_plots_abbreviated_flipped(vmax=10, ge_model=ge_model)
-	save_path = f"{plot_dir}/{gene_index}_{gene['gene']}_{gene.name}_deconvolution.png"
+	save_path = f"{plot_dir}/{gene_index}_{gene['gene']}_{gene.name}_chromatin_deconvolution.png"
 	plt.savefig(save_path, dpi=200)
 	plt.close(fig)
 
