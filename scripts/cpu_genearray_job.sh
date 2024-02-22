@@ -18,12 +18,13 @@ conda activate chromatin-deconvolution
 
 export MOSEKLM_LICENSE_FILE=/home/users/tqt3/mosek/mosek.lic
 
-GENE_INDEX=$((1000*$BATCH*$SLURM_ARRAY_TASK_ID))
+# Batches of 1000 genes, so multiply to get the gene index
+GENE_INDEX=$((1000*$BATCH+$SLURM_ARRAY_TASK_ID))
 
 echo "bash: outputs: $ARGS gene_index: $GENE_INDEX batch: $BATCH array_index: $SLURM_ARRAY_TASK_ID"
 
 # Run the python command with the task id (array index) as the last argument
-#python $PYFILE $ARGS $GENE_INDEX
+python $PYFILE $ARGS $GENE_INDEX
 
 echo $(date)
 echo "cpu_genearray_job.sh: completed job, date: $(date)"
