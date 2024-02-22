@@ -17,12 +17,15 @@ echo "cpu_job.sh: beginning job, date: $(date)"
 conda activate chromatin-deconvolution
 
 export MOSEKLM_LICENSE_FILE=/home/users/tqt3/mosek/mosek.lic
+
+echo "bash: outputs: $BATCH gene_index: $SLURM_ARRAY_TASK_ID"
+
 GENE_INDEX=$(($BATCH*$SLURM_ARRAY_TASK_ID))
 
 echo "bash: outputs: $ARGS gene_index: $GENE_INDEX"
 
 # Run the python command with the task id (array index) as the last argument
-python $PYFILE $ARGS $GENE_INDEX
+#python $PYFILE $ARGS $GENE_INDEX
 
 echo $(date)
 echo "cpu_genearray_job.sh: completed job, date: $(date)"
