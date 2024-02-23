@@ -26,7 +26,8 @@ class PeakToTroughAnalysis:
 
 		# Load the size of a flattened image
 		loaded_ptrs = np.load(self.file_paths[0])
-		m = loaded_ptrs.flatten().shape[0]
+		self.image_shape = loaded_ptrs.shape
+		m = self.image_shape[0]*self.image_shape[1]
 
 		ptrs_df = pd.DataFrame(index=self.geneset.index, columns=np.arange(m))
 
@@ -38,6 +39,7 @@ class PeakToTroughAnalysis:
 			ptrs_df.loc[orf_name] = loaded_ptrs.flatten()
 
 		self.ptrs_df = ptrs_df.dropna()
+		self.n = len(self.ptrs_df)
 
 	def sort_gene_ptrs(self):
 
@@ -77,12 +79,25 @@ class PeakToTroughAnalysis:
 
 
 	def compute_optimal_k(self):
-		rank_mean_dat = self.ptr_rank_stds_df.mean(axis=0)[1:100]
 
+		# The first 100 bins should be enough to find compute the optimal k
+		# any large and it may be introducing too much noise
+		rank_mean_dat = self.ptr_rank_stds_df.mean(axis=0)[1:700]
+		self.set_optimal_k(rank_mean_dat.argmax()+1)
+
+		plt.figure(figsize=(5, 4))
 		plt.plot(rank_mean_dat.index, rank_mean_dat.values)
+		plt.axvline(self.optimal_k, c='red')
+		plt.xlabel("k")
+		plt.ylabel("Average standard deviation in rank")
+		plt.title(f"Average $\\sigma$ of gene PTR rank with increasing k\nn={self.n}, optimal k={self.optimal_k}")
 
-		self.optimal_k = rank_mean_dat.argmax()+1
+	def set_optimal_k(self, k):
 
+		self.optimal_k = k
+
+		k_sorted_genes = self.sorted_ptrs_ranks_df[[self.optimal_k]].sort_values(self.optimal_k).join(self.geneset[['gene']], 
+			how='inner')
 		k_sorted_genes = k_sorted_genes.join(self.sorted_ptrs_df[[self.optimal_k]], lsuffix='rank', rsuffix='ptr')
 		self.k_sorted_genes = k_sorted_genes.rename(
 			columns={
@@ -90,10 +105,25 @@ class PeakToTroughAnalysis:
 				f'{self.optimal_k}ptr': 'ptr'
 			})
 
-		plt.axvline(self.optimal_k, c='red')
-		plt.xlabel("k")
-		plt.ylabel("Average standard deviation in rank")
-		plt.title(f"Average std of gene PTR rank with increased k, optimal k={self.optimal_k}")
+	def plot_ptrs_per_gene(self):
+
+		plt_data = self.k_sorted_genes
+		n = len(plt_data)
+
+		plt.figure(figsize=(3, 4))
+		plt.plot(plt_data['ptr'], plt_data['rank']+1)
+		plt.xlabel("PTR")
+		plt.ylabel("Gene rank")
+		plt.yticks([1] + list(np.arange(500, n, 500)))
+		plt.ylim(n+100, 1-100)
+
+		ptr_values = plt_data['ptr']
+		q05, q95 = np.quantile(ptr_values, q=[0.05, 0.95])
+
+		plt.axvline(q05, c='red', lw=1)
+		plt.axvline(q95, c='red', lw=1)
+		plt.title(f"Gene PTR values for k={self.optimal_k}\n" +
+		         f"n={n}, q05={q05:0.1f}, q95={q95:.1f}")
 
 
 	def plot_ptr_k_gene(self):
@@ -102,19 +132,19 @@ class PeakToTroughAnalysis:
 
 		sorted_ptrs_df = self.sorted_ptrs_df
 
-		plt.figure(figsize=(9, 3))
+		plt.figure(figsize=(5, 5))
 
-		select_ks = np.arange(1, 300, 1)
+		select_ks = np.arange(1, 60, 1)
 
 		for orf_name, row in sorted_ptrs_df.dropna().iterrows():
 
-			color = 'red' if orf_name in spellman_orfs else '#555'
+			color = 'red' if orf_name in spellman_orfs else '#888'
 			ptrs = row[select_ks]
-			plt.plot(ptrs, select_ks, c=color, alpha=0.25)
+			plt.plot(select_ks, ptrs, c=color, alpha=0.25)
 
-		plt.xlabel("PTR")
-		plt.ylabel("k")
-		plt.title("Peak to trough ratio per k for each gene")
+		plt.xlabel("$k$")
+		plt.ylabel("PTR")
+		plt.title(f"Peak-to-trough ratio per $k$ for each gene\nn={self.n}")
 
 
 	def spellman_analysis(self):
@@ -131,8 +161,10 @@ class PeakToTroughAnalysis:
 		num_scs = len(k_spellman)
 		n = len(spellman_cumsum)
 
+		plt.figure(figsize=(4, 4))
 		plt.plot(np.arange(n)/n, spellman_cumsum/num_scs)
 		plt.plot([0, 1], [0, 1], c='gray', ls='dotted', lw=1)
-		plt.title("Proportion of Spellman genes in ordered chromatin PTR list")
+		plt.title("Proportion of Spellman genes in ordered chromatin PTR list\n" + 
+			f"n={n}, k={self.optimal_k}")
 		plt.xlabel("Proportion of all deconvolved genes")
 		plt.ylabel("Proportion of spellman genes")
