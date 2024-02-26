@@ -11,6 +11,11 @@ def print_fl(val='', end='\n', log=True):
 
 
 def mkdirs_safe(directories, log=True):
+
+    if type(directories) is not list:
+        raise ValueError(f"Invalid type: {type(directories)} "
+            "for mkdirs safe, directories should be a list of strings.")
+
     for directory in directories:
         mkdir_safe(directory, log=log)
 

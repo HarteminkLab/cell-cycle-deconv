@@ -88,7 +88,7 @@ class ChromatinModel:
 
 
 	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, 
-		vmin=0, vmax=200, smooth=False, f=None):
+		vmin=0, vmax=10, smooth=False, f=None):
 
 		if f is None:
 			f = self.solver.f.value.copy()
@@ -311,7 +311,7 @@ class ChromatinModel:
 		img = reshaped_f[f_index]
 		im = ax.imshow(img, origin='lower', cmap='magma_r', aspect='auto', vmax=vmax,
 			extent=self.bin_extents, zorder=1)
-		ax.axvline(self.computed_plus_one, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
+		ax.axvline(self.computed_plus_one, c='gray', linewidth=1.25, linestyle='solid', alpha=0.5)
 
 		if is_crick:
 			# flip the xlims
@@ -384,7 +384,7 @@ class ChromatinModel:
 				extent=self.bin_extents)
 			ax.set_xticks([])
 			ax.set_yticks([])
-			ax.axvline(self.computed_plus_one, c='black', lw=1, linestyle='dotted')
+			ax.axvline(self.computed_plus_one, c='gray', lw=1, linestyle='dotted')
 
 			if last_phase is not None and phase != last_phase:
 				plotting_index += 2
@@ -400,7 +400,7 @@ class ChromatinModel:
 				extent=self.bin_extents)
 		# ax.set_xticks([])
 		#ax.set_yticks([])
-		ax.axvline(self.computed_plus_one, c='black', lw=1, linestyle='dotted')
+		ax.axvline(self.computed_plus_one, c='gray', lw=1, linestyle='dotted')
 		return im
 
 
@@ -427,28 +427,44 @@ class ChromatinModel:
 		comparison_axs = axs[3]
 		ptr_axs = axs[4]
 
+
+		# ------- PTR plots ----------------------
+
+		# Plot the PTR values
+		ptr_ax = ptr_axs[0]
+		ptr_ax.imshow(self.f_ptrs.reshape(shape), aspect='auto', extent=self.bin_extents, 
+			origin='lower', cmap='Blues', vmax=10)
+		ptr_ax.axvline(self.computed_plus_one, c='gray', alpha=0.25)
+		ptr_ax.set_title("PTRs")
+
+		# Plot 7 highest ptr values (7 is tentative optimal k for now)
+		k = 7
+		self.f_ranks_img = self.f_ranks.reshape(self.image_shape)
+		ptr_k_ax = ptr_axs[1]
+		ptr_k_ax.imshow((self.f_ranks_img < k), extent=self.bin_extents, origin='lower', 
+				  cmap='Blues', aspect='auto')
+		ptr_k_ax.axvline(self.computed_plus_one, c='gray', alpha=0.25)
+		ptr_k_ax.set_xticks([])
+		ptr_k_ax.set_yticks([])
+
+		# Formatting
 		for i in range(len(ptr_axs)):
 			ax = ptr_axs[i]
 			ax.set_xticks([])
 			ax.set_yticks([])
 
+			if self.gene.strand == '-':
+				# flip the xlims
+				xlims = ax.get_xlim()
+				ax.set_xlim(xlims[1], xlims[0])
 
-			if i > 0:
+			if i > 1:
 				ax.spines['top'].set_visible(False)
 				ax.spines['bottom'].set_visible(False)
 				ax.spines['left'].set_visible(False)
 				ax.spines['right'].set_visible(False)
 
-		ptr_ax = ptr_axs[0]
-		ptr_ax.imshow(self.f_ptrs.reshape(shape), aspect='auto', extent=self.bin_extents, 
-			origin='lower', cmap='Spectral_r', vmax=10)
-		ptr_ax.axvline(self.computed_plus_one, c='white', alpha=0.5)
-		ptr_ax.set_title("PTRs")
-
-		if self.gene.strand == '-':
-			# flip the xlims
-			xlims = ptr_ax.get_xlim()
-			ptr_ax.set_xlim(xlims[1], xlims[0])
+		# ----------------------------------------------------------
 
 		for i in range(n):
 			time = times[i]
@@ -487,7 +503,7 @@ class ChromatinModel:
 				ax.set_yticks([])
 
 				# Identify the plus 1 location
-				ax.axvline(self.computed_plus_one, c='black', linewidth=1.25, linestyle='solid', alpha=0.5)
+				ax.axvline(self.computed_plus_one, c='gray', linewidth=1.25, linestyle='solid', alpha=0.5)
 
 				if self.gene.strand == '-':
 					# flip the xlims
@@ -615,6 +631,17 @@ class ChromatinModel:
 
 		self.f_ptrs = f_ptrs
 
+		# ------- Compute ranks (highest ptr bin ranks) ------------
+
+		m = len(self.f_ptrs)
+		
+		# Get the argsort of the array, argsort again
+		# will get the ranks of the values in the original data
+		# inverse with m-1 to get reverse the order of the list
+		f_argsort = np.argsort(self.f_ptrs)
+		f_rank = np.argsort(f_argsort)
+		self.f_ranks = m-1 - f_rank
+
 
 	def get_deconv_results(self):
 		return self.solver.f, self.solver.rn, self.solver.sn
@@ -672,7 +699,7 @@ class ChromatinModel:
 		f_imgs = self.f.reshape(-1, orig_shape[1], orig_shape[2])
 		plt.imshow(f_imgs[-1], origin='lower', cmap='magma_r', vmax=25, 
 				   extent=self.bin_extents, aspect='auto')
-		plt.axvline(self.computed_plus_one, c='black', lw=1, alpha=0.5)
+		plt.axvline(self.computed_plus_one, c='gray', lw=1, alpha=0.5)
 		plt.xticks([])
 		plt.yticks([])
 		plt.title("Halted cells")
@@ -749,6 +776,7 @@ class ChromatinModel:
 		self.exact_extent = exact_extent
 		self.bin_extents = gene_extent
 		self.deconv_hist_unflattened = downsampled_bins
+		self.image_shape = self.deconv_hist_unflattened.shape[1:]
 
 		self.exact_bins = exact_bins
 		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
@@ -771,7 +799,7 @@ class ChromatinModel:
 			plt.xlim(self.bin_extents[0], self.bin_extents[1])
 			plt.yticks([])
 			plt.xticks([])
-			plt.axvline(self.computed_plus_one, c='black', lw=1)
+			plt.axvline(self.computed_plus_one, c='gray', lw=1)
 
 			plt.subplot(rows, cols, row*cols+2)
 			plt.imshow(self.deconv_hist_unflattened[row], cmap='magma_r', vmax=20, origin='lower', aspect='auto',
@@ -780,14 +808,21 @@ class ChromatinModel:
 			plt.xlim(self.bin_extents[0], self.bin_extents[1])
 			plt.yticks([])
 			plt.xticks([])
-			plt.axvline(self.computed_plus_one, c='black', lw=1)
+			plt.axvline(self.computed_plus_one, c='gray', lw=1)
 
 			plt.subplot(rows, cols, row*cols+3)
 			plt.imshow(self.smooth_bins[row], cmap='magma_r', vmax=20, origin='lower', aspect='auto',
 					  extent=self.bin_extents)
-			plt.axvline(self.computed_plus_one, c='black', lw=1)
+			plt.axvline(self.computed_plus_one, c='gray', lw=1)
 			plt.yticks([])
 			plt.xticks([])
+
+
+	def get_f_images(self):
+		f = self.solver.f.value
+		f_imgs = f.reshape((f.shape[0], *self.image_shape))
+		return f_imgs
+
 
 	def save_deconvolved_outputs(self, out_dir, index, using_default_flag):
 
@@ -818,7 +853,15 @@ class ChromatinModel:
 		np.save(ptr_save_path, reshaped_ptrs)
 
 		# Save meta information
-		df = pd.DataFrame({'rn': self.solver.rn, 'sn': self.solver.sn, 'gm': self.gamma},
+		from datetime import datetime
+		run_date = datetime.now().strftime("%D")
+
+		df = pd.DataFrame({
+			'rn': self.solver.rn, 'sn': self.solver.sn, 'gm': self.gamma,
+			'config': self.config.name,
+			'model_path': self.config.model_wt1_file,
+			'run_date': run_date
+			},
 			index=[self.deconv_model.orf_name])
 		df.to_csv(meta_save_path, float_format="%.4f")
 
