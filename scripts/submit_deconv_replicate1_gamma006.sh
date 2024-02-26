@@ -8,10 +8,10 @@ OUTDIR=output/deconvolve_rep1_g006_2024_02_20
 
 # Each batch will run 1000 genes, second argument in ARGS is the batch index that will be multiplied against the
 # array index
-sbatch -a 0-999%3 -D ./slurm-logs/ --job-name="dchrom" -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR 1 0.006,BATCH=0" scripts/cpu_genearray_job.sh
-sbatch -a 0-999%3 -D ./slurm-logs/ --job-name="dchrom" -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR 1 0.006,BATCH=1" scripts/cpu_genearray_job.sh
-sbatch -a 0-999%3 -D ./slurm-logs/ --job-name="dchrom" -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR 1 0.006,BATCH=2" scripts/cpu_genearray_job.sh
-sbatch -a 0-999%3 -D ./slurm-logs/ --job-name="dchrom" -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR 1 0.006,BATCH=3" scripts/cpu_genearray_job.sh
-sbatch -a 0-999%3 -D ./slurm-logs/ --job-name="dchrom" -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR 1 0.006,BATCH=4" scripts/cpu_genearray_job.sh
-sbatch -a 0-773%3 -D ./slurm-logs/ --job-name="dchrom" -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR 1 0.006,BATCH=5" scripts/cpu_genearray_job.sh
+sbatch -a 0-999%3 -D ./slurm-logs/ --job-name="dec1_1" -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR 1 0.006,BATCH=0" scripts/cpu_genearray_job.sh
+sbatch -a 0-999%3 -D ./slurm-logs/ --job-name="dec1_2" -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR 1 0.006,BATCH=1" scripts/cpu_genearray_job.sh
+sbatch -a 0-999%3 -D ./slurm-logs/ --job-name="dec1_3" -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR 1 0.006,BATCH=2" scripts/cpu_genearray_job.sh
+sbatch -a 0-999%3 -D ./slurm-logs/ --job-name="dec1_4" -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR 1 0.006,BATCH=3" scripts/cpu_genearray_job.sh
+sbatch -a 0-999%3 -D ./slurm-logs/ --job-name="dec1_5" -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR 1 0.006,BATCH=4" scripts/cpu_genearray_job.sh
+sbatch -a 0-773%3 -D ./slurm-logs/ --job-name="dec1_6" -p compsci --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS=$OUTDIR 1 0.006,BATCH=5" scripts/cpu_genearray_job.sh
 
