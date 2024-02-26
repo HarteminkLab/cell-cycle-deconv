@@ -441,7 +441,7 @@ class ChromatinModel:
 		k = 7
 		self.f_ranks_img = self.f_ranks.reshape(self.image_shape)
 		ptr_k_ax = ptr_axs[1]
-		ptr_k_ax.imshow((self.f_ranks_img < 7), extent=self.bin_extents, origin='lower', 
+		ptr_k_ax.imshow((self.f_ranks_img < k), extent=self.bin_extents, origin='lower', 
 				  cmap='Blues', aspect='auto')
 		ptr_k_ax.axvline(self.computed_plus_one, c='gray', alpha=0.25)
 		ptr_k_ax.set_xticks([])
@@ -816,6 +816,13 @@ class ChromatinModel:
 			plt.axvline(self.computed_plus_one, c='gray', lw=1)
 			plt.yticks([])
 			plt.xticks([])
+
+
+	def get_f_images(self):
+		f = self.solver.f.value
+		f_imgs = f.reshape((f.shape[0], *self.image_shape))
+		return f_imgs
+
 
 	def save_deconvolved_outputs(self, out_dir, index, using_default_flag):
 
