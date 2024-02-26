@@ -38,6 +38,7 @@ class PeakToTroughAnalysis:
 			loaded_ptrs = np.load(path)
 			ptrs_df.loc[orf_name] = loaded_ptrs.flatten()
 
+		self.undropped_ptrs_df = ptrs_df.copy()
 		self.ptrs_df = ptrs_df.dropna()
 		self.n = len(self.ptrs_df)
 

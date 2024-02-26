@@ -12,7 +12,7 @@ class PTRHeatmapAnimator:
 		self.data = data
 		self.chromatin_model = chromatin_model
 
-	def plot_heatmap(self, index, save_path=None):
+	def plot_heatmap(self, title, index, save_path=None):
 
 		data = self.data
 		fig, (ax, ax0) = plt.subplots(1, 2, figsize=(12, 1.75))
@@ -23,8 +23,7 @@ class PTRHeatmapAnimator:
 		ax.axvline(self.chromatin_model.computed_plus_one, c='black', lw=1)
 		ax.set_xticks([])
 		ax.set_yticks([])
-
-		ax.set_title(f'Frame {index}')
+		ax.set_title(title)
 
 		# ----------- cell cycle chart ---------------
 
@@ -40,7 +39,6 @@ class PTRHeatmapAnimator:
 		    hpositions = self.chromatin_model.config.get_Hpositions_for_phase(phase)
 		    x_vals = [last_h_position_end, hpositions[-1]]
 		    last_h_position_end = hpositions[-1]
-
 		    ax0.plot(x_vals, [0, 0], color=color_for_key(phase),
 		            lw=20, solid_capstyle='butt')
 		    ax0.text((x_vals[0]+x_vals[1])/2, 0, phase, c='white', va='center', ha='center')
@@ -48,7 +46,6 @@ class PTRHeatmapAnimator:
 		ax0.set_xticks([])
 		ax0.set_yticks([])
 		ax0.axvline(index, c='gray', zorder=0)
-
 
 		# --------------------------------------------
 
@@ -70,7 +67,8 @@ class PTRHeatmapAnimator:
 		for _, row in frames.iterrows():
 			frame = row.frame
 			frame_file = f'{frames_dir}/frame_{animation_index}.png'
-			self.plot_heatmap(frame, frame_file)
+			title = f"{row.phase}, {frame}"
+			self.plot_heatmap(title, frame, frame_file)
 			frame_files.append(frame_file)
 			animation_index += 1
 
