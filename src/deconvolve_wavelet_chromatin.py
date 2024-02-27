@@ -124,8 +124,11 @@ class ChromatinDeconvolveSolver:
 		self.verbose = verbose
 
 		# The epsilon value affects the precision of the solver
-		result = self.prob.solve(solver=self.solver, warm_start=True, verbose=self.verbose, eps=1e-4)
+		self.result = self.prob.solve(solver=self.solver, warm_start=True, verbose=self.verbose, eps=1e-4)
 		f = self.f.value
+
+		if self.result is float('-inf'):
+			raise ValueError("No result, possibly too low of coverage for this gene")
 
 		# ------- Upon completion, compute the smoothing norm and fitting/residual norms --------------
 

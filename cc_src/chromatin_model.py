@@ -59,7 +59,12 @@ class ChromatinModel:
 					'mnase_data')
 		self.gene_reads = self.chr_reads[(self.chr_reads.mid > self.mnase_span[0]) & 
 			(self.chr_reads.mid < self.mnase_span[1])]
-		self.find_max_plusOne_pos()
+
+		try:
+			self.find_max_plusOne_pos()
+		except ValueError:
+			self.computed_plus_one = self.gene.TSS
+			print(f"Error finding plus one location, possibly not enough read coverage. Setting plus one to TSS by default")
 
 		self.times = self.gene_reads['sample'].unique()
 
@@ -266,7 +271,13 @@ class ChromatinModel:
 
 
 	def define_title(self):
-		title = ("$\\it{" + self.gene_name + "}$ / $\\it{" + self.orf_name + "}$\n" +
+
+		if self.gene.gene == self.orf_name:
+			gene_title = ("$\\it{" + self.orf_name + "}$")
+		else:
+			gene_title = ("$\\it{" + self.gene.gene + "}$ / $\\it{" + self.orf_name + "}$")
+
+		title = (f"{gene_title}\n" +
 				self.config.name + ", " +
 				f"$\\gamma$={self.gamma:.3f}\nrn={self.solver.rn:.2f}, sn={self.solver.sn:.2f}")
 		return title
