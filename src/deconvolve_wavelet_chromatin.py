@@ -127,7 +127,7 @@ class ChromatinDeconvolveSolver:
 		self.result = self.prob.solve(solver=self.solver, warm_start=True, verbose=self.verbose, eps=1e-4)
 		f = self.f.value
 
-		if self.result is float('-inf'):
+		if self.result == float('-inf'):
 			raise ValueError("No result, possibly too low of coverage for this gene")
 
 		# ------- Upon completion, compute the smoothing norm and fitting/residual norms --------------

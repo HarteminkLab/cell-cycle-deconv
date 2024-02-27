@@ -45,11 +45,7 @@ def get_missing_geneset():
 	return geneset
 
 
-def get_sorted_geneset():
-	"""Get the list of genes to deconvolve first. Sorted by custom priority"""
-
+def get_deconvolved_geneset():
+	"""Get the list of genes to deconvolve first"""
 	geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
-
-	# TODO: Deconvolving missing 1000 genes
-
-	return get_missing_geneset()
+	return geneset()

@@ -35,9 +35,9 @@ def main():
 
 	system_args = tuple(sys.argv)
 
-	from cc_src.geneset import get_sorted_geneset
+	from cc_src.geneset import get_deconvolved_geneset
 
-	geneset = get_sorted_geneset()
+	geneset = get_deconvolved_geneset()
 
 	# Specify replicate and gamma value
 	if len(system_args) == 5:
