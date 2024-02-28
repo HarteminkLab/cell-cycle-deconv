@@ -6,30 +6,73 @@ from src.utils import mkdirs_safe
 import pandas as pd
 
 
-class PTRHeatmapAnimator:
+class FHeatmapAnimator:
+	"""Class to the deconvolved F images as a heatmap animation"""
 
-	def __init__(self, data, chromatin_model):
-		self.data = data
+	def __init__(self, chromatin_model):
 		self.chromatin_model = chromatin_model
+		self.data = chromatin_model.get_f_images()
 
-	def plot_heatmap(self, title, index, save_path=None):
+	def plot_heatmap(self, title, 
+			index, save_path=None, 
+			heatmap_ax=None, timeline_ax=None):
 
 		data = self.data
-		fig, (ax, ax0) = plt.subplots(1, 2, figsize=(12, 1.75))
-		plt.subplots_adjust(top=0.85)
-		cax = ax.imshow(self.data[index], cmap='magma_r', 
-			aspect='auto', vmax=10, origin='lower', 
-			extent=self.chromatin_model.bin_extents)
-		ax.axvline(self.chromatin_model.computed_plus_one, c='black', lw=1)
-		ax.set_xticks([])
-		ax.set_yticks([])
-		ax.set_title(title)
+
+
+		if heatmap_ax is None:
+			fig, axs = plt.subplots(4, 2, figsize=(7, 4))
+			plt.subplots_adjust(top=0.85)
+
+			import numpy as np
+			axs = np.array(axs).T
+
+			heatmap_ax = axs[0][0]
+			threshold_ax = axs[0][1]
+			masked_heatmap_ax = axs[0][2]
+			not_masked_heatmap_ax = axs[0][3]
+			timeline_ax = axs[1][0]
+
+			for ax in axs.flatten():
+				ax.set_xticks([])
+				ax.set_yticks([])
+
+		def plot_im_hm(plt_ax, im, vmax=10, cmap='magma_r'):
+
+			plt_ax.imshow(im, cmap=cmap, 
+				aspect='auto', vmax=vmax, origin='lower', 
+				extent=self.chromatin_model.bin_extents)
+			plt_ax.axvline(self.chromatin_model.computed_plus_one, 
+				c='black', lw=1, alpha=0.25)
+			plt_ax.set_xticks([])
+			plt_ax.set_yticks([])
+
+		cur_img = self.data[index]
+		plot_im_hm(heatmap_ax, cur_img)
+		heatmap_ax.set_title(title)
+
+		# ---------- threshold ----------
+
+		from src.ptr_analysis_plotter import threshold_img
+
+		ptr_img = self.chromatin_model.f_ptrs.reshape(self.chromatin_model.image_shape)
+		threshold_ptr_img = threshold_img(ptr_img)
+
+		plot_im_hm(threshold_ax, threshold_ptr_img, vmax=1, cmap='Blues')
+
+
+		# --------- masked animation ------------
+
+		masked_img = cur_img * threshold_ptr_img
+		plot_im_hm(masked_heatmap_ax, masked_img)
+
+
+		not_masked_img = cur_img*(1-threshold_ptr_img)
+		plot_im_hm(not_masked_heatmap_ax, not_masked_img)
 
 		# ----------- cell cycle chart ---------------
 
 		from src.model import color_for_key
-
-		ax0 = plt.gca()
 
 		phases = ['RG1', 'CG1', 'DG1', 'postG1']
 
@@ -39,13 +82,13 @@ class PTRHeatmapAnimator:
 		    hpositions = self.chromatin_model.config.get_Hpositions_for_phase(phase)
 		    x_vals = [last_h_position_end, hpositions[-1]]
 		    last_h_position_end = hpositions[-1]
-		    ax0.plot(x_vals, [0, 0], color=color_for_key(phase),
+		    timeline_ax.plot(x_vals, [0, 0], color=color_for_key(phase),
 		            lw=20, solid_capstyle='butt')
-		    ax0.text((x_vals[0]+x_vals[1])/2, 0, phase, c='white', va='center', ha='center')
+		    timeline_ax.text((x_vals[0]+x_vals[1])/2, 0, phase, c='white', va='center', ha='center')
 
-		ax0.set_xticks([])
-		ax0.set_yticks([])
-		ax0.axvline(index, c='gray', zorder=0)
+		timeline_ax.set_xticks([])
+		timeline_ax.set_yticks([])
+		timeline_ax.axvline(index, c='gray', zorder=0)
 
 		# --------------------------------------------
 
@@ -79,8 +122,7 @@ class PTRHeatmapAnimator:
 		duration=30, loop=0)
 
 
-	def create_animation_order(self, phase_animation_order=['RG1', 'postG1',
-		'CG1', 'postG1', 'DG1', 'postG1']):
+	def create_animation_order(self, phase_animation_order=['CG1', 'postG1', 'DG1', 'postG1']):
 		phases = []
 		frames = []
 		for phase in phase_animation_order:

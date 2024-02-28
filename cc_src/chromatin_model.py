@@ -37,19 +37,28 @@ class ChromatinModel:
 		self.config = config
 		self.gamma = 0.006 # default gamma value
 
+		self.bin_width = 16
+		self.bin_height = 16
+		self.prom_len = 288
+		self.gb_len = 512
+
 
 	def load_deconvolution_results(self, gene_name):
 
 		from cc_src.sgd import get_gene_name_orf_name, get_gene
 		gene = get_gene(gene_name)
 
+	def set_gene(self, gene_or_orfname):
+		self.orf_name, self.gene_name = get_gene_name_orf_name(gene_or_orfname)
+		self.gene = self.geneset.loc[self.orf_name]
+
 	def load_mnase_gene(self, gene_or_orfname):
+
+		self.set_gene(gene_or_orfname)
 
 		# Get some gene information
 		replicate = self.config.replicate
 		self.computed_plus_one = None
-		self.orf_name, self.gene_name = get_gene_name_orf_name(gene_or_orfname)
-		self.gene = self.geneset.loc[self.orf_name]
 		self.mnase_span = self.gene.TSS-self.padding, self.gene.TSS+self.padding
 
 		print_fl(f"Loading MNase reads for {self.orf_name}/{self.gene_name}...", end='')
@@ -92,11 +101,21 @@ class ChromatinModel:
 		return plotting_reads, hist, x_edges, y_edges
 
 
+	def deconvolved_f(self):
+
+		# TODO, there are multiple places where f value can be set and used
+		# fix this setter and getter to be clear
+		if self.deconvolved_f_value is None:
+			self.deconvolved_f_value = self.solver.f.value
+
+		return self.deconvolved_f_value
+
+
 	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, 
 		vmin=0, vmax=10, smooth=False, f=None):
 
 		if f is None:
-			f = self.solver.f.value.copy()
+			f = self.deconvolved_f().copy()
 
 		f_imgs = f.reshape((-1, self.deconv_hist_unflattened.shape[1], self.deconv_hist_unflattened.shape[2]))
 
@@ -420,7 +439,7 @@ class ChromatinModel:
 		times = self.times
 
 		if predicted_g is None:
-			f = self.solver.f.value
+			f = self.deconvolved_f()
 			predicted_g = np.matmul(self.deconv_model.H, f)
 
 		shape = self.deconv_hist_unflattened[0].shape
@@ -602,6 +621,7 @@ class ChromatinModel:
 			image_shape=image_shape, wavelet_name='bior4.4', gamma_prime=gamma_prime)
 		self.solver.define_deconvolution_problem()
 		self.found_optimal_success = None
+		self.deconvolved_f_value = None
 
 
 	def deconvolve(self, solver=cvxpy.MOSEK, verbose=False, gamma_prime=0):
@@ -624,7 +644,7 @@ class ChromatinModel:
 
 		# ------- Reshape f ---------
 
-		f = self.solver.f.value
+		f = self.deconvolved_f()
 		shape = self.deconv_hist_unflattened[0].shape
 		reshaped_f = f.reshape((-1, shape[0], shape[1]))
 
@@ -732,8 +752,13 @@ class ChromatinModel:
 		return normalized_bins
 
 
-	def downsample_bins(self, bin_data, bin_width=16, bin_height=16, prom_len=288, gb_len=512):
+	def downsample_bins(self, bin_data):
 		# Now downsample to the appropriate window and resolution
+
+		bin_width = self.bin_width
+		bin_height = self.bin_height
+		prom_len = self.prom_len
+		gb_len = self.gb_len
 
 		if self.gene.strand == '+':
 			new_span = self.computed_plus_one-prom_len, self.computed_plus_one+gb_len
@@ -771,13 +796,12 @@ class ChromatinModel:
 		return downscaled_bins
 
 
-	def create_deconvolution_bins(self, bin_width=16, bin_height=16, prom_len=288, gb_len=512):
+	def create_deconvolution_bins(self):
 		
 		exact_bins = self.create_exact_bins()
 		normalized_bins = self.normalize_bins(exact_bins)
 
-		downsampled_bins = self.downsample_bins(normalized_bins, bin_width=bin_width,
-			bin_height=bin_height, prom_len=prom_len, gb_len=gb_len)
+		downsampled_bins = self.downsample_bins(normalized_bins)
 		
 		exact_extent = [self.mnase_span[0], self.mnase_span[1],
 					0, 250]
@@ -830,7 +854,7 @@ class ChromatinModel:
 
 
 	def get_f_images(self):
-		f = self.solver.f.value
+		f = self.deconvolved_f()
 		f_imgs = f.reshape((f.shape[0], *self.image_shape))
 		return f_imgs
 
@@ -839,7 +863,7 @@ class ChromatinModel:
 
 		orf_name = self.deconv_model.orf_name
 		gene_name = self.deconv_model.gene_name
-		f = self.solver.f.value
+		f = self.deconvolved_f()
 
 		g_save_path = f'{out_dir}/{index}_g_{orf_name}_{gene_name}.npy'
 		f_save_path = f'{out_dir}/{index}_f_{orf_name}_{gene_name}.npy'
@@ -871,7 +895,8 @@ class ChromatinModel:
 			'rn': self.solver.rn, 'sn': self.solver.sn, 'gm': self.gamma,
 			'config': self.config.name,
 			'model_path': self.config.model_wt1_file,
-			'run_date': run_date
+			'run_date': run_date,
+			'replicate': self.config.replicate
 			},
 			index=[self.deconv_model.orf_name])
 		df.to_csv(meta_save_path, float_format="%.4f")
@@ -880,3 +905,51 @@ class ChromatinModel:
 		print_fl(f"Saved to {f_save_path}...")
 		print_fl(f"Saved to {ptr_save_path}...")
 		print_fl(f"Saved to {meta_save_path}...")
+
+
+def load_chromatin_model_from_disk(gene_name, chromatin_dir):
+
+
+	from src.config import load_yl_rg1_vst_config
+
+	# gene name
+	gene_name = 'CLB2'
+
+	import os
+	import glob
+
+	
+	f_pattern = os.path.join(chromatin_dir, f'*_f_*{gene_name}*')
+	ptr_pattern = os.path.join(chromatin_dir, f'*_ptr_*{gene_name}*')
+	g_pattern = os.path.join(chromatin_dir, f'*_g_*{gene_name}*')
+	meta_pattern = os.path.join(chromatin_dir, f'*_meta_*{gene_name}*')
+
+	g_filepath = glob.glob(g_pattern)[0]
+	f_filepath = glob.glob(f_pattern)[0]
+	ptr_filepath = glob.glob(ptr_pattern)[0]
+	meta_filepath = glob.glob(meta_pattern)[0]
+
+	config = load_yl_rg1_vst_config(1)
+
+	f = np.load(f_filepath)
+	ptr = np.load(ptr_filepath)
+	g = np.load(g_filepath)
+	meta_data = pd.read_csv(meta_filepath)
+	meta_data = meta_data.iloc[0]
+
+	config = load_yl_rg1_vst_config(1)
+	chromatin_model = ChromatinModel(config)
+	gene_name = 'CLB2'
+
+	chromatin_model.load_mnase_gene(gene_name)
+	chromatin_model.create_deconvolution_bins()
+	chromatin_model.setup_deconv_model()
+
+	chromatin_model.deconvolved_f_value = f
+	chromatin_model.f_ptrs = ptr.flatten()
+
+	chromatin_model.solver.rn = meta_data.rn
+	chromatin_model.solver.sn = meta_data.sn
+	chromatin_model.gm = meta_data.gm
+
+	return chromatin_model
