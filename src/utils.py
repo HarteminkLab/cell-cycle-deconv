@@ -29,3 +29,4 @@ def mkdir_safe(directory, log=True):
         print_fl("Directory exists. Skipping.", end='')
 
     if log: print_fl()
+

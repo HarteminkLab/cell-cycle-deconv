@@ -124,7 +124,7 @@ class PeakToTroughAnalysis:
 		plt.axvline(q05, c='red', lw=1)
 		plt.axvline(q95, c='red', lw=1)
 		plt.title(f"Gene PTR values for k={self.optimal_k}\n" +
-		         f"n={n}, q05={q05:0.1f}, q95={q95:.1f}")
+				 f"n={n}, q05={q05:0.1f}, q95={q95:.1f}")
 
 
 	def plot_ptr_k_gene(self):
@@ -135,7 +135,7 @@ class PeakToTroughAnalysis:
 
 		plt.figure(figsize=(5, 5))
 
-		select_ks = np.arange(1, 60, 1)
+		select_ks = np.arange(1, 700, 1)
 
 		for orf_name, row in sorted_ptrs_df.dropna().iterrows():
 
@@ -169,3 +169,14 @@ class PeakToTroughAnalysis:
 			f"n={n}, k={self.optimal_k}")
 		plt.xlabel("Proportion of all deconvolved genes")
 		plt.ylabel("Proportion of spellman genes")
+
+	def summarize_ptrs(self, metric_func):
+		summary_ptrs = self.ptrs_df.copy()   
+		metric_val = summary_ptrs.apply(metric_func, axis=1)
+		return metric_val
+
+
+	def compute_q_vals(self, q_val):
+		q_func = lambda val : np.quantile(val, q=q_val)
+		q_vals = self.summarize_ptrs(q_func)
+		return q_vals
