@@ -14,7 +14,7 @@ class FHeatmapAnimator:
 		self.data = chromatin_model.get_f_images()
 
 	def plot_heatmap(self, title, 
-			index, save_path=None, 
+			index, save_path=None, boundaries=None,
 			heatmap_ax=None, timeline_ax=None):
 
 		data = self.data
@@ -78,22 +78,17 @@ class FHeatmapAnimator:
 		# ----------- cell cycle chart ---------------
 
 		from src.model import color_for_key
-
-		phases = ['RG1', 'CG1', 'DG1', 'postG1']
-
+		
 		last_h_position_end = 0
-		for i in range(len(phases)):
-		    phase = phases[i]
-		    hpositions = self.chromatin_model.config.get_Hpositions_for_phase(phase)
-		    x_vals = [last_h_position_end, hpositions[-1]]
-		    last_h_position_end = hpositions[-1]
-		    timeline_ax.plot(x_vals, [0, 0], color=color_for_key(phase),
-		            lw=20, solid_capstyle='butt')
-		    timeline_ax.text((x_vals[0]+x_vals[1])/2, 0, phase, c='white', va='center', ha='center')
-
+		for _, boundary in boundaries.iterrows():
+			phase = boundary.phase
+			x_vals = [boundary.start, boundary.end]
+			timeline_ax.plot(x_vals, [0, 0], color=color_for_key(phase),
+					lw=20, solid_capstyle='butt')
+			timeline_ax.text((x_vals[0]+x_vals[1])/2, 0, phase, c='white', va='center', ha='center')
 		timeline_ax.set_xticks([])
 		timeline_ax.set_yticks([])
-		timeline_ax.axvline(index, c='gray', zorder=0)
+		timeline_ax.axvline(index, c='gray', zorder=0, alpha=0.5)
 
 		# --------------------------------------------
 
@@ -112,11 +107,15 @@ class FHeatmapAnimator:
 		frames = self.create_animation_order()
 
 		animation_index = 0
+
+		boundaries = self.get_frame_boundaries(frames)
+
 		for _, row in frames.iterrows():
 			frame = row.frame
 			frame_file = f'{frames_dir}/frame_{animation_index}.png'
 			title = f"{row.phase}, {frame}"
-			self.plot_heatmap(title, frame, frame_file)
+			self.plot_heatmap(title, animation_index, 
+				frame_file, boundaries=boundaries)
 			frame_files.append(frame_file)
 			animation_index += 1
 
@@ -136,3 +135,26 @@ class FHeatmapAnimator:
 			frames = frames + list(cur_frames)
 
 		return pd.DataFrame({'frame': frames, 'phase': phases})
+
+	def get_frame_boundaries(self, frames):
+		"""Get frame boundaries for plotting the animation timeline"""
+		start = 0
+		end = 0
+		phase = frames.iloc[0].phase
+		starts = [start]
+		ends = []
+		phases = []
+
+		for index, row in frames.iterrows():
+			if phase != row.phase:
+				end = index-1
+				start = index
+				ends.append(end)
+				starts.append(start)
+				phases.append(phase)
+				phase = row.phase
+		phases.append(phase)
+		ends.append(index)
+
+		animation_frame_boundaries = pd.DataFrame({'start': starts, 'end': ends, 'phase': phases})
+		return animation_frame_boundaries
