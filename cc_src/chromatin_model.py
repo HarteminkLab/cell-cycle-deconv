@@ -304,13 +304,16 @@ class ChromatinModel:
 		return fig
 
 
-	def define_title(self):
-
+	def gene_title(self):
 		if self.gene.gene == self.orf_name:
 			gene_title = ("$\\it{" + self.orf_name + "}$")
 		else:
 			gene_title = ("$\\it{" + self.gene.gene + "}$ / $\\it{" + self.orf_name + "}$")
+		return gene_title
 
+	def define_title(self):
+
+		gene_title = self.gene_title()
 		title = (f"{gene_title}\n" +
 				self.config.name + ", " +
 				f"$\\gamma$={self.gamma:.3f}\nrn={self.solver.rn:.2f}, sn={self.solver.sn:.2f}")

@@ -14,25 +14,26 @@ class FHeatmapAnimator:
 		self.data = chromatin_model.get_f_images()
 
 	def plot_heatmap(self, title, 
-			index, save_path=None, boundaries=None,
+			index, animation_index, n, save_path=None, suptitle=None, boundaries=None,
 			heatmap_ax=None, timeline_ax=None):
 
 		data = self.data
 
-
 		if heatmap_ax is None:
-			fig, axs = plt.subplots(5, 2, figsize=(7, 6))
-			plt.subplots_adjust(top=0.85)
+
+			fig, axs = plt.subplots(3, 2, figsize=(8, 3.5))
+			plt.subplots_adjust(left=0.25, right=0.75, top=0.8)
 
 			import numpy as np
 			axs = np.array(axs).T
 
-			heatmap_ax = axs[0][0]
-			ptr_ax = axs[0][1]
-			threshold_ax = axs[0][2]
-			masked_heatmap_ax = axs[0][3]
-			not_masked_heatmap_ax = axs[0][4]
-			timeline_ax = axs[1][0]
+			heatmap_ax = axs[1][0]
+			masked_heatmap_ax = axs[1][1]
+			not_masked_heatmap_ax = axs[1][2]
+
+			ptr_ax = axs[0][0]
+			threshold_ax = axs[0][1]
+			timeline_ax = axs[0][2]
 
 			for ax in axs.flatten():
 				ax.set_xticks([])
@@ -50,30 +51,39 @@ class FHeatmapAnimator:
 
 		cur_img = self.data[index]
 		plot_im_hm(heatmap_ax, cur_img)
-		heatmap_ax.set_title(title)
+
+		def set_ylabel_ax(ax, label, labelposition='left'):
+			ha = 'right' if labelposition == 'left' else 'left'
+			ax.set_ylabel(label, rotation=0, ha=ha, labelpad=10)
+			ax.yaxis.set_label_position(labelposition)
+
+
+		set_ylabel_ax(heatmap_ax, "F", 'right')
+		heatmap_ax.set_title(f"{title} {animation_index} / {n}", ha='center')
 
 		# --------- ptr -----------
 
 		ptr_img = self.chromatin_model.f_ptrs.reshape(self.chromatin_model.image_shape)
 		plot_im_hm(ptr_ax, ptr_img, vmax=10, cmap='Blues')
+		set_ylabel_ax(ptr_ax, "PTR")
 
 		# ---------- threshold ----------
 
 		from src.ptr_analysis_plotter import threshold_img
 
 		threshold_ptr_img = threshold_img(ptr_img)
-
 		plot_im_hm(threshold_ax, threshold_ptr_img, vmax=1, cmap='Blues')
+		set_ylabel_ax(threshold_ax, "PTR threshold\nmask")
 
-
-		# --------- masked animation ------------
+		# --------- masked/not masked animation ------------
 
 		masked_img = cur_img * threshold_ptr_img
 		plot_im_hm(masked_heatmap_ax, masked_img)
-
+		set_ylabel_ax(masked_heatmap_ax, "F & mask", 'right')
 
 		not_masked_img = cur_img*(1-threshold_ptr_img)
 		plot_im_hm(not_masked_heatmap_ax, not_masked_img)
+		set_ylabel_ax(not_masked_heatmap_ax, "F & ~mask", 'right')
 
 		# ----------- cell cycle chart ---------------
 
@@ -88,12 +98,16 @@ class FHeatmapAnimator:
 			timeline_ax.text((x_vals[0]+x_vals[1])/2, 0, phase, c='white', va='center', ha='center')
 		timeline_ax.set_xticks([])
 		timeline_ax.set_yticks([])
-		timeline_ax.axvline(index, c='gray', zorder=0, alpha=0.5)
+		timeline_ax.axvline(animation_index, c='gray', zorder=0, alpha=0.5)
+
+		set_ylabel_ax(timeline_ax, "Animation\nkey")
 
 		# --------------------------------------------
 
+		plt.suptitle(suptitle, fontsize=19)
+
 		if save_path is not None:
-			plt.savefig(save_path)
+			plt.savefig(save_path, dpi=150)
 			plt.close()
 
 
@@ -109,13 +123,14 @@ class FHeatmapAnimator:
 		animation_index = 0
 
 		boundaries = self.get_frame_boundaries(frames)
+		n = len(frames)
 
 		for _, row in frames.iterrows():
 			frame = row.frame
 			frame_file = f'{frames_dir}/frame_{animation_index}.png'
-			title = f"{row.phase}, {frame}"
-			self.plot_heatmap(title, animation_index, 
-				frame_file, boundaries=boundaries)
+			title = f"{row.phase}"
+			self.plot_heatmap(title, frame, animation_index, n,
+				frame_file, boundaries=boundaries, suptitle=self.chromatin_model.gene_title())
 			frame_files.append(frame_file)
 			animation_index += 1
 
@@ -123,7 +138,7 @@ class FHeatmapAnimator:
 		gif_path = save_path
 		frames = [Image.open(frame) for frame in frame_files]
 		frames[0].save(gif_path, format='GIF', append_images=frames[1:], save_all=True, 
-		duration=30, loop=0)
+		duration=45, loop=0)
 
 
 	def create_animation_order(self, phase_animation_order=['CG1', 'postG1', 'DG1', 'postG1']):
