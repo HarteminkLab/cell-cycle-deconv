@@ -21,16 +21,17 @@ class FHeatmapAnimator:
 
 
 		if heatmap_ax is None:
-			fig, axs = plt.subplots(4, 2, figsize=(7, 4))
+			fig, axs = plt.subplots(5, 2, figsize=(7, 6))
 			plt.subplots_adjust(top=0.85)
 
 			import numpy as np
 			axs = np.array(axs).T
 
 			heatmap_ax = axs[0][0]
-			threshold_ax = axs[0][1]
-			masked_heatmap_ax = axs[0][2]
-			not_masked_heatmap_ax = axs[0][3]
+			ptr_ax = axs[0][1]
+			threshold_ax = axs[0][2]
+			masked_heatmap_ax = axs[0][3]
+			not_masked_heatmap_ax = axs[0][4]
 			timeline_ax = axs[1][0]
 
 			for ax in axs.flatten():
@@ -51,11 +52,15 @@ class FHeatmapAnimator:
 		plot_im_hm(heatmap_ax, cur_img)
 		heatmap_ax.set_title(title)
 
+		# --------- ptr -----------
+
+		ptr_img = self.chromatin_model.f_ptrs.reshape(self.chromatin_model.image_shape)
+		plot_im_hm(ptr_ax, ptr_img, vmax=10, cmap='Blues')
+
 		# ---------- threshold ----------
 
 		from src.ptr_analysis_plotter import threshold_img
 
-		ptr_img = self.chromatin_model.f_ptrs.reshape(self.chromatin_model.image_shape)
 		threshold_ptr_img = threshold_img(ptr_img)
 
 		plot_im_hm(threshold_ax, threshold_ptr_img, vmax=1, cmap='Blues')

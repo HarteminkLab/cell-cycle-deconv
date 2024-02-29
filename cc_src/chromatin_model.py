@@ -41,10 +41,10 @@ class ChromatinModel:
 		self.bin_height = 16
 		self.prom_len = 288
 		self.gb_len = 512
+		self.chr = None
 
 
 	def load_deconvolution_results(self, gene_name):
-
 		from cc_src.sgd import get_gene_name_orf_name, get_gene
 		gene = get_gene(gene_name)
 
@@ -52,7 +52,7 @@ class ChromatinModel:
 		self.orf_name, self.gene_name = get_gene_name_orf_name(gene_or_orfname)
 		self.gene = self.geneset.loc[self.orf_name]
 
-	def load_mnase_gene(self, gene_or_orfname):
+	def load_mnase_gene(self, gene_or_orfname, log=True):
 
 		self.set_gene(gene_or_orfname)
 
@@ -61,11 +61,23 @@ class ChromatinModel:
 		self.computed_plus_one = None
 		self.mnase_span = self.gene.TSS-self.padding, self.gene.TSS+self.padding
 
-		print_fl(f"Loading MNase reads for {self.orf_name}/{self.gene_name}...", end='')
+		if log:
+			print_fl(f"Loading MNase reads for {self.orf_name}/{self.gene_name}...", end='')
 		# TODO: This may take a little while, when we've deconvolved already we may want to skip this step,
 		# But that will mean needing to save the +1 location to disk.
-		self.chr_reads = pd.read_hdf(f'output/mnase/yl_rep{replicate}_mnase_reads/yl_rep{replicate}_mnase_reads_chr{self.gene.chr}.h5', 
-					'mnase_data')
+
+		if not self.chr == self.gene.chr:
+
+			if log:
+				print_fl(f"Loading chromosome reads: {self.gene.chr}")
+			self.chr_reads = pd.read_hdf(f'output/mnase/yl_rep{replicate}_mnase_reads/yl_rep{replicate}_mnase_reads_chr{self.gene.chr}.h5', 
+									     'mnase_data')
+			self.chr = self.gene.chr
+		else:
+
+			if log:
+				print_fl(f"Already loaded chromosome reads for {self.chr}. Using cache.")
+
 		self.gene_reads = self.chr_reads[(self.chr_reads.mid > self.mnase_span[0]) & 
 			(self.chr_reads.mid < self.mnase_span[1])]
 
@@ -73,7 +85,9 @@ class ChromatinModel:
 			self.find_max_plusOne_pos()
 		except ValueError:
 			self.computed_plus_one = self.gene.TSS
-			print(f"Error finding plus one location, possibly not enough read coverage. Setting plus one to TSS by default")
+
+			if log:
+				print_fl(f"Error finding plus one location, possibly not enough read coverage. Setting plus one to TSS by default")
 
 		self.times = self.gene_reads['sample'].unique()
 
@@ -85,7 +99,8 @@ class ChromatinModel:
 		self.gene_reads = self.chr_reads[(self.chr_reads.mid > self.mnase_span[0]) & 
 			(self.chr_reads.mid < self.mnase_span[1])]
 
-		print_fl("Done.")
+		if log:
+			print_fl("Done.")
 
 		# This will work for the single replicate model
 		timepoints = self.chr_reads['sample'].unique()
@@ -796,11 +811,10 @@ class ChromatinModel:
 		return downscaled_bins
 
 
-	def create_deconvolution_bins(self):
+	def create_deconvolution_bins(self, log=False):
 		
 		exact_bins = self.create_exact_bins()
 		normalized_bins = self.normalize_bins(exact_bins)
-
 		downsampled_bins = self.downsample_bins(normalized_bins)
 		
 		exact_extent = [self.mnase_span[0], self.mnase_span[1],
@@ -816,8 +830,9 @@ class ChromatinModel:
 		self.exact_bins = exact_bins
 		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
 
-		print_fl(f"Unflattened the input data is of shape: {self.deconv_hist_unflattened.shape}")
-		print_fl(f"The size of our input data, G is: {self.G.shape}")
+		if log:
+			print_fl(f"Unflattened the input data is of shape: {self.deconv_hist_unflattened.shape}")
+			print_fl(f"The size of our input data, G is: {self.G.shape}")
 		
 
 	def plot_bin_comparison(self):
