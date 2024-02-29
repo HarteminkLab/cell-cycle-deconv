@@ -3,7 +3,7 @@ import glob
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from cc_src.reference_data import load_spellman_orfs
+from cc_src.reference_data import load_spellman_orfs, load_analysis_genes
 
 
 class PeakToTroughAnalysis:
@@ -16,7 +16,7 @@ class PeakToTroughAnalysis:
 
 	def __init__(self, chromatin_dir):
 
-		self.geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
+		self.geneset = load_analysis_genes()
 		self.chromatin_dir = chromatin_dir
 		self.file_paths = glob.glob(f'{self.chromatin_dir}/*_ptr_*.npy')
 

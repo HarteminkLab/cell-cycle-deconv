@@ -40,8 +40,8 @@ def positive_control_genes():
 
 
 def get_missing_geneset():
-	"""Missing genes from the 2/20/24 runs, temporary function to deconvolve the missing 1000 genes"""
-	geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies_missing_temp_2024-02-27.csv').set_index('orf_name')
+	"""48 genes missing from failed gene expression deconvolution."""
+	geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies_missing_temp_2024-02-29.csv').set_index('orf_name')
 	return geneset
 
 

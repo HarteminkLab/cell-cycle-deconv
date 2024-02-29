@@ -4,6 +4,9 @@ import numpy as np
 import sys
 
 
+DEFAULT_GM = 0.0004
+
+
 def print_fl(*args, **kwargs):
 	"""On the cluster, it is helpful to flush after printing
 	for live updates"""
@@ -47,7 +50,6 @@ class FindOptimalGamma:
 
 		DEFAULT_RN_CUTOFF = 1
 
-		DEFAULT_GM = 0.0004
 		GAMMA_MIN = 0.0001
 		GAMMA_MAX = 0.001
 
@@ -245,6 +247,13 @@ class FindOptimalGamma:
 		rn = np.array(rn)[all_idx]
 		sn = np.array(sn)[all_idx]
 		gammas = np.array(gammas)[all_idx]
+
+
+		if len(rn) < 2:
+			print_fl("Not enough rn values to compute a gradient, using default")
+			flag = 0
+			elbow_gamma = DEFAULT_GM
+			return elbow_gamma, flag, gammas, rn, sn
 
 		# calculate curvature
 		x_grad1 = np.gradient(rn)
