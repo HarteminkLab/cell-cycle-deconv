@@ -15,7 +15,6 @@ class PeakToTroughAnalysis:
 	"""
 
 	def __init__(self, chromatin_dir):
-
 		self.geneset = load_analysis_genes()
 		self.chromatin_dir = chromatin_dir
 		self.file_paths = glob.glob(f'{self.chromatin_dir}/*_ptr_*.npy')
@@ -35,6 +34,11 @@ class PeakToTroughAnalysis:
 		for path in self.file_paths:
 			filename = path.split('/')[-1]
 			orf_name = filename.split('_')[2]
+
+			# Skip genes not in our analysis set
+			# for runs in which we haven't filtered for low coverage genes yet
+			if not orf_name in self.geneset.index.values: continue
+
 			loaded_ptrs = np.load(path)
 			ptrs_df.loc[orf_name] = loaded_ptrs.flatten()
 
@@ -84,7 +88,7 @@ class PeakToTroughAnalysis:
 		# The first 100 bins should be enough to find compute the optimal k
 		# any large and it may be introducing too much noise
 		rank_mean_dat = self.ptr_rank_stds_df.mean(axis=0)[1:700]
-		self.set_optimal_k(rank_mean_dat.argmax()+1)
+		self.set_optimal_k(73)
 
 		plt.figure(figsize=(5, 4))
 		plt.plot(rank_mean_dat.index, rank_mean_dat.values)

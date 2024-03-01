@@ -71,7 +71,7 @@ class ChromatinModel:
 			if log:
 				print_fl(f"Loading chromosome reads: {self.gene.chr}")
 			self.chr_reads = pd.read_hdf(f'output/mnase/yl_rep{replicate}_mnase_reads/yl_rep{replicate}_mnase_reads_chr{self.gene.chr}.h5', 
-									     'mnase_data')
+										 'mnase_data')
 			self.chr = self.gene.chr
 		else:
 
@@ -320,16 +320,6 @@ class ChromatinModel:
 		return title
 
 
-	def apply_normalization(self, scaling_mat):
-
-		self.unnormalized_deconv_hist_unflattened = self.deconv_hist_unflattened.copy()
-		self.normalize_3len_bins_hist(scaling_mat)
-		self.deconv_hist_unflattened = self.normalized_tps_hists
-
-		# Recreate the deconvolution matrix
-		self.create_deconvolution_matrices()
-
-
 	def plot_f_img(self, ax, reshaped_f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0,
 		vmin=0, vmax=200):
 
@@ -480,17 +470,21 @@ class ChromatinModel:
 
 		# Plot the PTR values
 		ptr_ax = ptr_axs[0]
-		ptr_ax.imshow(self.f_ptrs.reshape(shape), aspect='auto', extent=self.bin_extents, 
-			origin='lower', cmap='Blues', vmax=10)
+		f_ptrs_img = self.f_ptrs.reshape(shape)
+		ptr_ax.imshow(f_ptrs_img, aspect='auto', extent=self.bin_extents, 
+			origin='lower', cmap='viridis', vmax=10)
 		ptr_ax.axvline(self.computed_plus_one, c='gray', alpha=0.25)
 		ptr_ax.set_title("PTRs")
 
 		# Plot 7 highest ptr values (7 is tentative optimal k for now)
-		k = 7
-		self.f_ranks_img = self.f_ranks.reshape(self.image_shape)
+
+
+		from src.ptr_analysis_plotter import threshold_img
+
+		thresholded = threshold_img(f_ptrs_img)
 		ptr_k_ax = ptr_axs[1]
-		ptr_k_ax.imshow((self.f_ranks_img < k), extent=self.bin_extents, origin='lower', 
-				  cmap='Blues', aspect='auto')
+		ptr_k_ax.imshow(thresholded, extent=self.bin_extents, origin='lower', 
+				  cmap='viridis', aspect='auto')
 		ptr_k_ax.axvline(self.computed_plus_one, c='gray', alpha=0.25)
 		ptr_k_ax.set_xticks([])
 		ptr_k_ax.set_yticks([])
@@ -763,10 +757,21 @@ class ChromatinModel:
 		timepoints = self.timepoints
 		normalized_bins = exact_bins.copy()
 
+		# Normalization that matches
+		# the length distribution across all timepoints and replicates
+		print_fl("Applying a normalization for length distribution")
 		for i in range(len(timepoints)):
 			time = timepoints[i]
 			cur_normalized_bins = (scaling_mat[time].values.reshape((-1, 1)) * exact_bins[i])
 			normalized_bins[i] = cur_normalized_bins
+
+		# Normalization that keeps the copy number for all timepoints equal
+		# The chromatin window sum should be the same for all genes
+		print_fl("Applying a normalization for copy number, all timepoints will have equal sum")
+		sums_per_time = normalized_bins.sum(axis=1).sum(axis=1)
+		for i in range(normalized_bins.shape[0]):
+			normalized_bins[i] *= 1./sums_per_time[i] * 5000.
+
 		return normalized_bins
 
 
@@ -931,7 +936,6 @@ def load_chromatin_model_from_disk(gene_name, chromatin_dir):
 	from src.config import load_yl_rg1_vst_config
 
 	# gene name
-	gene_name = 'CLB2'
 
 	import os
 	import glob
@@ -957,7 +961,6 @@ def load_chromatin_model_from_disk(gene_name, chromatin_dir):
 
 	config = load_yl_rg1_vst_config(1)
 	chromatin_model = ChromatinModel(config)
-	gene_name = 'CLB2'
 
 	chromatin_model.load_mnase_gene(gene_name)
 	chromatin_model.create_deconvolution_bins()
@@ -971,3 +974,9 @@ def load_chromatin_model_from_disk(gene_name, chromatin_dir):
 	chromatin_model.gm = meta_data.gm
 
 	return chromatin_model
+
+
+# f = chromatin_model.deconvolved_f()
+# f_sums = np.sum(f, axis=1)
+# plt.plot(f_sums)
+# plt.ylim(0, 500)

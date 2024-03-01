@@ -14,6 +14,9 @@ from src.wavelets_2d_linalg import decompose_flattened_kron_coeffs, \
 	create_kron_wavelet2d_convolution_matrices
 
 
+F_REG = 0.0001
+
+
 class ChromatinDeconvolveSolver:
 	"""Class to handle chromatin deconvolution, will be useful for scanning for gamma values and reusing the same
 	problem definition"""
@@ -99,6 +102,16 @@ class ChromatinDeconvolveSolver:
 
 		# -------------------------------------------------
 
+		# m, u = f.shape
+		# mean_row = (cvxpy.sum(f, axis=0) / m).reshape((1, u))
+		# ones_column = np.ones((m, 1))
+		# f_mean_diff = cvxpy.abs(f - ones_column@mean_row)
+
+		# print_fl("todo: Trying a regularization term that will "
+		# 		 "keep f consistent across timepoints")
+
+		# --------------------------------------------------
+
 		objective = cvxpy.Minimize(
 
 			# Compute the sum of squares on the result
@@ -110,6 +123,8 @@ class ChromatinDeconvolveSolver:
 
 			# How much to apply the l1 norm on the coefficient representation
 			+ gamma_prime*l1_norm_on_coeffs
+			
+			# + F_REG * cvxpy.sum(f_mean_diff)
 		)
 
 		# -------- End definition of the optimization ------------
@@ -177,8 +192,19 @@ class ChromatinDeconvolveSolver:
 			l1_norm_on_coeffs = np.sum(np.abs(LL) + np.abs(HL) + np.abs(LH) + np.abs(HH)) / m / u
 
 		else:
-			l1_norm_on_coeffs = np.nan
-
 		self.rn, self.sn, self.l1_norm_on_coeffs = rn, sn, l1_norm_on_coeffs
 
 		return f, rn, sn, l1_norm_on_coeffs
+
+	# def calculate_f_reg(self):
+
+	# 	f = self.f.value
+
+	# 	# Calculate regularization term value
+	# 	m, u = f.shape
+	# 	mean_row = (np.sum(f, axis=0) / m).reshape((1, u))
+	# 	ones_column = np.ones((m, 1))
+	# 	f_mean_diff = f - ones_column@mean_row
+
+	# 	self.fn = np.sum(np.abs(f_mean_diff)) * F_REG
+	# 	return self.fn

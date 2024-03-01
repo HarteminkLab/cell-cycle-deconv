@@ -45,18 +45,17 @@ class PTRAnalysisPlotter:
 
 		n = len(quantile_orf_names)
 		fig, axs = plt.subplots(n, 2, figsize=(3.5, 3./5. * n))
+		plt.subplots_adjust(hspace=0.5, top=0.8)
 		
 		axs = np.array(axs).T
 		raw_axs = axs[0]
 		thresh_axs = axs[1]
 		
-		plt.subplots_adjust(hspace=0.5)
-		
 		for i in range(n):
 
 			orf_name = quantile_orf_names[i]
 			quantile_val = qs[i]
-			title = f"perc={quantile_val*100:.1f}% - {vals.loc[orf_name]:.2f}"
+			title = f"perc={quantile_val*100:.1f}% - {vals.loc[orf_name]:.2f}\n{orf_name}"
 			ax = raw_axs[i]
 			ax.set_ylabel(title, rotation=0, ha='right')
 			
