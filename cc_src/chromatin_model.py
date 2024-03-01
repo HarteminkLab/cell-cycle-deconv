@@ -748,7 +748,7 @@ class ChromatinModel:
 		plt.title("Halted cells")
 		
 
-	def normalize_bins(self, exact_bins):
+	def normalize_bins(self, exact_bins, log=True):
 		"""Normalize the histogram of exact length, position counts"""
 
 		from src.preprocessing import load_scaling_mat
@@ -759,7 +759,7 @@ class ChromatinModel:
 
 		# Normalization that matches
 		# the length distribution across all timepoints and replicates
-		print_fl("Applying a normalization for length distribution")
+		if log: print_fl("Applying a normalization for length distribution")
 		for i in range(len(timepoints)):
 			time = timepoints[i]
 			cur_normalized_bins = (scaling_mat[time].values.reshape((-1, 1)) * exact_bins[i])
@@ -767,10 +767,10 @@ class ChromatinModel:
 
 		# Normalization that keeps the copy number for all timepoints equal
 		# The chromatin window sum should be the same for all genes
-		print_fl("Applying a normalization for copy number, all timepoints will have equal sum")
-		sums_per_time = normalized_bins.sum(axis=1).sum(axis=1)
-		for i in range(normalized_bins.shape[0]):
-			normalized_bins[i] *= 1./sums_per_time[i] * 5000.
+		# if log: print_fl("Applying a normalization for copy number, all timepoints will have equal sum")
+		# sums_per_time = normalized_bins.sum(axis=1).sum(axis=1)
+		# for i in range(normalized_bins.shape[0]):
+		# 	normalized_bins[i] *= 1./sums_per_time[i] * 5000.
 
 		return normalized_bins
 
@@ -822,7 +822,7 @@ class ChromatinModel:
 	def create_deconvolution_bins(self, log=False):
 		
 		exact_bins = self.create_exact_bins()
-		normalized_bins = self.normalize_bins(exact_bins)
+		normalized_bins = self.normalize_bins(exact_bins, log=log)
 		downsampled_bins = self.downsample_bins(normalized_bins)
 		
 		exact_extent = [self.mnase_span[0], self.mnase_span[1],
@@ -834,6 +834,7 @@ class ChromatinModel:
 		self.bin_extents = gene_extent
 		self.deconv_hist_unflattened = downsampled_bins
 		self.image_shape = self.deconv_hist_unflattened.shape[1:]
+		self.normalized_bins = normalized_bins
 
 		self.exact_bins = exact_bins
 		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)

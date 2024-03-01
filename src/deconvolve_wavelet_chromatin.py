@@ -96,21 +96,7 @@ class ChromatinDeconvolveSolver:
 			(LL, HL, LH, HH) = decompose_flattened_kron_coeffs(f, decomp_kron_mats)
 			l1_norm_on_coeffs = cvxpy.sum(cvxpy.abs(LL) + cvxpy.abs(HL) + cvxpy.abs(LH) + cvxpy.abs(HH)) / m / u
 
-			# We could try constraining the top end of the coefficient values, if they are getting too high.
-			# M = 100
-			# constraints += [cvxpy.abs(LL) <= M, cvxpy.abs(HL) <= M, cvxpy.abs(LH) <= M, cvxpy.abs(HH) <= M]
-
 		# -------------------------------------------------
-
-		# m, u = f.shape
-		# mean_row = (cvxpy.sum(f, axis=0) / m).reshape((1, u))
-		# ones_column = np.ones((m, 1))
-		# f_mean_diff = cvxpy.abs(f - ones_column@mean_row)
-
-		# print_fl("todo: Trying a regularization term that will "
-		# 		 "keep f consistent across timepoints")
-
-		# --------------------------------------------------
 
 		objective = cvxpy.Minimize(
 
@@ -123,8 +109,6 @@ class ChromatinDeconvolveSolver:
 
 			# How much to apply the l1 norm on the coefficient representation
 			+ gamma_prime*l1_norm_on_coeffs
-			
-			# + F_REG * cvxpy.sum(f_mean_diff)
 		)
 
 		# -------- End definition of the optimization ------------
@@ -185,6 +169,7 @@ class ChromatinDeconvolveSolver:
 		sn = (np.sum(np.abs(f_it_matmul_res)) + 
 			self.factor_fb * (np.sum(np.abs(f_b_matmul_res)))) / g_mean / m
 
+		l1_norm_on_coeffs = 0
 		if self.gamma_prime > 0:
 			# Decompose the f matrix of flattened images using the kronecker version of the wavelet transformation
 			# matrices. Retrieve the wavelet coefficients and compute an L1 norm on these coefficients.
@@ -192,19 +177,7 @@ class ChromatinDeconvolveSolver:
 			l1_norm_on_coeffs = np.sum(np.abs(LL) + np.abs(HL) + np.abs(LH) + np.abs(HH)) / m / u
 
 		else:
-		self.rn, self.sn, self.l1_norm_on_coeffs = rn, sn, l1_norm_on_coeffs
+			self.rn, self.sn, self.l1_norm_on_coeffs = rn, sn, l1_norm_on_coeffs
 
 		return f, rn, sn, l1_norm_on_coeffs
 
-	# def calculate_f_reg(self):
-
-	# 	f = self.f.value
-
-	# 	# Calculate regularization term value
-	# 	m, u = f.shape
-	# 	mean_row = (np.sum(f, axis=0) / m).reshape((1, u))
-	# 	ones_column = np.ones((m, 1))
-	# 	f_mean_diff = f - ones_column@mean_row
-
-	# 	self.fn = np.sum(np.abs(f_mean_diff)) * F_REG
-	# 	return self.fn
