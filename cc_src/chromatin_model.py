@@ -82,7 +82,7 @@ class ChromatinModel:
 			(self.chr_reads.mid < self.mnase_span[1])]
 
 		try:
-			self.find_max_plusOne_pos()
+			self.find_max_plus_one_location()
 		except ValueError:
 			self.computed_plus_one = self.gene.TSS
 
@@ -524,7 +524,8 @@ class ChromatinModel:
 			raw_ax.set_yticks([])
 
 			g_ax = g_axs[i]
-			im = g_ax.imshow(self.deconv_hist_unflattened[i], origin='lower', cmap='magma_r', 
+			raw_image = self.G[i].reshape(self.image_shape)
+			im = g_ax.imshow(raw_image, origin='lower', cmap='magma_r', 
 						   aspect='auto', vmax=vmax,
 						   extent=self.bin_extents)
 			
@@ -565,7 +566,7 @@ class ChromatinModel:
 		return fig
 
 
-	def find_max_plusOne_pos(self):
+	def find_max_plus_one_location(self):
 		"""
 		Find the position of the +1 by finding the max number of nucleosome reads in
 		a 200bp window around the TSS.

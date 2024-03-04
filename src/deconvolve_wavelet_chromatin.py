@@ -46,7 +46,7 @@ class ChromatinDeconvolveSolver:
 		eps = 1e-5
 		G = G + eps
 
-		self.factor_fb = 1.5
+		self.factor_fb = 2
 
 		f_it = self.deconv_model.get_f_it()	
 		f_b = self.deconv_model.get_f_b()

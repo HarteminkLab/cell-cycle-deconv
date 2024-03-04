@@ -27,6 +27,15 @@ class ChromatinMetrics:
 					'mnase_data')
 		chrom_genes = self.geneset[self.geneset['chr'] == chrom]
 
+		if chrom == 12:
+			# Mask chromosome 12, rDNA region. Rough estimate of region
+			# but for the purposes of normalization, this appears appropriate.
+			mask_span = 450000, 470000
+			masked_chrom_12_reads = chrom_reads
+			masked_chrom_12_reads = masked_chrom_12_reads[(masked_chrom_12_reads.mid < mask_span[0]) | 
+											(masked_chrom_12_reads.mid > mask_span[1])]
+			chrom_reads = masked_chrom_12_reads
+
 		self.chrom_reads = chrom_reads
 		self.chrom_genes = chrom_genes
 
@@ -312,6 +321,7 @@ class ChromatinMetrics:
 		mnase_reads = self.chrom_reads
 		sample_reads = mnase_reads[mnase_reads['sample'] == sample]
 
+		# For chromosome 12, filter out the 
 		mn_min, mn_max = len_span
 
 		# Add 2 because we want to include the last length count, and 1 more to create bins that:

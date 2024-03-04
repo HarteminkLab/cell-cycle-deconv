@@ -29,7 +29,6 @@ def deconvolve_chromatin_H(model, H, g, allow_negative=False,
 	g = g + eps
 
 	gamma = model.gamma
-	factor_fb = 1.5
 
 	from src.helpers import get_wavelet_kernel
 
@@ -39,7 +38,7 @@ def deconvolve_chromatin_H(model, H, g, allow_negative=False,
 	# Mirroring
 	f_b_mirror = np.concatenate((f_b, f_b))
 	f_it_mirror = np.concatenate((f_it, np.flip(f_it)))
-	factor_fb = 1.5
+	factor_fb = 2
 
 	# Add the wavelet smoothing constraint to the convex optimization
 	W1 = get_wavelet_kernel(len(f_it_mirror))
