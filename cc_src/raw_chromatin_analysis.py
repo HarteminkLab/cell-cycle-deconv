@@ -17,8 +17,17 @@ class ChromatinDataAnalysis:
 
 		# load geneset
 		self.genes = load_analysis_genes()
+
+		# Because, we will be splitting these by chromosome, keep track of the index we should put the
+		# gene data into the array
+		self.genes['arr_index'] = np.arange(len(self.genes))
+
 		self.window = 3000
 		self.n = len(self.genes)
+		self.all_gene_read_2d_histograms = None
+		self.len_span = 0, 250
+		self.lengths = np.arange(self.len_span[0], self.len_span[1]+1)
+		self.lens = len(self.lengths)-1
 
 	def set_chrom_replicate(self, chromosome, replicate):
 		"""Load the MNase-seq data for each chromosome for each gene and bin
@@ -35,16 +44,20 @@ class ChromatinDataAnalysis:
 		self.samples = self.chr_reads['sample'].unique()
 		self.m = len(self.samples)
 
-	def create_gene_mnase_histogram(self):
+		# Lazy load so we have the size of the number of samples
+		if self.all_gene_read_2d_histograms is None:
+			self.all_gene_read_2d_histograms = np.zeros((self.n, self.m, self.lens, self.window))
 
-		# Initialize data structures
-		self.chr_gene_read_counts = np.zeros((self.n, self.m, self.window))
-		self.chr_gene_nuc_read_counts = np.zeros((self.n, self.m, self.window))
-		self.chr_gene_small_read_counts = np.zeros((self.n, self.m, self.window))
+	def create_gene_mnase_histogram(self, timer):
 
 		# Loop through all chromosome genes
-		for orf_name, gene in self.chr_genes:
-			count, nuc_count, sm_count = self.load_gene_read_counts(gene)
+		for i in range(len(self.chr_genes)):
+			gene = self.chr_genes.iloc[i]
+			gene_histogram2d = self.load_gene_read_counts(gene)
+			self.all_gene_read_2d_histograms[gene.arr_index] = gene_histogram2d
+
+			if (i % 100 == 0) or (i == len(self.chr_genes)-1):
+				print(f"{i}/{len(self.chr_genes)} - {timer.get_time()}")
 
 	def load_gene_read_counts(self, gene):
 		"""Load the gene reads as a 2D histogram"""
@@ -58,28 +71,26 @@ class ChromatinDataAnalysis:
 
 		window_2 = self.window//2
 		gene_span = plus_one-window_2, plus_one+window_2
-		len_span = 0, 250
 
 		# Load the reads for the gene
-		gene_sample_counts = np.zeros((self.m, (len_span[1]-len_span[0]), self.window))
+		gene_sample_counts = np.zeros((self.m, (self.len_span[1]-self.len_span[0]), self.window))
 
 		# For each sample, store into a numpy array the counts at each genomic position
 		for i in range(self.m):
 			sample = self.samples[i]
 			gene_sample_reads = filter_reads(chr_reads, gene_span[0], gene_span[1], sample=sample)
-			gene_reads_hist2d = bin_reads(gene_sample_reads, gene_span, len_span)
+			gene_reads_hist2d = bin_reads(gene_sample_reads, gene_span, self.len_span)
 			gene_sample_counts[i] = gene_reads_hist2d
 
 		# Flip if strand is crick
 		if gene.strand == '-':
 			gene_sample_counts = gene_sample_counts[:, :, ::-1]
-
-		# Normalize the data by length
 		
 		return gene_sample_counts
 
 
 def bin_reads(reads, span, len_span):
+	"""2D binning of MNase-seq reads by length and midpoint"""
 	x_bins = np.arange(span[0], span[1]+1)
 	y_bins = np.arange(len_span[0], len_span[1]+1)
 	counts, _, _ = np.histogram2d(reads['mid'], 
@@ -87,13 +98,16 @@ def bin_reads(reads, span, len_span):
 	return counts.T
 
 
-def plot_im(ax, gene_reads_hist2d, vmax=1):
+def plot_im(ax, gene_reads_hist2d, vmax=0.25):
+	"""Plot the histogram for a gene and sample image"""
 	ax.imshow(gene_reads_hist2d, origin='lower', cmap='magma_r', vmax=vmax, aspect='auto')
 	ax.set_xticks([])
 	ax.set_yticks([])
 
 	
 def plot_gene_series(analysis, gene_sample_counts):
+	""""Plot the entire set of samples of a gene"""
+
 	fig, axs = plt.subplots(analysis.m, 1, figsize=(3, 6))
 	plt.subplots_adjust(hspace=0.0)
 
