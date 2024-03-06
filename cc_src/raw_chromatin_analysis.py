@@ -22,9 +22,8 @@ class ChromatinDataAnalysis:
 		# gene data into the array
 		self.genes['arr_index'] = np.arange(len(self.genes))
 
-		self.window = 3000
+		self.window = 10000
 		self.n = len(self.genes)
-		self.all_gene_read_2d_histograms = None
 		self.len_span = 0, 250
 		self.lengths = np.arange(self.len_span[0], self.len_span[1]+1)
 		self.lens = len(self.lengths)-1
@@ -39,25 +38,52 @@ class ChromatinDataAnalysis:
 
 		self.chr_genes = self.genes[self.genes.chr == chromosome]
 		self.chr_reads = load_mnase_reads(chromosome, replicate)
-		self.normalizion_scaling = pd.read_csv('datasets/computed_mnase/rep1_len_counts_fix.csv')
-		self.gene_plus_ones = pd.read_csv('datasets/computed_mnase/rep1_plus_ones.csv').set_index('orf_name')
+		self.normalizion_scaling = pd.read_csv(f'datasets/computed_mnase/rep{replicate}_len_counts_fix.csv')
+		self.gene_plus_ones = pd.read_csv(f'datasets/computed_mnase/rep{replicate}_plus_ones.csv').set_index('orf_name')
 		self.samples = self.chr_reads['sample'].unique()
-		self.m = len(self.samples)
-
-		# Lazy load so we have the size of the number of samples
-		if self.all_gene_read_2d_histograms is None:
-			self.all_gene_read_2d_histograms = np.zeros((self.n, self.m, self.lens, self.window))
+		self.m = len(self.samples)		
 
 	def create_gene_mnase_histogram(self, timer):
 
+		n = len(self.chr_genes)
+		chr_gene_hist_sum = np.zeros((n, self.m, self.lens))
+
 		# Loop through all chromosome genes
-		for i in range(len(self.chr_genes)):
+		for i in range(n):
 			gene = self.chr_genes.iloc[i]
 			gene_histogram2d = self.load_gene_read_counts(gene)
-			self.all_gene_read_2d_histograms[gene.arr_index] = gene_histogram2d
+			chr_gene_hist_sum[i] = gene_histogram2d.sum(axis=2)
 
 			if (i % 100 == 0) or (i == len(self.chr_genes)-1):
 				print(f"{i}/{len(self.chr_genes)} - {timer.get_time()}")
+
+		self.chr_gene_hist_sum = chr_gene_hist_sum
+
+	def normalize(self):
+
+		from src.preprocessing import load_scaling_mat
+
+		scaling_mat = load_scaling_mat(self.replicate).values[:-1, ].T
+
+		# Normalize the histogram
+		self.chr_gene_hist_sum_collapsed_x = self.chr_gene_hist_sum
+		self.normalized_chr_gene_hist_sum_collapsed_x = self.chr_gene_hist_sum_collapsed_x * scaling_mat[None, :, :]
+
+		# Sum of the normalized histograms
+		self.genes_sum_data_normalized = self.normalized_chr_gene_hist_sum_collapsed_x.sum(axis=2)
+
+	def plot_normalized_gene_sums(self):
+		plt.figure(figsize=(13, 7))
+		plt.imshow(self.genes_sum_data_normalized.T, aspect='auto', cmap='viridis', 
+			interpolation=None, origin='lower')
+		plt.yticks(np.arange(len(self.samples)), self.samples)
+		plt.colorbar()
+
+		plt.title(f"Normalized MNase-seq read counts\n{self.window//1000}kb gene window for chromosome {self.chromosome}"
+			+f"\nReplicate {self.replicate}")
+		plt.ylabel("Timepoint")
+		plt.xlabel(f"Gene in order of position on chromosome {self.chromosome}")
+
 
 	def load_gene_read_counts(self, gene):
 		"""Load the gene reads as a 2D histogram"""
