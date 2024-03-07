@@ -100,8 +100,18 @@ class ChromatinDeconvolveSolver:
 
 		objective = cvxpy.Minimize(
 
-			# Compute the sum of squares on the result
-			cvxpy.sum_squares(elementwise_result)
+			# Mathematically these are equivalent:
+			#
+			# cvxpy.norm(elementwise_result, 2)
+			# cvxpy.sum_squares(elementwise_result)
+			# 
+			# However, there is an implementation detail in cvxpy that favors norm calls over sum of squares:
+			#
+			# motivated by:
+			# https://stackoverflow.com/questions/65526377/cvxpy-returns-infeasible-inaccurate-on-quadratic-programming-optimization-proble
+			# https://cvxr.com/cvx/doc/advanced.html#eliminating-quadratic-forms
+			# 
+			cvxpy.sum(cvxpy.norm(elementwise_result, 2, axis=0))
 
 			# Like-wise, for smoothing compute the l1 norm along each column and compute the sum
 			+ self.gamma * (cvxpy.sum(cvxpy.abs(smooth_f_it_result)) 
@@ -123,7 +133,7 @@ class ChromatinDeconvolveSolver:
 		self.verbose = verbose
 
 		# The epsilon value affects the precision of the solver
-		self.result = self.prob.solve(solver=self.solver, warm_start=True, verbose=self.verbose, eps=1e-3)
+		self.result = self.prob.solve(solver=self.solver, warm_start=True, verbose=self.verbose, eps=1e-4)
 		f = self.f.value
 
 		if self.result == float('-inf'):

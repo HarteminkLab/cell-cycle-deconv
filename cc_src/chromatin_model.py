@@ -766,10 +766,10 @@ class ChromatinModel:
 
 		# Normalization that keeps the copy number for all timepoints equal
 		# The chromatin window sum should be the same for all genes
-		# if log: print_fl("Applying a normalization for copy number, all timepoints will have equal sum")
-		# sums_per_time = normalized_bins.sum(axis=1).sum(axis=1)
-		# for i in range(normalized_bins.shape[0]):
-		# 	normalized_bins[i] *= 1./sums_per_time[i] * 5000.
+		if log: print_fl("Applying a normalization for copy number, all timepoints will have equal sum")
+		sums_per_time = normalized_bins.sum(axis=1).sum(axis=1)
+		for i in range(normalized_bins.shape[0]):
+			normalized_bins[i] *= 1./sums_per_time[i] * 5000.
 
 		return normalized_bins
 
