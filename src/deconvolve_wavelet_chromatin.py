@@ -123,7 +123,7 @@ class ChromatinDeconvolveSolver:
 		self.verbose = verbose
 
 		# The epsilon value affects the precision of the solver
-		self.result = self.prob.solve(solver=self.solver, warm_start=True, verbose=self.verbose, eps=1e-4)
+		self.result = self.prob.solve(solver=self.solver, warm_start=True, verbose=self.verbose, eps=1e-3)
 		f = self.f.value
 
 		if self.result == float('-inf'):
