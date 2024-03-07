@@ -77,7 +77,7 @@ class CombinedChromatinModel:
 		# Use the deconv1 model for deconvolution
 		# We shouldn't need anything from model2 at this point
 		self.deconv_model = self.deconv1_model
-		self.deconv_model.gamma = self.chrom1_model.gamma
+		self.deconv_model.gamma = self.gamma
 
 		self.solver = ChromatinDeconvolveSolver(self.deconv1_model, self.H, self.G, 
 			image_shape=image_shape, wavelet_name='bior4.4', gamma_prime=gamma_prime)

@@ -312,10 +312,10 @@ class ChromatinModel:
 	def define_title(self):
 
 		gene_title = self.gene_title()
-		# title = (f"{gene_title}\n" +
-		# 		self.config.name + ", " +
-		# 		f"$\\gamma$={self.gamma:.3f}\nrn={self.solver.rn:.2f}, sn={self.solver.sn:.2f}")
-		return gene_title
+		title = (f"{gene_title}\n" +
+				self.config.name + ", " +
+				f"$\\gamma$={self.solver.gamma.value:.3f}\nrn={self.solver.rn:.2f}, sn={self.solver.sn:.2f}")
+		return title
 
 
 	def plot_f_img(self, ax, reshaped_f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0,
