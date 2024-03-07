@@ -49,6 +49,7 @@ class ChromatinModel:
 
 	def set_gene(self, gene_or_orfname):
 		self.orf_name, self.gene_name = get_gene_name_orf_name(gene_or_orfname)
+		if self.gene_name is None: self.gene_name = self.orf_name
 		self.gene = self.geneset.loc[self.orf_name]
 
 	def load_mnase_gene(self, gene_or_orfname, log=True):
