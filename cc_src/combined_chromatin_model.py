@@ -25,7 +25,7 @@ class CombinedChromatinModel:
 		self.chrom1_model = ChromatinModel(config1)
 		self.chrom2_model = ChromatinModel(config2)
 
-		bin_size = 16, 16
+		bin_size = 32, 32
 		self.chrom1_model.bin_width = bin_size[0]
 		self.chrom2_model.bin_width = bin_size[0]
 
