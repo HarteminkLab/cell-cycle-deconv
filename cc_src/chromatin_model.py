@@ -8,7 +8,6 @@ from matplotlib import pyplot as plt
 from cc_src.sgd import get_gene_name_orf_name
 from cc_src.mnase_plotting import plot_mnase_density
 
-from src.deconvolve_chromatin import deconvolve_chromatin
 from src.model import Model
 from src.timer import Timer
 from src.utils import print_fl
@@ -233,8 +232,6 @@ class ChromatinModel:
 		# Add some xtick and xtick labels to the first column last row
 		first_col_last_row = ax_cols[0][-1]
 
-
-
 		xticks = self.bin_extents[0], \
 				 self.computed_plus_one, \
 				 self.bin_extents[1]
@@ -314,10 +311,10 @@ class ChromatinModel:
 	def define_title(self):
 
 		gene_title = self.gene_title()
-		title = (f"{gene_title}\n" +
-				self.config.name + ", " +
-				f"$\\gamma$={self.gamma:.3f}\nrn={self.solver.rn:.2f}, sn={self.solver.sn:.2f}")
-		return title
+		# title = (f"{gene_title}\n" +
+		# 		self.config.name + ", " +
+		# 		f"$\\gamma$={self.gamma:.3f}\nrn={self.solver.rn:.2f}, sn={self.solver.sn:.2f}")
+		return gene_title
 
 
 	def plot_f_img(self, ax, reshaped_f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0,
@@ -658,6 +655,7 @@ class ChromatinModel:
 		# ------- Reshape f ---------
 
 		f = self.deconvolved_f()
+
 		shape = self.deconv_hist_unflattened[0].shape
 		reshaped_f = f.reshape((-1, shape[0], shape[1]))
 

@@ -86,15 +86,15 @@ class ChromatinDeconvolveSolver:
 		
 		# ---------- Spatial Wavelet Smoothing -------------
 
-		decomp_kron_mats, reconst_mats = create_kron_wavelet2d_convolution_matrices(wavelet, image_shape)
+		# decomp_kron_mats, reconst_mats = create_kron_wavelet2d_convolution_matrices(wavelet, image_shape)
 
-		if gamma_prime == 0:
-			l1_norm_on_coeffs = 0
-		else:
-			# Decompose the f matrix of flattened images using the kronecker version of the wavelet transformation
-			# matrices. Retrieve the wavelet coefficients and compute an L1 norm on these coefficients.
-			(LL, HL, LH, HH) = decompose_flattened_kron_coeffs(f, decomp_kron_mats)
-			l1_norm_on_coeffs = cvxpy.sum(cvxpy.abs(LL) + cvxpy.abs(HL) + cvxpy.abs(LH) + cvxpy.abs(HH)) / m / u
+		# if gamma_prime == 0:
+		# 	l1_norm_on_coeffs = 0
+		# else:
+		# 	# Decompose the f matrix of flattened images using the kronecker version of the wavelet transformation
+		# 	# matrices. Retrieve the wavelet coefficients and compute an L1 norm on these coefficients.
+		# 	(LL, HL, LH, HH) = decompose_flattened_kron_coeffs(f, decomp_kron_mats)
+		# 	l1_norm_on_coeffs = cvxpy.sum(cvxpy.abs(LL) + cvxpy.abs(HL) + cvxpy.abs(LH) + cvxpy.abs(HH)) / m / u
 
 		# -------------------------------------------------
 
@@ -108,7 +108,7 @@ class ChromatinDeconvolveSolver:
 			+ self.factor_fb * cvxpy.sum(cvxpy.abs(smooth_f_b_result)))/g_mean  
 
 			# How much to apply the l1 norm on the coefficient representation
-			+ gamma_prime*l1_norm_on_coeffs
+			# + gamma_prime*l1_norm_on_coeffs
 		)
 
 		# -------- End definition of the optimization ------------
@@ -131,7 +131,7 @@ class ChromatinDeconvolveSolver:
 
 		# ------- Upon completion, compute the smoothing norm and fitting/residual norms --------------
 
-		decomp_kron_mats, reconst_mats = create_kron_wavelet2d_convolution_matrices(self.wavelet, self.image_shape)
+		# decomp_kron_mats, reconst_mats = create_kron_wavelet2d_convolution_matrices(self.wavelet, self.image_shape)
 
 		H = self.H
 		G = self.G
@@ -170,14 +170,14 @@ class ChromatinDeconvolveSolver:
 			self.factor_fb * (np.sum(np.abs(f_b_matmul_res)))) / g_mean / m
 
 		l1_norm_on_coeffs = 0
-		if self.gamma_prime > 0:
-			# Decompose the f matrix of flattened images using the kronecker version of the wavelet transformation
-			# matrices. Retrieve the wavelet coefficients and compute an L1 norm on these coefficients.
-			(LL, HL, LH, HH) = decompose_flattened_kron_coeffs(f, decomp_kron_mats)
-			l1_norm_on_coeffs = np.sum(np.abs(LL) + np.abs(HL) + np.abs(LH) + np.abs(HH)) / m / u
+		# if self.gamma_prime > 0:
+		# 	# Decompose the f matrix of flattened images using the kronecker version of the wavelet transformation
+		# 	# matrices. Retrieve the wavelet coefficients and compute an L1 norm on these coefficients.
+		# 	(LL, HL, LH, HH) = decompose_flattened_kron_coeffs(f, decomp_kron_mats)
+		# 	l1_norm_on_coeffs = np.sum(np.abs(LL) + np.abs(HL) + np.abs(LH) + np.abs(HH)) / m / u
 
-		else:
-			self.rn, self.sn, self.l1_norm_on_coeffs = rn, sn, l1_norm_on_coeffs
+		# else:
+		self.rn, self.sn, self.l1_norm_on_coeffs = rn, sn, l1_norm_on_coeffs
 
 		return f, rn, sn, l1_norm_on_coeffs
 

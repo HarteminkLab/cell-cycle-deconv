@@ -115,6 +115,55 @@ class ChromatinDataAnalysis:
 		return gene_sample_counts
 
 
+	def plot_genomic_chrom_counts(self):
+		"""Plot the summed genomic reads for a chromosome.
+
+		This plot is to debug specifically replicate 1's 60 minute timepoint's oddities.
+		"""
+
+		chr_reads = self.chr_reads
+
+		bin_span = 0, chr_reads.mid.max()
+		bins = np.arange(0, bin_span[1]+1, 20000)
+			
+		def get_binned_hist(chr_reads, sample, bins, length_span=None):
+			timepoint_reads = chr_reads[chr_reads['sample'] == sample]
+			
+			if length_span is not None:
+				timepoint_reads = timepoint_reads[(timepoint_reads['length'] > length_span[0]) & 
+												 (timepoint_reads['length'] < length_span[1])]
+				
+			counts, _ = np.histogram(timepoint_reads['mid'], bins=bins)
+			return counts
+
+		def plot_tps(chr_reads, tps=[50, 60, 70], length_span=(0, 250)):
+
+			for i in range(len(tps)):
+				tp = tps[i]
+				counts = get_binned_hist(chr_reads, tp, bins)
+				x = bins[:-1]
+				plt.plot(x, counts, label=f"{tp}")
+				plt.xticks(np.arange(0, x[-1], 200000))
+				
+			plt.title(f"Fragment lengths {length_span}")
+			plt.legend()
+			plt.xlabel("Genomic position")
+			plt.ylabel("Raw counts")
+			
+		plt.figure(figsize=(16, 3))
+		plt.subplots_adjust(top=0.8)
+
+		plt.subplot(1, 3, 1)
+		plot_tps(chr_reads)
+
+		plt.subplot(1, 3, 2)
+		plot_tps(chr_reads, length_span=(140, 170))
+
+		plt.subplot(1, 3, 3)
+		plot_tps(chr_reads, length_span=(0, 100))
+		plt.suptitle(f"Replicate {self.replicate}, Chromosome {self.chromosome} reads", fontsize=16)
+
+
 def bin_reads(reads, span, len_span):
 	"""2D binning of MNase-seq reads by length and midpoint"""
 	x_bins = np.arange(span[0], span[1]+1)

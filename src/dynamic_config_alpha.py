@@ -25,5 +25,6 @@ def create_dynamic_alpha_config(posteriors_filepath, alpha, replicate, name):
 
 	# model file
 	config = Config(wt1=wt_data, model_wt1_lines=config_lines, name=name)
+	config.replicate = replicate
 
 	return config

@@ -85,7 +85,7 @@ class PTRAnalysisPlotter:
 			plt_img(thresh_axs[i], threshold_img(img)*10.)
 
 
-def threshold_img(example_img, L=1e-3, H=2):
+def threshold_img(example_img, L=2, H=4):
 	"""Threshold a 2D matrix/img by a low and high filter. Keep low value iff adjacent to
 	a high location."""
 	

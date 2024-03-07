@@ -5,6 +5,8 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from cc_src.chromatin_model import ChromatinModel
+from src.deconvolve_wavelet_chromatin import ChromatinDeconvolveSolver
+from src.utils import print_fl
 
 
 class CombinedChromatinModel:
@@ -23,26 +25,43 @@ class CombinedChromatinModel:
 		self.chrom1_model = ChromatinModel(config1)
 		self.chrom2_model = ChromatinModel(config2)
 
+		bin_size = 32, 32
+		self.chrom1_model.bin_width = bin_size[0]
+		self.chrom2_model.bin_width = bin_size[0]
+
+		self.chrom1_model.bin_height = bin_size[1]
+		self.chrom2_model.bin_height = bin_size[1]
+
+
 	def load_combined_mnase_gene(self, gene_name):
 		"""This takes the place of load_mnase_gene, as we don't need the
 		replicate parameter anymore"""
-		self.chrom1_model.load_mnase_gene(gene_name, replicate=1)
-		self.chrom2_model.load_mnase_gene(gene_name, replicate=2)
+		self.chrom1_model.load_mnase_gene(gene_name)
+		self.chrom2_model.load_mnase_gene(gene_name)
 
-	def	setup_deconv_model(self):
+		# Then setup the deconvolution bin histogram data as G for each
+		self.chrom1_model.create_deconvolution_bins()
+		self.chrom2_model.create_deconvolution_bins()
+
+
+	def	setup_deconv_model(self, gamma=0.006, gamma_prime=0):
 		from src.helpers import calcH
 		from src.model import Model
 
 		chrom1_model = self.chrom1_model
 		chrom2_model = self.chrom2_model
 
+		self.gamma = gamma
+
 		# Next we will need to setup the deconvolution model to combine the H
 		# and the deconvolution G data
-		self.G1 = chrom1_model.deconv_hist
-		self.G2 = chrom2_model.deconv_hist
+		self.G1 = chrom1_model.G
+		self.G2 = chrom2_model.G
 
 		# Combine the two G datasets row-wise
 		self.G = np.concatenate([self.G1, self.G2])
+
+		image_shape = self.chrom1_model.deconv_hist_unflattened.shape[1:]
 
 		# Create the first replicates model and H
 		self.deconv1_model = Model(chrom1_model.config, chrom1_model.gene_name, chrom1_model.gamma)
@@ -60,29 +79,40 @@ class CombinedChromatinModel:
 		self.deconv_model = self.deconv1_model
 		self.deconv_model.gamma = self.chrom1_model.gamma
 
+		self.solver = ChromatinDeconvolveSolver(self.deconv1_model, self.H, self.G, 
+			image_shape=image_shape, wavelet_name='bior4.4', gamma_prime=gamma_prime)
+		self.solver.define_deconvolution_problem()
 
-	def deconvolve(self):
+		# For plotting results
+		self.chrom1_model.solver = self.solver
+		self.chrom2_model.solver = self.solver
+		self.chrom1_model.deconv_model = self.deconv_model
+		self.chrom2_model.deconv_model = self.deconv_model
+
+		self.found_optimal_success = None
+		self.deconvolved_f_value = None
+		self.gamma_prime = gamma_prime
+
+
+	def deconvolve(self, verbose=False, gamma=0.006, gamma_prime=0):
 
 		from src.timer import Timer
-		from src.deconvolve_chromatin import deconvolve_chromatin_H
-
-		print(f"Deconvolving combined model...")
 
 		timer = Timer()
-		self.setup_deconv_model()
 
-		# Setup creates two models, in this case we can use either model
-		# because the functions we need are related to it and b columns in H and f
-		# these should be identical for both replicates
-		#
-		# Also the gamma value will be built-into this model
-		f, rn, sn = deconvolve_chromatin_H(self.deconv_model, self.H, self.G)
-		self.set_results(f, rn, sn, self.chrom1_model.gamma)
+		self.setup_deconv_model(gamma, gamma_prime)
 
-		print(f"Deconvolved in : {timer.get_time()}")
+		print_fl(f"Deconvolving combined model with gamma={self.gamma}, gamma_prime={gamma_prime}")
 
-		print(f"The fitting norm is {self.rn:.2f}, "
-			  f"the smoothing norm is: {self.sn:.2f}")
+		self.solver.solve(gamma_value=self.gamma, verbose=verbose)
+
+		self.set_results(self.solver.f.value, 
+						  self.solver.rn, self.solver.sn,
+						  self.solver.gamma)
+
+		print_fl(f"Deconvolved in : {timer.get_time()}")
+		print_fl(f"The fitting norm is {self.solver.rn:.2f}, "
+			  f"the smoothing norm is: {self.solver.sn:.2f}")
 
 
 	def deconvolve_find_optimal_gamma(self):
@@ -90,26 +120,29 @@ class CombinedChromatinModel:
 		Find the optimal gamma value
 		"""
 
-		from src.find_gamma_chromatin import FindOptimalGammaChromatin
-		from src.timer import Timer
+		# TODO: Reimplement with the updated solver
+		yield
 
-		timer = Timer()
+		# from src.find_gamma_chromatin import FindOptimalGammaChromatin
+		# from src.timer import Timer
 
-		self.setup_deconv_model()
+		# timer = Timer()
 
-		# Note that the G data is stored in self.chrom1_model for the find optimal gamma
-		# TODO: This needs to be cleaned and made more clear for this combined model
-		self.deconv_model.H = self.H
+		# self.setup_deconv_model()
 
-		self.find_gamma_chromatin = FindOptimalGammaChromatin(self.deconv_model, G=self.G)
-		self.found_optimal_success = self.find_gamma_chromatin.find_optimal(silence=False)
+		# # Note that the G data is stored in self.chrom1_model for the find optimal gamma
+		# # TODO: This needs to be cleaned and made more clear for this combined model
+		# self.deconv_model.H = self.H
 
-		self.set_results(self.find_gamma_chromatin.f, 
-			self.find_gamma_chromatin.rn, self.find_gamma_chromatin.sn, self.find_gamma_chromatin.gamma)
+		# self.find_gamma_chromatin = FindOptimalGammaChromatin(self.deconv_model, G=self.G)
+		# self.found_optimal_success = self.find_gamma_chromatin.find_optimal(silence=False)
 
-		print(f"Deconvolved in : {timer.get_time()}")
-		print(f"The fitting norm is {self.chrom1_model.rn:.2f}, "
-			  f"the smoothing norm is: {self.chrom1_model.sn:.2f}")
+		# self.set_results(self.find_gamma_chromatin.f, 
+		# 	self.find_gamma_chromatin.rn, self.find_gamma_chromatin.sn, self.find_gamma_chromatin.gamma)
+
+		# print(f"Deconvolved in : {timer.get_time()}")
+		# print(f"The fitting norm is {self.chrom1_model.rn:.2f}, "
+		# 	  f"the smoothing norm is: {self.chrom1_model.sn:.2f}")
 
 
 	def set_results(self, f, rn, sn, gamma):
@@ -125,12 +158,12 @@ class CombinedChromatinModel:
 		self.sn = sn
 		self.gamma = gamma
 
-		self.chrom1_model.f = f
+		self.chrom1_model.deconvolved_f_value = f
 		self.chrom1_model.rn = rn
 		self.chrom1_model.sn = sn
 		self.chrom1_model.gamma = gamma
 
-		self.chrom2_model.f = f
+		self.chrom2_model.deconvolved_f_value = f
 		self.chrom2_model.rn = rn
 		self.chrom2_model.sn = sn
 		self.chrom2_model.gamma = gamma
@@ -141,21 +174,25 @@ class CombinedChromatinModel:
 		self.pred_G1 = self.pred_G[0:len(tp1)]
 		self.pred_G2 = self.pred_G[len(tp1):]
 
+		self.chrom1_model.compute_ptr()
+		self.chrom2_model.compute_ptr()
 
-	def create_deconvolution_plots_abbreviated_flipped(self, ge_model=None):
+
+	def create_deconvolution_plots_abbreviated_flipped(self, ge_model=None, vmax=20):
 		"""Create the deconvolution plot defined in chromatin_model.py
 		"""
-		fig = self.chrom1_model.create_deconvolution_plots_abbreviated_flipped(ge_model=ge_model)
+
+		fig = self.chrom1_model.create_deconvolution_plots_abbreviated_flipped(ge_model=ge_model, vmax=vmax)
 		return fig
 
-	def plot_raw_prediction(self, replicate):
+	def plot_raw_prediction(self, replicate, vmax=20):
 		"""Plot the resulting comparison between the raw and predicted data"""
 
 		if replicate == 1:
 			title = self.chrom1_model.define_title().replace("Combined", "Combined-Rep.1")
-			fig = self.chrom1_model.plot_prediction_comparison(self.pred_G1, title)
+			fig = self.chrom1_model.plot_prediction_comparison(self.pred_G1, title, vmax)
 		else:
 			title = self.chrom1_model.define_title().replace("Combined", "Combined-Rep.2")
-			fig = self.chrom2_model.plot_prediction_comparison(self.pred_G2, title)
+			fig = self.chrom2_model.plot_prediction_comparison(self.pred_G2, title, vmax)
 
 		return fig

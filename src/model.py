@@ -172,6 +172,48 @@ class Model:
 		return fig
 
 
+	def plot_H(self):
+
+		H = self.H
+
+		rg1_cols = self.config.phase_columns['RG1']
+		cg1_cols = self.config.phase_columns['CG1']
+		dg1_cols = self.config.phase_columns['DG1']
+		post_g1_cols = self.config.phase_columns['postG1']
+		H_cols = np.array([H.shape[1]-1])
+
+		plt.figure(figsize=(16, 3))
+		plt.subplot(1, 2, 1)
+		
+
+		plt.imshow(H, vmax=0.01, aspect='auto', cmap='Reds',
+				  extent=[0, H.shape[1], self.config.WT1_TIMEPOINTS[-1], 0])
+
+		plt.subplot(1, 2, 2)
+		H = self.H
+		H.shape
+
+		x = self.config.WT1_TIMEPOINTS
+
+		phases = ['H', 'RG1', 'CG1', 'DG1', 'postG1']
+		cols_list = [H_cols, rg1_cols, cg1_cols, dg1_cols, post_g1_cols]
+
+		prev = np.zeros(len(x))
+			
+		for i in range(len(phases)):
+
+			phase = phases[i]
+			cols = cols_list[i]
+
+			color = color_for_key(phase)
+
+			y = prev+H[:, cols].sum(axis=1)
+
+			plt.fill_between(x, prev, y, color=color)
+			
+			prev = y
+
+
 	def plot_deconvolved_f(self, f, g, g1, predicted_g1, g2=None, predicted_g2=None, abbreviated=False):
 
 		if abbreviated:
