@@ -102,7 +102,7 @@ class ChromatinDeconvolveSolver:
 
 			# Mathematically these are equivalent:
 			#
-			# cvxpy.norm(elementwise_result, 2)
+			# cvxpy.sum(cvxpy.norm(elementwise_result, 2)**2)
 			# cvxpy.sum_squares(elementwise_result)
 			# 
 			# However, there is an implementation detail in cvxpy that favors norm calls over sum of squares:
@@ -111,7 +111,8 @@ class ChromatinDeconvolveSolver:
 			# https://stackoverflow.com/questions/65526377/cvxpy-returns-infeasible-inaccurate-on-quadratic-programming-optimization-proble
 			# https://cvxr.com/cvx/doc/advanced.html#eliminating-quadratic-forms
 			# 
-			cvxpy.sum(cvxpy.norm(elementwise_result, 2, axis=0))
+			# cvxpy.sum_squares(elementwise_result)
+			cvxpy.sum(cvxpy.norm(elementwise_result, 'fro')**2)
 
 			# Like-wise, for smoothing compute the l1 norm along each column and compute the sum
 			+ self.gamma * (cvxpy.sum(cvxpy.abs(smooth_f_it_result)) 

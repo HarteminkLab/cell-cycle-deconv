@@ -359,10 +359,6 @@ class Model:
 			index=[self.orf_name])
 		df.to_csv(meta_save_path, float_format="%.4f")
 
-		# Save the plot to disk
-		self.plot_deconvolved_gene()
-		plt.savefig(plot_save_path, dpi=200)
-
 		print(f"Saved to {g_save_path}...")
 		print(f"Saved to {f_save_path}...")
 		print(f"Saved to {meta_save_path}...")

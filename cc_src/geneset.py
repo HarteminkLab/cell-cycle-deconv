@@ -47,5 +47,8 @@ def get_missing_geneset():
 
 def get_deconvolved_geneset():
 	"""Get the list of genes to deconvolve first"""
-	geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
-	return geneset()
+
+	from cc_src.reference_data import load_analysis_genes
+
+ 	# Deconvolve genes we have filtered for coverage
+	return load_analysis_genes()

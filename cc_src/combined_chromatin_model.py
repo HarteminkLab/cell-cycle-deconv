@@ -103,6 +103,8 @@ class CombinedChromatinModel:
 		self.setup_deconv_model(gamma, gamma_prime)
 
 		print_fl(f"Deconvolving combined model with gamma={self.gamma}, gamma_prime={gamma_prime}")
+		print_fl(f"Deconvolving bin size: {self.chrom1_model.bin_width}x{self.chrom1_model.bin_height}")
+		print_fl(f"of G shape: {self.G.shape}")
 
 		self.solver.solve(gamma_value=self.gamma, verbose=verbose)
 
@@ -196,3 +198,41 @@ class CombinedChromatinModel:
 			fig = self.chrom2_model.plot_prediction_comparison(self.pred_G2, title, vmax)
 
 		return fig
+
+	def save_deconvolved_outputs(self, out_dir, index, using_default_flag):
+
+		orf_name = self.deconv_model.orf_name
+		gene_name = self.deconv_model.gene_name
+		f = self.solver.f.value
+
+		f_save_path = f'{out_dir}/{index}_f_{orf_name}_{gene_name}.npy'
+		ptr_save_path = f'{out_dir}/{index}_ptr_{orf_name}_{gene_name}.npy'
+		meta_save_path = f'{out_dir}/{index}_meta_{orf_name}_{gene_name}.csv'
+
+		#---------- Save to disk -------------
+
+		# Save the f to disk
+		np.save(f_save_path, f)
+
+		# Save the ptr to disk
+		np.save(ptr_save_path, self.chrom1_model.f_ptrs)
+
+		# Save meta information
+		from datetime import datetime
+		run_date = datetime.now().strftime("%D")
+
+		df = pd.DataFrame({
+			'rn': self.solver.rn, 'sn': self.solver.sn, 'gm': self.gamma,
+			'config1': self.chrom1_model.config.name,
+			'config2': self.chrom2_model.config.name,
+			'model1_path': self.chrom1_model.config.model_wt1_file,
+			'model2_path': self.chrom2_model.config.model_wt1_file,
+			'run_date': run_date,
+			'replicate': "combined"
+			},
+			index=[self.deconv_model.orf_name])
+		df.to_csv(meta_save_path, float_format="%.4f")
+
+		print_fl(f"Saved to {f_save_path}...")
+		print_fl(f"Saved to {ptr_save_path}...")
+		print_fl(f"Saved to {meta_save_path}...")
