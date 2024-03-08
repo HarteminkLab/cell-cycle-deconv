@@ -113,11 +113,14 @@ class Model:
 
 		# predicted g
 		self.pred_g = np.matmul(self.H, f)
-		
-		W1 = get_wavelet_kernel(len(f_it))
-		W2 = get_wavelet_kernel(len(f_b))
 
-		sn = (np.linalg.norm(np.matmul(W1, f[f_it]), 1) + np.linalg.norm(np.matmul(W2, f[f_b]), 1)) / np.mean(self.g)
+		W1 = get_wavelet_kernel(len(f_i))
+		W2 = get_wavelet_kernel(len(f_t))
+		W3 = get_wavelet_kernel(len(f_b))
+
+		sn = (np.linalg.norm(np.matmul(W1, f[f_i]), 1)
+			  + np.linalg.norm(np.matmul(W2, f[f_t]), 1)
+			  + np.linalg.norm(np.matmul(W3, f[f_b]), 1)) / np.mean(self.g)
 		rn = np.square(np.clip(np.linalg.norm(np.matmul(self.H, f) / (self.g) - 1), 0, None))
 
 		self.sn = sn

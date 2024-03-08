@@ -64,6 +64,9 @@ class ChromatinDeconvolveSolver:
 			ind_vec_mirror = np.concatenate([np.flip(ind_vec[:ind_vec_n_2]), ind_vec, np.flip(ind_vec[-ind_vec_n_2:])])
 			return ind_vec_mirror
 
+		# The bottom and top branches need to enforce the start
+		# of G1 is smooth from the end of postG1, so concatenate those
+		# Then mirror the ends to handle edge effects
 		f_b_mirror = create_mirror(np.concatenate([f_b, f_b]))
 		f_i_mirror = create_mirror(f_i)
 		f_t_mirror = create_mirror(np.concatenate([f_t, f_t]))
