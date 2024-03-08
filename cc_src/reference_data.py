@@ -17,3 +17,7 @@ def load_analysis_genes():
 	# add later
 	geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies_cutoff_cov90.csv').set_index('orf_name')
 	return geneset
+
+
+def load_plus_ones(replicate=1):
+	return pd.read_csv(f"datasets/computed_mnase/rep{replicate}_plus_ones.csv").set_index('orf_name')
