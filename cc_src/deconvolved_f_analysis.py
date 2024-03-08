@@ -47,6 +47,17 @@ class DeconvolvedChromatinDataAnalysis:
 		self.bin_width = 16
 
 
+		from src.config import load_yl_rg1_vst_config
+		from src.model import Model
+
+		# Get H for the size of F images
+		# todo: there's an easier way from the config... requires some refactoring
+		config = load_yl_rg1_vst_config(1)
+		self.model = Model(config, "CLN1")
+		self.H = self.model.H
+
+		# Number of f images
+		self.m = self.H.shape[1]
 
 
 	def set_chrom_replicate(self, chromosome):
@@ -62,27 +73,40 @@ class DeconvolvedChromatinDataAnalysis:
 		# Change chrom length into gene bin width space
 		self.chrom_length_in_bins = self.chrom_length // self.bin_width
 
-	def create_binned_mean_sums(self, f_index):
+	def create_gene_sums(self):
 
 		# Create a numpy matrix that whose height is all genes on the chromosome and width is the 
-		self.chrom_sum_mat = np.zeros((len(self.chr_genes), self.chrom_length_in_bins)) + np.nan
+		self.chrom_sum_mat = np.zeros((len(self.chr_genes), self.m, self.chrom_length_in_bins)) + np.nan
 
 		chrom_sum_mat = self.chrom_sum_mat
+
 		for i in range(len(self.chr_genes)):
-			gene = self.chr_genes.iloc[i]
-			gene_f_sums, gene_bin_span = self.get_f_col_sum_for_gene(gene, f_index)
-			chrom_sum_mat[i, gene_bin_span[0]:gene_bin_span[1]] = gene_f_sums
+		    gene = self.chr_genes.iloc[i]
+		    gene_f_sums, gene_bin_span = self.get_f_col_sum_for_gene(gene)
+		    chrom_sum_mat[i, :, gene_bin_span[0]:gene_bin_span[1]] = gene_f_sums
+
+		gene_f_sums.shape, chrom_sum_mat.shape
+
 		nanmeans = np.nanmean(chrom_sum_mat, axis=0)
+
 		mean_filled_nans = nanmeans.copy()
 		mean_filled_nans[np.isnan(mean_filled_nans)] = 0
 		self.mean_filled_nans = mean_filled_nans
 
+
+	def create_binned_sums(self):
+
+		mean_filled_nans = self.mean_filled_nans
 		bin_window_size = self.window // self.bin_width
 		bin_edges = np.arange(0, self.chrom_length_in_bins, bin_window_size)
-		self.binned_window_mean_sums = bin_counts_with_edges(mean_filled_nans, bin_edges)
+		bin_mat = create_binning_matrix(mean_filled_nans.shape[1], bin_edges)
+		bin_mat.shape, mean_filled_nans.shape
+		binned_counts = mean_filled_nans @ bin_mat.T
+
+		self.binned_counts = binned_counts
 
 
-	def get_f_col_sum_for_gene(self, gene, f_index):
+	def get_f_col_sum_for_gene(self, gene):
 		"""Get the F image for the gene
 		
 		Return the sum its columns and its position on the chromosome (in binned-space)
@@ -102,8 +126,8 @@ class DeconvolvedChromatinDataAnalysis:
 
 		gene_span_in_bins = gene_span[0] // self.bin_width, gene_span[1] // self.bin_width
 
-		current_f = f[f_index]
-		current_f_summed_columns = current_f.sum(axis=0)
+		current_f = f
+		current_f_summed_columns = current_f.sum(axis=1)
 		gene_span_in_bins = int(gene_span_in_bins[0]), int(gene_span_in_bins[1])
 		
 		return current_f_summed_columns, gene_span_in_bins
@@ -117,6 +141,13 @@ class DeconvolvedChromatinDataAnalysis:
 			gene_f_sums, gene_bin_span = get_f_col_sum_for_gene(gene, chrom_dir, f_index)
 			chrom_sum_mat[i, gene_bin_span[0]:gene_bin_span[1]] = gene_f_sums
 
+
+	def plot_sums(self):
+		fig = plt.figure(figsize=(18, 9))
+		plt.imshow(self.binned_counts, vmax=10000,
+    		extent=[0, self.chrom_length, 0, self.m], origin='lower', aspect='auto')
+		plt.title(f"Chr {self.chromosome}")
+		return fig
 
 def bin_counts(counts, window_size):
 	"""
@@ -150,37 +181,25 @@ def bin_counts(counts, window_size):
 	return window_sums
 
 
-def bin_counts_with_edges(counts, bin_edges):
-	"""
-	Bins an array of counts into bins defined by the specified edges and sums the counts within each bin.
+def create_binning_matrix(counts_length, bin_edges):
+    """
+    Create a matrix that will allow us to bin vectors of shape (counts_length) into
+    a matrix with defined bin locations (edges).
 
-	Parameters:
-	- counts: numpy array of counts.
-	- bin_edges: numpy array of bin edges. Each pair of consecutive values define the start and end of a bin.
-
-	Returns:
-	- numpy array of summed counts for each bin.
-	"""
-	
-	# Ensure bin_edges is sorted
-	#bin_edges = np.sort(bin_edges)
-	
-	# Initialize an array to hold the sum for each bin
-	bin_sums = np.zeros(len(bin_edges) - 1)
-	
-	# Iterate through each bin defined by bin_edges
-	for i in range(len(bin_edges) - 1):
-		start_edge = bin_edges[i]
-		end_edge = bin_edges[i+1]
-		
-		# Select counts that fall within the current bin range (inclusive of start, exclusive of end)
-		bin_counts = counts[start_edge:end_edge].sum()#counts[(counts >= start_edge) & (counts < end_edge)]
-		
-		# Sum the counts for the current bin
-		bin_sums[i] = bin_counts
-	
-	return bin_sums
-
+    The use of this will be that the counts can be a matrix and we will be able to 
+    bin multiple timepoints at once with the resulting matrix
+    """
+    num_bins = len(bin_edges) - 1
+    binning_matrix = np.zeros((num_bins, counts_length))
+    
+    for i in range(num_bins):
+        start_edge = bin_edges[i]
+        end_edge = bin_edges[i + 1]
+        
+        # Assuming counts indices map directly to the bin ranges specified by start_edge and end_edge
+        binning_matrix[i, start_edge:end_edge] = 1
+    
+    return binning_matrix
 
 
 def find_f_filepath(chrom_dir, orf_name):

@@ -47,26 +47,6 @@ class Model:
 		else:
 			self.H = H1
 
-	def get_f_it(self):
-		f_it = []
-		for phase in self.initial_phase_map.values():
-			se = self.Hpos[phase[1]]
-			f_it.extend([e for e in range(se[0], se[1])])
-		for phase in self.top_phase_map.values():
-			se = self.Hpos[phase[1]]
-			f_it.extend([e for e in range(se[0], se[1])])
-		f_it = np.array(f_it)
-		return f_it
-
-	def get_f_b(self):
-		f_b = []
-		for phase in self.bottom_phase_map.values():
-			se = self.Hpos[phase[1]]
-			f_b.extend([e for e in range(se[0], se[1])])
-		f_b = np.array(f_b)
-		return f_b
-
-
 	def deconvolve_find_optimal_gamma(self, silence=True):
 		from src.find_gamma import FindOptimalGamma
 		find_gamma = FindOptimalGamma(self)
@@ -75,36 +55,47 @@ class Model:
 
 	def deconvolve(self, enforce_non_negative=True):
 
-		f_it = self.get_f_it()	
-		f_b = self.get_f_b()
+		f_i = self.config.get_Hpositions_for_branch('i')
+		f_t = self.config.get_Hpositions_for_branch('t')
+		f_b = self.config.get_Hpositions_for_branch('b')
 
-		# Mirroring
-		f_b_mirror = np.concatenate((f_b, f_b))
-		f_it_mirror = np.concatenate((f_it, np.flip(f_it)))
-		factor_fb = 1.5
+		def create_mirror(ind_vec):
+			ind_vec_n_2 = len(ind_vec) // 2
+			ind_vec_mirror = np.concatenate([np.flip(ind_vec[:ind_vec_n_2]), ind_vec, np.flip(ind_vec[-ind_vec_n_2:])])
+			return ind_vec_mirror
 
-		W1 = get_wavelet_kernel(len(f_it_mirror))
-		W2 = get_wavelet_kernel(len(f_b))
-		W2pad = np.zeros((len(f_b), len(f_b)))
-		W2 = np.concatenate((np.concatenate((W2, W2pad)), np.concatenate((W2pad, np.fliplr(W2)))), axis=1)
+		# The bottom and top branches need to enforce the start
+		# of G1 is smooth from the end of postG1, so concatenate those
+		# Then mirror the ends to handle edge effects
+		f_b_mirror = create_mirror(np.concatenate([f_b, f_b]))
+		f_i_mirror = create_mirror(f_i)
+		f_t_mirror = create_mirror(np.concatenate([f_t, f_t]))
+
+		W1 = get_wavelet_kernel(len(f_i_mirror))
+		W2 = get_wavelet_kernel(len(f_t_mirror))
+		W3 = get_wavelet_kernel(len(f_b_mirror))
 
 		# Convex optimization
 		n, m = self.H.shape
 		f = cp.Variable(m)
+
+		# There are twice as many t and b indices compared to i
+		# so multiply i's smoothing term by 2
+		factor_i = 2
+
+		smooth_f_i_result = W1@f[f_i_mirror]
+		smooth_f_t_result = W2@f[f_t_mirror]
+		smooth_f_b_result = W3@f[f_b_mirror]
 
 		objective = cp.Minimize(
 
 			# Fitting norm
 			cp.square(cp.pos(cp.norm(self.H@f/self.g - 1))) + 
 
-			# Enforce that halted cells should be close in value to the recovery cells
-			# at the start of the experiment
-			# cp.square(cp.pos(cp.norm(f[0] - f[m-1]))) + 
-
 			# Smoothing norm
-			self.gamma * (cp.norm(W1@f[f_it_mirror], 1) +
-						  factor_fb * cp.norm(W2@f[f_b_mirror], 1))
-						  /self.g.mean()
+			+ self.gamma * (factor_i*cp.sum(cp.abs(smooth_f_i_result)) +
+							cp.sum(cp.abs(smooth_f_t_result)) + 
+							cp.sum(cp.abs(smooth_f_b_result)))/self.g.mean()  
 		)
 
 		# To debug suboptimal fits, some genes need a non-negative solution.

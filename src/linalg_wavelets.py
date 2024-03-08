@@ -9,13 +9,19 @@ def create_downsampling_matrix(n, factor=2):
 	Create a downsampling matrix to downsample a signal by a given factor.
 	"""
 	# Number of rows in the downsampling matrix
-	rows = n // factor + (n % factor > 0)
+	rows = int(n // factor + (n % factor > 0))
+	
 	# Initialize the downsampling matrix with zeros
 	down_matrix = np.zeros((rows, n))
 	
 	# Fill the matrix
 	for i in range(rows):
-		down_matrix[i, i * factor] = 1
+		
+		new_dim_i = int(i * factor)
+
+		if new_dim_i >= n: continue
+
+		down_matrix[i, new_dim_i] = 1
 	
 	return down_matrix
 

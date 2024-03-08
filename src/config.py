@@ -248,6 +248,19 @@ class Config:
 		return branch_indices
 
 
+	def get_Hpositions_for_branch(self, branch):
+		rg1_indices = self.get_timepoints_phases_Hpositions_for_branch('i')[0][2]
+		cg1_indices = self.get_timepoints_phases_Hpositions_for_branch('t')[0][2]
+		dg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[0][2]
+		postg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[1][2]
+
+		Hpositions_dic = {
+			'i': np.concatenate([rg1_indices, postg1_indices]),
+			't': np.concatenate([cg1_indices, postg1_indices]),
+			'b': np.concatenate([dg1_indices, postg1_indices])
+		}
+		return Hpositions_dic[branch]
+
 	def get_Hpositions_for_phase(self, phase):
 		"""
 		TODO: This is strictly for the RG1 model with hard-coded locations for each phase

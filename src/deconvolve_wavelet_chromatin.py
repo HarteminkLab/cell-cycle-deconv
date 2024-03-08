@@ -26,7 +26,7 @@ class ChromatinDeconvolveSolver:
 
 		self.deconv_model = deconv_model
 		self.solver = solver
-		self.wavelet = pywt.Wavelet(wavelet_name)
+		self.spatial_wavelet = pywt.Wavelet(wavelet_name)
 		self.G = G
 		self.H = H
 		self.gamma_prime = gamma_prime
@@ -36,7 +36,7 @@ class ChromatinDeconvolveSolver:
 	def define_deconvolution_problem(self):
 
 		solver = self.solver
-		wavelet = self.wavelet
+		spatial_wavelet = self.spatial_wavelet
 		G = self.G
 		H = self.H
 		gamma_prime = self.gamma_prime
@@ -48,19 +48,31 @@ class ChromatinDeconvolveSolver:
 
 		self.factor_fb = 2
 
-		f_it = self.deconv_model.get_f_it()	
-		f_b = self.deconv_model.get_f_b()
+		f_dg1 = self.deconv_model.config.get_Hpositions_for_phase('DG1')
+		f_rg1 = self.deconv_model.config.get_Hpositions_for_phase('RG1')
+		f_cg1 = self.deconv_model.config.get_Hpositions_for_phase('CG1')
+		f_pg1 = self.deconv_model.config.get_Hpositions_for_phase('postG1')
 
-		# Mirroring
-		f_b_mirror = np.concatenate((f_b, f_b))
-		f_it_mirror = np.concatenate((f_it, np.flip(f_it)))
+		f_b = self.deconv_model.config.get_Hpositions_for_branch('b')
+		f_i = self.deconv_model.config.get_Hpositions_for_branch('i')
+		f_t = self.deconv_model.config.get_Hpositions_for_branch('t')
 
-		# Add the wavelet smoothing constraint to the convex optimization
-		W1 = get_wavelet_kernel(len(f_it_mirror))
-		W2 = get_wavelet_kernel(len(f_b))
-		W2pad = np.zeros((len(f_b), len(f_b)))
-		W2 = np.concatenate((np.concatenate((W2, W2pad)), 
-							 np.concatenate((W2pad, np.fliplr(W2)))), axis=1)
+		f_it = np.concatenate([f_i, f_t])
+
+		def create_mirror(ind_vec):
+			ind_vec_n_2 = len(ind_vec) // 2
+			ind_vec_mirror = np.concatenate([np.flip(ind_vec[:ind_vec_n_2]), ind_vec, np.flip(ind_vec[-ind_vec_n_2:])])
+			return ind_vec_mirror
+
+		f_b_mirror = create_mirror(np.concatenate([f_b, f_b]))
+		f_i_mirror = create_mirror(f_i)
+		f_t_mirror = create_mirror(np.concatenate([f_t, f_t]))
+
+		f_it_mirror = create_mirror(f_it)
+
+		W1 = get_wavelet_kernel(len(f_i_mirror))
+		W2 = get_wavelet_kernel(len(f_t_mirror))
+		W3 = get_wavelet_kernel(len(f_b_mirror))
 
 		g_mean = G.mean()
 
@@ -72,9 +84,14 @@ class ChromatinDeconvolveSolver:
 
 		self.gamma = cvxpy.Parameter(nonneg=True, name='gamma')
 
+		# There are twice as many t and b indices compared to i
+		# so multiply i's smoothing term by 2
+		factor_i = 2
+
 		# The smoothing constraints
-		smooth_f_it_result = W1@f[f_it_mirror]
-		smooth_f_b_result = W2@f[f_b_mirror]
+		smooth_f_i_result = W1@f[f_i_mirror]
+		smooth_f_t_result = W2@f[f_t_mirror]
+		smooth_f_b_result = W3@f[f_b_mirror]
 
 		elementwise_result = cvxpy.multiply(H@f, 1.0/G) - 1
 
@@ -114,9 +131,15 @@ class ChromatinDeconvolveSolver:
 			# cvxpy.sum_squares(elementwise_result)
 			cvxpy.sum(cvxpy.norm(elementwise_result, 'fro')**2)
 
-			# Like-wise, for smoothing compute the l1 norm along each column and compute the sum
-			+ self.gamma * (cvxpy.sum(cvxpy.abs(smooth_f_it_result)) 
-			+ self.factor_fb * cvxpy.sum(cvxpy.abs(smooth_f_b_result)))/g_mean  
+			# Smoothing along time
+			#+ self.gamma * (cvxpy.sum(cvxpy.abs(smooth_f_it_result)) 
+			#+ self.factor_fb * cvxpy.sum(cvxpy.abs(smooth_f_b_result)))/g_mean  
+
+
+			+ self.gamma * (cvxpy.sum(cvxpy.abs(smooth_f_i_result)) +
+							cvxpy.sum(cvxpy.abs(smooth_f_t_result)) + 
+							cvxpy.sum(cvxpy.abs(smooth_f_b_result)))/g_mean  
+
 
 			# How much to apply the l1 norm on the coefficient representation
 			# + gamma_prime*l1_norm_on_coeffs
@@ -142,7 +165,7 @@ class ChromatinDeconvolveSolver:
 
 		# ------- Upon completion, compute the smoothing norm and fitting/residual norms --------------
 
-		# decomp_kron_mats, reconst_mats = create_kron_wavelet2d_convolution_matrices(self.wavelet, self.image_shape)
+		# decomp_kron_mats, reconst_mats = create_kron_wavelet2d_convolution_matrices(self.spatial_wavelet, self.image_shape)
 
 		H = self.H
 		G = self.G
@@ -154,8 +177,12 @@ class ChromatinDeconvolveSolver:
 		n = G.shape[0]
 		m = G.shape[1]
 		u = H.shape[1]
-		f_it = self.deconv_model.get_f_it()	
-		f_b = self.deconv_model.get_f_b()
+
+		f_b = self.deconv_model.config.get_Hpositions_for_branch('b')
+		f_i = self.deconv_model.config.get_Hpositions_for_branch('i')
+		f_t = self.deconv_model.config.get_Hpositions_for_branch('t')
+
+		f_it = np.concatenate([f_i, f_t])
 
 		# We will use the non-mirrored wavelet kernel sizes, because we are operating on the 
 		# final f values
