@@ -36,8 +36,8 @@ class ChromatinModel:
 		self.config = config
 		self.gamma = 0.006 # default gamma value
 
-		self.bin_width = 16
-		self.bin_height = 16
+		self.bin_width = 32
+		self.bin_height = 32
 		self.prom_len = 288
 		self.gb_len = 512
 		self.chr = None
