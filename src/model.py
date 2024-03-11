@@ -269,7 +269,7 @@ class Model:
 			ax.set_ylim(ylim[0], ylim[1])
 
 			# return timepoints in case we want to append more branches on to the plot
-			return timepoints.values
+			return timepoints.values + offset
 
 		# ------------------
 
@@ -298,7 +298,9 @@ class Model:
 
 		if not abbreviated:
 			i_timepoints = _plot_branch(ax5, 'i', linestyle='dashed', ylim=ylim)
-			_plot_branch(ax5, 'b', start_offset=i_timepoints[-1], linestyle='dashed', ylim=ylim)
+			t_timepoints = _plot_branch(ax5, 't', linestyle='dashed', ylim=ylim, 
+				start_offset=i_timepoints[-1])
+			_plot_branch(ax5, 'b', start_offset=t_timepoints[-1], linestyle='dashed', ylim=ylim)
 			ax5.set_title("Single cell profile")
 
 		if not abbreviated:

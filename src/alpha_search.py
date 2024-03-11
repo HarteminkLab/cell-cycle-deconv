@@ -186,21 +186,22 @@ def main():
 
 	timer = Timer()
 
-	genes = ['ASH1','EGT2','AMN1','DSE3','DSE4','PRY3','SCW11','DSE1','DSE2','CTS1']
+	xin_dg1_genes = ['ASH1','EGT2','AMN1','DSE3','DSE4','PRY3','SCW11','DSE1','DSE2','CTS1']
+	dse_genes = ['DSE1','DSE2','DSE3','DSE4']
 
 	min_a, max_a, step_a = 0, 50, 1
 	alpha_values = np.arange(min_a, max_a, step_a)
 
 	# Perform alpha search for replicate 1
 	dg1_rep1_all_genes_df = pd.DataFrame()
-	for gene in genes:
+	for gene in dse_genes:
 		dg1_df = perform_alpha_search_gene(gene, alphas=alpha_values, timer=timer, replicate=1)
 		dg1_df['gene'] = gene
 		dg1_rep1_all_genes_df = pd.concat([dg1_rep1_all_genes_df, dg1_df])
 
 	# Perform alpha search for replicate 2
 	dg1_rep2_all_genes_df = pd.DataFrame()
-	for gene in genes:
+	for gene in dse_genes:
 		dg1_df = perform_alpha_search_gene(gene, alphas=alpha_values, timer=timer, replicate=2)
 		dg1_df['gene'] = gene
 		dg1_rep2_all_genes_df = pd.concat([dg1_rep2_all_genes_df, dg1_df])
@@ -210,7 +211,7 @@ def main():
 	dg1_rep2_all_genes_df['replicate'] = 2
 	combined_dg1_df = pd.concat([dg1_rep1_all_genes_df, dg1_rep2_all_genes_df])
 
-	save_file = f'output/dg1_alpha_search_{min_a}_{max_a}_{step_a}.csv'
+	save_file = f'output/alpha_search/dg1_alpha_search_{min_a}_{max_a}_{step_a}.csv'
 	combined_dg1_df.to_csv(save_file)
 
 	print(f"Save to: {save_file}")
