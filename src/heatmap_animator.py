@@ -39,7 +39,7 @@ class FHeatmapAnimator:
 				ax.set_xticks([])
 				ax.set_yticks([])
 
-		def plot_im_hm(plt_ax, im, vmax=10, cmap='magma_r'):
+		def plot_im_hm(plt_ax, im, vmax=10, cmap='magma_r', gene=None):
 
 			plt_ax.imshow(im, cmap=cmap, 
 				aspect='auto', vmax=vmax, origin='lower', 
@@ -49,8 +49,12 @@ class FHeatmapAnimator:
 			plt_ax.set_xticks([])
 			plt_ax.set_yticks([])
 
+			if gene.strand == '-':
+				xlim = plt_ax.get_xlim()
+				plt_ax.set_xlim(xlim[1], xlim[0])
+
 		cur_img = self.data[index]
-		plot_im_hm(heatmap_ax, cur_img)
+		plot_im_hm(heatmap_ax, cur_img, gene=self.chromatin_model.gene)
 
 		def set_ylabel_ax(ax, label, labelposition='left'):
 			ha = 'right' if labelposition == 'left' else 'left'
@@ -64,7 +68,8 @@ class FHeatmapAnimator:
 		# --------- ptr -----------
 
 		ptr_img = self.chromatin_model.f_ptrs.reshape(self.chromatin_model.image_shape)
-		plot_im_hm(ptr_ax, ptr_img, vmax=10, cmap='Blues')
+		plot_im_hm(ptr_ax, ptr_img, vmax=10, cmap='Blues', 
+			gene=self.chromatin_model.gene)
 		set_ylabel_ax(ptr_ax, "PTR")
 
 		# ---------- threshold ----------
@@ -72,17 +77,18 @@ class FHeatmapAnimator:
 		from src.ptr_analysis_plotter import threshold_img
 
 		threshold_ptr_img = threshold_img(ptr_img)
-		plot_im_hm(threshold_ax, threshold_ptr_img, vmax=1, cmap='Blues')
+		plot_im_hm(threshold_ax, threshold_ptr_img, vmax=1, cmap='Blues',
+			gene=self.chromatin_model.gene)
 		set_ylabel_ax(threshold_ax, "PTR threshold\nmask")
 
 		# --------- masked/not masked animation ------------
 
 		masked_img = cur_img * threshold_ptr_img
-		plot_im_hm(masked_heatmap_ax, masked_img)
+		plot_im_hm(masked_heatmap_ax, masked_img, gene=self.chromatin_model.gene)
 		set_ylabel_ax(masked_heatmap_ax, "F & mask", 'right')
 
 		not_masked_img = cur_img*(1-threshold_ptr_img)
-		plot_im_hm(not_masked_heatmap_ax, not_masked_img)
+		plot_im_hm(not_masked_heatmap_ax, not_masked_img, gene=self.chromatin_model.gene)
 		set_ylabel_ax(not_masked_heatmap_ax, "F & ~mask", 'right')
 
 		# ----------- cell cycle chart ---------------
