@@ -19,13 +19,23 @@ class PeakToTroughAnalysis:
 		self.chromatin_dir = chromatin_dir
 		self.file_paths = glob.glob(f'{self.chromatin_dir}/*_ptr_*.npy')
 
+
+		from src.config import load_yl_rg1_vst_config
+		from cc_src.chromatin_model import ChromatinModel
+
+		# config and chromatin model to hold the image shape and config information
+		# we may need later, should be consistent across rep1, rep2, and combined models
+		config = load_yl_rg1_vst_config(1)
+		self.chromatin_model = ChromatinModel(config)
+		self.image_shape = self.chromatin_model.num_bins_y, self.chromatin_model.num_bins_x
+
+
 	def load_ptr_files(self):
 
 		# Load ptr values
 
 		# Load the size of a flattened image
 		loaded_ptrs = np.load(self.file_paths[0])
-		self.image_shape = loaded_ptrs.shape
 		m = self.image_shape[0]*self.image_shape[1]
 
 		ptrs_df = pd.DataFrame(index=self.geneset.index, columns=np.arange(m))
@@ -42,6 +52,8 @@ class PeakToTroughAnalysis:
 			loaded_ptrs = np.load(path)
 			ptrs_df.loc[orf_name] = loaded_ptrs.flatten()
 
+		self.ptr_imgs = ptrs_df.values.reshape((-1, 
+			*self.image_shape))
 		self.undropped_ptrs_df = ptrs_df.copy()
 		self.ptrs_df = ptrs_df.dropna()
 		self.n = len(self.ptrs_df)

@@ -117,20 +117,23 @@ def read_park_TSS_PAS():
 
 
 def read_sgd_chromosomes(filename='data/reference_data/sgd_R64-1-1_20110208.gff'):
-    """Read sgd orf/genes file as tsv file from gff file with fasta data removed."""
+	"""Read sgd orf/genes file as tsv file from gff file with fasta data removed."""
 
-    data = pd.read_csv(filename, sep='\t', skiprows=19, 
-                              names=["chr", "source", "cat", "start", "stop", ".", 
-                                  "strand", "", "desc"])
-    data = data[data.columns[[0, 2, 3, 4, 6, 8]]]
-    data.columns = ["chr", "cat", "start", "stop", "strand", "desc"]
-    data = data[data['cat'] == 'chromosome']
-    chroms = data.chr.str.replace('chr', '').apply(_fromRoman)
-    
-    data['chr'] = chroms
-    data = data.set_index('chr')[['stop']].rename(columns={'stop': 'length'})
-    
-    return data
+	data = pd.read_csv(filename, sep='\t', skiprows=19, 
+							  names=["chr", "source", "cat", "start", "stop", ".", 
+								  "strand", "", "desc"])
+	data = data[data.columns[[0, 2, 3, 4, 6, 8]]]
+	data.columns = ["chr", "cat", "start", "stop", "strand", "desc"]
+	data = data[data['cat'] == 'chromosome']
+	chroms = data.chr.str.replace('chr', '').apply(_fromRoman)
+	
+	data['chr'] = chroms
+	data = data.set_index('chr')[['stop']].rename(columns={'stop': 'length'})
+	
+	return data
+
+def get_chromosome_length(chrom):
+	return read_sgd_chromosomes().loc[chrom]['length']
 
 
 def read_nondubious_genes_dataset():

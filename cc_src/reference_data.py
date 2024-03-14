@@ -15,8 +15,10 @@ def load_analysis_genes():
 	# Read from the appropriate csv file to load the genes we will include in
 	# our analysis, filtered for coverage, any other criteria we may want to 
 	# add later
-	geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies_cutoff_cov90.csv').set_index('orf_name')
-	return geneset
+
+	# geneset_cov90 = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies_cutoff_cov90.csv').set_index('orf_name')
+	geneset_depth = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies_cutoff_depth170.csv').set_index('orf_name')
+	return geneset_depth
 
 
 def load_plus_ones(replicate=1):

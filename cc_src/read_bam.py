@@ -126,3 +126,33 @@ def _fromRoman(roman):
 		return -1
 
 
+def get_rna_seq_filepaths_df():
+	# First make a dataframe that contains the metadata and filepaths
+	# for the RNA-seq data. This will make things convenient
+	# for when we want to read from disk
+	path1 = '/Users/trung/Research/_archive/data/bam/cell_cycle/rna/replicate_1/'
+	path2 = '/Users/trung/Research/_archive/data/bam/cell_cycle/rna/replicate_2/'
+	rows = []
+
+	rep1_ls = os.listdir(path1)
+	rep2_ls = os.listdir(path2)
+
+	for filename in rep1_ls:
+		if filename.endswith('bam'):
+			fil_spl = filename.split('_')
+			row = {'replicate': fil_spl[2].replace('rep', ''), 
+				   'time': fil_spl[3], 'full_path': path1 + filename}
+			rows.append(row)
+			
+	for filename in rep2_ls:
+		if filename.endswith('bam'):
+			fil_spl = filename.split('_')
+			row = {'replicate': fil_spl[2].replace('rep', ''), 
+				   'time': fil_spl[3], 'full_path': path2 + filename}
+			rows.append(row)
+
+	bam_df = pd.DataFrame.from_records(rows)
+	bam_df['time'] = bam_df['time'].astype(int)
+	bam_df['replicate'] = bam_df['replicate'].astype(int)
+	bam_df = bam_df.sort_values(['replicate', 'time'])
+	return bam_df.reset_index(drop=True)

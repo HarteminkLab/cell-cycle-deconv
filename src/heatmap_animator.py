@@ -1,6 +1,7 @@
 
 import matplotlib.pyplot as plt
 
+from src.utils import print_fl
 from PIL import Image
 from src.utils import mkdirs_safe
 import pandas as pd
@@ -14,8 +15,8 @@ class FHeatmapAnimator:
 		self.data = chromatin_model.get_f_images()
 
 	def plot_heatmap(self, title, 
-			index, animation_index, n, save_path=None, suptitle=None, boundaries=None,
-			heatmap_ax=None, timeline_ax=None):
+			index, animation_index, n, save_path=None, suptitle=None, 
+			boundaries=None, heatmap_ax=None, timeline_ax=None):
 
 		data = self.data
 
@@ -39,7 +40,7 @@ class FHeatmapAnimator:
 				ax.set_xticks([])
 				ax.set_yticks([])
 
-		def plot_im_hm(plt_ax, im, vmax=10, cmap='magma_r', gene=None):
+		def plot_im_hm(plt_ax, im, vmax=30, cmap='magma_r', gene=None):
 
 			plt_ax.imshow(im, cmap=cmap, 
 				aspect='auto', vmax=vmax, origin='lower', 
@@ -67,6 +68,11 @@ class FHeatmapAnimator:
 
 		# --------- ptr -----------
 
+		from src.ptr_analysis_plotter import threshold_img
+
+		# Updated PTR calculation and lo hi values
+		self.chromatin_model.compute_ptr([0.2, 0.8])
+
 		ptr_img = self.chromatin_model.f_ptrs.reshape(self.chromatin_model.image_shape)
 		plot_im_hm(ptr_ax, ptr_img, vmax=10, cmap='Blues', 
 			gene=self.chromatin_model.gene)
@@ -74,9 +80,8 @@ class FHeatmapAnimator:
 
 		# ---------- threshold ----------
 
-		from src.ptr_analysis_plotter import threshold_img
+		threshold_ptr_img = threshold_img(ptr_img, L=1, H=6)
 
-		threshold_ptr_img = threshold_img(ptr_img)
 		plot_im_hm(threshold_ax, threshold_ptr_img, vmax=1, cmap='Blues',
 			gene=self.chromatin_model.gene)
 		set_ylabel_ax(threshold_ax, "PTR threshold\nmask")
@@ -101,7 +106,8 @@ class FHeatmapAnimator:
 			x_vals = [boundary.start, boundary.end]
 			timeline_ax.plot(x_vals, [0, 0], color=color_for_key(phase),
 					lw=20, solid_capstyle='butt')
-			timeline_ax.text((x_vals[0]+x_vals[1])/2, 0, phase, c='white', va='center', ha='center')
+			timeline_ax.text((x_vals[0]+x_vals[1])/2, 0, phase, c='white', va='center',
+			 ha='center')
 		timeline_ax.set_xticks([])
 		timeline_ax.set_yticks([])
 		timeline_ax.axvline(animation_index, c='gray', zorder=0, alpha=0.5)
@@ -117,7 +123,8 @@ class FHeatmapAnimator:
 			plt.close()
 
 
-	def create_animation(self, save_path):
+	def create_animation(self, gif_save_path):
+		self.gif_save_path = gif_save_path
 		frames_dir = 'tmp/frames'
 		mkdirs_safe([frames_dir])
 
@@ -131,6 +138,7 @@ class FHeatmapAnimator:
 		boundaries = self.get_frame_boundaries(frames)
 		n = len(frames)
 
+		print(f"{len(frames)} frames...", end='')
 		for _, row in frames.iterrows():
 			frame = row.frame
 			frame_file = f'{frames_dir}/frame_{animation_index}.png'
@@ -140,14 +148,27 @@ class FHeatmapAnimator:
 			frame_files.append(frame_file)
 			animation_index += 1
 
+			if animation_index % 10 == 0:
+				print(f"{animation_index}", end=",")
+		print("done.")
+
 		# Creating an animated GIF
-		gif_path = save_path
 		frames = [Image.open(frame) for frame in frame_files]
-		frames[0].save(gif_path, format='GIF', append_images=frames[1:], save_all=True, 
+		frames[0].save(gif_save_path, format='GIF', append_images=frames[1:], save_all=True, 
 		duration=45, loop=0)
 
 
-	def create_animation_order(self, phase_animation_order=['CG1', 'postG1', 'DG1', 'postG1']):
+	def show_gif(self):
+		from IPython.display import Image
+		import time
+
+		gif_path = self.gif_save_path
+		gif_url = f"{gif_path}?{time.time()}" # bypass cached image
+		display(Image(data=open(gif_path,'rb').read(), format='png'))
+
+
+	def create_animation_order(self, phase_animation_order=['CG1', 'postG1', 
+		'DG1', 'postG1']):
 		phases = []
 		frames = []
 		for phase in phase_animation_order:
@@ -177,5 +198,6 @@ class FHeatmapAnimator:
 		phases.append(phase)
 		ends.append(index)
 
-		animation_frame_boundaries = pd.DataFrame({'start': starts, 'end': ends, 'phase': phases})
+		animation_frame_boundaries = pd.DataFrame({'start': starts, 'end': ends, 
+			'phase': phases})
 		return animation_frame_boundaries

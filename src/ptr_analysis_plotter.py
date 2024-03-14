@@ -32,7 +32,7 @@ class PTRAnalysisPlotter:
 
 
 	# A function to order by the metric, and plot 20 genes equally spaced along the distribution of the metric
-	def plot_metric_examples_quantiles(self):
+	def plot_metric_examples_quantiles(self, low=1, hi=5, vmax=10):
 
 		peak_to_trough_analysis = self.peak_to_trough_analysis
 		ptrs = peak_to_trough_analysis.ptrs_df
@@ -64,28 +64,73 @@ class PTRAnalysisPlotter:
 			img = ptrs.loc[orf_name].values.reshape(peak_to_trough_analysis.image_shape).astype(float)        
 			
 			def plt_img(ax, img):
-				ax.imshow(img, cmap='viridis', vmax=9, origin='lower', aspect='auto',
+
+				if strand == '-':
+					img = np.flip(img, axis=1)
+
+				ax.imshow(img, cmap='viridis', vmax=vmax, origin='lower', aspect='auto',
 						 extent=[0, img.shape[1], 0, img.shape[0]])
 
 				# todo: hard-coded bin dimensions
-				bin_width = 16
+				bin_width = 32
 				prom_size = 288
 				window_size = 800
 				ax.set_xticks([])
 				ax.set_yticks([])
-			
-				if strand == '-':
-					ax.set_xlim(ax.get_xlim()[1], ax.get_xlim()[0])
-					ax.axvline((window_size-prom_size)/bin_width, c='red', alpha=0.25)
-				else:
-					ax.axvline(prom_size/bin_width, c='red', alpha=0.25)
+
+				ax.axvline(prom_size/bin_width, c='white', alpha=0.25)
 					
 			plt_img(ax, img)
+
+			thresholded_image = threshold_img(img, L=low, H=hi)
 			
-			plt_img(thresh_axs[i], threshold_img(img)*10.)
+			plt_img(thresh_axs[i], thresholded_image*vmax)
 
 
-def threshold_img(example_img, L=2, H=4):
+	def plot_threshold_scan(self, gene_name):
+
+		peak_to_trough_analysis = self.peak_to_trough_analysis
+		geneset = peak_to_trough_analysis.geneset
+		gene = geneset[geneset.gene == gene_name].iloc[0]
+		orf_name = gene.name
+		gene_ptr = peak_to_trough_analysis.ptrs_df.loc[orf_name]
+		gene_ptr_img = gene_ptr.values.reshape(peak_to_trough_analysis.image_shape).astype(float)
+
+		hs = np.linspace(4, 6, 4)
+		ls = np.linspace(1, 2, 4)
+		num_h = len(hs)
+		num_l = len(ls)
+
+		plt.figure(figsize=(1.5, 0.75))
+
+		plt.imshow(gene_ptr_img, cmap='Blues', origin='lower', aspect='auto')
+		plt.xticks([])
+		plt.yticks([])
+				
+		if gene.strand == '-':
+			plt.xlim(plt.xlim()[1], plt.xlim()[0])
+
+		fig, axs = plt.subplots(num_h, num_l, figsize=(4, 3))
+		plt.subplots_adjust(hspace=0.75, wspace=0.2)
+		
+		for i in range(num_h):
+			for j in range(num_l):
+				ax = axs[i][j]
+				low = ls[j]
+				hi = hs[i]
+
+				thresholded_ptr = threshold_img(gene_ptr_img, L=low, H=hi)
+				ax.imshow(thresholded_ptr, cmap='Blues', origin='lower', aspect='auto')
+				ax.set_xticks([])
+				ax.set_yticks([])
+				ax.set_title(f"Hi: {hi:.1f}, Lo: {low:.1f}", fontsize=6)
+				
+				if gene.strand == '-':
+					ax.set_xlim(ax.get_xlim()[1], ax.get_xlim()[0])
+
+
+
+def threshold_img(example_img, L=1, H=6, ret_all=False):
 	"""Threshold a 2D matrix/img by a low and high filter. Keep low value iff adjacent to
 	a high location."""
 	
@@ -102,6 +147,9 @@ def threshold_img(example_img, L=2, H=4):
 	# Combine H_convolved with L_mask to refine the selection
 	final_mask = H_convolved & L_mask
 	
+	if ret_all:
+		return final_mask, L_mask, H_mask, H_convolved
+
 	return final_mask
 
 

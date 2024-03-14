@@ -10,15 +10,15 @@ def combine_ptr_score(c, d, weight):
 	return score
 
 
-def compute_80_20_ptr(data_f):
+def compute_quantile_ptr(data_f, lo, hi):
 	"""Compute the 80/20 ptr of the data, ensure no division by 0"""
-	f_20, f_80 = np.quantile(data_f, [0.2, 0.8])
-	f_20 = max(f_20, 1)
-	ptr = f_80/f_20
+	f_lo, f_hi = np.quantile(data_f, [lo, hi])
+	f_lo = max(f_lo, 1)
+	ptr = f_hi/f_lo
 	return ptr
 	
 
-def compute_ptr(model, gene_f):
+def compute_ptr(model, gene_f, lo=0.2, hi=0.8):
 
 	cg1_indices = np.concatenate([model.config.phase_columns['CG1'], 
 								  model.config.phase_columns['postG1']])
@@ -35,8 +35,8 @@ def compute_ptr(model, gene_f):
 	_, scaled_dg1_f = rescale(d_timepoints, dg1_f)
 
 	weight = 2./3.;
-	cptr = compute_80_20_ptr(scaled_cg1_f)
-	dptr = compute_80_20_ptr(scaled_dg1_f)
+	cptr = compute_quantile_ptr(scaled_cg1_f, lo, hi)
+	dptr = compute_quantile_ptr(scaled_dg1_f, lo, hi)
 	
 	combinedPtr = combine_ptr_score(cptr, dptr, weight)
 	return cptr, dptr, combinedPtr

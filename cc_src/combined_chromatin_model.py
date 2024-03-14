@@ -110,7 +110,7 @@ class CombinedChromatinModel:
 
 		self.set_results(self.solver.f.value, 
 						  self.solver.rn, self.solver.sn,
-						  self.solver.gamma)
+						  self.solver.gamma.value)
 
 		print_fl(f"Deconvolved in : {timer.get_time()}")
 		print_fl(f"The fitting norm is {self.solver.rn:.2f}, "
@@ -121,31 +121,26 @@ class CombinedChromatinModel:
 		"""
 		Find the optimal gamma value
 		"""
+		from src.timer import Timer
 
-		# TODO: Reimplement with the updated solver
-		yield
+		from src.find_gamma_chromatin import FindOptimalGammaChromatin
 
-		# from src.find_gamma_chromatin import FindOptimalGammaChromatin
-		# from src.timer import Timer
+		timer = Timer()
 
-		# timer = Timer()
+		# Let's stick to no spatial smoothing for now
+		self.setup_deconv_model(gamma_prime=0)
+		self.find_gamma_chromatin = FindOptimalGammaChromatin(self.solver)
+		self.found_optimal_success = self.find_gamma_chromatin.find_optimal(silence=False)
+		self.gamma = self.find_gamma_chromatin.gamma
 
-		# self.setup_deconv_model()
+		self.set_results(self.solver.f.value, 
+						  self.solver.rn, self.solver.sn,
+						  self.solver.gamma.value)
 
-		# # Note that the G data is stored in self.chrom1_model for the find optimal gamma
-		# # TODO: This needs to be cleaned and made more clear for this combined model
-		# self.deconv_model.H = self.H
-
-		# self.find_gamma_chromatin = FindOptimalGammaChromatin(self.deconv_model, G=self.G)
-		# self.found_optimal_success = self.find_gamma_chromatin.find_optimal(silence=False)
-
-		# self.set_results(self.find_gamma_chromatin.f, 
-		# 	self.find_gamma_chromatin.rn, self.find_gamma_chromatin.sn, self.find_gamma_chromatin.gamma)
-
-		# print(f"Deconvolved in : {timer.get_time()}")
-		# print(f"The fitting norm is {self.chrom1_model.rn:.2f}, "
-		# 	  f"the smoothing norm is: {self.chrom1_model.sn:.2f}")
-
+		print_fl(f"Found optimal gamma in: {timer.get_time()}")
+		print_fl(f"Find optimal success: {self.found_optimal_success}")
+		print_fl(f"The fitting norm is {self.solver.rn:.2f}, "
+			  f"the smoothing norm is: {self.solver.sn:.2f}")
 
 	def set_results(self, f, rn, sn, gamma):
 		"""Following completion of deconvolution or find gamma deconvolution, we
@@ -180,7 +175,7 @@ class CombinedChromatinModel:
 		self.chrom2_model.compute_ptr()
 
 
-	def create_deconvolution_plots_abbreviated_flipped(self, ge_model=None, vmax=20):
+	def create_deconvolution_plots_abbreviated_flipped(self, ge_model=None, vmax=30):
 		"""Create the deconvolution plot defined in chromatin_model.py
 		"""
 
@@ -222,7 +217,7 @@ class CombinedChromatinModel:
 		run_date = datetime.now().strftime("%D")
 
 		df = pd.DataFrame({
-			'rn': self.solver.rn, 'sn': self.solver.sn, 'gm': self.gamma,
+			'rn': self.solver.rn, 'sn': self.solver.sn, 'gm': self.solver.gamma.value,
 			'config1': self.chrom1_model.config.name,
 			'config2': self.chrom2_model.config.name,
 			'model1_path': self.chrom1_model.config.model_wt1_file,
@@ -272,6 +267,6 @@ def load_chromatin_model_from_disk(gene_name, chromatin_dir):
 
 	chromatin_model.solver.rn = meta_data.rn
 	chromatin_model.solver.sn = meta_data.sn
-	chromatin_model.gm = meta_data.gm
+	# chromatin_model.solver.gamma.value = meta_data.gm
 
 	return chromatin_model

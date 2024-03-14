@@ -46,10 +46,19 @@ def main():
 		gene_index = int(gene_index)
 		gamma = float(gamma)
 
+	if len(system_args) == 3:
+		(_, out_dir, gene_index) = system_args
+		gene_index = int(gene_index)
+		gamma = None
+
 	sys.stdout.flush()
 	gene = geneset.iloc[gene_index]
 
 	print_fl(f"Index: [{gene_index}/{len(geneset)}] Deconvolving combined model, gene: {gene['gene']}/{gene.name}...")
+
+	if gamma is None:
+		print_fl(f"No gamma specified, finding optimal gamma value for chromatin.")
+
 	print_fl(f"Output to: {out_dir}")
 
 	# -------------------------
@@ -67,7 +76,11 @@ def main():
 
 	combined_model = CombinedChromatinModel(config1, config2)
 	combined_model.load_combined_mnase_gene(gene['gene'])
-	combined_model.deconvolve(verbose=True, gamma=gamma)
+
+	if gamma is not None:
+		combined_model.deconvolve(verbose=True, gamma=gamma)
+	else:
+		combined_model.deconvolve_find_optimal_gamma()
 
 	# ----------------------
 

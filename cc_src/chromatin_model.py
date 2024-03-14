@@ -42,6 +42,11 @@ class ChromatinModel:
 		self.gb_len = 512
 		self.chr = None
 
+		self.max_y_len = 256
+
+		# For computing the image shape
+		self.num_bins_x = (self.prom_len + self.gb_len) // self.bin_width
+		self.num_bins_y = (self.max_y_len) // self.bin_height
 
 	def load_deconvolution_results(self, gene_name):
 		from cc_src.sgd import get_gene_name_orf_name, get_gene
@@ -127,31 +132,12 @@ class ChromatinModel:
 
 
 	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, 
-		vmin=0, vmax=10, smooth=False, f=None):
+		vmin=0, vmax=30, smooth=False, f=None, mask=None):
 
 		if f is None:
 			f = self.deconvolved_f().copy()
 
 		f_imgs = f.reshape((-1, self.deconv_hist_unflattened.shape[1], self.deconv_hist_unflattened.shape[2]))
-
-		if smooth:
-
-			import cv2
-
-			n = f.shape[0]
-			# upscale the images
-			orig_shape = self.exact_bins[0].shape
-			f_imgs_upscaled = np.zeros((n, orig_shape[0], orig_shape[1]))
-
-			for i in range(n):
-				image = f_imgs[i]
-				f_img_upscaled = cv2.resize(image.T, dsize=orig_shape, interpolation=cv2.INTER_LINEAR)
-				f_img_upscaled[f_img_upscaled < 0] = 0
-				f_img_upscaled = f_img_upscaled.T
-				f_imgs_upscaled[i] = f_img_upscaled
-
-			# then smooth
-			smoothed_f_imgs = self.smooth_exact_bins(f_imgs_upscaled, k_size=5, k_sigma=0.5)
 
 		if ax_cols is None:
 
@@ -183,8 +169,6 @@ class ChromatinModel:
 			phase = phase_col_df.loc[index].phase
 			color = color_for_key(phase)
 			return color
-
-		#x_bins, y_bins = self.x_bins, self.y_bins
 
 		plotting_index = 0
 		last_phase = None
@@ -219,12 +203,11 @@ class ChromatinModel:
 				else:
 					ax = phase_axs[row+1]
 
-				if not smooth:
-					shape = self.deconv_hist_unflattened[0].shape
-					reshaped_f = f.reshape(-1, shape[0], shape[1])
-					self.plot_f_img(ax, reshaped_f, phase, row, num_chromatin_rows, show_title=False, vmax=vmax, vmin=vmin)
-				else:
-					self.plot_f_img(ax, smoothed_f_imgs, phase, row, num_chromatin_rows, show_title=False, vmax=vmax, vmin=vmin)
+				shape = self.deconv_hist_unflattened[0].shape
+				reshaped_f = f.reshape(-1, shape[0], shape[1])
+
+				self.plot_f_img(ax, reshaped_f, phase, row, num_chromatin_rows, show_title=False, vmax=vmax, vmin=vmin,
+					mask=mask)
 
 				if col == 0:
 					ax.set_ylabel(f"{row+1}", rotation=0, ha='right', labelpad=10, fontsize=16)
@@ -319,7 +302,7 @@ class ChromatinModel:
 
 
 	def plot_f_img(self, ax, reshaped_f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0,
-		vmin=0, vmax=200):
+		vmin=0, vmax=200, mask=None):
 
 		is_crick = self.gene.strand == '-'
 
@@ -345,6 +328,10 @@ class ChromatinModel:
 
 		# Plot the deconvolved chromatin for the appropriate column
 		img = reshaped_f[f_index]
+
+		if mask is not None:
+			img = img * mask
+
 		im = ax.imshow(img, origin='lower', cmap='magma_r', aspect='auto', vmax=vmax,
 			extent=self.bin_extents, zorder=1)
 		ax.axvline(self.computed_plus_one, c='gray', linewidth=1.25, linestyle='solid', alpha=0.5)
@@ -475,7 +462,6 @@ class ChromatinModel:
 		ptr_ax.set_title("PTRs")
 
 		# Plot 7 highest ptr values (7 is tentative optimal k for now)
-
 
 		from src.ptr_analysis_plotter import threshold_img
 
@@ -651,7 +637,7 @@ class ChromatinModel:
 		print_fl(f"The fitting norm is {self.solver.rn:.2f}, "
 			  f"the smoothing norm is: {self.solver.sn:.2f}")
 
-	def compute_ptr(self):
+	def compute_ptr(self, quantiles=[0.2, 0.8]):
 
 		# ------- Reshape f ---------
 
@@ -669,7 +655,7 @@ class ChromatinModel:
 
 		f_ptrs = np.zeros(f.shape[1])
 		for i in range(f.shape[1]):
-			cptr, dpt, ptr = compute_ptr(self.deconv_model, f[:, i])
+			cptr, dpt, ptr = compute_ptr(self.deconv_model, f[:, i], quantiles[0], quantiles[1])
 			f_ptrs[i] = ptr
 
 		self.f_ptrs = f_ptrs
@@ -794,7 +780,7 @@ class ChromatinModel:
 		x_bins = np.arange(new_span[0], new_span[1], bin_width)
 
 		# And for y lengths
-		y_bins = np.arange(0, 256, bin_height)
+		y_bins = np.arange(0, self.max_y_len, bin_height)
 
 		# Now we will loop through each x and y bin to aggregate the counts to 
 		# create our new downsampled histogram

@@ -1,8 +1,6 @@
 
 from src.timer import Timer
 import numpy as np
-from src.deconvolve_chromatin import deconvolve_chromatin
-
 
 def print_fl(*args, **kwargs):
 	"""On the cluster, it is helpful to flush after printing
@@ -36,7 +34,7 @@ class FindOptimalGammaChromatin:
 		# some settings
 		# The default rn cutoff is much higher, may be we should normalize by the size of the grid space
 		DEFAULT_RN_CUTOFF = 100
-		DEFAULT_GM = 0.001
+		DEFAULT_GM = 0.006
 
 		# This was change from 0.001-0.1
 		# Lower values seem possible with the chromatin, so the min was dropped down to 0.0001
