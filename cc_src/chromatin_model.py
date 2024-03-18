@@ -655,7 +655,7 @@ class ChromatinModel:
 
 		f_ptrs = np.zeros(f.shape[1])
 		for i in range(f.shape[1]):
-			cptr, dpt, ptr = compute_ptr(self.deconv_model, f[:, i], quantiles[0], quantiles[1])
+			cptr, dpt, ptr = compute_ptr(self.config, f[:, i], quantiles[0], quantiles[1])
 			f_ptrs[i] = ptr
 
 		self.f_ptrs = f_ptrs

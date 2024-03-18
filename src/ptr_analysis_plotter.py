@@ -32,7 +32,7 @@ class PTRAnalysisPlotter:
 
 
 	# A function to order by the metric, and plot 20 genes equally spaced along the distribution of the metric
-	def plot_metric_examples_quantiles(self, low=1, hi=5, vmax=10):
+	def plot_metric_examples_quantiles(self, low=1, hi=6, vmax=10):
 
 		peak_to_trough_analysis = self.peak_to_trough_analysis
 		ptrs = peak_to_trough_analysis.ptrs_df
@@ -45,30 +45,36 @@ class PTRAnalysisPlotter:
 
 		n = len(quantile_orf_names)
 		fig, axs = plt.subplots(n, 2, figsize=(3.5, 3./5. * n))
-		plt.subplots_adjust(hspace=0.5, top=0.8)
+		#plt.subplots_adjust(hspace=0.5, top=0.8)
 		
 		axs = np.array(axs).T
 		raw_axs = axs[0]
 		thresh_axs = axs[1]
-		
+		quantile_genes = []
+
 		for i in range(n):
 
 			orf_name = quantile_orf_names[i]
 			quantile_val = qs[i]
-			title = f"perc={quantile_val*100:.1f}% - {vals.loc[orf_name]:.2f}\n{orf_name}"
 			ax = raw_axs[i]
-			ax.set_ylabel(title, rotation=0, ha='right')
 			
-			strand = peak_to_trough_analysis.geneset.loc[orf_name].strand
+			gene = peak_to_trough_analysis.geneset.loc[orf_name]
+			strand = gene.strand
 
 			img = ptrs.loc[orf_name].values.reshape(peak_to_trough_analysis.image_shape).astype(float)        
+
+			gene_title = f"{gene['gene']} / {orf_name}"
+			quantile_genes.append(gene['gene'])
+
+			title = f"perc={quantile_val*100:.1f}% - {vals.loc[orf_name]:.2f}\n{gene_title}"
+			ax.set_ylabel(title, rotation=0, ha='right')
 			
 			def plt_img(ax, img):
 
 				if strand == '-':
 					img = np.flip(img, axis=1)
 
-				ax.imshow(img, cmap='viridis', vmax=vmax, origin='lower', aspect='auto',
+				ax.imshow(img, cmap='Blues', vmax=vmax, origin='lower', aspect='auto',
 						 extent=[0, img.shape[1], 0, img.shape[0]])
 
 				# todo: hard-coded bin dimensions
@@ -78,13 +84,15 @@ class PTRAnalysisPlotter:
 				ax.set_xticks([])
 				ax.set_yticks([])
 
-				ax.axvline(prom_size/bin_width, c='white', alpha=0.25)
+				ax.axvline(prom_size/bin_width, c='red', alpha=0.25)
 					
 			plt_img(ax, img)
 
 			thresholded_image = threshold_img(img, L=low, H=hi)
 			
 			plt_img(thresh_axs[i], thresholded_image*vmax)
+
+		return quantile_genes
 
 
 	def plot_threshold_scan(self, gene_name):
@@ -146,7 +154,7 @@ def threshold_img(example_img, L=1, H=6, ret_all=False):
 
 	# Combine H_convolved with L_mask to refine the selection
 	final_mask = H_convolved & L_mask
-	
+
 	if ret_all:
 		return final_mask, L_mask, H_mask, H_convolved
 

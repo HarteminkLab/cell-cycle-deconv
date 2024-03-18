@@ -133,13 +133,16 @@ class FHeatmapAnimator:
 
 		frames = self.create_animation_order()
 
-		animation_index = 0
-
 		boundaries = self.get_frame_boundaries(frames)
 		n = len(frames)
 
 		print(f"{len(frames)} frames...", end='')
-		for _, row in frames.iterrows():
+
+		animation_step = 1
+
+		for animation_index in range(0, len(frames), animation_step):
+
+			row = frames.iloc[animation_index]
 			frame = row.frame
 			frame_file = f'{frames_dir}/frame_{animation_index}.png'
 			title = f"{row.phase}"
@@ -148,8 +151,9 @@ class FHeatmapAnimator:
 			frame_files.append(frame_file)
 			animation_index += 1
 
-			if animation_index % 10 == 0:
-				print(f"{animation_index}", end=",")
+			# if animation_index % 16 == 0:
+			print(f"{animation_index}", end=",")
+
 		print("done.")
 
 		# Creating an animated GIF
@@ -201,3 +205,46 @@ class FHeatmapAnimator:
 		animation_frame_boundaries = pd.DataFrame({'start': starts, 'end': ends, 
 			'phase': phases})
 		return animation_frame_boundaries
+
+
+def combine_gifs():
+
+	from PIL import Image, ImageSequence
+
+	# Paths to your GIF files
+	gene_names = ['CLN1', 'CLB2', 'CLN3', 'CLB1', 'CLB5', 'CLB6']
+
+	animations_dir = 'output/ptr_threshold_tuning/animations/'
+
+	gif_paths = [f"{animations_dir}/{gene}.gif" for gene in gene_names]
+
+	# Load the GIFs
+	gifs = [Image.open(gif_path) for gif_path in gif_paths]
+
+	# Assuming all GIFs have the same dimensions and number of frames
+	gif_width, gif_height = gifs[0].size
+	frames = []
+
+	# Loop through each frame in the animation
+	for frame_index in range(len(list(ImageSequence.Iterator(gifs[0])))):
+		# Create a new blank image for this frame (3x2 grid)
+		grid_frame = Image.new('RGBA', (gif_width * 3, gif_height * 2))
+		
+		for i, gif in enumerate(gifs):
+			# Extract the current frame from this GIF
+			gif.seek(frame_index)
+			frame = gif.copy()
+			
+			# Calculate the position on the grid
+			x = (i % 3) * gif_width
+			y = (i // 3) * gif_height
+			
+			# Paste the frame onto the grid
+			grid_frame.paste(frame, (x, y))
+		
+		# Add this grid frame to the list of frames
+		frames.append(grid_frame)
+
+	# Save the frames as a new animated GIF
+	frames[0].save('animated_grid.gif', save_all=True, append_images=frames[1:],
+		loop=0, duration=gifs[0].info['duration'])

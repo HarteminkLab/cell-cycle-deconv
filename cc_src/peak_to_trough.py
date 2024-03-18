@@ -18,18 +18,18 @@ def compute_quantile_ptr(data_f, lo, hi):
 	return ptr
 	
 
-def compute_ptr(model, gene_f, lo=0.2, hi=0.8):
+def compute_ptr(config, gene_f, lo=0.2, hi=0.8):
 
-	cg1_indices = np.concatenate([model.config.phase_columns['CG1'], 
-								  model.config.phase_columns['postG1']])
-	dg1_indices = np.concatenate([model.config.phase_columns['DG1'], 
-								  model.config.phase_columns['postG1']])
+	cg1_indices = np.concatenate([config.phase_columns['CG1'], 
+								  config.phase_columns['postG1']])
+	dg1_indices = np.concatenate([config.phase_columns['DG1'], 
+								  config.phase_columns['postG1']])
 
 	cg1_f = gene_f[cg1_indices]
 	dg1_f = gene_f[dg1_indices]
 
-	c_timepoints = model.config.get_timepoints_for_branch('t')
-	d_timepoints = model.config.get_timepoints_for_branch('b')
+	c_timepoints = config.get_timepoints_for_branch('t')
+	d_timepoints = config.get_timepoints_for_branch('b')
 
 	_, scaled_cg1_f = rescale(c_timepoints, cg1_f)
 	_, scaled_dg1_f = rescale(d_timepoints, dg1_f)
@@ -87,7 +87,7 @@ def rescale(x, y, interval=1):
 
 def get_chrom_g_ptr(gene_g_chrom):
 	"""
-	Compute the chromatin ptr for g for yulong replicate 2 model.
+	Compute the chromatin ptr for g for yulong replicate 2 
 
 	Assumes 15 timepoints and we should skip the first two for recovery in the 
 	ptr calculation
