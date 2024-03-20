@@ -29,6 +29,23 @@ class PeakToTroughAnalysis:
 		self.chromatin_model = ChromatinModel(config)
 		self.image_shape = self.chromatin_model.num_bins_y, self.chromatin_model.num_bins_x
 
+		self.load_ptr_files()
+		self.sort_gene_ptrs()
+
+
+	def compute_summary_metrics(self):
+		mean = self.summarize_ptrs(np.mean)
+		median = self.summarize_ptrs(np.median)
+		q95 = self.compute_q_vals(0.95)
+		q90 = self.compute_q_vals(0.9)
+
+		metrics_df = self.geneset[['gene']].loc[mean.index.values]
+		metrics_df['mean_ptr'] = mean
+		metrics_df['q95'] = q95
+		metrics_df['median'] = median
+
+		self.metrics_df = metrics_df
+
 
 	def load_ptr_files(self):
 
@@ -142,6 +159,63 @@ class PeakToTroughAnalysis:
 		plt.title(f"Gene PTR values for k={self.optimal_k}\n" +
 				 f"n={n}, q05={q05:0.1f}, q95={q95:.1f}")
 
+	def plot_mean_chromatin(self):
+		plt.figure(figsize=(13, 4))
+		plt.subplot(1, 3, 1)
+		plt.scatter(tf_joined_df['Fourier_score'], 
+		            tf_joined_df['mean_ptr'], s=1, alpha=0.5)
+		plt.title("Promoter fourier score vs\nMean Chromatin PTR")
+
+		plt.subplot(1, 3, 2)
+		plt.scatter(nuc_joined_df['Fourier_score'], 
+		            nuc_joined_df['mean_ptr'], s=1, alpha=0.5)
+		plt.title("Nucleosome fourier score vs\nMean Chromatin PTR")
+
+		plt.subplot(1, 3, 3)
+		plt_data = tf_joined_df.join(nuc_joined_df, lsuffix='_tf', rsuffix='_nuc')
+		plt.scatter(plt_data.Fourier_score_nuc, plt_data.Fourier_score_tf, s=1)
+		plt.title("Nucleosome fourier score vs TF fourier score")
+
+	def load_Fourier_scores(self):
+		# Load the Yulong Fourier Score Calculations
+
+		metrics_df = self.metrics_df
+
+		def load_join_yulong_fourier_score(csv_path, metrics_df):
+			# Load the Yulong Fourier scores for each gene
+			promoter_tf_scores = pd.read_csv(csv_path)
+			promoter_tf_scores = promoter_tf_scores.set_index('Gene_ID')
+			prom_tf_fourier_vs_ptr_comparison = promoter_tf_scores.join(metrics_df)
+			return prom_tf_fourier_vs_ptr_comparison
+
+		prom_tf_path = 'data/reference_data/yulongs_2023_Table_S1_promoter_tf_score.csv'
+		self.tf_joined_df = load_join_yulong_fourier_score(prom_tf_path, 
+													  metrics_df)
+		self.tf_joined_df = self.tf_joined_df.dropna()
+
+		gb_nuc_path = 'data/reference_data/yulongs_2023_Table_S1_gene_body_nuc_score.csv'
+		self.nuc_joined_df = load_join_yulong_fourier_score(gb_nuc_path,
+													   metrics_df)
+		self.nuc_joined_df = self.nuc_joined_df.dropna()
+
+	def plot_ptr_comparison_to_fourier(self):
+
+		plt.figure(figsize=(13, 4))
+		plt.subplot(1, 3, 1)
+		plot_comparison_scatter(self.tf_joined_df['Fourier_score'], 
+			self.tf_joined_df['mean_ptr'], "Promoter fourier score vs\nMean Chromatin PTR", 
+			"TF Fourier score", "Mean chromatin PTR")
+
+		plt.subplot(1, 3, 2)
+		plot_comparison_scatter(self.nuc_joined_df['Fourier_score'], 
+			self.nuc_joined_df['mean_ptr'], "Nucleosome fourier score vs\nMean Chromatin PTR",
+			"GB nucleosome Fourier score", "Mean chromatin PTR")
+
+		plt.subplot(1, 3, 3)
+		plt_data = self.tf_joined_df.join(self.nuc_joined_df, lsuffix='_tf', rsuffix='_nuc')
+		plot_comparison_scatter(plt_data.Fourier_score_nuc, plt_data.Fourier_score_tf, 
+			"Nucleosome fourier score vs TF fourier score",
+			"GB nucleosome Fourier score", "TF Fourier Score")
 
 	def plot_ptr_k_gene(self):
 
@@ -184,7 +258,7 @@ class PeakToTroughAnalysis:
 		plt.title("Proportion of Spellman genes in ordered chromatin PTR list\n" + 
 			f"n={n}, k={self.optimal_k}")
 		plt.xlabel("Proportion of all deconvolved genes")
-		plt.ylabel("Proportion of spellman genes")
+
 
 	def summarize_ptrs(self, metric_func):
 		summary_ptrs = self.ptrs_df.copy()   
@@ -192,7 +266,20 @@ class PeakToTroughAnalysis:
 		return metric_val
 
 
-	def compute_q_vals(self, q_val):
-		q_func = lambda val : np.quantile(val, q=q_val)
-		q_vals = self.summarize_ptrs(q_func)
-		return q_vals
+def compute_q_vals(self, q_val):
+	q_func = lambda val : np.quantile(val, q=q_val)
+	q_vals = self.summarize_ptrs(q_func)
+	return q_vals
+
+	def plot_comparison_scatter(x, y, title, xlabel, ylabel):
+
+		from scipy.stats import pearsonr
+
+		pearsonr, pval = pearsonr(x, y)
+		title = f"{title}\nPearson R={pearsonr:.2f}, P-value={pval:.2f}"
+
+		plt.scatter(x, y, s=1, alpha=0.5)
+		plt.title(title)
+
+		plt.xlabel(xlabel)
+		plt.ylabel(ylabel)
