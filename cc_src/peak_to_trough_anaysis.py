@@ -271,15 +271,42 @@ def compute_q_vals(self, q_val):
 	q_vals = self.summarize_ptrs(q_func)
 	return q_vals
 
-	def plot_comparison_scatter(x, y, title, xlabel, ylabel):
+def plot_comparison_scatter(x, y, title, xlabel, ylabel, c='#aaa', 
+	highlighted_orfs=[]):
 
-		from scipy.stats import pearsonr
+	from scipy.stats import pearsonr
 
-		pearsonr, pval = pearsonr(x, y)
-		title = f"{title}\nPearson R={pearsonr:.2f}, P-value={pval:.2f}"
+	pearsonr, pval = pearsonr(x, y)
+	title = f"{title}\nPearson R={pearsonr:.2f}, P-value={pval:.2f}, N={len(x)}"
 
-		plt.scatter(x, y, s=1, alpha=0.5)
-		plt.title(title)
+	plt.scatter(x, y, s=1, alpha=0.5, c=c, label='_none')
 
-		plt.xlabel(xlabel)
-		plt.ylabel(ylabel)
+	for (sel_orfs, color, label) in highlighted_orfs:
+
+		x_sel = x.loc[list(sel_orfs)]
+		y_sel = y.loc[list(sel_orfs)]
+
+		label = f"{label}, n={len(sel_orfs)}"
+
+		plt.scatter(x_sel, y_sel, s=8, alpha=0.5, facecolors='none', 
+			edgecolors=color, label=label, lw=1, marker='D')
+
+		#plt.scatter(x, y, marker='d', facecolors='none', edgecolors='b', s=100, linewidth=1)
+
+
+
+
+
+	plt.title(title)
+
+	plt.xlabel(xlabel)
+	plt.ylabel(ylabel)
+	plt.legend()
+
+
+def filter_index(select_index, primary_index):
+    """Filters out an index values that do not appear in the primary index.
+    Useful for selecting subsets of a dataframe, but discards missing values
+    if that selected index does not appear in the primary index"""
+    keep_index = set(primary_index).intersection(select_index)
+    return list(keep_index)

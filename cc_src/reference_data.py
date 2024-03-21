@@ -11,6 +11,19 @@ def load_spellman_orfs():
 	return spellman_orfs
 
 
+def load_xin_1500_cc_orfs():
+	"""The cell cycle genes that Xin has annotated represents:
+
+	Deconvolved PTR score threshold corresponding to the 1,500 most strongly cell-cycle–regulated genes.
+
+	The gene association table does not have a label, but they are sorted by the deconvolved PTR scores.
+	So take that highest 1500 genes.
+	"""
+	gene_as = pd.read_csv('datasets/datasets_from_web_deconvolution.cs.duke.edu/gene_associated.tsv', sep='\t')
+	xin_cell_cycle_genes = gene_as.iloc[0:1500]['Systematic Name'].values
+	return xin_cell_cycle_genes
+
+
 def load_analysis_genes():
 	# Read from the appropriate csv file to load the genes we will include in
 	# our analysis, filtered for coverage, any other criteria we may want to 
