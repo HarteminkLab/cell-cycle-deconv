@@ -272,14 +272,20 @@ def compute_q_vals(self, q_val):
 	return q_vals
 
 def plot_comparison_scatter(x, y, title, xlabel, ylabel, c='#aaa', 
-	highlighted_orfs=[]):
+	highlighted_orfs=[], ax=None):
 
 	from scipy.stats import pearsonr
 
 	pearsonr, pval = pearsonr(x, y)
-	title = f"{title}\nPearson R={pearsonr:.2f}, P-value={pval:.2f}, N={len(x)}"
 
-	plt.scatter(x, y, s=1, alpha=0.5, c=c, label='_none')
+	if ax is None:
+		ax = plt.gca()
+
+	if title is not None:
+		title = f"{title}\nPearson R={pearsonr:.2f}, P-value={pval:.2f}, N={len(x)}"
+		ax.set_title(title)
+
+	ax.scatter(x, y, s=1, alpha=0.5, c=c, label='_none')
 
 	for (sel_orfs, color, label) in highlighted_orfs:
 
@@ -288,20 +294,13 @@ def plot_comparison_scatter(x, y, title, xlabel, ylabel, c='#aaa',
 
 		label = f"{label}, n={len(sel_orfs)}"
 
-		plt.scatter(x_sel, y_sel, s=8, alpha=0.5, facecolors='none', 
+		ax.scatter(x_sel, y_sel, s=8, alpha=0.5, facecolors='none', 
 			edgecolors=color, label=label, lw=1, marker='D')
 
-		#plt.scatter(x, y, marker='d', facecolors='none', edgecolors='b', s=100, linewidth=1)
 
-
-
-
-
-	plt.title(title)
-
-	plt.xlabel(xlabel)
-	plt.ylabel(ylabel)
-	plt.legend()
+	ax.set_xlabel(xlabel)
+	ax.set_ylabel(ylabel)
+	ax.legend()
 
 
 def filter_index(select_index, primary_index):
