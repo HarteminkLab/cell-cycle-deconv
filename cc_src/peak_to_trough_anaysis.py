@@ -163,12 +163,12 @@ class PeakToTroughAnalysis:
 		plt.figure(figsize=(13, 4))
 		plt.subplot(1, 3, 1)
 		plt.scatter(tf_joined_df['Fourier_score'], 
-		            tf_joined_df['mean_ptr'], s=1, alpha=0.5)
+					tf_joined_df['mean_ptr'], s=1, alpha=0.5)
 		plt.title("Promoter fourier score vs\nMean Chromatin PTR")
 
 		plt.subplot(1, 3, 2)
 		plt.scatter(nuc_joined_df['Fourier_score'], 
-		            nuc_joined_df['mean_ptr'], s=1, alpha=0.5)
+					nuc_joined_df['mean_ptr'], s=1, alpha=0.5)
 		plt.title("Nucleosome fourier score vs\nMean Chromatin PTR")
 
 		plt.subplot(1, 3, 3)
@@ -271,18 +271,22 @@ def compute_q_vals(self, q_val):
 	q_vals = self.summarize_ptrs(q_func)
 	return q_vals
 
+def add_title_stats(x, y, title):
+	from scipy.stats import pearsonr
+	pearsonr, pval = pearsonr(x, y)
+	title = f"{title}\nPearson R={pearsonr:.2f}, P-value={pval:.2f}, N={len(x)}"
+	return title
+
 def plot_comparison_scatter(x, y, title, xlabel, ylabel, c='#aaa', 
 	highlighted_orfs=[], ax=None):
 
-	from scipy.stats import pearsonr
-
-	pearsonr, pval = pearsonr(x, y)
+	
 
 	if ax is None:
 		ax = plt.gca()
 
 	if title is not None:
-		title = f"{title}\nPearson R={pearsonr:.2f}, P-value={pval:.2f}, N={len(x)}"
+		title = add_title_stats(x, y, title)
 		ax.set_title(title)
 
 	ax.scatter(x, y, s=1, alpha=0.5, c=c, label='_none')
@@ -304,8 +308,93 @@ def plot_comparison_scatter(x, y, title, xlabel, ylabel, c='#aaa',
 
 
 def filter_index(select_index, primary_index):
-    """Filters out an index values that do not appear in the primary index.
-    Useful for selecting subsets of a dataframe, but discards missing values
-    if that selected index does not appear in the primary index"""
-    keep_index = set(primary_index).intersection(select_index)
-    return list(keep_index)
+	"""Filters out an index values that do not appear in the primary index.
+	Useful for selecting subsets of a dataframe, but discards missing values
+	if that selected index does not appear in the primary index"""
+	keep_index = set(primary_index).intersection(select_index)
+	return list(keep_index)
+
+
+def plot_comparison_ptr(x, y, highlighted_orfs, xlim, ylim, title, xlabel, ylabel,
+	bw=(0.05, 0.05)):
+	"""Plot PTR comparisons"""
+
+	import matplotlib.gridspec as gridspec
+
+	fig = plt.figure(figsize=(6, 6))
+	gs  = gridspec.GridSpec(4, 4, figure=fig)
+
+	# Main scatter plot
+	ax_main = fig.add_subplot(gs[1:4, 0:3])
+
+	# Top histogram (x-axis marginal distribution)
+	ax_x_dist = fig.add_subplot(gs[0, 0:3])
+	ax_y_dist = fig.add_subplot(gs[1:4, 3])
+	ax_y_dist.set_yticks([])
+	ax_x_dist.set_xticks([])
+
+	# -------------------------------------
+
+	plot_comparison_scatter(x, y,
+							title=None,
+							xlabel=xlabel, 
+							ylabel=ylabel,
+						   highlighted_orfs=highlighted_orfs, ax=ax_main)
+
+	# -------------------------------------
+
+	from cc_src.plot_helpers import plot_density
+
+	plot_density(x.values, ax_x_dist, bw=bw[0], arange=(0, xlim[1], 0.01), 
+				 color='#ddd', lw=2, fill=True)
+
+	# ------
+	for (sel_orfs, color, label) in highlighted_orfs:
+		selected_x = x.loc[sel_orfs]
+		plot_density(selected_x.values, ax_x_dist, bw=bw[0], 
+					 arange=(0, xlim[1], 0.01), color=color,
+					ls='dotted')
+
+	# ----------
+	plot_density(y.values, ax_y_dist, bw=bw[1], arange=(0, ylim[1], 0.01), color='#ddd', 
+				 flip=True, fill=True)
+	ax_y_dist.set_ylim(0, 2)
+
+	for (sel_orfs, color, label) in highlighted_orfs:
+		selected_y = y.loc[sel_orfs]
+		plot_density(selected_y.values, ax_y_dist, bw=bw[1], 
+					 arange=(0, ylim[1], 0.01), color=color,
+					ls='dotted', flip=True)
+
+	ax_main.set_xlim(*xlim)
+	ax_main.set_ylim(*ylim)
+	ax_x_dist.set_xlim(ax_main.get_xlim())
+	ax_y_dist.set_ylim(ax_main.get_ylim())
+
+	title = add_title_stats(x, y, title)
+	plt.suptitle(title)
+
+
+def create_highlighted_orfs_array(ref_df):
+	"""For the PTR comparison scatter plot, add the annotated orfs from xin and spellman"""
+
+	from cc_src.reference_data import load_xin_1500_cc_orfs, load_spellman_orfs
+
+	xin_orfs = load_xin_1500_cc_orfs()
+	spellman_orfs = load_spellman_orfs()
+
+	both_xin_spellman = set(xin_orfs).intersection(spellman_orfs)
+	xin_only = set(xin_orfs).difference(both_xin_spellman)
+	spellman_only = set(spellman_orfs).difference(both_xin_spellman)
+	    
+	# Filter the highlighted orfs by the orfs we *do* have for deconvolved
+	# PTR means
+	filtered_both_xin_spellman = filter_index(both_xin_spellman, ref_df.index.values)
+	filtered_both_xin = filter_index(xin_only, ref_df.index.values)
+	filtered_both_spellman = filter_index(spellman_only, ref_df.index.values)
+
+	highlighted_orfs=[(filtered_both_xin, 'red', "Xin"),
+	                  (filtered_both_spellman, 'blue', "Spellman"),
+	                  (filtered_both_xin_spellman, 'purple', "Xin+Spellman")]
+
+	return highlighted_orfs
