@@ -36,3 +36,17 @@ def load_analysis_genes():
 
 def load_plus_ones(replicate=1):
 	return pd.read_csv(f"datasets/computed_mnase/rep{replicate}_plus_ones.csv").set_index('orf_name')
+
+
+def read_macisaac_sites():
+
+	from cc_src.read_bam import _fromRoman
+
+	sites = pd.read_csv('data/reference_data/p005_c2.sacCer3.gff.txt', sep='\t',
+			   names=range(9))
+	sites = sites[sites.columns[[0, 3, 4, 6, 8]]].copy()
+	sites.columns = ['chr','start','stop','strand','TF']
+
+	#sites.chr = _fromRoman(sites.chr)
+	sites.TF = sites.TF.str.replace(';', '').str.replace('Site ', '')
+	return sites

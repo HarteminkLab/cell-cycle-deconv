@@ -265,6 +265,24 @@ class PeakToTroughAnalysis:
 		metric_val = summary_ptrs.apply(metric_func, axis=1)
 		return metric_val
 
+	def get_strand_corrected_ptr_imgs(self):
+
+		ptrs_df = self.undropped_ptrs_df.fillna(0)
+		ptr_imgs = ptrs_df.values.reshape((ptrs_df.shape[0], *self.image_shape))
+
+		ptr_imgs = ptr_imgs.copy()
+		ptr_imgs = ptr_imgs.astype(float)
+		ptr_imgs[np.isnan(ptr_imgs)] = 0
+
+		strand_corrected_ptr_imgs = ptr_imgs.copy()
+
+		# Correct for crick genes
+		# Flip all crick genes
+		crick_strand_genes = self.geneset.strand == '-'
+		crick_ptr_imgs = ptr_imgs[crick_strand_genes]
+		strand_corrected_ptr_imgs[crick_strand_genes] = np.fliplr(crick_ptr_imgs)
+		return strand_corrected_ptr_imgs
+
 
 def compute_q_vals(self, q_val):
 	q_func = lambda val : np.quantile(val, q=q_val)
@@ -386,7 +404,7 @@ def create_highlighted_orfs_array(ref_df):
 	both_xin_spellman = set(xin_orfs).intersection(spellman_orfs)
 	xin_only = set(xin_orfs).difference(both_xin_spellman)
 	spellman_only = set(spellman_orfs).difference(both_xin_spellman)
-	    
+		
 	# Filter the highlighted orfs by the orfs we *do* have for deconvolved
 	# PTR means
 	filtered_both_xin_spellman = filter_index(both_xin_spellman, ref_df.index.values)
@@ -394,7 +412,23 @@ def create_highlighted_orfs_array(ref_df):
 	filtered_both_spellman = filter_index(spellman_only, ref_df.index.values)
 
 	highlighted_orfs=[(filtered_both_xin, 'red', "Xin"),
-	                  (filtered_both_spellman, 'blue', "Spellman"),
-	                  (filtered_both_xin_spellman, 'purple', "Xin+Spellman")]
+					  (filtered_both_spellman, 'blue', "Spellman"),
+					  (filtered_both_xin_spellman, 'purple', "Xin+Spellman")]
 
 	return highlighted_orfs
+
+
+def load_deconvolved_ge_ptrs(outdir):
+	file_paths = glob.glob(f'{outdir}/*_meta_*.csv')
+
+	from cc_src.geneset import get_deconvolved_geneset
+
+	geneset = get_deconvolved_geneset()[['gene']].copy()
+	geneset['ptr'] = None
+
+	for filepath in file_paths:
+		row = pd.read_csv(filepath).iloc[0]
+		ptr = row.ptr
+		orf_name = row['Unnamed: 0']
+		geneset.loc[orf_name, 'ptr'] = ptr
+	return geneset
