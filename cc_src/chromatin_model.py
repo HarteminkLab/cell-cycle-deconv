@@ -639,25 +639,12 @@ class ChromatinModel:
 
 	def compute_ptr(self, quantiles=[0.2, 0.8]):
 
-		# ------- Reshape f ---------
-
-		f = self.deconvolved_f()
-
-		shape = self.deconv_hist_unflattened[0].shape
-		reshaped_f = f.reshape((-1, shape[0], shape[1]))
-
 		# -------- Compute the PTR ---------
 
-		from cc_src.peak_to_trough import compute_ptr
+		f = self.deconvolved_f()
+		from cc_src.peak_to_trough import compute_ptr, compute_ptr_f
 
-		shape = self.deconv_hist_unflattened[0].shape
-		reshaped_f = f.reshape(-1, shape[0], shape[1])
-
-		f_ptrs = np.zeros(f.shape[1])
-		for i in range(f.shape[1]):
-			cptr, dpt, ptr = compute_ptr(self.config, f[:, i], quantiles[0], quantiles[1])
-			f_ptrs[i] = ptr
-
+		f_ptrs = compute_ptr_f(self.config, f)
 		self.f_ptrs = f_ptrs
 
 		# ------- Compute ranks (highest ptr bin ranks) ------------

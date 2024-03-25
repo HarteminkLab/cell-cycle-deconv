@@ -267,6 +267,6 @@ def load_chromatin_model_from_disk(gene_name, chromatin_dir):
 
 	chromatin_model.solver.rn = meta_data.rn
 	chromatin_model.solver.sn = meta_data.sn
-	# chromatin_model.solver.gamma.value = meta_data.gm
+	chromatin_model.solver.gamma.value = meta_data.gm
 
 	return chromatin_model
