@@ -75,8 +75,7 @@ class ChromatinModel:
 
 			if log:
 				print_fl(f"Loading chromosome reads: {self.gene.chr}")
-			self.chr_reads = pd.read_hdf(f'output/mnase/yl_rep{replicate}_mnase_reads/yl_rep{replicate}_mnase_reads_chr{self.gene.chr}.h5', 
-										 'mnase_data')
+			self.chr_reads = read_chromosome_mnase_reads(replicate, self.gene.chr)
 			self.chr = self.gene.chr
 		else:
 
@@ -950,7 +949,7 @@ def load_chromatin_model_from_disk(gene_name, chromatin_dir):
 	return chromatin_model
 
 
-# f = chromatin_model.deconvolved_f()
-# f_sums = np.sum(f, axis=1)
-# plt.plot(f_sums)
-# plt.ylim(0, 500)
+def read_chromosome_mnase_reads(replicate, chr):
+	chr_reads = pd.read_hdf(f'output/mnase/yl_rep{replicate}_mnase_reads/yl_rep{replicate}_mnase_reads_chr{chr}.h5', 
+							 'mnase_data')
+	return chr_reads
