@@ -10,7 +10,11 @@ MAX_RUNS = 10
 
 def calcH(model_intervals, timepoints):
     parameters, relations, initial_timepoints, top_timepoints, bottom_timepoints, _ = model_intervals
-    mu0, lambda_val, delta, sigma0, sigmav, alpha, beta, halted = parameters
+
+    if len(parameters) == 8:
+        mu0, lambda_val, delta, sigma0, sigmav, alpha, beta, halted = parameters
+    else:
+        mu0, lambda_val, delta, sigma0, sigmav, alpha, beta, gamma1, gamma2, halted = parameters
 
     initial_partial_H = [np.zeros((len(timepoints), len(lst)-1)) for lst in initial_timepoints]
     top_partial_H = [np.zeros((len(timepoints), len(lst)-1)) for lst in top_timepoints]
@@ -41,6 +45,7 @@ def calcH(model_intervals, timepoints):
         # For the top timepoint, we will be computing the cdf
         # to compute the mass for each timepoint interval
         # i.e.   CG1, and postG1
+        # this is for the first cohort and cell cycle {0, 0}
         for runs in range(1, MAX_RUNS + 1):
 
             # Enumerate through the timepoints for each subinterval belonging to the to top timepoints
@@ -50,11 +55,12 @@ def calcH(model_intervals, timepoints):
                 cdf = norm.cdf(tp + runs * lambda_val, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
                 top_partial_H[idx][i, :] += np.diff(cdf) * frac_init
 
-                
-        # Now we will do the same for the top and bottom, with the distinction...
+        # This computes the cohorts for the other cohorts {1+, 1+}
+        # For the top and bottom branches
         for r in range(1, MAX_RUNS + 1):
             for g in range(1, r + 1):
 
+                # How much mass is there for the current cohort
                 frac_rest = Mgr(mu0, sigma0, sigmav, delta, lambda_val, t, g, r, alpha) / Q
 
                 if frac_rest > 1e-10:
@@ -70,7 +76,8 @@ def calcH(model_intervals, timepoints):
                             top_partial_H[idx][i, :] += np.diff(portion) * frac_rest
 
                     for idx, tp in enumerate(bottom_timepoints):
-                        cdf = norm.cdf(tp + r * lambda_val + g * delta, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
+                        cdf = norm.cdf(tp + r * lambda_val + g * delta, loc=t-mu0, 
+                            scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
                         portion = cdf * 0 if trun_denom == 0 else (cdf - trun_cdf) / trun_denom
                         bottom_partial_H[idx][i, :] += np.diff(portion) * frac_rest
 
@@ -124,7 +131,8 @@ def calcH(model_intervals, timepoints):
 
 def Qr(mu0, sigma0, sigmav, delta, lambda_val, t, r, alpha):
     """
-    I believe this returns the mass of cells at a given time and reproductive instance. Seemingly starting with a mass
+    I believe this returns the mass of cells at a given time and reproductive instance. 
+    Seemingly starting with a mass
     of 1000
     """
     if r == 0:
@@ -134,7 +142,8 @@ def Qr(mu0, sigma0, sigmav, delta, lambda_val, t, r, alpha):
         # For each of the reproductive instances r, compute the amount of mass that will contribute
         N = 0
         for i in range(r):
-            normval = 1 - norm.cdf(r * lambda_val + i * delta - alpha, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
+            normval = 1 - norm.cdf(r * lambda_val + i * delta - alpha, loc=t-mu0, 
+                scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
             N += normval * START * comb(r-1, i)
 
         return N
@@ -150,7 +159,8 @@ def Mgr(mu0, sigma0, sigmav, delta, lambda_val, t, g, r, alpha):
         if r < g:
             return 0
         else:
-            normval = 1 - norm.cdf(r * lambda_val + (g-1) * delta - alpha, loc=t-mu0, scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
+            normval = 1 - norm.cdf(r * lambda_val + (g-1) * delta - alpha, loc=t-mu0, 
+                scale=np.sqrt(sigma0**2 + t**2 * sigmav**2))
             return normval * START * comb(r-1, g-1)
     else:
         raise ValueError('g should be greater than or equal to 0.')
@@ -267,8 +277,12 @@ def MakeONFilter(Type, Par):
 
 def get_alive_halted_mass(model_intervals, timepoints):
     
-    parameters, relations, initial_timepoints, top_timepoints, bottom_timepoints, _ = model_intervals
-    mu0, lambda_val, delta, sigma0, sigmav, alpha, beta, halted = parameters
+    parameters, relations, initial_timepoints, \
+    top_timepoints, bottom_timepoints, _ = model_intervals
+    if len(parameters) == 8:
+        mu0, lambda_val, delta, sigma0, sigmav, alpha, beta, halted = parameters
+    else:
+        mu0, lambda_val, delta, sigma0, sigmav, alpha, beta, gamma1, gamma2, halted = parameters
 
     haltedMass = None
     mass_dic = {}

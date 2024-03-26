@@ -173,8 +173,18 @@ class Model:
 		rg1_cols = self.config.phase_columns['RG1']
 		cg1_cols = self.config.phase_columns['CG1']
 		dg1_cols = self.config.phase_columns['DG1']
-		post_g1_cols = self.config.phase_columns['postG1']
+
 		H_cols = np.array([H.shape[1]-1])
+
+		if 'postG1' in self.config.phase_columns:
+			post_g1_cols = self.config.phase_columns['postG1']
+			phases = ['H', 'RG1', 'CG1', 'DG1', 'postG1']
+			cols_list = [H_cols, rg1_cols, cg1_cols, dg1_cols, post_g1_cols]
+		else:
+			s_cols = self.config.phase_columns['S']
+			g2m_cols = self.config.phase_columns['G2M']
+			phases = ['H', 'RG1', 'CG1', 'DG1', 'S', 'G2M']
+			cols_list = [H_cols, rg1_cols, cg1_cols, dg1_cols, s_cols, g2m_cols]
 
 		plt.figure(figsize=(16, 3))
 		plt.subplot(1, 2, 1)
@@ -184,13 +194,9 @@ class Model:
 				  extent=[0, H.shape[1], self.config.WT1_TIMEPOINTS[-1], 0])
 
 		plt.subplot(1, 2, 2)
-		H = self.H
-		H.shape
 
 		x = self.config.WT1_TIMEPOINTS
 
-		phases = ['H', 'RG1', 'CG1', 'DG1', 'postG1']
-		cols_list = [H_cols, rg1_cols, cg1_cols, dg1_cols, post_g1_cols]
 
 		prev = np.zeros(len(x))
 			
@@ -375,7 +381,7 @@ def color_for_key(key):
 		 "postG1": np.array([223, 192, 158])/255.,
 
 		 "S": np.array([200, 192, 158])/255.,
-		 "G2": np.array([223, 172, 158])/255.,
+		 "G2M": np.array([223, 172, 158])/255.,
 
 		 "H": np.array([100, 100, 100])/255.
 	}

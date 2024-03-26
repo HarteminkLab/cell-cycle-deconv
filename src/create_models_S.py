@@ -3,6 +3,12 @@ import numpy as np
 import pandas as pd
 
 
+# This is a duplicate of the create_models.py class, but includes the S phase
+# Currently this is class is only for analysis and determining where S phase lies in the model
+# and for computing how we should normalize the raw data
+# (We need S phase to estimate the total DNA copy number)
+
+
 # Via Xin, beta is when the bud first appears in the bud flow model per the Orlando paper
 # Because we are using Flow only, we do not have a beta value. So we refer to the previously reported beta value
 # This is to describe the timepoint offsets between CG1/DG1 and PostG1
@@ -17,7 +23,8 @@ class ModelCreation:
 
 		self.Rname = "RG1"
 		self.CG1_intervals = "t 0"
-		self.PG1_intervals = "i 1 t 1 b 1"
+		self.S_intervals = "i 1 t 1 b 1"
+		self.G2M_intervals = "i 2 t 2 b 2"
 
 		self.output_model_path = output_model_path
 		self.posteriors_filepath = posteriors_filepath
@@ -36,32 +43,14 @@ class ModelCreation:
 
 	def create_model_rg1_model(self):
 		"""
-
 		The RG1 model modeled after the original 1.2.1 model in the deconvolution code
-
-		# ------------------
-		# 1.2.1 MODEL (ALL_DIFF_G1, ibt)
-		# ------------------ 
-		my ($diff_g1_rg1, $diff_g1_cg1, $diff_g1_dg1, $diff_g1_postg1) = (192, 64, 192, 64);
-		print OUT <<DIFF_G1;
-				"1.2.1":{
-					"RG1":[{"i":["-mu0","lambda*beta","$diff_g1_rg1"]}],
-					"CG1":[{"t":["-alpha","lambda*beta","$diff_g1_cg1"]}],
-					"DG1":[{"b":["-delta-alpha","lambda*beta","$diff_g1_dg1"]}],
-					"postG1":[{"t":["lambda*beta","-alpha+lambda","$diff_g1_postg1"]},
-						{"b":["lambda*beta","-alpha+lambda","$diff_g1_postg1"]},
-						{"i":["lambda*beta","-alpha+lambda","$diff_g1_postg1"]}]
-				},
-		DIFF_G1
 		"""
 
 		params = read_cloccs_posteriors(self.posteriors_filepath)
-		mu0, lambd, delta, sigma0, sigmav, halted = (params['mu0'], params['lambda'], 
+		mu0, lambd, delta, sigma0, sigmav, gamma1, gamma2, halted = (params['mu0'], params['lambda'], 
 											 params['delta'], params['sigma0'], params['sigmav'],
+											 params['gamma1'], params['gamma2'],
 											 params['halted'])
-
-		gamma1 = params['gamma1']
-		gamma2 = params['gamma2']
 
 		# Time between mother and daughter separation, previously 26/27 from xin.
 		alpha = self.alpha
@@ -70,25 +59,30 @@ class ModelCreation:
 		# we do not have beta, but we will instead use the average between gamma1 and gamma2 to estimate
 		# the S phase position
 
-		#beta = (gamma1 + gamma2)/2.0
 		beta = BETA_DEFAULT
 
-		#position_of_s = beta*lambd
-		position_of_s = gamma1*lambd
+		start_of_s = gamma1*lambd
+		end_of_s = gamma2*lambd
 
-		ret_params = mu0, lambd, delta, sigma0, sigmav, alpha, beta, halted
+		ret_params = mu0, lambd, delta, sigma0, sigmav, alpha, beta, gamma1, gamma2, halted
 		model_dic = {
 
 			"RG1": [
-				{"i":[mu0, position_of_s, 49]}],
+				{"i":[mu0, start_of_s, 49]}],
 			"CG1":[
-				{"t":[-alpha, position_of_s, 49]}],
+				{"t":[-alpha, start_of_s, 49]}],
 			"DG1":[
-				{"b":[-delta-alpha, position_of_s, 49]}],
-			"postG1":[
-				{"t":[position_of_s, lambd-alpha, 79]},
-				{"i":[position_of_s, lambd-alpha, 79]},
-				{"b":[position_of_s, lambd-alpha, 79]}],
+				{"b":[-delta-alpha, start_of_s, 49]}],
+
+			"S":[
+				{"i":[start_of_s, end_of_s, 49]},
+				{"t":[start_of_s, end_of_s, 49]},
+				{"b":[start_of_s, end_of_s, 49]}],
+
+			"G2M":[
+				{"t":[end_of_s, lambd-alpha, 79]},
+				{"i":[end_of_s, lambd-alpha, 79]},
+				{"b":[end_of_s, lambd-alpha, 79]}],
 			}
 
 		return ret_params, model_dic
@@ -96,7 +90,7 @@ class ModelCreation:
 
 	def get_sub_interval_str(self):
 		model = self.model_dic
-		subnames = ['R', 'RG1', 'CG1', 'DG1', 'postG1']
+		subnames = ['R', 'RG1', 'CG1', 'DG1', 'S', 'G2M']
 		branches = ['i', 't', 'b']
 
 		intervals_str = ""
@@ -120,9 +114,11 @@ class ModelCreation:
 
 		Rname = self.Rname
 		CG1_intervals = self.CG1_intervals
-		PG1_intervals = self.PG1_intervals
+		S_intervals = self.S_intervals
+		G2M_intervals = self.G2M_intervals
 
-		mu0, lambd, delta, sigma0, sigmav, alpha, beta, halted = self.params
+		mu0, lambd, delta, sigma0, sigmav, alpha, \
+			beta, gamma1, gamma2, halted = self.params
 		intervals = self.get_sub_interval_str()
 
 		ret_str = """# lengths
@@ -133,14 +129,19 @@ sigma0 %f
 sigmav %f
 alpha %f
 beta %f
+gamma1 %f
+gamma2 %f
 halted %f
 # description
 %s i 0
 CG1 %s
 DG1 b 0
-postG1 %s
-%s""" % (-mu0, lambd, delta, sigma0, sigmav, alpha, beta, halted,
-			 Rname, CG1_intervals, PG1_intervals, intervals)
+S %s
+G2M %s
+%s""" % (-mu0, lambd, delta, sigma0, sigmav, alpha, beta, 
+		 gamma1, gamma2, halted,
+			 Rname, CG1_intervals, S_intervals, 
+			 G2M_intervals, intervals)
 
 		return ret_str
 
