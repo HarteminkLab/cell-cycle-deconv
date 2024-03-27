@@ -18,7 +18,7 @@ class LikeCalculator:
 		This will give us the expected DNA content at each experimental timepoint.
 	"""
 
-	def __init__(self):
+	def __init__(self, config):
 
 		# Replicate 2 posteriors
 		self.mu0 = -20.1510
@@ -34,6 +34,8 @@ class LikeCalculator:
 		self.sigmaa2 = 0.0156
 		self.mut = -2.4831
 		self.sigmat = 0.0755
+		self.timepoints = config.WT1_TIMEPOINTS
+
 
 	def get_cohort_cell_cycle_state_probabilities(self, logflo, g, r, 
 			cell_cycle_time, log_fluorescence_time, timer):
@@ -55,8 +57,8 @@ class LikeCalculator:
 		mut = self.mut
 		sigmat = self.sigmat
 
-		a1 = mua1
-		a2 = mua2
+		a1 = 1
+		a2 = 1
 
 
 		# Convert negative precision value of mut to
@@ -161,6 +163,95 @@ class LikeCalculator:
 		cohort_probs[2] = istarG2M * choose_val
 
 		return cohort_probs
+
+	def compute_dna_content_s(self, time, g, r, c):
+		"""Compute the expected dna content for S-phase cells. This uses the proportion
+		through the S-phase and linearly interpolates between 1 and 2 given the cohort and
+		cell cycle"""
+
+		from scipy.stats import norm
+
+		mu0 = self.mu0
+		delta = self.delta
+		sigma0 = self.sigma0
+		sigmav = self.sigmav
+		lambda_val = self.lambda_val
+		gamma1 = self.gamma1
+		gamma2 = self.gamma2
+
+		mean_g, sd_g = self.get_position_distribution_parameters(g, r, time)
+
+		start_g1 = c*lambda_val
+		start_s = (c + gamma1) * lambda_val
+		end_s = (c + gamma2) * lambda_val
+		end_g2m = (c + 1) * lambda_val
+
+		choose_r, choose_g = max(r, 1), max(g, 1)
+		choose_val = math.comb(choose_r - 1, choose_g - 1)
+
+		# ------------- S -----------------------------------
+
+		prop_through_s = (mean_g - start_s) / (end_s - start_s)
+		prop_through_s = min(max(prop_through_s, 0), 1.)
+
+		s_dna_content = 1 + prop_through_s
+		s_dna_content = min(2, s_dna_content)
+		s_dna_content = max(1, s_dna_content)
+
+		mass_s = (norm.cdf(end_s, mean_g, sd_g) -
+	    	norm.cdf(start_s, mean_g, sd_g));
+
+		# ------------- G1 ----------------------------------
+
+		rg1_mass = 0
+		cg1_mass = 0
+		dg1_mass = 0
+
+		if c == 0:
+			rg1_mass = norm.cdf(start_s, mean_g, sd_g)
+
+		else:
+
+			if (g == 0):
+				cg1_mass = (norm.cdf(start_s, mean_g, sd_g) 
+						  - norm.cdf(start_g1, mean_g, sd_g));
+			else:
+				dg1_mass = (norm.cdf(start_s, mean_g, sd_g) 
+						  - norm.cdf(start_g1, mean_g, sd_g));
+
+		s_prob_dna = s_dna_content*mass_s*choose_val
+
+		return s_dna_content
+
+	def create_estimated_flow_fit(self):
+
+		timepoints = self.timepoints
+
+		flow_vals = np.linspace(0, 3, 20)
+		self.flow_vals = flow_vals
+
+		estimated_flow_data = np.zeros((len(timepoints), len(flow_vals)))
+
+		MAX_GENERATIONS = 3
+
+		for j in range(len(timepoints)):
+			time = timepoints[j]
+			for i in range(len(flow_vals)):
+				flow_val = flow_vals[i]
+				for r in range(0, MAX_GENERATIONS + 1):
+					for g in range(0, r + 1):
+						cohort_probs = self.get_cohort_cell_cycle_state_probabilities(flow_val, 
+							g, r, time, time, None)
+						estimated_flow_data[j, i] += cohort_probs.sum()
+		self.estimated_flow_data = estimated_flow_data
+
+	def plot_estimated_flow_fit(self):
+
+		from matplotlib import pyplot as plt
+		fig = plt.figure(figsize=(4, 2))
+		plt.imshow(self.estimated_flow_data, origin='lower', aspect='auto', 
+		          extent=[self.flow_vals[0], self.flow_vals[-1],
+		                 0, self.timepoints[-1]])
 
 	def get_position_distribution_parameters(self, g, r, cc_time):
 

@@ -166,9 +166,10 @@ class Model:
 		return fig
 
 
-	def plot_H(self):
+	def plot_H(self, H=None):
 
-		H = self.H
+		if H is None:
+			H = self.H
 
 		rg1_cols = self.config.phase_columns['RG1']
 		cg1_cols = self.config.phase_columns['CG1']
@@ -190,7 +191,7 @@ class Model:
 		plt.subplot(1, 2, 1)
 		
 
-		plt.imshow(H, vmax=0.01, aspect='auto', cmap='Reds',
+		plt.imshow(H, vmax=50., aspect='auto', cmap='Reds',
 				  extent=[0, H.shape[1], self.config.WT1_TIMEPOINTS[-1], 0])
 
 		plt.subplot(1, 2, 2)
