@@ -20,5 +20,10 @@ class Timer:
         hours, rem = divmod(self.elapsed_time, 3600)
         minutes, seconds = divmod(rem, 60)
 
-        return("{:0>2}:{:0>2}:{:05.2f}".format(int(hours),int(minutes),seconds))
+        return("{:0>2}:{:0>2}:{:06.3f}".format(int(hours),int(minutes),seconds))
 
+    def print_time(self, str=None):
+        if str is None:
+            print(f"{self.get_time()}")
+        else:
+            print(f"{str} - {self.get_time()}")
