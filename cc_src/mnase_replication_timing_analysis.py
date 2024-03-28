@@ -19,9 +19,6 @@ class MNaseOriginAnalysis:
 		self.chromosome = chromosome
 		self.mnase_reads = read_chromosome_mnase_reads(replicate, chromosome)
 		self.timepoints = self.mnase_reads['sample'].unique()
-
-		print(self.timepoints)
-
 		self.chrom_len = get_chromosome_length(self.chromosome)
 
 		# Compute read counts
@@ -71,25 +68,8 @@ class MNaseOriginAnalysis:
 		counts_normalized_by_copy = self.all_window_counts.copy()
 		counts_normalized_equal = self.all_window_counts.copy()
 
-		if self.replicate == 2:
-
-			# Computed from the 00_Plot_H_Growth_Curves notebook
-			# Estimates the sample size by expected occupancy count for G1, S, G2M at each timepoint
-
-			# Normalized with mass scaling and dna content
-			# norm_scale_vals = np.array([1.        , 1.05373696, 1.17750614, 1.35511446, 1.54620776,
-			# 	   1.73200968, 1.88853892, 2.05493022, 2.30677725, 2.64861854,
-			# 	   3.0239524 , 3.38152438, 3.72040055, 4.09746831, 4.57313829])
-
-
-			# Normalized without mass
-			norm_scale_vals = np.array([1.        , 1.05373365, 1.1772379 , 1.34687222, 1.45824708,
-				   1.38450379, 1.21878375, 1.14307137, 1.19364682, 1.31193423,
-				   1.39543665, 1.38009267, 1.31063579, 1.26561563, 1.2737374 ])
-
-
-		else:
-			raise ValueError("Unimplemented.")
+		norm_scale_vals = pd.read_csv(f'datasets/computed_mnase/dna_copy_scaling_rep{self.replicate}.csv')
+		norm_scale_vals = norm_scale_vals['scale'].values
 
 		for i in range(len(norm_scale_vals)):
 
@@ -156,7 +136,7 @@ class MNaseOriginAnalysis:
 		else:
 			data = self.counts_normalized_equal
 
-		plt.imshow(data, aspect='auto', origin='lower',
+		plt.imshow(data, aspect='auto', origin='lower', cmap='magma',
 				  extent=[0, self.chrom_len, -5, timepoints[-1]+5])
 
 		plt.yticks(timepoints)
@@ -181,7 +161,6 @@ class MNaseOriginAnalysis:
 		k = len(time_indices)
 		max_color_scale = 0.7
 		min_color_scale = 0.3
-
 
 		if plot_norm_by_copy:
 			data = self.counts_normalized_by_copy
@@ -222,14 +201,16 @@ class MNaseOriginAnalysis:
 		else:
 			data = self.counts_normalized_equal
 
+		cmap = plt.get_cmap('inferno_r')
+		i = 0
 		for bin_num in selected_bins:
+			color = cmap(i/len(selected_bins)*0.75 + 0.25)
 			plt.plot(self.timepoints, data[:, bin_num], 
-				label=f"Bin {bin_num*self.step//1000}K")
+				label=f"Bin {bin_num*self.step//1000}K", color=color)
+			i += 1
 
-		plt.axvline(self.end_of_first_lambd, c='black', lw=1,
+		plt.axvline(self.end_of_first_lambd, c='black', linestyle='dashed', lw=1,
 					label="End of first cell cycle", zorder=0)
-		plt.axhline(2, c='black', lw=1, ls='dotted', zorder=0)
-		plt.axhline(1, c='black', lw=1, ls='dotted', zorder=0)
 		plt.legend()
 
 		plt.xlabel("Occupancy")
@@ -238,7 +219,7 @@ class MNaseOriginAnalysis:
 		plt.title("Bin occupancy over time", pad=10)
 
 
-	def get_replication_timing(self, thresh_prop=0.75, sel_timepoints=None):
+	def get_replication_timing(self, thresh_prop=0.75, sel_timepoints=None, plot=True):
 
 		occupancy_counts = self.counts_normalized_by_copy.copy()
 		timepoints = self.timepoints
@@ -260,7 +241,34 @@ class MNaseOriginAnalysis:
 		exceeds_threshold = occupancy_counts > thresholds
 		replication_timing_idx = np.argmax(exceeds_threshold, axis=0)
 
-		self.replication_timepoints = timepoints[replication_timing_idx]
+		replication_timepoints = timepoints[replication_timing_idx]
+		return replication_timepoints
+
+
+	def get_timing_profiles(self):
+
+		# First and second cell cycle timing profiles
+		self.first_profile = self.get_replication_timing(thresh_prop=0.9)
+		second_cell_cycle_tps = self.timepoints[self.timepoints > self.end_of_first_lambd] 
+		self.second_profile = self.get_replication_timing(thresh_prop=0.9, 
+			sel_timepoints=second_cell_cycle_tps)
+
+		plt.figure(figsize=(13, 6))
+
+		plt.imshow(self.counts_normalized_by_copy, origin='lower', aspect='auto',
+				   cmap='magma',
+				   extent=[0, self.chrom_len,
+						  -5, self.timepoints[-1]+5])
+
+		plt.plot(self.start_indices+self.window_size/2., 
+			self.first_profile, c='white')
+
+		plt.plot(self.start_indices+self.window_size/2., 
+			self.second_profile, c='white')
+
+		plt.title(f"Replicate {self.replicate}, chr{self.chromosome}, replication timing profile", fontsize=23,
+			pad=10)
+
 
 
 def sliding_window_approach(data, window_size, step):
