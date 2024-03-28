@@ -84,8 +84,8 @@ class MNaseOriginAnalysis:
 
 			# Normalized without mass
 			norm_scale_vals = np.array([1.        , 1.05373365, 1.1772379 , 1.34687222, 1.45824708,
-			       1.38450379, 1.21878375, 1.14307137, 1.19364682, 1.31193423,
-			       1.39543665, 1.38009267, 1.31063579, 1.26561563, 1.2737374 ])
+				   1.38450379, 1.21878375, 1.14307137, 1.19364682, 1.31193423,
+				   1.39543665, 1.38009267, 1.31063579, 1.26561563, 1.2737374 ])
 
 
 		else:
@@ -236,6 +236,31 @@ class MNaseOriginAnalysis:
 		plt.ylabel("Time, minutes")
 
 		plt.title("Bin occupancy over time", pad=10)
+
+
+	def get_replication_timing(self, thresh_prop=0.75, sel_timepoints=None):
+
+		occupancy_counts = self.counts_normalized_by_copy.copy()
+		timepoints = self.timepoints
+
+		# Select subset of the rows for the timepoints we are interesed in
+		if sel_timepoints is not None:
+			sel_indices = np.nonzero(np.isin(timepoints, sel_timepoints))[0]
+			occupancy_counts = occupancy_counts[sel_indices, :]
+			timepoints = sel_timepoints
+
+		# Threshold for determining when a bin has replicated
+		min_values = occupancy_counts.min(axis=0)
+		max_values = occupancy_counts.max(axis=0)
+
+		# When the occupancy of a the bin reaches the threshold
+		# we will consider the location replicated
+		thresholds = min_values + (max_values - min_values) * thresh_prop
+
+		exceeds_threshold = occupancy_counts > thresholds
+		replication_timing_idx = np.argmax(exceeds_threshold, axis=0)
+
+		self.replication_timepoints = timepoints[replication_timing_idx]
 
 
 def sliding_window_approach(data, window_size, step):
