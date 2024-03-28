@@ -109,6 +109,7 @@ class ChromatinModel:
 		# This will work for the single replicate model
 		timepoints = self.chr_reads['sample'].unique()
 		self.timepoints = timepoints
+		self.config.WT1_TIMEPOINTS = self.timepoints
 
 		
 	def compute_bin_counts_sample(self, sample, x_bins, y_bins):
@@ -587,7 +588,7 @@ class ChromatinModel:
 
 		return pos_max
 
-	def	setup_deconv_model(self, gamma_prime=0):
+	def	setup_deconv_model(self):
 		"""Set up the deconvolution model from the config, the model class was originally for gene expression
 		but has built-in functions that will be useful for chromatin deconvolution
 
@@ -611,6 +612,8 @@ class ChromatinModel:
 		# we need to recalculate H with the chromatin number of timepoints
 		self.deconv_model.H, self.deconv_model.Hpos = calcH(self.config.intervals_wt1, self.timepoints)
 
+	def setup_solver(self, gamma_prime=0):
+
 		image_shape = self.deconv_hist_unflattened.shape[1:]
 		self.gamma_prime = gamma_prime
 		self.solver = ChromatinDeconvolveSolver(self.deconv_model, self.deconv_model.H, self.G, 
@@ -626,7 +629,8 @@ class ChromatinModel:
 		"""
 
 		timer = Timer()
-		self.setup_deconv_model(gamma_prime)
+		self.setup_deconv_model()
+		self.setup_solver(gamma_prime)
 
 		print_fl(f"Deconvolving with gamma={self.gamma}, gamma_prime={self.gamma_prime}")
 
@@ -671,7 +675,8 @@ class ChromatinModel:
 		timer = Timer()
 
 		# Let's stick to no spatial smoothing for now
-		self.setup_deconv_model(gamma_prime=0)
+		self.setup_deconv_model()
+		self.setup_solver()
 		self.find_gamma_chromatin = FindOptimalGammaChromatin(self.solver)
 		self.found_optimal_success = self.find_gamma_chromatin.find_optimal(silence=False)
 		self.gamma = self.find_gamma_chromatin.gamma
@@ -952,4 +957,5 @@ def load_chromatin_model_from_disk(gene_name, chromatin_dir):
 def read_chromosome_mnase_reads(replicate, chr):
 	chr_reads = pd.read_hdf(f'output/mnase/yl_rep{replicate}_mnase_reads/yl_rep{replicate}_mnase_reads_chr{chr}.h5', 
 							 'mnase_data')
+
 	return chr_reads

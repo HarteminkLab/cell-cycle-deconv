@@ -189,15 +189,13 @@ class Model:
 
 		plt.figure(figsize=(16, 3))
 		plt.subplot(1, 2, 1)
-		
 
-		plt.imshow(H, vmax=50., aspect='auto', cmap='Reds',
+		plt.imshow(H, vmax=H[:, :-1].max(), aspect='auto', cmap='Reds',
 				  extent=[0, H.shape[1], self.config.WT1_TIMEPOINTS[-1], 0])
 
 		plt.subplot(1, 2, 2)
 
 		x = self.config.WT1_TIMEPOINTS
-
 
 		prev = np.zeros(len(x))
 			
@@ -210,9 +208,10 @@ class Model:
 
 			y = prev+H[:, cols].sum(axis=1)
 
-			plt.fill_between(x, prev, y, color=color)
+			plt.fill_between(x, prev, y, color=color, label=phase)
 			
 			prev = y
+		plt.legend()
 
 
 	def plot_deconvolved_f(self, f, g, g1, predicted_g1, g2=None, predicted_g2=None, abbreviated=False):

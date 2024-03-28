@@ -20,7 +20,7 @@ START = 1000
 # Maximum number of cell cycle "runs"
 MAX_RUNS = 10
 
-def calcH_unnormalized(model_intervals, timepoints):
+def calcH_unnormalized(model_intervals, timepoints, normalize_mass=True, est_dna_content_mul=False):
 	parameters, relations, initial_timepoints, top_timepoints, bottom_timepoints, _ = model_intervals
 
 	if len(parameters) == 8:
@@ -118,26 +118,37 @@ def calcH_unnormalized(model_intervals, timepoints):
 		Hpos[i] = [cur_start, cur_end]
 		cur_start = cur_end
 
+	# Scale the final matrix such that each row has an equal sum
+	for i in range(H.shape[0]):
+		w = np.sum(H[i, :])
+		H[i, :] = H[i, :] / w
+
 	# compute the expected alive and halted mass at each timepoint
 	mass_dic = get_alive_halted_mass(model_intervals, timepoints)
 	H_w_halted = np.zeros((H.shape[0], H.shape[1]+1))
-	H_w_halted = H
 
-	# Normalize the matrix to sum to 1.
-	H_w_halted = H_w_halted / H_w_halted.sum(axis=1).reshape((H_w_halted.shape[0], 1))
-
-	# Multiply the expected alive and halted cells such that the 
-	# Halted curves will represent expected growth.
 	for i in range(len(timepoints)):
 		time = timepoints[i]
 		halted, alive, total = mass_dic[time]
 
+		denom = total if normalize_mass else 1
+
 		# Adjust the H matrix for the alive cells
 		# columns up to the last column
-		H_w_halted[i, :-1] = H_w_halted[i, :-1]*alive
+		H_w_halted[i, :-1] = H[i, :]*(alive/denom)
 
 		# Add the halted cells proportion as the last column
-		H_w_halted[i, -1] = halted
+		H_w_halted[i, -1] = halted/denom
+
+
+	# todo: Currently indices 2 and 3 are S and G2M
+	s_indices = Hpos[3]
+	g2m_indices = Hpos[4]
+
+	if est_dna_content_mul:
+
+		H_w_halted[:, s_indices[0]:s_indices[1]] *= 1.5
+		H_w_halted[:, g2m_indices[0]:g2m_indices[1]] *= 2.
 
 	return H_w_halted, Hpos
 	
@@ -147,6 +158,9 @@ def Qr(mu0, sigma0, sigmav, delta, lambda_val, t, r, alpha):
 	I believe this returns the mass of cells at a given time and reproductive instance. 
 	Seemingly starting with a mass
 	of 1000
+
+	Although r as reproductive instance is a bit odd considering there is no g. So it could
+	be r is the cell cycle.
 	"""
 	if r == 0:
 		return START

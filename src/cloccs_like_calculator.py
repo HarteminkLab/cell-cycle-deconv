@@ -20,6 +20,7 @@ class LikeCalculator:
 
 	def __init__(self, config):
 
+
 		# Replicate 2 posteriors
 		self.mu0 = -20.1510
 		self.delta = 10.8953

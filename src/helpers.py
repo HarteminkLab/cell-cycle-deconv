@@ -105,6 +105,7 @@ def calcH(model_intervals, timepoints):
         cur_end = cur_start + cur_len
         Hpos[i] = [cur_start, cur_end]
         cur_start = cur_end
+
     # Scale the final matrix such that each row has an equal sum
     for i in range(H.shape[0]):
         w = np.sum(H[i, :])
