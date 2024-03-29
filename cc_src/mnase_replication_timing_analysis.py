@@ -61,7 +61,7 @@ class MNaseOriginAnalysis:
 		# Generate the start indices for each window
 		self.num_windows = (counts.size - window_size) // step + 1
 		self.start_indices = np.arange(self.num_windows) * step
-		self.window_counts = sliding_window_approach(counts, window_size, step)
+		self.window_counts = compute_sliding_window(counts, window_size, step)
 
 	def normalize_samples(self):
 		"""Normalize by expected DNA content at each time point"""
@@ -271,7 +271,7 @@ class MNaseOriginAnalysis:
 
 
 
-def sliding_window_approach(data, window_size, step):
+def compute_sliding_window(data, window_size, step):
 	# Number of windows
 	n_windows = (len(data) - window_size) // step + 1
 	

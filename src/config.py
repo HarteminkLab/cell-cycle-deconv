@@ -248,6 +248,33 @@ class Config:
 		return branch_indices
 
 
+	def get_branch_phase_mapping(self):
+		"""Get a mapping from branch namem to a list of the phases within the branch. Useful
+		for knowing which index of the timepoints list represents which phase"""
+
+		relations = self.intervals_wt1[1]
+
+		branch_phase_mapping = {
+			'i': [],
+			't': [],
+			'b': [],
+		}
+
+		for phase_list in relations:
+			phase = phase_list[0]
+			index_pairs = phase_list[1:]
+			
+			for index_ind in range(0, len(index_pairs), 2):
+				branch = index_pairs[index_ind]
+				tp_index = index_pairs[index_ind+1]
+				
+				cur_map = branch_phase_mapping[branch]
+				cur_map.append(phase)
+
+				branch_phase_mapping[branch] = cur_map
+		return branch_phase_mapping
+
+
 	def get_Hpositions_for_branch(self, branch):
 		rg1_indices = self.get_timepoints_phases_Hpositions_for_branch('i')[0][2]
 		cg1_indices = self.get_timepoints_phases_Hpositions_for_branch('t')[0][2]
@@ -360,13 +387,13 @@ def load_combined_yl_alpha_vst_gene_expression_config(alphas=[28, 22]):
 
 
 def read_xin_published_wt_data(wildtype):    
-    # Handle columns and rows, second row has clock time, drop alias columns
-    wt1_web_df = pd.read_csv(f'datasets/datasets_from_web_deconvolution.cs.duke.edu/wildtype{wildtype}.tsv', 
-        sep='\t')
-    wt1_web_df.columns = wt1_web_df.iloc[0]
-    wt1_web_df = wt1_web_df.rename(columns={'byClock': 'orf_name'}).set_index('orf_name')
-    wt1_web_df = wt1_web_df[wt1_web_df.columns[3:]]
-    wt1_web_df = wt1_web_df.iloc[1:]
-    return wt1_web_df
+	# Handle columns and rows, second row has clock time, drop alias columns
+	wt1_web_df = pd.read_csv(f'datasets/datasets_from_web_deconvolution.cs.duke.edu/wildtype{wildtype}.tsv', 
+		sep='\t')
+	wt1_web_df.columns = wt1_web_df.iloc[0]
+	wt1_web_df = wt1_web_df.rename(columns={'byClock': 'orf_name'}).set_index('orf_name')
+	wt1_web_df = wt1_web_df[wt1_web_df.columns[3:]]
+	wt1_web_df = wt1_web_df.iloc[1:]
+	return wt1_web_df
 
 

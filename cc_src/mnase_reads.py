@@ -46,3 +46,38 @@ def load_mnase_reads(chrom, replicate):
 	with pd.HDFStore(save_path, complevel=9, complib='zlib') as store:
 		data_retrieved = store[DATA_KEY]
 	return data_retrieved
+
+
+
+def save_gene_chrom_reads(replicate_filenames, replicate):
+
+	from src.timer import Timer
+	from cc_src.read_bam import read_mnase_bam
+
+	# Gene counts for all time points
+	all_fragments = pd.DataFrame()
+	chroms = range(1, 17)
+
+	# Timer initialization
+	timer = Timer()
+	timer.start()
+
+	for chrom in range(1, 17):
+
+		print(f"Creating MNase-seq file for chromosome {chrom}")
+		chrom_reads = pd.DataFrame()
+
+		# Iterate through each bam file/timepoint
+		for timepoint, filename in replicate_filenames:
+
+			print(f"Load MNase-seq for time point {timepoint}, the filepath is: {filename}")
+
+			mnase_reads = read_mnase_bam(filename, sample=timepoint, timer=timer,
+										 chroms=[chrom])
+			chrom_reads = pd.concat([chrom_reads, mnase_reads])
+
+		save_mnase_reads(chrom_reads, chrom, replicate)
+		print(f"\nDone...Elapsed time: {timer.get_time()}")
+
+	print(f"Completed in {timer.get_time()}")
+
