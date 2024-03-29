@@ -80,6 +80,7 @@ class Model:
 		f = cp.Variable(m)
 
 		# There are twice as many t and b indices compared to i
+		# Factor based on time in recovery compared to t and b
 		# so multiply i's smoothing term by 2
 		factor_i = 2
 

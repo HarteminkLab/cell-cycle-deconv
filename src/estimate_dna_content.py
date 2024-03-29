@@ -284,9 +284,11 @@ def compute_dna_content_s(config, tp):
 	else:
 		mu0, lambda_val, delta, sigma0, sigmav, alpha, beta, gamma1, gamma2, halted = parameters	
 
-	c = 0
-	s_start = lambda_val*c + lambda_val*gamma1
-	s_end = lambda_val*c + lambda_val*gamma2
+	# For this function, we are assuming the usage only 
+	# for the columns in H devoted to S phase
+	# which represents the first cell cycle timepoints
+	s_start = lambda_val*gamma1
+	s_end = lambda_val*gamma2
 
 	s_len = s_end - s_start
 

@@ -604,7 +604,6 @@ class ChromatinModel:
 		refactor in the future
 		"""
 		from src.helpers import calcH
-		from src.deconvolve_wavelet_chromatin import ChromatinDeconvolveSolver
 
 		self.deconv_model = Model(self.config, self.orf_name, self.gamma)
 
@@ -613,6 +612,7 @@ class ChromatinModel:
 		self.deconv_model.H, self.deconv_model.Hpos = calcH(self.config.intervals_wt1, self.timepoints)
 
 	def setup_solver(self, gamma_prime=0):
+		from src.deconvolve_wavelet_chromatin import ChromatinDeconvolveSolver
 
 		image_shape = self.deconv_hist_unflattened.shape[1:]
 		self.gamma_prime = gamma_prime

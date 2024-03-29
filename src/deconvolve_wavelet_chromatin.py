@@ -46,8 +46,6 @@ class ChromatinDeconvolveSolver:
 		eps = 1e-5
 		G = G + eps
 
-		self.factor_fb = 2
-
 		f_dg1 = self.deconv_model.config.get_Hpositions_for_phase('DG1')
 		f_rg1 = self.deconv_model.config.get_Hpositions_for_phase('RG1')
 		f_cg1 = self.deconv_model.config.get_Hpositions_for_phase('CG1')
@@ -87,9 +85,8 @@ class ChromatinDeconvolveSolver:
 
 		self.gamma = cvxpy.Parameter(nonneg=True, name='gamma')
 
-		# There are twice as many t and b indices compared to i
-		# so multiply i's smoothing term by 2
-		factor_i = 2
+		# i branch is half the length of t and b
+		self.factor_i = 2
 
 		# The smoothing constraints
 		smooth_f_i_result = W1@f[f_i_mirror]
@@ -135,14 +132,9 @@ class ChromatinDeconvolveSolver:
 			cvxpy.sum(cvxpy.norm(elementwise_result, 'fro')**2)
 
 			# Smoothing along time
-			#+ self.gamma * (cvxpy.sum(cvxpy.abs(smooth_f_it_result)) 
-			#+ self.factor_fb * cvxpy.sum(cvxpy.abs(smooth_f_b_result)))/g_mean  
-
-
-			+ self.gamma * (cvxpy.sum(cvxpy.abs(smooth_f_i_result)) +
+			+ self.gamma * (self.factor_i*cvxpy.sum(cvxpy.abs(smooth_f_i_result)) +
 							cvxpy.sum(cvxpy.abs(smooth_f_t_result)) + 
 							cvxpy.sum(cvxpy.abs(smooth_f_b_result)))/g_mean  
-
 
 			# How much to apply the l1 norm on the coefficient representation
 			# + gamma_prime*l1_norm_on_coeffs
@@ -185,12 +177,13 @@ class ChromatinDeconvolveSolver:
 		f_i = self.deconv_model.config.get_Hpositions_for_branch('i')
 		f_t = self.deconv_model.config.get_Hpositions_for_branch('t')
 
-		f_it = np.concatenate([f_i, f_t])
+		#f_it = np.concatenate([f_i, f_t])
 
 		# We will use the non-mirrored wavelet kernel sizes, because we are operating on the 
 		# final f values
-		W1 = get_wavelet_kernel(len(f_it))
-		W2 = get_wavelet_kernel(len(f_b))
+		W1 = get_wavelet_kernel(len(f_i))
+		W2 = get_wavelet_kernel(len(f_t))
+		W3 = get_wavelet_kernel(len(f_b))
 
 		# Extending the deconvolution a matrix form, 
 		# The norm is computing us the Frobeius norm
@@ -205,10 +198,13 @@ class ChromatinDeconvolveSolver:
 		# computation on a matrix, so we manually take the absolute values
 		# and take the sum.
 		# Normalize by the gene expression level and the size of the grid, m
-		f_it_matmul_res = np.matmul(W1, f[f_it])
-		f_b_matmul_res = np.matmul(W2, f[f_b])
-		sn = (np.sum(np.abs(f_it_matmul_res)) + 
-			self.factor_fb * (np.sum(np.abs(f_b_matmul_res)))) / g_mean / m
+		f_i_matmul_res = np.matmul(W1, f[f_i])
+		f_t_matmul_res = np.matmul(W2, f[f_t])
+		f_b_matmul_res = np.matmul(W3, f[f_b])
+
+		sn = ((self.factor_i * np.sum(np.abs(f_i_matmul_res)) + 
+			   				   np.sum(np.abs(f_t_matmul_res)) + 
+			   				   np.sum(np.abs(f_b_matmul_res))) / g_mean / m)
 
 		l1_norm_on_coeffs = 0
 		# if self.gamma_prime > 0:
