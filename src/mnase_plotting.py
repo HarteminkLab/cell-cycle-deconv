@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import scipy.stats as stats
 import statsmodels.api as sm
-from cc_src.mnase_reads import load_mnase_reads
+from src.mnase_reads import load_mnase_reads
 
 
 class MNasePlotter:

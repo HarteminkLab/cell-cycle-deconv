@@ -6,9 +6,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from cc_src.orf_plotter import ORFAnnotationPlotter
-from cc_src.rna_plotting import RNAPlotter
-from cc_src.mnase_plotting import MNasePlotter
+from src.orf_plotter import ORFAnnotationPlotter
+from src.rna_plotting import RNAPlotter
+from src.mnase_plotting import MNasePlotter
 
 
 class GeneLocusPlotter:
@@ -40,7 +40,7 @@ class GeneLocusPlotter:
 
 	def set_gene(self, gene_name_or_orf_name, normalize_mnase=True):
 
-		from cc_src.sgd import get_orfname
+		from src.sgd import get_orfname
 
 		if gene_name_or_orf_name in self.geneset.index.values:
 			orfname = gene_name_or_orf_name

@@ -40,7 +40,7 @@ def load_plus_ones(replicate=1):
 
 def read_macisaac_sites():
 
-	from cc_src.read_bam import _fromRoman
+	from src.read_bam import _fromRoman
 
 	sites = pd.read_csv('data/reference_data/p005_c2.sacCer3.gff.txt', sep='\t',
 			   names=range(9))

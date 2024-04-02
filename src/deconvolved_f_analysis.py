@@ -5,11 +5,11 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from cc_src.sgd import read_sgd_chromosomes
-from cc_src.mnase_reads import load_mnase_reads
-from cc_src.reference_data import load_plus_ones
-from cc_src.reference_data import load_analysis_genes
-from cc_src.chromatin_metrics import yl_rep2_len_spans
+from src.sgd import read_sgd_chromosomes
+from src.mnase_reads import load_mnase_reads
+from src.reference_data import load_plus_ones
+from src.reference_data import load_analysis_genes
+from src.chromatin_metrics import yl_rep2_len_spans
 
 
 class DeconvolvedChromatinDataAnalysis:

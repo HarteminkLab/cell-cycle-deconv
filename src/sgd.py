@@ -1,6 +1,6 @@
 
 import pandas as pd
-from cc_src.read_bam import _fromRoman
+from src.read_bam import _fromRoman
 
 
 def extract_desc_val(data, key):

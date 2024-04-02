@@ -2,7 +2,7 @@
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
-from cc_src.chromatin_model import read_chromosome_mnase_reads
+from src.chromatin_model import read_chromosome_mnase_reads
 
 
 class MNaseOriginAnalysis:
@@ -13,7 +13,7 @@ class MNaseOriginAnalysis:
 		pass
 
 	def load_mnase_data(self, replicate, chromosome):
-		from cc_src.sgd import get_chromosome_length
+		from src.sgd import get_chromosome_length
 
 		self.replicate = replicate
 		self.chromosome = chromosome
@@ -137,14 +137,15 @@ class MNaseOriginAnalysis:
 			data = self.counts_normalized_equal
 
 		plt.imshow(data, aspect='auto', origin='lower', cmap='magma',
-				  extent=[0, self.chrom_len, -5, timepoints[-1]+5])
+				  extent=[0, self.chrom_len, -5, timepoints[-1]+5], vmax=2., vmin=1.)
+		plt.colorbar()
 
 		plt.yticks(timepoints)
 
-		plt.axhline(self.g1_recovery_would_start_here, c='white', alpha=0.125)
-		plt.axhline(self.first_s_start, c='white', alpha=0.125)
-		plt.axhline(self.first_s_end, c='white', alpha=0.125)
-		plt.axhline(self.end_of_first_lambd, c='white', alpha=0.125)
+		plt.axhline(self.g1_recovery_would_start_here, c='white', alpha=0.5, lw=2, ls='dotted')
+		plt.axhline(self.first_s_start, c='white', alpha=0.5, lw=2, ls='dotted')
+		plt.axhline(self.first_s_end, c='white', alpha=0.5, lw=2, ls='dotted')
+		plt.axhline(self.end_of_first_lambd, c='white', alpha=0.5, lw=2, ls='dotted')
 		plt.title(f"Replicate {self.replicate}, chr{self.chromosome}, mnase-seq normalized samples", 
 			fontsize=24, pad=15)
 		plt.xlabel("Genomic position, nt", fontsize=16)
@@ -211,10 +212,14 @@ class MNaseOriginAnalysis:
 
 		plt.axvline(self.end_of_first_lambd, c='black', linestyle='dashed', lw=1,
 					label="End of first cell cycle", zorder=0)
+		plt.axhline(1, c='black', lw=1, ls='dotted')
+		plt.axhline(2, c='black', lw=1, ls='dotted')
+
 		plt.legend()
 
 		plt.xlabel("Occupancy")
 		plt.ylabel("Time, minutes")
+		plt.ylim(0.8, 2.25)
 
 		plt.title("Bin occupancy over time", pad=10)
 

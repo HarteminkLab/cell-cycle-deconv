@@ -52,7 +52,7 @@ def load_mnase_reads(chrom, replicate):
 def save_gene_chrom_reads(replicate_filenames, replicate):
 
 	from src.timer import Timer
-	from cc_src.read_bam import read_mnase_bam
+	from src.read_bam import read_mnase_bam
 
 	# Gene counts for all time points
 	all_fragments = pd.DataFrame()

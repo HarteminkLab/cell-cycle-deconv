@@ -22,7 +22,7 @@ def plot_H_as_growth_curve(model):
 	plt.figure(figsize=(8, 2))
 	plt.subplot(1, 2, 1)
 	plt.imshow(model.H, aspect='auto', vmax=0.02, cmap='viridis')
-	from cc_src.plot_helpers import plot_H_as_growth_curve
+	from src.plot_helpers import plot_H_as_growth_curve
 
 	plt.subplot(1, 2, 2)
 	tp = model.config.WT1_TIMEPOINTS

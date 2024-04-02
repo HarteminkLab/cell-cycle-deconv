@@ -3,7 +3,7 @@ import glob
 import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
-from cc_src.reference_data import load_spellman_orfs, load_analysis_genes
+from src.reference_data import load_spellman_orfs, load_analysis_genes
 
 
 class PeakToTroughAnalysis:
@@ -14,14 +14,14 @@ class PeakToTroughAnalysis:
 	chromatin that is improved by the deconvolution algorithm.
 	"""
 
-	def __init__(self, chromatin_dir):
+	def __init__(self, ptr_dir):
 		self.geneset = load_analysis_genes()
-		self.chromatin_dir = chromatin_dir
-		self.file_paths = glob.glob(f'{self.chromatin_dir}/*_ptr_*.npy')
+		self.ptr_dir = ptr_dir
+		self.file_paths = glob.glob(f'{self.ptr_dir}/*_ptr_*.npy')
 
 
 		from src.config import load_yl_rg1_vst_config
-		from cc_src.chromatin_model import ChromatinModel
+		from src.chromatin_model import ChromatinModel
 
 		# config and chromatin model to hold the image shape and config information
 		# we may need later, should be consistent across rep1, rep2, and combined models
@@ -47,9 +47,13 @@ class PeakToTroughAnalysis:
 		self.metrics_df = metrics_df
 
 
-	def load_ptr_files(self):
+	def compute_q_vals(self, q_val):
+		q_func = lambda val : np.quantile(val, q=q_val)
+		q_vals = self.summarize_ptrs(q_func)
+		return q_vals
 
-		# Load ptr values
+
+	def load_ptr_files(self):
 
 		# Load the size of a flattened image
 		loaded_ptrs = np.load(self.file_paths[0])
@@ -284,11 +288,6 @@ class PeakToTroughAnalysis:
 		return strand_corrected_ptr_imgs
 
 
-def compute_q_vals(self, q_val):
-	q_func = lambda val : np.quantile(val, q=q_val)
-	q_vals = self.summarize_ptrs(q_func)
-	return q_vals
-
 def add_title_stats(x, y, title):
 	from scipy.stats import pearsonr
 	pearsonr, pval = pearsonr(x, y)
@@ -345,6 +344,8 @@ def plot_comparison_ptr(x, y, highlighted_orfs, xlim, ylim, title, xlabel, ylabe
 	# Main scatter plot
 	ax_main = fig.add_subplot(gs[1:4, 0:3])
 
+	ax_main.plot([0, 2.5], [0, 2.5], lw=1, c='black', ls='dotted')
+
 	# Top histogram (x-axis marginal distribution)
 	ax_x_dist = fig.add_subplot(gs[0, 0:3])
 	ax_y_dist = fig.add_subplot(gs[1:4, 3])
@@ -361,7 +362,7 @@ def plot_comparison_ptr(x, y, highlighted_orfs, xlim, ylim, title, xlabel, ylabe
 
 	# -------------------------------------
 
-	from cc_src.plot_helpers import plot_density
+	from src.plot_helpers import plot_density
 
 	plot_density(x.values, ax_x_dist, bw=bw[0], arange=(0, xlim[1], 0.01), 
 				 color='#ddd', lw=2, fill=True)
@@ -396,7 +397,7 @@ def plot_comparison_ptr(x, y, highlighted_orfs, xlim, ylim, title, xlabel, ylabe
 def create_highlighted_orfs_array(ref_df):
 	"""For the PTR comparison scatter plot, add the annotated orfs from xin and spellman"""
 
-	from cc_src.reference_data import load_xin_1500_cc_orfs, load_spellman_orfs
+	from src.reference_data import load_xin_1500_cc_orfs, load_spellman_orfs
 
 	xin_orfs = load_xin_1500_cc_orfs()
 	spellman_orfs = load_spellman_orfs()
@@ -421,7 +422,7 @@ def create_highlighted_orfs_array(ref_df):
 def load_deconvolved_ge_ptrs(outdir):
 	file_paths = glob.glob(f'{outdir}/*_meta_*.csv')
 
-	from cc_src.geneset import get_deconvolved_geneset
+	from src.geneset import get_deconvolved_geneset
 
 	geneset = get_deconvolved_geneset()[['gene']].copy()
 	geneset['ptr'] = None

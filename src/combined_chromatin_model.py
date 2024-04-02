@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 
-from cc_src.chromatin_model import ChromatinModel
+from src.chromatin_model import ChromatinModel
 from src.deconvolve_wavelet_chromatin import ChromatinDeconvolveSolver
 from src.utils import print_fl
 

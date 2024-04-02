@@ -9,7 +9,7 @@ from src.timer import Timer
 from src.model import Model
 from src.config import load_yl_rg1_vst_config
 from matplotlib import pyplot as plt
-from cc_src.combined_chromatin_model import CombinedChromatinModel
+from src.combined_chromatin_model import CombinedChromatinModel
 
 
 def main():
@@ -36,7 +36,7 @@ def main():
 
 	system_args = tuple(sys.argv)
 
-	from cc_src.geneset import get_deconvolved_geneset
+	from src.geneset import get_deconvolved_geneset
 
 	geneset = get_deconvolved_geneset()
 

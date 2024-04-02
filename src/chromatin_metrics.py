@@ -4,7 +4,7 @@ import pandas as pd
 
 from src.timer import Timer
 from matplotlib import pyplot as plt
-from cc_src.read_bam import read_mnase_bam
+from src.read_bam import read_mnase_bam
 
 
 class ChromatinMetrics:
@@ -158,7 +158,7 @@ class ChromatinMetrics:
 		
 		fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 4))
 		
-		from cc_src.orf_plotter import ORFAnnotationPlotter, plot_rect
+		from src.orf_plotter import ORFAnnotationPlotter, plot_rect
 
 		orf_plotter = ORFAnnotationPlotter(self.geneset)
 		orf_plotter.set_span_chrom(gene_window, 1)

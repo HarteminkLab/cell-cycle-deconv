@@ -3,7 +3,7 @@ from math import comb
 from matplotlib import pyplot as plt
 from scipy.stats import norm
 from src.helpers import calcH, createF, get_wavelet_kernel
-from cc_src.sgd import get_gene_name_orf_name
+from src.sgd import get_gene_name_orf_name
 
 import cvxpy as cp
 import numpy as np
@@ -132,7 +132,7 @@ class Model:
 
 	def compute_ptr(self):
 		"""Compute the peak to trough ratio"""
-		from cc_src.peak_to_trough import compute_ptr
+		from src.peak_to_trough import compute_ptr
 		self.cptr, self.dptr, self.ptr = compute_ptr(self, self.f)
 
 

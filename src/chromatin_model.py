@@ -5,8 +5,8 @@ import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 
-from cc_src.sgd import get_gene_name_orf_name
-from cc_src.mnase_plotting import plot_mnase_density
+from src.sgd import get_gene_name_orf_name
+from src.mnase_plotting import plot_mnase_density
 
 from src.model import Model
 from src.timer import Timer
@@ -49,7 +49,7 @@ class ChromatinModel:
 		self.num_bins_y = (self.max_y_len) // self.bin_height
 
 	def load_deconvolution_results(self, gene_name):
-		from cc_src.sgd import get_gene_name_orf_name, get_gene
+		from src.sgd import get_gene_name_orf_name, get_gene
 		gene = get_gene(gene_name)
 
 	def set_gene(self, gene_or_orfname):
@@ -557,7 +557,7 @@ class ChromatinModel:
 
 		For the currently selected gene
 		"""
-		from cc_src.chromatin_metrics import yl_rep2_len_spans
+		from src.chromatin_metrics import yl_rep2_len_spans
 		small_lens, med_lens, nuc_lens = yl_rep2_len_spans()
 
 		# Next, we will align at the +1
@@ -645,7 +645,7 @@ class ChromatinModel:
 		# -------- Compute the PTR ---------
 
 		f = self.deconvolved_f()
-		from cc_src.peak_to_trough import compute_ptr, compute_ptr_f
+		from src.peak_to_trough import compute_ptr, compute_ptr_f
 
 		f_ptrs = compute_ptr_f(self.config, f)
 		self.f_ptrs = f_ptrs

@@ -187,7 +187,7 @@ class MassCalculator:
 	def plot_subinterval_mass_port(self):
 	  
 		from matplotlib import pyplot as plt
-		from cc_src.plot_helpers import plot_stacked_curves
+		from src.plot_helpers import plot_stacked_curves
 	  
 		sub_mass_df = self.sub_mass_df
 		tp = sub_mass_df.time

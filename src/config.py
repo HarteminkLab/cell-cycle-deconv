@@ -321,7 +321,7 @@ class Config:
 		Note that some of the gene information may note exist (nas).
 		"""
 
-		from cc_src.sgd import read_sgd_genes
+		from src.sgd import read_sgd_genes
 
 		genelist_orfs = pd.DataFrame(self.orf_index_map.items())
 		genelist_orfs.columns = ['orf_name', 'data_idx']

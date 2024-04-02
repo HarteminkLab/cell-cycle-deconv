@@ -3,9 +3,9 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from cc_src.read_bam import get_rna_seq_filepaths_df
-from cc_src.read_bam import read_rna_bam
-from cc_src.sgd import get_chromosome_length
+from src.read_bam import get_rna_seq_filepaths_df
+from src.read_bam import read_rna_bam
+from src.sgd import get_chromosome_length
 
 
 class TranscriptionDataAnalysis:
@@ -44,7 +44,7 @@ class TranscriptionDataAnalysis:
 
 	def calculate_bins(self):
 
-		from cc_src.sgd import get_chromosome_length
+		from src.sgd import get_chromosome_length
 
 		chr_reads = self.chr_reads
 		chrom_length = get_chromosome_length(self.chrom)

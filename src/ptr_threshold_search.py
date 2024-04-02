@@ -4,7 +4,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 
-from cc_src.combined_chromatin_model import load_chromatin_model_from_disk
+from src.combined_chromatin_model import load_chromatin_model_from_disk
 
 
 class PTRThresholdSearch:

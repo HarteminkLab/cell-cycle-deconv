@@ -4,9 +4,9 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 
-from cc_src.mnase_reads import load_mnase_reads
-from cc_src.reference_data import load_analysis_genes
-from cc_src.chromatin_metrics import yl_rep2_len_spans
+from src.mnase_reads import load_mnase_reads
+from src.reference_data import load_analysis_genes
+from src.chromatin_metrics import yl_rep2_len_spans
 
 
 class ChromatinDataAnalysis:
@@ -90,7 +90,7 @@ class ChromatinDataAnalysis:
 
 		small_span, mid_span, nuc_span = yl_rep2_len_spans()
 
-		from cc_src.mnase_reads import filter_reads
+		from src.mnase_reads import filter_reads
 
 		chr_reads = self.chr_reads
 		plus_one = self.gene_plus_ones.loc[gene.name]['+1']

@@ -5,8 +5,8 @@ import pandas as pd
 import numpy as np
 from matplotlib import pyplot as plt
 
-from cc_src.sgd import get_gene_name_orf_name
-from cc_src.mnase_plotting import plot_mnase_density
+from src.sgd import get_gene_name_orf_name
+from src.mnase_plotting import plot_mnase_density
 
 from src.deconvolve_chromatin import deconvolve_chromatin
 from src.model import Model
@@ -53,7 +53,7 @@ class ComputePlusOne:
 
 		For the currently selected gene
 		"""
-		from cc_src.chromatin_metrics import yl_rep2_len_spans
+		from src.chromatin_metrics import yl_rep2_len_spans
 		small_lens, med_lens, nuc_lens = yl_rep2_len_spans()
 
 		# Next, we will align at the +1

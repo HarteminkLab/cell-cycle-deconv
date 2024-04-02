@@ -68,7 +68,7 @@ class DeconvolutionPlotter():
 	def plot_gene_expression(self, initial_axes, top_axes, bottom_axes, ymax=None):
 
 		from src.model import color_for_key
-		from cc_src.orf_plotter import plot_rect
+		from src.orf_plotter import plot_rect
 		
 		branches = ['i', 't', 'b']
 		axes = [initial_axes, top_axes, bottom_axes]
@@ -225,7 +225,7 @@ def load_deconvolution_models_from_disk(gene_name_or_orf_name, chromatin_directo
 	import os
 	import numpy as np
 
-	from cc_src.sgd import get_gene_name_orf_name
+	from src.sgd import get_gene_name_orf_name
 
 	orf_name, gene_name = get_gene_name_orf_name(gene_name_or_orf_name)
 
@@ -262,7 +262,7 @@ def load_deconvolution_models_from_disk(gene_name_or_orf_name, chromatin_directo
 																 orf_name)
 
 	# Load the chromatin model and grid computer, set the resulting deconvolution structures appropriately
-	from cc_src.chromatin_grid_compute import ChromatinGrid
+	from src.chromatin_grid_compute import ChromatinGrid
 	from src.config import load_yl_replicate2_rg1_chromatin_config
 
 	config = load_yl_replicate2_rg1_chromatin_config()
