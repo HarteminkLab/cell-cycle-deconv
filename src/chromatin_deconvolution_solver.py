@@ -14,9 +14,6 @@ from src.wavelets_2d_linalg import decompose_flattened_kron_coeffs, \
 	create_kron_wavelet2d_convolution_matrices
 
 
-F_REG = 0.0001
-
-
 class ChromatinDeconvolveSolver:
 	"""Class to handle chromatin deconvolution, will be useful for scanning for gamma values and reusing the same
 	problem definition"""
@@ -207,13 +204,6 @@ class ChromatinDeconvolveSolver:
 			   				   np.sum(np.abs(f_b_matmul_res))) / g_mean / m)
 
 		l1_norm_on_coeffs = 0
-		# if self.gamma_prime > 0:
-		# 	# Decompose the f matrix of flattened images using the kronecker version of the wavelet transformation
-		# 	# matrices. Retrieve the wavelet coefficients and compute an L1 norm on these coefficients.
-		# 	(LL, HL, LH, HH) = decompose_flattened_kron_coeffs(f, decomp_kron_mats)
-		# 	l1_norm_on_coeffs = np.sum(np.abs(LL) + np.abs(HL) + np.abs(LH) + np.abs(HH)) / m / u
-
-		# else:
 		self.rn, self.sn, self.l1_norm_on_coeffs = rn, sn, l1_norm_on_coeffs
 
 		return f, rn, sn, l1_norm_on_coeffs

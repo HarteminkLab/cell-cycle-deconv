@@ -133,7 +133,7 @@ class Model:
 	def compute_ptr(self):
 		"""Compute the peak to trough ratio"""
 		from src.peak_to_trough import compute_ptr
-		self.cptr, self.dptr, self.ptr = compute_ptr(self, self.f)
+		self.cptr, self.dptr, self.ptr = compute_ptr(self.config, self.f)
 
 
 	def plot_deconvolved_gene(self, title=None, abbreviated=False):

@@ -5,7 +5,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 
 from src.chromatin_model import ChromatinModel
-from src.deconvolve_wavelet_chromatin import ChromatinDeconvolveSolver
+from src.chromatin_deconvolution_solver import ChromatinDeconvolveSolver
 from src.utils import print_fl
 
 
@@ -225,13 +225,17 @@ class CombinedChromatinModel:
 		run_date = datetime.now().strftime("%D")
 
 		df = pd.DataFrame({
-			'rn': self.solver.rn, 'sn': self.solver.sn, 'gm': self.solver.gamma.value,
+			'rn': self.solver.rn, 'sn': self.solver.sn, 
+				'gm': self.solver.gamma.value,
 			'config1': self.chrom1_model.config.name,
 			'config2': self.chrom2_model.config.name,
 			'model1_path': self.chrom1_model.config.model_wt1_file,
 			'model2_path': self.chrom2_model.config.model_wt1_file,
 			'run_date': run_date,
-			'replicate': "combined"
+			'replicate': "combined",
+			'image_shape': self.image_shape,
+			'rep1_+1': self.chrom1_model.computed_plus_one,
+			'rep1_+2': self.chrom2_model.computed_plus_one
 			},
 			index=[self.deconv_model.orf_name])
 		df.to_csv(meta_save_path, float_format="%.4f")
