@@ -397,3 +397,13 @@ def read_xin_published_wt_data(wildtype):
 	return wt1_web_df
 
 
+def get_yl2019_chromatin_timepoints(replicate):
+	"""todo: refactoring to use this function instead of 
+	lazy loading the timepoints from the mnase reads"""
+
+	if replicate == 1:
+		return np.array([ 0, 10, 20, 30, 40, 50, 60, 70, 
+			80, 90, 100, 110, 120, 130, 140, 150])	
+	elif replicate == 2:
+		return np.array([ 0, 10, 20, 30, 40, 50, 60, 70, 
+			80, 90, 100, 110, 120, 130, 140])
