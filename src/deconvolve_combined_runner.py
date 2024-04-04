@@ -18,11 +18,11 @@ def main():
 
 	Usage:
 
-		<output> <replicate> <gamma_value> <gene_index>
+		<output> <gamma_value> <gene_index>
 
 	or
 
-		<output> <replicate> <gene_index>
+		<output> <gene_index>
 
 	Will run the find optimal gamma procedure on the chromatin
 
@@ -39,6 +39,8 @@ def main():
 	from src.geneset import get_deconvolved_geneset
 
 	geneset = get_deconvolved_geneset()
+
+	print_fl(f"System arguments:\t{system_args}")
 
 	# Specify output directory, gamma value and gene index
 	if len(system_args) == 4:

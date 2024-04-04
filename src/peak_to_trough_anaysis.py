@@ -79,6 +79,75 @@ class PeakToTroughAnalysis:
 		self.ptrs_df = ptrs_df.dropna()
 		self.n = len(self.ptrs_df)
 
+	def load_f_files(self, chromatin_dir):
+		"""Load all of the gene F results into a dataframe, flatten the F images for the dataframe."""
+
+		# Check the F images for each gene, determine if we need to modify the ptr calculation
+		# In case +1 is too high of a psuedo count, we will reduce the pseudo count
+
+		f_filepaths = glob.glob(f'{chromatin_dir}/*_f_*.npy')
+
+		# Load the F images for each deconvolved gene
+		current_f = np.load(f_filepaths[0])
+		m_times, u_chrom_values = current_f.shape
+
+		all_gene_fs_df = pd.DataFrame(index=self.geneset.index, 
+		   columns=np.arange(m_times*u_chrom_values))
+
+		from src.timer import Timer
+
+		timer = Timer()
+		i = 0
+
+		# For each deconvolved gene, load the ptr values and place them into the PTRs dataframe
+		for path in f_filepaths:
+			filename = path.split('/')[-1]
+			orf_name = filename.split('_')[2]
+
+			# Skip genes not in our analysis set
+			# for runs in which we haven't filtered for low coverage genes yet
+			if not orf_name in self.geneset.index.values: continue
+
+			current_f = np.load(path)
+			all_gene_fs_df.loc[orf_name] = current_f.flatten()
+			
+			if i % 1000 == 0:
+				timer.print_time(f"{i+1}/{len(f_filepaths)}")
+			i += 1
+		self.all_gene_fs_df = all_gene_fs_df
+		self.all_f_values_flattened = self.all_gene_fs_df.values.flatten()
+
+	def plot_f_bin_histogram(self):
+		
+		n = 100000
+		fig = plt.figure(figsize=(9, 2))
+		plt.hist(self.all_f_values_flattened[:n], bins=200)
+		plt.yscale('log')
+		plt.xlim(0, 200)
+		plt.title(f"Distribution of bin occupancies of F, n={n}")
+		plt.xlabel("Bin values")
+		plt.ylabel("Frequency")
+
+	def load_raw_data_ptrs(self, directory):
+
+		# Load the raw ptrs, these have not been fixed yet, but we can still observe how the
+		# deconvolved PTRs distribution has changed
+		raw_ptr_rep1 = pd.read_csv(f'{directory}/g_ptrs_chromatin_rep1.csv').rename(
+			columns={'Unnamed: 0': 'orf_name'}).set_index('orf_name')
+		raw_ptr_rep2 = pd.read_csv(f'{directory}/g_ptrs_chromatin_rep1.csv').rename(
+			columns={'Unnamed: 0': 'orf_name'}).set_index('orf_name')
+		joined_raw_ptrs = raw_ptr_rep1[[]].copy()
+		joined_raw_ptrs['mean_rep1'] = raw_ptr_rep1.mean(axis=1)
+		joined_raw_ptrs['mean_rep2'] = raw_ptr_rep2.mean(axis=1)
+		joined_raw_ptrs['mean_raw_replicates'] = (joined_raw_ptrs['mean_rep1']+
+			joined_raw_ptrs['mean_rep2'])/2.
+		self.joined_raw_ptrs = joined_raw_ptrs
+
+		raw_joined_metrics_df = self.joined_raw_ptrs[['mean_raw_replicates']].join(self.metrics_df[['mean_ptr']])
+		raw_joined_metrics_df = raw_joined_metrics_df.rename(columns={'mean_ptr': 'deconvolved_ptr'})
+		self.raw_joined_metrics_df = raw_joined_metrics_df
+
+
 	def sort_gene_ptrs(self):
 
 		# Sort each gene by the highest ptr values first

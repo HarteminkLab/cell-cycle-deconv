@@ -199,12 +199,20 @@ class CombinedChromatinModel:
 		orf_name = self.deconv_model.orf_name
 		gene_name = self.deconv_model.gene_name
 		f = self.solver.f.value
+		G1 = self.G1
+		G2 = self.G2
 
 		f_save_path = f'{out_dir}/{index}_f_{orf_name}_{gene_name}.npy'
+		g1_save_path = f'{out_dir}/{index}_g1_{orf_name}_{gene_name}.npy'
+		g2_save_path = f'{out_dir}/{index}_g2_{orf_name}_{gene_name}.npy'
 		ptr_save_path = f'{out_dir}/{index}_ptr_{orf_name}_{gene_name}.npy'
 		meta_save_path = f'{out_dir}/{index}_meta_{orf_name}_{gene_name}.csv'
 
 		#---------- Save to disk -------------
+
+		# Save the f to disk
+		np.save(g1_save_path, G1)
+		np.save(g2_save_path, G2)
 
 		# Save the f to disk
 		np.save(f_save_path, f)
@@ -228,6 +236,8 @@ class CombinedChromatinModel:
 			index=[self.deconv_model.orf_name])
 		df.to_csv(meta_save_path, float_format="%.4f")
 
+		print_fl(f"Saved to {g1_save_path}...")
+		print_fl(f"Saved to {g2_save_path}...")
 		print_fl(f"Saved to {f_save_path}...")
 		print_fl(f"Saved to {ptr_save_path}...")
 		print_fl(f"Saved to {meta_save_path}...")

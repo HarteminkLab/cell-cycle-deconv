@@ -10,7 +10,7 @@ def combine_ptr_score(c, d, weight):
 	return score
 
 
-def compute_quantile_ptr(data_f, lo, hi, eps=1):
+def compute_quantile_ptr(data_f, lo, hi, eps=0.1):
 	"""Compute the 80/20 ptr of the data, ensure no division by 0 by adding a small pseudo count"""
 	f_lo, f_hi = np.quantile(data_f, [lo, hi])
 	# Add a pseudo count to prevent divide by zero
