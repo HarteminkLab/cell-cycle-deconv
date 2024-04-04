@@ -234,7 +234,7 @@ class CombinedChromatinModel:
 			'model2_path': self.chrom2_model.config.model_wt1_file,
 			'run_date': run_date,
 			'replicate': "combined",
-			'image_shape': self.image_shape,
+			'image_shape': str(self.image_shape),
 			'rep1_+1': self.chrom1_model.computed_plus_one,
 			'rep1_+2': self.chrom2_model.computed_plus_one
 			},
