@@ -62,6 +62,7 @@ class CombinedChromatinModel:
 		self.G = np.concatenate([self.G1, self.G2])
 
 		image_shape = self.chrom1_model.deconv_hist_unflattened.shape[1:]
+		self.image_shape = image_shape
 
 		# Create the first replicates model and H
 		self.deconv1_model = Model(chrom1_model.config, chrom1_model.gene_name, chrom1_model.gamma)
