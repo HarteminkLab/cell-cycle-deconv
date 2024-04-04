@@ -26,25 +26,81 @@ class MNaseOriginAnalysis:
 		self.chrom_read_counts = chrom_read_counts[['start']].rename(columns={'start': 'count'})
 
 
-	def compute_sliding_window_counts_all_times(self, window_size=10000, step=2000):
+	def compute_sliding_window_counts_all_times(self, window_size=10000, step=2000,
+			min_count_thresh = 0.7):
 		"""Compute the sliding window counts"""
 
 		self.window_size = window_size
 		self.step = step
+		self.min_count_thresh = min_count_thresh
 
 		timepoints = self.timepoints
 		num_windows = (self.chrom_len - self.window_size) // self.step + 1
 
-		all_window_counts = np.zeros((len(timepoints), num_windows))
+		self.all_window_counts_unsummed = np.zeros((len(timepoints), num_windows, window_size))
 
 		i = 0
 		for timepoint in timepoints:
 			
-			self.compute_sliding_window_counts(timepoint, window_size, step)
-			all_window_counts[i, :] = self.window_counts.sum(axis=1)
+			window_counts = self.compute_sliding_window_counts(timepoint, window_size, step)
+			self.all_window_counts_unsummed[i] = window_counts
 			i += 1
 
-		self.all_window_counts = all_window_counts
+		cumulative_counts_for_each_10k_bin = self.all_window_counts_unsummed.sum(axis=0)
+		self.cumulative_counts_for_each_10k_bin = cumulative_counts_for_each_10k_bin
+
+		all_counts_summed = self.all_window_counts_unsummed.sum(axis=2)
+		self.all_counts_unnormalized = all_counts_summed
+
+		# Normalize by the number of bins that are non-zero across the entire timeecourse
+		self.total_nonzero_bins_per_10k = (cumulative_counts_for_each_10k_bin > 0).sum(axis=1)
+		self.all_window_counts_nonzero_handled = all_counts_summed / self.total_nonzero_bins_per_10k
+
+		# Multiply against mask to make sure the counts meet the minimum number of 
+		# non-zero bins
+		self.meets_threshold = self.total_nonzero_bins_per_10k > min_count_thresh*self.window_size
+		self.all_window_counts = self.all_window_counts_nonzero_handled * self.meets_threshold
+
+	def plot_bin_normalization_procedure(self):
+		plt.figure(figsize=(19, 13))
+		plt.subplots_adjust(hspace=0.5)
+		plt.subplot(4, 1, 1)
+		plt.imshow(self.all_window_counts_nonzero_unhandled, aspect='auto')
+		plt.xticks([])
+		plt.yticks([])
+		plt.title("Unnormalized",
+		          fontsize=22, pad=10)
+
+		plt.subplot(4, 1, 2)
+		plt.imshow(self.all_window_counts_nonzero_handled, aspect='auto')
+		plt.xticks([])
+		plt.yticks([])
+		plt.title("Normalized by non-zero bin counts",
+		          fontsize=22, pad=10)
+
+		plt.subplot(4, 1, 3)
+		plt.imshow(self.all_window_counts, aspect='auto')
+		plt.xticks([])
+		plt.yticks([])
+		plt.title(f"Meets threshold, threshold={self.min_count_thresh}",
+		          fontsize=22, pad=10)
+
+		# Identify a cutoff in which we should zero out the count curves
+		plt.subplot(4, 1, 4)
+		xs = self.start_indices + self.window_size//2
+		plt.plot(xs, self.total_nonzero_bins_per_10k,
+		    label="Non-zero bins")
+		plt.plot(xs, 
+		    self.total_nonzero_bins_per_10k * self.meets_threshold,
+		        label="Non-zero bins * meets threshold")
+		plt.xlim(0, self.chrom_len)
+		plt.axhline(self.min_count_thresh * self.window_size, c='black',
+		           lw=1, ls='dotted', label='threshold')
+		plt.title(f"Curves of bin counts and threshold multiplier, threshold={self.min_count_thresh}",
+		          fontsize=22, pad=10)
+		plt.legend()
+		plt.suptitle(f"Non-zero bin normalization, Replicate {self.replicate},"
+		             f" chr{self.chromosome}", fontsize=29)
 
 
 	def compute_sliding_window_counts(self, time, window_size, step):
@@ -61,7 +117,8 @@ class MNaseOriginAnalysis:
 		# Generate the start indices for each window
 		self.num_windows = (counts.size - window_size) // step + 1
 		self.start_indices = np.arange(self.num_windows) * step
-		self.window_counts = compute_sliding_window(counts, window_size, step)
+		window_counts = compute_sliding_window(counts, window_size, step)
+		return window_counts
 
 	def normalize_samples(self):
 		"""Normalize by expected DNA content at each time point"""

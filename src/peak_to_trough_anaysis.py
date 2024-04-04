@@ -18,17 +18,6 @@ class PeakToTroughAnalysis:
 		self.geneset = load_analysis_genes()
 		self.ptr_dir = ptr_dir
 		self.file_paths = glob.glob(f'{self.ptr_dir}/*_ptr_*.npy')
-
-
-		from src.config import load_yl_rg1_vst_config
-		from src.chromatin_model import ChromatinModel
-
-		# config and chromatin model to hold the image shape and config information
-		# we may need later, should be consistent across rep1, rep2, and combined models
-		config = load_yl_rg1_vst_config(1)
-		self.chromatin_model = ChromatinModel(config)
-		self.image_shape = self.chromatin_model.num_bins_y, self.chromatin_model.num_bins_x
-
 		self.load_ptr_files()
 		self.sort_gene_ptrs()
 
@@ -57,9 +46,9 @@ class PeakToTroughAnalysis:
 
 		# Load the size of a flattened image
 		loaded_ptrs = np.load(self.file_paths[0])
-		m = self.image_shape[0]*self.image_shape[1]
 
-		ptrs_df = pd.DataFrame(index=self.geneset.index, columns=np.arange(m))
+		# ptrs_df = pd.DataFrame(index=self.geneset.index, columns=np.arange(m))
+		ptrs_df = None
 
 		# For each deconvolved gene, load the ptr values and place them into the PTRs dataframe
 		for path in self.file_paths:
@@ -71,28 +60,37 @@ class PeakToTroughAnalysis:
 			if not orf_name in self.geneset.index.values: continue
 
 			loaded_ptrs = np.load(path)
-			ptrs_df.loc[orf_name] = loaded_ptrs.flatten()
+			ptrs_flattened = loaded_ptrs.flatten()
+
+			if ptrs_df is None:
+
+				# Lazy load image shape and ptrs_df
+				image_shape = loaded_ptrs.shape
+
+				m = len(ptrs_flattened)
+				ptrs_df = pd.DataFrame(index=self.geneset.index, columns=np.arange(m))
+
+			ptrs_df.loc[orf_name] = ptrs_flattened
 
 		self.ptr_imgs = ptrs_df.values.reshape((-1, 
-			*self.image_shape))
+			*image_shape))
 		self.undropped_ptrs_df = ptrs_df.copy()
 		self.ptrs_df = ptrs_df.dropna()
 		self.n = len(self.ptrs_df)
+		self.image_shape = image_shape
 
 	def load_f_files(self, chromatin_dir):
 		"""Load all of the gene F results into a dataframe, flatten the F images for the dataframe."""
-
-		# Check the F images for each gene, determine if we need to modify the ptr calculation
-		# In case +1 is too high of a psuedo count, we will reduce the pseudo count
 
 		f_filepaths = glob.glob(f'{chromatin_dir}/*_f_*.npy')
 
 		# Load the F images for each deconvolved gene
 		current_f = np.load(f_filepaths[0])
-		m_times, u_chrom_values = current_f.shape
+		print("Shape of the loaded F:", current_f.shape)
+		m_times, y_bins, x_bins = current_f.shape
 
 		all_gene_fs_df = pd.DataFrame(index=self.geneset.index, 
-		   columns=np.arange(m_times*u_chrom_values))
+		   columns=np.arange(m_times*y_bins*x_bins))
 
 		from src.timer import Timer
 
@@ -116,6 +114,7 @@ class PeakToTroughAnalysis:
 			i += 1
 		self.all_gene_fs_df = all_gene_fs_df
 		self.all_f_values_flattened = self.all_gene_fs_df.values.flatten()
+
 
 	def plot_f_bin_histogram(self):
 		
