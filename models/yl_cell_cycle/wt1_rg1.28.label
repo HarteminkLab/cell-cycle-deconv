@@ -6,6 +6,8 @@ sigma0 10.988500
 sigmav 0.142400
 alpha 28.000000
 beta 0.000000
+gamma1 0.004100
+gamma2 0.254700
 halted 0.224500
 # description
 RG1 i 0

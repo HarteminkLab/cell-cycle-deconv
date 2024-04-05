@@ -10,15 +10,31 @@ def combine_ptr_score(c, d, weight):
 	return score
 
 
-def compute_quantile_ptr(data_f, lo=0.2, hi=0.8, eps=1):
-	"""Compute the 80/20 ptr of the data, ensure no division by 0 by adding a small pseudo count"""
-	f_lo, f_hi = np.quantile(data_f, [lo, hi])
-	# Add a pseudo count to prevent divide by zero
-	f_hi = f_hi + eps
-	f_lo = f_lo + eps
-	ptr = f_hi/f_lo
+def compute_quantile_ptr(data_f, lo=0.2, hi=0.8, eps=1, return_indices=False):
+	"""
+	Compute the 80/20 PTR of the data, ensuring no division by 0 by adding a small pseudo count.
+	Use 'nearest' interpolation for quantile calculation and optionally return the indices of
+	low and high quantile values.
+	"""
+	# Use np.quantile with 'nearest' interpolation to get the lo and hi values directly
+	f_lo = np.quantile(data_f, lo, interpolation='nearest')
+	f_hi = np.quantile(data_f, hi, interpolation='nearest')
 
-	return ptr
+	# Find the indices of these nearest values in the original data
+	lo_val_idx = np.where(data_f == f_lo)[0][0]  # Taking the first match
+	hi_val_idx = np.where(data_f == f_hi)[0][0]  # Taking the first match
+
+	# Add a pseudo count to prevent divide by zero
+	f_hi_adjusted = f_hi + eps
+	f_lo_adjusted = f_lo + eps
+	
+	# Calculate PTR
+	ptr = f_hi_adjusted / f_lo_adjusted
+	
+	if return_indices:
+		return ptr, lo_val_idx, hi_val_idx, f_lo, f_hi
+	else:
+		return ptr
 
 
 def compute_ptr_f(config, f, quantiles=[0.2, 0.8]):
@@ -29,7 +45,7 @@ def compute_ptr_f(config, f, quantiles=[0.2, 0.8]):
 	return f_ptrs
 
 
-def compute_ptr(config, gene_f, lo=0.2, hi=0.8):
+def compute_ptr(config, gene_f, lo=0.2, hi=0.8, return_indices=False):
 
 	cg1_indices = np.concatenate([config.phase_columns['CG1'], 
 								  config.phase_columns['postG1']])
@@ -42,20 +58,47 @@ def compute_ptr(config, gene_f, lo=0.2, hi=0.8):
 	c_timepoints = config.get_timepoints_for_branch('t')
 	d_timepoints = config.get_timepoints_for_branch('b')
 
-	_, scaled_cg1_f = rescale(c_timepoints, cg1_f)
-	_, scaled_dg1_f = rescale(d_timepoints, dg1_f)
+	_, scaled_cg1_f, mapping_cg1 = rescale_with_mapping(c_timepoints, cg1_f)
+	_, scaled_dg1_f, mapping_dg1 = rescale_with_mapping(d_timepoints, dg1_f)
 
 	weight = 2./3.;
-	cptr = compute_quantile_ptr(scaled_cg1_f, lo, hi)
-	dptr = compute_quantile_ptr(scaled_dg1_f, lo, hi)
-	
+
+	# These indices are based on the input scaled f vector, not the
+	# indices of the timepoints, so we'll need to convert them
+	cptr, c_l_idx, c_h_idx, c_lo, c_hi = compute_quantile_ptr(scaled_cg1_f, lo, hi, return_indices=True)
+	dptr, d_l_idx, d_h_idx, d_lo, d_hi = compute_quantile_ptr(scaled_dg1_f, lo, hi, return_indices=True)
+
+	# Unscale the hi and lo mappings
+	c_h_idx = mapping_cg1[c_h_idx]
+	c_l_idx = mapping_cg1[c_l_idx]
+
+	d_h_idx = mapping_dg1[d_h_idx]
+	d_l_idx = mapping_dg1[d_l_idx]
+
+	c_lo_tp, c_hi_tp, d_lo_tp, d_hi_tp = (c_timepoints[c_l_idx], c_timepoints[c_h_idx], 
+		d_timepoints[d_l_idx], d_timepoints[d_h_idx])
+
+	# convert the returned indices into the indices that match to the F indices in CG1 and DG1
+	c_l_idx = cg1_indices[c_l_idx]
+	c_h_idx = cg1_indices[c_h_idx]
+	d_l_idx = dg1_indices[d_l_idx]
+	d_h_idx = dg1_indices[d_h_idx]
+
 	combinedPtr = combine_ptr_score(cptr, dptr, weight)
+
+	if return_indices:
+		return cptr, dptr, combinedPtr, \
+			c_l_idx, c_h_idx, d_l_idx, d_h_idx, \
+			c_lo, c_hi, d_lo, d_hi, \
+			c_lo_tp, c_hi_tp, d_lo_tp, d_hi_tp
+
 	return cptr, dptr, combinedPtr
 
 
-def rescale(x, y, interval=1):
+def rescale_with_mapping(x, y, interval=1):
 	"""
-	Rescale x and y data points based on a specified interval.
+	Rescale x and y data points based on a specified interval and return a mapping from
+	new indices to old indices.
 
 	Parameters:
 	x (array-like): Original x data points.
@@ -65,6 +108,7 @@ def rescale(x, y, interval=1):
 	Returns:
 	newx (numpy.ndarray): Rescaled x data points.
 	newy (numpy.ndarray): Rescaled y data points.
+	mapping (list): Mapping of new indices to old indices.
 	"""
 	if len(x) < 2 or len(y) < 2:
 		raise ValueError("Expect at least 2 data points in both x and y")
@@ -72,12 +116,19 @@ def rescale(x, y, interval=1):
 	len_new = int(np.ceil((x[-1] - x[0]) / interval))
 	newx = np.linspace(x[0], x[0] + len_new * interval, len_new + 1)
 	newy = np.zeros(len_new + 1)
+	mapping = np.zeros(len_new + 1, dtype=int)
 
 	for idx in range(len_new):
 		cur_x = newx[idx]
 		# Find the left and the right neighbors
 		left_pos = np.where(x <= cur_x)[0][-1]
 		right_pos = np.where(x >= cur_x)[0][0]
+
+		# Determine the closest original index for mapping
+		if cur_x - x[left_pos] < x[right_pos] - cur_x:
+			mapping[idx] = left_pos
+		else:
+			mapping[idx] = right_pos
 
 		x_left = x[left_pos]
 		y_left = y[left_pos]
@@ -92,8 +143,9 @@ def rescale(x, y, interval=1):
 	# Extend the last point as in the original function
 	newx[-1] = newx[-2] + interval
 	newy[-1] = newy[-2]
+	mapping[-1] = mapping[-2]  # Map the last new index to the closest original index
 
-	return newx, newy
+	return newx, newy, mapping
 
 
 def get_chrom_g_ptr(gene_g_chrom):

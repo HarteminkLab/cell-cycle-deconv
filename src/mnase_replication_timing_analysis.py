@@ -69,39 +69,53 @@ class MNaseOriginAnalysis:
 		plt.xticks([])
 		plt.yticks([])
 		plt.title("Unnormalized",
-		          fontsize=22, pad=10)
+				  fontsize=22, pad=10)
 
 		plt.subplot(4, 1, 2)
 		plt.imshow(self.all_window_counts_nonzero_handled, aspect='auto')
 		plt.xticks([])
 		plt.yticks([])
 		plt.title("Normalized by non-zero bin counts",
-		          fontsize=22, pad=10)
+				  fontsize=22, pad=10)
 
 		plt.subplot(4, 1, 3)
 		plt.imshow(self.all_window_counts, aspect='auto')
 		plt.xticks([])
 		plt.yticks([])
 		plt.title(f"Meets threshold, threshold={self.min_count_thresh}",
-		          fontsize=22, pad=10)
+				  fontsize=22, pad=10)
 
 		# Identify a cutoff in which we should zero out the count curves
 		plt.subplot(4, 1, 4)
 		xs = self.start_indices + self.window_size//2
 		plt.plot(xs, self.total_nonzero_bins_per_10k,
-		    label="Non-zero bins")
+			label="Non-zero bins")
 		plt.plot(xs, 
-		    self.total_nonzero_bins_per_10k * self.meets_threshold,
-		        label="Non-zero bins * meets threshold")
+			self.total_nonzero_bins_per_10k * self.meets_threshold,
+				label="Non-zero bins * meets threshold")
 		plt.xlim(0, self.chrom_len)
 		plt.axhline(self.min_count_thresh * self.window_size, c='black',
-		           lw=1, ls='dotted', label='threshold')
+				   lw=1, ls='dotted', label='threshold')
 		plt.title(f"Curves of bin counts and threshold multiplier, threshold={self.min_count_thresh}",
-		          fontsize=22, pad=10)
+				  fontsize=22, pad=10)
 		plt.legend()
 		plt.suptitle(f"Non-zero bin normalization, Replicate {self.replicate},"
-		             f" chr{self.chromosome}", fontsize=29)
+					 f" chr{self.chromosome}", fontsize=29)
 
+
+	def get_bin_for_position(self, position):
+		"""Get the bin in which the position is the closest to the center of the bin"""
+
+		start_indices = self.start_indices
+		win = self.window_size
+		win_2 = win//2
+		step = self.step
+
+		position_bin_idx = np.argmin((position - win_2) > start_indices)
+		bin_start = position_bin_idx * step
+		bin_end = bin_start + win
+
+		return position_bin_idx, bin_start
 
 	def compute_sliding_window_counts(self, time, window_size, step):
 		"""Compute the sliding window counts"""
@@ -306,31 +320,43 @@ class MNaseOriginAnalysis:
 		replication_timepoints = timepoints[replication_timing_idx]
 		return replication_timepoints
 
+	def compute_bin_curves_and_expression_correlations(self, replicate):
 
-	def get_timing_profiles(self):
+		from src.config import read_yl_vst_data_rep
+		from scipy.stats import pearsonr
+		from src.reference_data import load_analysis_genes
+		geneset = load_analysis_genes()
 
-		# First and second cell cycle timing profiles
-		self.first_profile = self.get_replication_timing(thresh_prop=0.9)
-		second_cell_cycle_tps = self.timepoints[self.timepoints > self.end_of_first_lambd] 
-		self.second_profile = self.get_replication_timing(thresh_prop=0.9, 
-			sel_timepoints=second_cell_cycle_tps)
+		self.load_mnase_data(replicate, 1)
 
-		plt.figure(figsize=(13, 6))
+		expression_vst_data = read_yl_vst_data_rep(replicate=replicate)
 
-		plt.imshow(self.counts_normalized_by_copy, origin='lower', aspect='auto',
-				   cmap='magma',
-				   extent=[0, self.chrom_len,
-						  -5, self.timepoints[-1]+5])
+		# In the case of replicate 2, the gene expression has one fewer
+		# timepoint, so select the columns for those timepoints in the
+		# chromatin data
+		curve_timepoints = expression_vst_data.columns
+		bin_curves = expression_vst_data.copy()
+		bin_curves.loc[:] = 0.
 
-		plt.plot(self.start_indices+self.window_size/2., 
-			self.first_profile, c='white')
+		sel_tps_mask = [True if t in curve_timepoints else False for t in self.timepoints]
 
-		plt.plot(self.start_indices+self.window_size/2., 
-			self.second_profile, c='white')
+		for chrom in np.arange(1, 17):
+			print(f"{chrom}", end=", ")
+			chrom_genes = geneset[geneset.chr == chrom]
 
-		plt.title(f"Replicate {self.replicate}, chr{self.chromosome}, replication timing profile", fontsize=23,
-			pad=10)
+			self.load_mnase_data(replicate, chrom)
+			self.compute_sliding_window_counts_all_times()
+			self.normalize_samples()
 
+			for orf_name, gene in chrom_genes.iterrows():
+				bin_idx, bin_start = self.get_bin_for_position(gene.TSS)
+				bin_copy_num_curve = self.counts_normalized_by_copy[sel_tps_mask, bin_idx]
+				bin_curves.loc[orf_name] = bin_copy_num_curve
+
+		expression_bin_correlation = expression_vst_data.T.corrwith(bin_curves.T)
+		expression_bin_correlations = expression_bin_correlation.dropna()
+
+		return bin_curves, expression_bin_correlations
 
 
 def compute_sliding_window(data, window_size, step):

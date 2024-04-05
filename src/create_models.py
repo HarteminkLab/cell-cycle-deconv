@@ -76,7 +76,7 @@ class ModelCreation:
 		#position_of_s = beta*lambd
 		position_of_s = gamma1*lambd
 
-		ret_params = mu0, lambd, delta, sigma0, sigmav, alpha, beta, halted
+		ret_params = mu0, lambd, delta, sigma0, sigmav, alpha, beta, gamma1, gamma2, halted
 		model_dic = {
 
 			"RG1": [
@@ -122,7 +122,7 @@ class ModelCreation:
 		CG1_intervals = self.CG1_intervals
 		PG1_intervals = self.PG1_intervals
 
-		mu0, lambd, delta, sigma0, sigmav, alpha, beta, halted = self.params
+		mu0, lambd, delta, sigma0, sigmav, alpha, beta, gamma1, gamma2, halted = self.params
 		intervals = self.get_sub_interval_str()
 
 		ret_str = """# lengths
@@ -133,13 +133,15 @@ sigma0 %f
 sigmav %f
 alpha %f
 beta %f
+gamma1 %f
+gamma2 %f
 halted %f
 # description
 %s i 0
 CG1 %s
 DG1 b 0
 postG1 %s
-%s""" % (-mu0, lambd, delta, sigma0, sigmav, alpha, beta, halted,
+%s""" % (-mu0, lambd, delta, sigma0, sigmav, alpha, beta, gamma1, gamma2, halted,
 			 Rname, CG1_intervals, PG1_intervals, intervals)
 
 		return ret_str
