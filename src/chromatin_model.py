@@ -48,6 +48,8 @@ class ChromatinModel:
 		self.num_bins_x = (self.prom_len + self.gb_len) // self.bin_width
 		self.num_bins_y = (self.max_y_len) // self.bin_height
 
+		self.image_shape = (self.num_bins_y, self.num_bins_x)
+
 	def load_deconvolution_results(self, gene_name):
 		from src.sgd import get_gene_name_orf_name, get_gene
 		gene = get_gene(gene_name)
@@ -206,7 +208,7 @@ class ChromatinModel:
 				shape = self.deconv_hist_unflattened[0].shape
 				reshaped_f = f.reshape(-1, shape[0], shape[1])
 
-				self.plot_f_img(ax, reshaped_f, phase, row, num_chromatin_rows, show_title=False, vmax=vmax, vmin=vmin,
+				self.plot_f_img_phase(ax, reshaped_f, phase, row, num_chromatin_rows, show_title=False, vmax=vmax, vmin=vmin,
 					mask=mask)
 
 				if col == 0:
@@ -301,17 +303,32 @@ class ChromatinModel:
 		return title
 
 
-	def plot_f_img(self, ax, reshaped_f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0,
+	def plot_f_img_phase(self, ax, reshaped_f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0,
 		vmin=0, vmax=200, mask=None):
+		"""Plot the f image of a phase and column for the grid of f images progressing through each phase
+		compute the proper index to plot from the num_columns parameter for the phase"""
 
-		is_crick = self.gene.strand == '-'
 
 		# Get the index within the f matrix of the appropriate image
 		# by phase and column, num_columns signifies how many subsets of the phase
 		# we are going to plot, the other returned items are for logging and for the title
 		f_index, index, len_sub_f = self.f_index_for_column(phase, column, num_columns)
+
+		# Plot the deconvolved chromatin for the appropriate column
+		img = reshaped_f[f_index]
+
 		if show_title:
 			ax.set_title(f"{index+1}/{len_sub_f} ({(index/(len_sub_f-1))*100:.0f}%)", fontsize=9)
+
+		self.plot_f_img(ax, img, x_padding=x_padding, y_padding=y_padding, vmin=vmin, vmax=vmax, mask=mask)
+
+
+	def plot_f_img(self, ax, img, show_title=True, x_padding=0, y_padding=0,
+		vmin=0, vmax=200, mask=None):
+		"""Plot the f image of a phase and column for the grid of f images progressing through each phase
+		compute the proper index to plot from the num_columns parameter for the phase"""
+
+		is_crick = self.gene.strand == '-'
 
 		bin_extents = self.bin_extents
 
@@ -325,9 +342,6 @@ class ChromatinModel:
 		ax.set_ylim(*ylims)
 		ax.set_xticks([])
 		ax.set_yticks([])
-
-		# Plot the deconvolved chromatin for the appropriate column
-		img = reshaped_f[f_index]
 
 		if mask is not None:
 			img = img * mask
@@ -612,7 +626,7 @@ class ChromatinModel:
 		self.deconv_model.H, self.deconv_model.Hpos = calcH(self.config.intervals_wt1, self.timepoints)
 
 	def setup_solver(self, gamma_prime=0):
-		from src.chromatin_deconvolution_solver.py import ChromatinDeconvolveSolver
+		from src.chromatin_deconvolution_solver import ChromatinDeconvolveSolver
 
 		image_shape = self.deconv_hist_unflattened.shape[1:]
 		self.gamma_prime = gamma_prime
@@ -908,8 +922,7 @@ class ChromatinModel:
 		print_fl(f"Saved to {meta_save_path}...")
 
 
-def load_chromatin_model_from_disk(gene_name, chromatin_dir):
-
+def load_chromatin_model_from_disk(gene_name, chromatin_dir, f_only=False):
 
 	from src.config import load_yl_rg1_vst_config
 
@@ -918,7 +931,6 @@ def load_chromatin_model_from_disk(gene_name, chromatin_dir):
 	import os
 	import glob
 
-	
 	f_pattern = os.path.join(chromatin_dir, f'*_f_*{gene_name}*')
 	ptr_pattern = os.path.join(chromatin_dir, f'*_ptr_*{gene_name}*')
 	g_pattern = os.path.join(chromatin_dir, f'*_g_*{gene_name}*')
@@ -932,6 +944,10 @@ def load_chromatin_model_from_disk(gene_name, chromatin_dir):
 	config = load_yl_rg1_vst_config(1)
 
 	f = np.load(f_filepath)
+
+	if f_only:
+		return f
+
 	ptr = np.load(ptr_filepath)
 	g = np.load(g_filepath)
 	meta_data = pd.read_csv(meta_filepath)

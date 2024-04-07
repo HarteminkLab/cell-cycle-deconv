@@ -247,7 +247,7 @@ class CombinedChromatinModel:
 		print_fl(f"Saved to {ptr_save_path}...")
 		print_fl(f"Saved to {meta_save_path}...")
 
-def load_chromatin_model_from_disk(gene_name, chromatin_dir):
+def load_chromatin_model_from_disk(gene_name, chromatin_dir, f_only=False):
 
 	from src.config import load_yl_rg1_vst_config
 
@@ -266,6 +266,10 @@ def load_chromatin_model_from_disk(gene_name, chromatin_dir):
 	config = load_yl_rg1_vst_config(1)
 
 	f = np.load(f_filepath)
+
+	if f_only:
+		return f
+
 	ptr = np.load(ptr_filepath)
 	meta_data = pd.read_csv(meta_filepath)
 	meta_data = meta_data.iloc[0]
@@ -276,6 +280,7 @@ def load_chromatin_model_from_disk(gene_name, chromatin_dir):
 	chromatin_model.load_mnase_gene(gene_name)
 	chromatin_model.create_deconvolution_bins()
 	chromatin_model.setup_deconv_model()
+	chromatin_model.setup_solver()
 
 	chromatin_model.deconvolved_f_value = f
 	chromatin_model.f_ptrs = ptr.flatten()
