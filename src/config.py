@@ -204,6 +204,39 @@ class Config:
 		self.phase_columns = phase_columns
 		self.num_columns = num_columns
 
+	def get_phase_timepoints_for_plotting(self):
+
+		cg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('t')[0][1].values
+		postcg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('t')[1][1].values
+		dg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('b')[0][1].values
+		postdg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('b')[1][1].values
+
+		# Append end of G1 for contiguous timepoints for plotting
+		cg1_timepoints = np.concatenate([cg1_timepoints, postcg1_timepoints[0:1]])
+		dg1_timepoints = np.concatenate([dg1_timepoints, postdg1_timepoints[0:1]])
+
+		# Calculate S-phase
+		gamma1, gamma2 = self.intervals_wt1[0][7], self.intervals_wt1[0][8]
+		lambda_val = self.intervals_wt1[0][1]
+
+		s_start, s_end = lambda_val*gamma1, lambda_val*gamma2
+
+		c_s_timepoints = postcg1_timepoints[postcg1_timepoints < s_end]
+		c_g2m_timepoints = postcg1_timepoints[postcg1_timepoints >= s_end]
+
+		# contiguous plotting
+		c_s_timepoints = np.concatenate([c_s_timepoints, c_g2m_timepoints[:1]])
+
+		d_s_timepoints = postdg1_timepoints[postdg1_timepoints < s_end]
+		d_g2m_timepoints = postdg1_timepoints[postdg1_timepoints >= s_end]
+
+		# contiguous plotting
+		d_s_timepoints = np.concatenate([d_s_timepoints, d_g2m_timepoints[:1]])
+
+		return (cg1_timepoints, c_s_timepoints, c_g2m_timepoints), \
+			   (dg1_timepoints, d_s_timepoints, d_g2m_timepoints)
+
+
 
 	def get_timepoints_for_branch(self, branch):
 		"""

@@ -45,15 +45,113 @@ def compute_ptr_f(config, f, quantiles=[0.2, 0.8]):
 	return f_ptrs
 
 
+def compute_max_min_locations(config, gene_f):
+	"""Once we have 80/20 ptr, we are interested in where the absolute max and min locations
+	are for plotting
+
+
+	Returns for max and min as a tuple:
+		- The min/max value
+		- The min/max index in F (or columns in H)
+		- The timepoint of the min/max
+		- The phase of the min/max
+
+	e.g.
+
+	return (min_tuple of above), (max_tuple of above)
+
+	"""
+
+	c_indices = np.concatenate([config.phase_columns['CG1'], 
+								  config.phase_columns['postG1']])
+	d_indices = np.concatenate([config.phase_columns['DG1'], 
+								  config.phase_columns['postG1']])
+	c_timepoints = config.get_timepoints_for_branch('t')
+	d_timepoints = config.get_timepoints_for_branch('b')
+
+	(cg1_timepoints, c_s_timepoints, c_g2m_timepoints), \
+    (dg1_timepoints, d_s_timepoints, d_g2m_timepoints) = config.get_phase_timepoints_for_plotting()
+
+	c_tps_mapping = {"C_G1": cg1_timepoints, 
+					"C_S": c_s_timepoints, 
+					"C_G2M": c_g2m_timepoints}
+
+	d_tps_mapping = {"D_G1": dg1_timepoints, 
+					"D_S": d_s_timepoints, 
+					"D_G2M": d_g2m_timepoints}
+
+	def get_min_max_indices(f_array, indices, timepoints, timepoints_mapping):
+		"""
+		Get the min and max index tp and phase for a F vector of a gene
+		"""
+
+		subset_f = f_array[indices].values
+
+		def get_min_or_max_results(subset_f, indices, func):
+			"""
+			Get the min or max index, tp, and phase for a gene's f array of gene expression.
+
+			Performs the mapping from columns in F to absolute indices for lookup in the
+			timepoints array for the given branch, then uses the timepoints mapping
+			to get the specific phase of the min or max value.
+			"""
+
+			# Compute the argmin or argmax and mapping into 
+			# F
+			func_index = func(subset_f)
+			f_index_func = indices[func_index]
+			func_val = subset_f[func_index]
+
+			func_tp = timepoints[func_index]
+
+			# Which interval does the tp lie in?
+			func_phase = None
+			for phase, tps in timepoints_mapping.items():
+				if func_tp >= tps[0] and func_tp < tps[-1]:
+					func_phase = phase
+
+			func_res = (func_val, f_index_func, func_tp, func_phase)
+
+			return func_res
+
+		min_res = get_min_or_max_results(subset_f, indices, np.argmin)
+		max_res = get_min_or_max_results(subset_f, indices, np.argmax)
+
+		return (min_res, max_res)
+		
+
+	# Get the min and maxes for mother and daughter
+	(c_min_res, c_max_res) = get_min_max_indices(gene_f, c_indices, c_timepoints, c_tps_mapping)
+	(d_min_res, d_max_res) = get_min_max_indices(gene_f, d_indices, d_timepoints, d_tps_mapping)
+
+	c_max_val = c_max_res[0]
+	c_min_val = c_min_res[0]
+	d_max_val = d_max_res[0]
+	d_min_val = d_min_res[0]
+
+	# Get the absolute max between the two
+	if c_max_val > d_max_val:
+		max_res = c_max_res
+	else:
+		max_res = d_max_res
+
+	# Set the minimum
+	if c_min_val < d_min_val:
+		min_res = c_min_res
+	else:
+		min_res = d_min_res
+
+	return (min_res, max_res)
+
 def compute_ptr(config, gene_f, lo=0.2, hi=0.8, return_indices=False):
 
-	cg1_indices = np.concatenate([config.phase_columns['CG1'], 
+	c_indices = np.concatenate([config.phase_columns['CG1'], 
 								  config.phase_columns['postG1']])
-	dg1_indices = np.concatenate([config.phase_columns['DG1'], 
+	d_indices = np.concatenate([config.phase_columns['DG1'], 
 								  config.phase_columns['postG1']])
 
-	cg1_f = gene_f[cg1_indices]
-	dg1_f = gene_f[dg1_indices]
+	cg1_f = gene_f[c_indices]
+	dg1_f = gene_f[d_indices]
 
 	c_timepoints = config.get_timepoints_for_branch('t')
 	d_timepoints = config.get_timepoints_for_branch('b')
@@ -79,10 +177,10 @@ def compute_ptr(config, gene_f, lo=0.2, hi=0.8, return_indices=False):
 		d_timepoints[d_l_idx], d_timepoints[d_h_idx])
 
 	# convert the returned indices into the indices that match to the F indices in CG1 and DG1
-	c_l_idx = cg1_indices[c_l_idx]
-	c_h_idx = cg1_indices[c_h_idx]
-	d_l_idx = dg1_indices[d_l_idx]
-	d_h_idx = dg1_indices[d_h_idx]
+	c_l_idx = c_indices[c_l_idx]
+	c_h_idx = c_indices[c_h_idx]
+	d_l_idx = d_indices[d_l_idx]
+	d_h_idx = d_indices[d_h_idx]
 
 	combinedPtr = combine_ptr_score(cptr, dptr, weight)
 
