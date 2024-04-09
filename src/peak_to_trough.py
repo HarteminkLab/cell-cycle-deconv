@@ -85,7 +85,7 @@ def compute_max_min_locations(config, gene_f):
 		Get the min and max index tp and phase for a F vector of a gene
 		"""
 
-		subset_f = f_array[indices].values
+		subset_f = f_array[indices]
 
 		def get_min_or_max_results(subset_f, indices, func):
 			"""
@@ -107,7 +107,7 @@ def compute_max_min_locations(config, gene_f):
 			# Which interval does the tp lie in?
 			func_phase = None
 			for phase, tps in timepoints_mapping.items():
-				if func_tp >= tps[0] and func_tp < tps[-1]:
+				if func_tp >= tps[0] and func_tp <= tps[-1]:
 					func_phase = phase
 
 			func_res = (func_val, f_index_func, func_tp, func_phase)

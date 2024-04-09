@@ -44,7 +44,40 @@ class GeneExpressionAnalysis:
 		self.gene_expression_f = gene_expression_f.dropna()
 		self.n = len(self.gene_expression_f)
 
-	def compute_ptr_inds_tps(self):
+
+	def compute_min_max_df(self):
+
+		from src.peak_to_trough import compute_max_min_locations
+
+		gene_fs = self.gene_expression_f
+
+		min_max_arr = np.apply_along_axis(lambda row: compute_max_min_locations(self.config, row), 1, gene_fs)
+		min_rets_df = pd.DataFrame(min_max_arr[:, 0, :], index=gene_fs.index,
+			 columns=['min_value', 'min_f_idx', 'min_tp', 'min_phase'])
+		max_rets_df = pd.DataFrame(min_max_arr[:, 1, :], index=gene_fs.index,
+			 columns=['max_value', 'max_f_idx', 'max_tp', 'max_phase'])
+		min_max_df = min_rets_df.join(max_rets_df)
+
+		return min_max_df
+
+
+	def compute_ptr_maxmins_tps(self):
+
+		from src.peak_to_trough import compute_ptr
+
+		min_max_df = self.compute_min_max_df()
+
+		ptr_rets_arr_80_20 = np.apply_along_axis(lambda row: compute_ptr(self.config, row,
+		    return_indices=False), 1, self.gene_expression_f)
+		ptrs_ret_df = pd.DataFrame(ptr_rets_arr_80_20, index=self.gene_expression_f.index,
+					 columns=['mother_ptr', 'daughter_ptr', 'ptr'])
+
+		self.ptrs_min_maxs = ptrs_ret_df.join(min_max_df)
+
+
+	def compute_ptr_inds_tps_deprecated(self):
+
+		raise ValueError("Deprecated switch to compute_ptr_maxmins_tps")
 
 		from src.config import load_yl_rg1_vst_config
 
@@ -60,13 +93,6 @@ class GeneExpressionAnalysis:
 																   return_indices=True), 1,
 						   gene_expression_f)
 
-		# from src.peak_to_trough import compute_max_min_locations
-
-		# f = ge_analysis.gene_expression_f.iloc[0]
-
-		# config = ge_analysis.config
-		# cdf, tps, min_val, max_val, min_tp, max_tp = compute_max_min_locations(config, f)
-
 		ptrs_ret_df = pd.DataFrame(ptr_rets_arr_80_20, index=gene_expression_f.index,
 					 columns=['mother_ptr', 'daughter_ptr', 'ptr',
 							  
@@ -79,7 +105,6 @@ class GeneExpressionAnalysis:
 							  
 							  # The timepoints of the hi and lo values
 							 'm_lo_tp','m_hi_tp', 'd_lo_tp','d_hi_tp'])
-
 
 		(cg1_timepoints, c_s_timepoints, c_g2m_timepoints), \
 		(dg1_timepoints, d_s_timepoints, d_g2m_timepoints) = self.get_phase_timepoints_for_plotting()
@@ -129,8 +154,6 @@ class GeneExpressionAnalysis:
 		ptrs_ret_df.loc[sel_mothers_lowest, 'trough_index'] = ptrs_ret_df.m_lo_idx
 		ptrs_ret_df.loc[sel_daughters_lowest, 'trough_index'] = ptrs_ret_df.d_lo_idx
 
-		self.ptrs_ret_df = ptrs_ret_df
-
 	def compute_c_d_timepoints_radians(self):
 
 		config = self.config
@@ -141,7 +164,7 @@ class GeneExpressionAnalysis:
 		# ------------- timepoints per phase --------------------
 
 		(cg1_timepoints, c_s_timepoints, c_g2m_timepoints), \
-		(dg1_timepoints, d_s_timepoints, d_g2m_timepoints) = self.get_phase_timepoints_for_plotting()
+		(dg1_timepoints, d_s_timepoints, d_g2m_timepoints) = self.config.get_phase_timepoints_for_plotting()
 		
 		# -------- In radians --------------
 		cg1_tp_radians = convert_tps_to_radians(mother_timepoints, cg1_timepoints)
@@ -214,7 +237,7 @@ class GeneExpressionAnalysis:
 	def plot_scatter_polar_full(self, selected_genes=[]):
 
 		mother_timepoints, daughter_timepoints, c_tps, d_tps = self.compute_c_d_timepoints_radians()
-		ptrs_ret_df = self.ptrs_ret_df
+		ptrs_ret_df = self.ptrs_min_maxs
 		geneset = self.geneset
 
 		plt.figure(figsize=(8, 4))
@@ -227,7 +250,7 @@ class GeneExpressionAnalysis:
 		plt.subplot(121, polar=True)
 
 		(cg1_timepoints, c_s_timepoints, c_g2m_timepoints), \
-		(dg1_timepoints, d_s_timepoints, d_g2m_timepoints) = self.get_phase_timepoints_for_plotting()
+		(dg1_timepoints, d_s_timepoints, d_g2m_timepoints) = self.config.get_phase_timepoints_for_plotting()
 		
 		# -------- label the subsectors --------------
 		cg1_tp_radians = convert_tps_to_radians(mother_and_daughter_tps, cg1_timepoints)
@@ -249,20 +272,23 @@ class GeneExpressionAnalysis:
 		# copy to make manipulations just for plotting
 		ptrs_ret_df = ptrs_ret_df.copy()
 
-		sel_mothers = ptrs_ret_df.m_hi > ptrs_ret_df.d_hi
-		sel_daughters = ptrs_ret_df.m_hi <= ptrs_ret_df.d_hi
+		sel_mothers = ptrs_ret_df.max_phase.str.startswith('C')
+		sel_daughters = ptrs_ret_df.max_phase.str.startswith('D')
 
 		ptrs_mother_hi = ptrs_ret_df[sel_mothers]
 		ptrs_daughter_hi = ptrs_ret_df[sel_daughters]
 
-		mother_tp_radians = convert_tps_to_radians(mother_and_daughter_tps, ptrs_mother_hi.m_hi_tp)
-		daughter_tp_radians = convert_tps_to_radians(mother_and_daughter_tps, ptrs_daughter_hi.d_hi_tp+offset)
-
+		mother_tp_radians = convert_tps_to_radians(mother_and_daughter_tps, 
+			ptrs_mother_hi.max_tp.values.astype(float))
+		daughter_tp_radians = convert_tps_to_radians(mother_and_daughter_tps, 
+			ptrs_daughter_hi.max_tp.values.astype(float) + offset) # add offset such that daughter timepoints
+		# follow mother time points
+	
 		# Negative to move the plot clockwise
 		ptrs_ret_df.loc[sel_mothers, 'tp_rad'] = -mother_tp_radians
 		ptrs_ret_df.loc[sel_daughters, 'tp_rad'] = -daughter_tp_radians
 
-		#  ---------- Move the Daughter S and G2M ptrs back to the mother branch sectors ------------------
+		# #  ---------- Move the Daughter S and G2M ptrs back to the mother branch sectors ------------------
 
 		# Move all S and PostG1 genes into the same coordinate space (into mother's time space)
 		# which means any timepoints in which the daughter's hi
@@ -274,13 +300,13 @@ class GeneExpressionAnalysis:
 		c_s_len = c_s_tp_radians[-1]-c_s_tp_radians[0]
 		offset_to_move_d_s = dg1_len+c_g2m_len+c_s_len
 
-		sel_d_s_and_d_post_g1 = (ptrs_ret_df.phase == 'D_S') | (ptrs_ret_df.phase == 'D_G2M')
+		sel_d_s_and_d_post_g1 = (ptrs_ret_df.max_phase == 'D_S') | (ptrs_ret_df.max_phase == 'D_G2M')
 		ptrs_ret_df.loc[sel_d_s_and_d_post_g1, 'tp_rad'] = ptrs_ret_df[sel_d_s_and_d_post_g1].tp_rad + \
 			offset_to_move_d_s 
 
-		# ----------------
+		# # ----------------
 
-		# Plot the data 
+		# # Plot the data 
 		plt.scatter(ptrs_ret_df.tp_rad, ptrs_ret_df.ptr,  c='#5f728c', s=1, zorder=10)
 
 		# -------------- Plot highlighted genes
@@ -293,8 +319,6 @@ class GeneExpressionAnalysis:
 		plt.scatter(selected_rows.tp_rad, selected_rows.ptr, facecolors='none',
 			edgecolor='red', s=15, marker='D', 
 			zorder=11)
-
-		# ------------
 
 		# ------- Format the plot -----------
 
@@ -315,14 +339,14 @@ class GeneExpressionAnalysis:
 
 		self.ptr_threshold = ptr_threshold
 
-		ptrs_ret_df = self.ptrs_ret_df
+		ptrs_ret_df = self.ptrs_min_maxs
 		# Select a PTR threshold and count the number of genes in each phase:
 		thresholded_ptrs = ptrs_ret_df[ptrs_ret_df.ptr > ptr_threshold]
 
 		phase_counts = {}
 		format_str = ""
-		for phase in thresholded_ptrs.phase.unique():
-			selected_rows = thresholded_ptrs[thresholded_ptrs.phase == phase]
+		for phase in thresholded_ptrs.max_phase.unique():
+			selected_rows = thresholded_ptrs[thresholded_ptrs.max_phase == phase]
 			if phase.endswith("S"): phase = "S"
 			if phase.endswith('G2M'): phase = "G2M"    
 			count = len(selected_rows)
