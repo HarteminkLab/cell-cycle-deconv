@@ -75,31 +75,6 @@ class GeneExpressionAnalysis:
 		self.ptrs_min_maxs = ptrs_ret_df.join(min_max_df)
 
 
-	def compute_c_d_timepoints_radians(self):
-
-		config = self.config
-		
-		mother_timepoints = config.get_timepoints_for_branch('t')
-		daughter_timepoints = config.get_timepoints_for_branch('b')
-
-		# ------------- timepoints per phase --------------------
-
-		(cg1_timepoints, c_s_timepoints, c_g2m_timepoints), \
-		(dg1_timepoints, d_s_timepoints, d_g2m_timepoints) = self.config.get_phase_timepoints_for_plotting()
-		
-		# -------- In radians --------------
-		cg1_tp_radians = convert_tps_to_radians(mother_timepoints, cg1_timepoints)
-		c_s_tp_radians = convert_tps_to_radians(mother_timepoints, c_s_timepoints)
-		c_g2m_tp_radians = convert_tps_to_radians(mother_timepoints, c_g2m_timepoints)
-		
-		dg1_tp_radians = convert_tps_to_radians(daughter_timepoints, dg1_timepoints)
-		d_s_tp_radians = convert_tps_to_radians(daughter_timepoints, d_s_timepoints)
-		d_g2m_tp_radians = convert_tps_to_radians(daughter_timepoints, d_g2m_timepoints)
-
-		return mother_timepoints, daughter_timepoints, (cg1_tp_radians, c_s_tp_radians, c_g2m_tp_radians), \
-			(dg1_tp_radians, d_s_tp_radians, d_g2m_tp_radians)
-
-
 	def plot_scatter_polar_full(self, selected_genes=[]):
 
 		mother_timepoints, daughter_timepoints, c_tps, d_tps = self.compute_c_d_timepoints_radians()
@@ -227,44 +202,3 @@ class GeneExpressionAnalysis:
 
 		self.thresholded_ptrs = thresholded_ptrs
 		return thresholded_ptrs, format_str, phase_counts
-
-
-def convert_tps_to_radians(tps, input_tps):
-	"""Convert a set of timepoint values to radians given a set of all timepoints
-
-	Parameters:
-	tps - Exhaustive list of timepoints from start to finish
-	input_tps - timepoints to convert
-	"""
-
-	tp_min, tp_max = tps.min(), tps.max()
-	len_tps = tp_max - tp_min
-	proportion_through_m_cc = (input_tps - tp_min) / len_tps
-	radians = proportion_through_m_cc * 2*math.pi
-
-	return radians
-
-def plot_annotations(tp_sets, phases, set_xticks=True, colors=None):
-
-	xtick_major_locs = []
-	xtick_minor_locs = []
-
-	for i in range(len(tp_sets)):
-		tp_set = tp_sets[i]
-		phase = phases[i]
-
-		if colors is not None:
-			color = colors[i]
-		else:
-			color = color_for_key(phase)
-
-		plt.fill_between(-tp_set, 1, 3, color=color, zorder=0)
-
-		xtick_minor_locs.append(-tp_set[len(tp_set)//2])
-		xtick_major_locs.append(-tp_set[0])
-
-	if set_xticks:
-		plt.xticks(xtick_minor_locs, phases, minor=True)
-		plt.xticks(xtick_major_locs, phases, minor=False)
-
-	return xtick_major_locs, xtick_minor_locs
