@@ -31,9 +31,9 @@ class PromoterPTRAnalysis:
 
 		# Convert the ranges into indices
 		self.promoter_bin_indices = (prom_x[0] + GlobalConstants.PROM_LEN) // GlobalConstants.BIN_WIDTH, \
-		    (prom_x[1] + GlobalConstants.PROM_LEN) // GlobalConstants.BIN_WIDTH
+			(prom_x[1] + GlobalConstants.PROM_LEN) // GlobalConstants.BIN_WIDTH
 		self.frag_len_bin_indices = sm_lens[0] // GlobalConstants.BIN_HEIGHT, \
-		    sm_lens[1] // GlobalConstants.BIN_HEIGHT
+			sm_lens[1] // GlobalConstants.BIN_HEIGHT
 
 	def load_f_files(self):
 		"""Load all of the gene F results into a dataframe, flatten the F images for the dataframe."""
@@ -71,22 +71,24 @@ class PromoterPTRAnalysis:
 				timer.print_time(f"{i+1}/{len(f_filepaths)}")
 			i += 1
 		self.all_gene_fs_df = all_gene_fs_df
-		self.all_f_values_flattened = self.all_gene_fs_df.values
+
+
+	def correct_f_images_by_strand(self):
+		f_values = self.all_gene_fs_df.values
+		self.f_imgs = f_values.reshape((f_values.shape[0], -1, *GlobalConstants.IMAGE_SHAPE)).astype(float)
+		crick_mask = self.geneset.strand == '-'
+		self.strand_corrected_f_images = self.strand_correct_f_images(self.f_imgs, crick_mask).astype(float)
 
 
 	def compute_small_fragments_promoter_occupancy(self):
 
-		f_df = self.all_gene_fs_df
-		f_values = f_df.values
-
-		chrom_f_imgs = f_values.reshape(
-		   (f_values.shape[0], -1, *GlobalConstants.IMAGE_SHAPE))
+		chrom_f_imgs = self.strand_corrected_f_images
 
 		promoter_bin_indices, frag_len_bin_indices = self.promoter_bin_indices, \
-		    self.frag_len_bin_indices
+			self.frag_len_bin_indices
 
 		sm_prom_bins = chrom_f_imgs[:, :, frag_len_bin_indices[0]:frag_len_bin_indices[1], 
-		    promoter_bin_indices[0]:promoter_bin_indices[1]]
+			promoter_bin_indices[0]:promoter_bin_indices[1]]
 		sm_prom_bin_occ = sm_prom_bins.sum(axis=2).sum(axis=2)
 
 		# Set nans to 0
@@ -119,10 +121,23 @@ class PromoterPTRAnalysis:
 		self.config, row), 1, sm_prom_bin_occ)
 
 		min_rets_df = pd.DataFrame(promoter_min_max_arr[:, 0, :-1].astype(float), index=index,
-		     columns=['min_value', 'min_f_idx', 'min_tp'])
+			 columns=['min_value', 'min_f_idx', 'min_tp'])
 		min_rets_df['min_phase'] = promoter_min_max_arr[:, 0, -1]
 		max_rets_df = pd.DataFrame(promoter_min_max_arr[:, 1, :-1].astype(float), index=index,
-		     columns=['max_value', 'max_f_idx', 'max_tp'])
+			 columns=['max_value', 'max_f_idx', 'max_tp'])
 		max_rets_df['max_phase'] = promoter_min_max_arr[:, 1, -1]
 
 		self.promoter_min_maxs = min_rets_df.join(max_rets_df).join(promoters_ptr_df)
+
+
+	def strand_correct_f_images(self, f_imgs, crick_mask):
+	
+		# Flip the crick genes horizontally
+		crick_imgs = f_imgs[crick_mask]
+		flipped_crick_imgs = np.flip(crick_imgs, axis=3)
+
+		strand_corrected_f_imgs = f_imgs.copy()	
+		strand_corrected_f_imgs[crick_mask] = flipped_crick_imgs
+
+		return strand_corrected_f_imgs
+
