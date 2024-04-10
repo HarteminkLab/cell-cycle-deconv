@@ -87,10 +87,10 @@ class PeakToTroughAnalysis:
 		# Load the F images for each deconvolved gene
 		current_f = np.load(f_filepaths[0])
 		print("Shape of the loaded F:", current_f.shape)
-		m_times, y_bins, x_bins = current_f.shape
 
+		m_times, u_vals = current_f.shape
 		all_gene_fs_df = pd.DataFrame(index=self.geneset.index, 
-		   columns=np.arange(m_times*y_bins*x_bins))
+		   columns=np.arange(m_times*u_vals))
 
 		from src.timer import Timer
 
@@ -113,7 +113,7 @@ class PeakToTroughAnalysis:
 				timer.print_time(f"{i+1}/{len(f_filepaths)}")
 			i += 1
 		self.all_gene_fs_df = all_gene_fs_df
-		self.all_f_values_flattened = self.all_gene_fs_df.values.flatten()
+		self.all_f_values_flattened = self.all_gene_fs_df.values
 
 
 	def plot_f_bin_histogram(self):
