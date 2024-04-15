@@ -96,6 +96,7 @@ class PromoterPTRAnalysis:
 		sm_prom_bin_occ[np.isnan(sm_prom_bin_occ)] = 0
 
 		self.sm_prom_bin_occ = sm_prom_bin_occ
+		self.sm_prom_occ_df = pd.DataFrame(sm_prom_bin_occ, index=self.all_gene_fs_df.index)
 
 	def compute_ptr_min_maxes(self):
 

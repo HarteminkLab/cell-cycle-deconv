@@ -44,7 +44,7 @@ class PolarPlotter():
 			(dg1_tp_radians, d_s_tp_radians, d_g2m_tp_radians)
 
 
-	def plot_scatter_polar_full(self, ptrs_data, selected_genes=[]):
+	def plot_scatter_polar_full(self, ptrs_data, selected_genes=[], ylim=(1, 3)):
 
 		mother_timepoints, daughter_timepoints, c_tps, d_tps = self.compute_c_d_timepoints_radians()
 		geneset = self.geneset
@@ -139,7 +139,7 @@ class PolarPlotter():
 		plt.yticks([], [])
 
 		plt.xlim(0, -math.pi*2)
-		plt.ylim(0, 10)
+		plt.ylim(*ylim)
 
 		plt.grid(axis='y', linestyle='dotted', linewidth=1, color='gray')
 
