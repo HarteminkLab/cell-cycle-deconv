@@ -10,6 +10,7 @@ from src.model import color_for_key
 from matplotlib import pyplot as plt
 from src.chromatin_model import read_chromosome_mnase_reads
 from src.reference_data import load_spellman_orfs, load_analysis_genes
+from src.config import load_yl_rg1_vst_config
 
 
 class GeneExpressionAnalysis:
@@ -19,6 +20,7 @@ class GeneExpressionAnalysis:
 		self.gene_expression_dir = gene_expression_dir
 		self.file_paths = glob.glob(f'{gene_expression_dir}/*_f_*.npy')
 		self.geneset = load_analysis_genes()
+		self.config = load_yl_rg1_vst_config(1)
 
 	def load_gene_expression_fs(self):
 

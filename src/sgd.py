@@ -48,8 +48,7 @@ def read_sgd_genes(filename='data/reference_data/sgd_R64-1-1_20110208.gff'):
 
 	return data.set_index('orf_name')
 
-def get_gene(genename_or_orfname):
-	genes = read_sgd_genes()
+def get_gene(genename_or_orfname, genes=read_sgd_genes()):
 	found_genes = genes[(genes['gene'] == genename_or_orfname) | (genes.index == genename_or_orfname)]
 
 	if len(found_genes) == 0:
@@ -57,8 +56,16 @@ def get_gene(genename_or_orfname):
 
 	return found_genes.iloc[0]
 
-def get_gene_name(orf_name):
-	return get_gene(orf_name).gene
+def get_gene_name(orf_name, genes=read_sgd_genes()):
+	return get_gene(orf_name, genes).gene
+
+
+def get_gene_name_or_orf_name(orf_name, genes=read_sgd_genes()):
+	"""For displaying gene names, avoid displaying None"""
+	gene_name = get_gene_name(orf_name, genes)
+	if gene_name is None:
+		return orf_name
+	return gene_name
 
 
 def get_orfname(gene_name):
