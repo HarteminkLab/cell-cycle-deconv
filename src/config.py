@@ -276,7 +276,7 @@ class Config:
 		for phase in phases_for_branch:
 			timepoints = search_df[(search_df.phase == phase) & 
 								   (search_df.branch == branch)].timepoint
-			branch_indices.append((phase,timepoints[:-1], self.phase_columns[phase]))
+			branch_indices.append((phase, timepoints[:-1], self.phase_columns[phase]))
 
 		return branch_indices
 

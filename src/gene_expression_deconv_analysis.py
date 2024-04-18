@@ -47,6 +47,26 @@ class GeneExpressionAnalysis:
 		self.n = len(self.gene_expression_f)
 
 
+	def plot_cg1_dg1_ratio(self):
+		# And select by DG1 and CG1 curves
+		cg1_indices = self.config.get_Hpositions_for_phase('CG1')
+		dg1_indices = self.config.get_Hpositions_for_phase('DG1')
+
+		cg1_genes_f = self.gene_expression_f.astype(float)[cg1_indices]
+		dg1_genes_f = self.gene_expression_f.astype(float)[dg1_indices]
+
+		cg1_dg1_ratio = self.gene_expression_f[[]].copy()
+		cg1_dg1_ratio['c_d_ratio'] = cg1_genes_f.sum(axis=1) / dg1_genes_f.sum(axis=1)
+		cg1_dg1_ratio = cg1_dg1_ratio.sort_values('c_d_ratio', ascending=False)
+
+		plt.figure(figsize=(6, 3))
+		plt.hist(np.log(cg1_dg1_ratio['c_d_ratio']), bins=100)
+		plt.yscale('log')
+		plt.ylabel("Count")
+		plt.xlabel("log CG1/DG1, gene expression ratio")
+		plt.title("CG1/DG1 ratio distribution")
+
+
 	def compute_min_max_df(self):
 
 		from src.peak_to_trough import compute_max_min_locations

@@ -44,7 +44,7 @@ class PolarPlotter():
 			(dg1_tp_radians, d_s_tp_radians, d_g2m_tp_radians)
 
 
-	def plot_scatter_polar_full(self, ptrs_data, selected_genes=[], ylim=(1, 3)):
+	def plot_scatter_polar_full(self, ptrs_data, selected_genes_mapping={}, ylim=(1, 3)):
 
 		mother_timepoints, daughter_timepoints, c_tps, d_tps = self.compute_c_d_timepoints_radians()
 		geneset = self.geneset
@@ -121,13 +121,14 @@ class PolarPlotter():
 		# -------------- Plot highlighted genes
 
 		# plot the selected data 
-		selected_orfs = geneset[geneset.gene.isin(selected_genes)].index.values
+		for color, selected_genes in selected_genes_mapping.items():
+			selected_orfs = geneset[geneset.gene.isin(selected_genes)].index.values
 
-		# plot the selected data where the mother is highest value
-		selected_rows = ptrs_data.loc[selected_orfs]
-		plt.scatter(selected_rows.tp_rad, selected_rows.ptr, facecolors='none',
-			edgecolor='red', s=15, marker='D', 
-			zorder=11)
+			# plot the selected data where the mother is highest value
+			selected_rows = ptrs_data.loc[selected_orfs]
+			plt.scatter(selected_rows.tp_rad, selected_rows.ptr, facecolors='none',
+				edgecolor=color, s=15, marker='D', 
+				zorder=11)
 
 		# ------- Format the plot -----------
 
