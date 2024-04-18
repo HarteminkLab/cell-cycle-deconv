@@ -45,7 +45,7 @@ def compute_ptr_f(config, f, quantiles=[0.2, 0.8]):
 	return f_ptrs
 
 
-def compute_max_min_locations(config, gene_f):
+def compute_max_min_locations(config, gene_f, ret_all=False):
 	"""Once we have 80/20 ptr, we are interested in where the absolute max and min locations
 	are for plotting
 
@@ -59,6 +59,10 @@ def compute_max_min_locations(config, gene_f):
 	e.g.
 
 	return (min_tuple of above), (max_tuple of above)
+
+
+	if ret_all is True:
+		return (min_tuple of above), (max_tuple of above), (mother min and max tuple), (daughter min and max tuple)
 
 	"""
 
@@ -141,7 +145,13 @@ def compute_max_min_locations(config, gene_f):
 	else:
 		min_res = d_min_res
 
-	return (min_res, max_res)
+	if ret_all:
+		ret = (min_res, max_res), (c_min_res, c_max_res), (d_min_res, d_max_res)
+	else:
+		ret = (min_res, max_res)
+
+	return ret
+
 
 def compute_ptr(config, gene_f, lo=0.2, hi=0.8, return_indices=False):
 
