@@ -209,73 +209,98 @@ class TracePlotter:
 	def plot_time_delta_curves(self, orf_name):
 		"""Plot the selected ORFs trace plots"""
 
-		from src.sgd import get_gene_name_or_orf_name
+		config = self.ge_analysis.config
+
+		ge_time_delta_df = self.ge_analysis.gene_expression_f.astype(float)
+		gene_expression_f = ge_time_delta_df.loc[orf_name]
+
+		prom_f = self.promoter_analysis.sm_prom_occ_df.astype(float)
+		gene_promoter_f = prom_f.loc[orf_name]
+
+		# Normalize by only the top and bottom branches
+		top_branch_indices = config.get_Hpositions_for_branch('t')
+		bottom_branch_indices = config.get_Hpositions_for_branch('b')
+		top_bottom_indices_concat = np.concatenate([top_branch_indices, bottom_branch_indices])
+		gene_expression_f = normalize_max_min(gene_expression_f, indices=top_bottom_indices_concat)
+		gene_promoter_f = normalize_max_min(gene_promoter_f, indices=top_bottom_indices_concat)
+
+		from src.sgd import get_gene_title_name
+		self.plot_f_curves([
+			("Gene expression", 'red', gene_expression_f),
+			("Promoter occupancy", 'blue', gene_promoter_f),
+		], title=get_gene_title_name(orf_name))
+
+
+
+	def plot_f_curves(self, data_sets={}, title=""):
+		"""Plot the selected ORFs trace plots"""
 
 		fig, (t_ax, b_ax) = plt.subplots(1, 2, figsize=(9, 2))
-		plt.subplots_adjust(wspace=0.)
+		plt.subplots_adjust(wspace=0., top=0.8)
+		plt.suptitle(title)
 
 		b_ax.set_yticks([])
 
-		ge_analysis = self.ge_analysis
+		config = self.ge_analysis.config
 		promoter_analysis = self.promoter_analysis
 
 		# Note: daughter-specific delta has not been handled yet.
-		lambda_val = ge_analysis.config.intervals_wt1[0][1]
-		delta_val = ge_analysis.config.intervals_wt1[0][2]
+		lambda_val = config.intervals_wt1[0][1]
+		delta_val = config.intervals_wt1[0][2]
 
 		# And select by DG1 and CG1 curves
-		top_branch_indices = ge_analysis.config.get_Hpositions_for_branch('t')
-		bottom_branch_indices = ge_analysis.config.get_Hpositions_for_branch('b')
+		top_branch_indices = config.get_Hpositions_for_branch('t')
+		bottom_branch_indices = config.get_Hpositions_for_branch('b')
 		top_bottom_indices_concat = np.concatenate([top_branch_indices, bottom_branch_indices])
 
-		top_branch_tps = ge_analysis.config.get_timepoints_for_branch('t')
-		bottom_branch_tps = ge_analysis.config.get_timepoints_for_branch('b')
+		top_branch_tps = config.get_timepoints_for_branch('t')
+		bottom_branch_tps = config.get_timepoints_for_branch('b')
 
-		ge_time_delta_df = ge_analysis.gene_expression_f.astype(float)
+		for name, color, data_f in data_sets:
+			min_f, max_f = data_f[top_bottom_indices_concat].min(), \
+				data_f[top_bottom_indices_concat].max()
+			delta = max_f - min_f
+			ylims = (min_f - delta*.15), (max_f + delta*.15)
 
-		gene_expression_f = ge_time_delta_df.loc[orf_name]
+			top_f = data_f[top_branch_indices]
+			t_ax.plot(top_branch_tps, top_f, color=color, label=name)
+			t_ax.set_xlim(top_branch_tps[0], top_branch_tps[-1])
+			t_ax.set_ylim(*ylims)
 
-		min_f, max_f = gene_expression_f[top_bottom_indices_concat].min(), \
-			gene_expression_f[top_bottom_indices_concat].max()
-		delta = max_f - min_f
-		ylims = (min_f - delta*.15), (max_f + delta*.15)
+			bottom_f = data_f[bottom_branch_indices]
+			b_ax.plot(bottom_branch_tps, bottom_f, color=color)
+			b_ax.set_xlim(bottom_branch_tps[0], bottom_branch_tps[-1])
+			b_ax.set_ylim(*ylims)
 
-		top_f = gene_expression_f[top_branch_indices]
-		t_ax.plot(top_branch_tps, top_f)
-		t_ax.set_xlim(top_branch_tps[0], top_branch_tps[-1])
-		t_ax.set_ylim(*ylims)
+			# ---------- max and mins -----------------
 
-		bottom_f = gene_expression_f[bottom_branch_indices]
-		b_ax.plot(bottom_branch_tps, bottom_f)
-		b_ax.set_xlim(bottom_branch_tps[0], bottom_branch_tps[-1])
-		b_ax.set_ylim(*ylims)
+			# Plot max indices
+			top_max_idx = top_f.argmax()		
+			t_ax.scatter(top_branch_tps[top_max_idx], top_f.values[top_max_idx], marker='^',
+				color=color, zorder=10)
 
-		# Plot max indices
-		top_max_idx = top_f.argmax()		
-		t_ax.scatter(top_branch_tps[top_max_idx], top_f.values[top_max_idx], marker='^',
-			color='black', zorder=10)
+			bottom_max_idx = bottom_f.argmax()
+			b_ax.scatter(bottom_branch_tps[bottom_max_idx], bottom_f.values[bottom_max_idx], marker='^',
+				color=color, zorder=10)
 
-		bottom_max_idx = bottom_f.argmax()
-		b_ax.scatter(bottom_branch_tps[bottom_max_idx], bottom_f.values[bottom_max_idx], marker='^',
-			color='black', zorder=10)
+			# Plot min indices
+			top_min_idx = top_f.argmin()
+			t_ax.scatter(top_branch_tps[top_min_idx], top_f.values[top_min_idx], marker='v',
+				color=color, zorder=10)
 
-		# Plot min indices
-		top_min_idx = top_f.argmin()
-		t_ax.scatter(top_branch_tps[top_min_idx], top_f.values[top_min_idx], marker='v',
-			color='black', zorder=10)
+			bottom_min_idx = bottom_f.argmin()
+			b_ax.scatter(bottom_branch_tps[bottom_min_idx], bottom_f.values[bottom_min_idx], marker='v',
+				color=color, zorder=10)
+			t_ax.set_yticks([])
 
-		bottom_min_idx = bottom_f.argmin()
-		b_ax.scatter(bottom_branch_tps[bottom_min_idx], bottom_f.values[bottom_min_idx], marker='v',
-			color='black', zorder=10)
-		t_ax.set_yticks([])
-
-		format_top_branch_annotations(ge_analysis.config, t_ax)
-		format_bottom_branch_annotations(ge_analysis.config, b_ax)
+		format_top_branch_annotations(config, t_ax)
+		format_bottom_branch_annotations(config, b_ax)
+		t_ax.legend()
 
 
-def normalize_max_min(dat):
+def normalize_max_min(dat, indices):
 	"""Normalize the input data to the min and max for comparing"""
-	min_v, max_v = dat.min(), dat.max()
+	min_v, max_v = dat[indices].min(), dat[indices].max()
 	delta = max_v - min_v
 	dat = dat.copy()
 	dat = (dat - min_v) / delta
