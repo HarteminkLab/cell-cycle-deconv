@@ -3,14 +3,15 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from src.chromatin_model import read_chromosome_mnase_reads
+from src.TracerPlotter import normalize_max_min
 
 
 class MNaseOriginAnalysis:
 	"""Analysis to determine correlation of cell cycling replication timing with
 	MNase-seq read counts using sliding windows"""
 
-	def __init__(self):
-		pass
+	def __init__(self, replicate):
+		self.replicate = replicate
 
 	def load_mnase_data(self, replicate, chromosome):
 		from src.sgd import get_chromosome_length
@@ -160,16 +161,11 @@ class MNaseOriginAnalysis:
 		# Take the heatmap of these timepoints and estimate when replication occurred along the 
 		# chromosome to estimate the early/late activation origin proximity.
 
-		from src.create_models import read_cloccs_posteriors
-		params = read_cloccs_posteriors(f'data/2019_cloccs_fits/yl_2019_replicate{self.replicate}/posteriors.txt')
+		from src.config import load_yl_rg1_vst_config
 
-		mu0, lambda_len, gamma1, gamma2 = params['mu0'], params['lambda'], params['gamma1'], \
-			params['gamma2']
-
-		if self.replicate == 2:
-			alpha = 22
-		else:
-			alpha = 28
+		config = load_yl_rg1_vst_config(self.replicate)
+		intervals = config.intervals_wt1[0]
+		mu0, lambda_len, gamma1, gamma2, alpha = intervals[0], intervals[1], intervals[7], intervals[8], intervals[5]
 
 		# Estimate the first S from mu0, lambda, gamma1, and gamma2
 		cg1_length = gamma1*lambda_len+alpha
@@ -179,8 +175,9 @@ class MNaseOriginAnalysis:
 
 		# For the first cell cycle, mu0 includes the first G1
 		# so S starts when Recovery (mu0) ends
-		self.first_s_start = -mu0
-		self.first_s_end = -mu0+s_length
+		self.first_s_start = mu0
+		self.first_s_end = mu0+s_length
+		self.lambda_len = lambda_len
 
 		# The end of the first cycle is computed
 		# by taking the cell cycle length, subtracting the length of S (to get G1 and G2/M)
@@ -189,7 +186,15 @@ class MNaseOriginAnalysis:
 		self.g1_recovery_would_start_here = self.first_s_start - cg1_length
 		self.end_of_first_lambd = self.g1_recovery_would_start_here+lambda_len
 
-		self.params = params
+		self.intervals = intervals
+
+
+	def normalize_replication_timing_by_cell_cycle_parameters(self):
+		"""Normalize by cell cycle length and start of cell cycle so replicates can be comparable"""
+		normalized_timing = (self.repl_timing_df - \
+							  self.g1_recovery_would_start_here) / \
+		(self.lambda_len)
+		self.normalized_timing = normalized_timing
 
 
 	def plot_heatmap(self, plot_norm_by_copy=True):
@@ -320,7 +325,7 @@ class MNaseOriginAnalysis:
 		replication_timepoints = timepoints[replication_timing_idx]
 		return replication_timepoints
 
-	def compute_bin_curves_and_expression_correlations(self, replicate):
+	def compute_bin_curves_and_expression_correlations(self):
 
 		from src.config import read_yl_vst_data_rep
 		from scipy.stats import pearsonr
@@ -329,9 +334,9 @@ class MNaseOriginAnalysis:
 
 		geneset = load_analysis_genes()
 
-		self.load_mnase_data(replicate, 1)
+		self.load_mnase_data(self.replicate, 1)
 
-		expression_vst_data = read_yl_vst_data_rep(replicate=replicate)
+		expression_vst_data = read_yl_vst_data_rep(replicate=self.replicate)
 
 		# In the case of replicate 2, the gene expression has one fewer
 		# timepoint, so select the columns for those timepoints in the
@@ -348,7 +353,7 @@ class MNaseOriginAnalysis:
 			print(f"{chrom}", end=", ")
 			chrom_genes = geneset[geneset.chr == chrom]
 
-			self.load_mnase_data(replicate, chrom)
+			self.load_mnase_data(self.replicate, chrom)
 			self.compute_sliding_window_counts_all_times()
 			self.normalize_samples()
 
@@ -367,6 +372,36 @@ class MNaseOriginAnalysis:
 		timer.print_time()
 
 
+	def compute_replication_timing(self):
+		from src.sgd import get_orfname
+		from src.config import load_yl_rg1_vst_config
+
+		config = load_yl_rg1_vst_config(self.replicate)
+		intervals = config.intervals_wt1[0]
+		mu0, lambda_val, delta, gamma1, gamma2, alpha = intervals[0], intervals[1],\
+			intervals[2], intervals[7], intervals[8], intervals[5]
+
+		normalized_bin_curves = self.bin_curves.apply(lambda row: 
+			normalize_first_cc_bin_curves(row, lambda_val), axis=1)
+		self.normalized_bin_curves = normalized_bin_curves
+
+		# When does the normalized bin curve reach 75%, take the max
+		# the first (true) value of exceeding the threshold, the column (time)
+		# of this occurrence is the bin's replication timing
+		self.threshold = 0.75
+		self.repl_timing_df = (normalized_bin_curves.dropna() > self.threshold).idxmax(axis=1)
+
+
+	def plot_normalized_bin_curves(self, genes):
+
+		plt.figure(figsize=(5, 2))
+		for gene in genes:
+			add_gene_bin_curve(gene, self.normalized_bin_curves, self.repl_timing_df)
+		plt.legend()
+		plt.title(f"10k chromatin context for early and late\nreplicating genes, Replicate {self.replicate}")
+		plt.ylabel("Normalized occupancy")
+
+
 def compute_sliding_window(data, window_size, step):
 	# Number of windows
 	n_windows = (len(data) - window_size) // step + 1
@@ -379,3 +414,25 @@ def compute_sliding_window(data, window_size, step):
 		result[i, :] = data[start:start + window_size]
 	
 	return result
+
+
+def normalize_first_cc_bin_curves(dat, lambda_val):
+	"""Normalize the data such that within the first cell cycle"""
+	x = dat.index
+	first_cc_indices = x < lambda_val
+	normalized_dat = normalize_max_min(dat, first_cc_indices)
+	return normalized_dat
+
+
+def add_gene_bin_curve(gene_name, normalized_bin_curves, repl_timing_df):
+	from src.sgd import get_orfname
+	orf_name = get_orfname(gene_name)
+	x = normalized_bin_curves.columns    
+	y = normalized_bin_curves.loc[orf_name]
+	
+	# when does the normalized bin curve exceed the threshold?
+	cross_point_time = repl_timing_df.loc[orf_name]
+	
+	plt.scatter(cross_point_time, y[cross_point_time], marker='D')
+	plt.plot(x, y, label=f"{gene_name}, {cross_point_time}")
+
