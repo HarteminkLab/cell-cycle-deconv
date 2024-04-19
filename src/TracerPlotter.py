@@ -122,8 +122,11 @@ class TracePlotter:
 		t_ax.legend()
 
 
-def normalize_max_min(dat, indices):
+def normalize_max_min(dat, indices=None):
 	"""Normalize the input data to the min and max for comparing"""
+
+	if indices is None: indices = np.arange(len(dat))
+
 	min_v, max_v = dat[indices].min(), dat[indices].max()
 	delta = max_v - min_v
 	dat = dat.copy()

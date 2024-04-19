@@ -70,7 +70,6 @@ class ModelCreation:
 		# we do not have beta, but we will instead use the average between gamma1 and gamma2 to estimate
 		# the S phase position
 
-		#beta = (gamma1 + gamma2)/2.0
 		beta = BETA_DEFAULT
 
 		#position_of_s = beta*lambd

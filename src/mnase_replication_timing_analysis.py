@@ -325,6 +325,8 @@ class MNaseOriginAnalysis:
 		from src.config import read_yl_vst_data_rep
 		from scipy.stats import pearsonr
 		from src.reference_data import load_analysis_genes
+		from src.timer import Timer
+
 		geneset = load_analysis_genes()
 
 		self.load_mnase_data(replicate, 1)
@@ -339,6 +341,8 @@ class MNaseOriginAnalysis:
 		bin_curves.loc[:] = 0.
 
 		sel_tps_mask = [True if t in curve_timepoints else False for t in self.timepoints]
+
+		timer = Timer()
 
 		for chrom in np.arange(1, 17):
 			print(f"{chrom}", end=", ")
@@ -356,7 +360,11 @@ class MNaseOriginAnalysis:
 		expression_bin_correlation = expression_vst_data.T.corrwith(bin_curves.T)
 		expression_bin_correlations = expression_bin_correlation.dropna()
 
-		return bin_curves, expression_bin_correlations
+		self.bin_curves = bin_curves
+		self.expression_vst_data = expression_vst_data
+		self.expression_bin_correlations = expression_bin_correlations
+
+		timer.print_time()
 
 
 def compute_sliding_window(data, window_size, step):
