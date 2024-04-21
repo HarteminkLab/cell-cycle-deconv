@@ -50,3 +50,36 @@ def read_macisaac_sites():
 	#sites.chr = _fromRoman(sites.chr)
 	sites.TF = sites.TF.str.replace(';', '').str.replace('Site ', '')
 	return sites
+
+def read_rossi_sites():
+
+	import os
+	# let's read in the chip-exo rossi bed files
+	def read_filename_chip_exo(filename):
+		
+		if 'filtered_new' in filename:
+			tf_name = filename.split('/')[-1].split('_')[1]
+		else:
+			tf_name = filename.split('/')[-1].split('_')[0]
+
+		chip_df = pd.read_csv(filename, sep='\t', header=None)
+		chip_df.columns = ['chr', 'start', 'stop', 'name', '?', '.']
+		chip_df['tf'] = tf_name
+		return chip_df
+
+
+	rossi_dir = 'datasets/chip_exo_rossi/04_ChExMix_Peaks/'
+	bedfiles = os.listdir(rossi_dir)
+	fullpaths = [f"{rossi_dir}{f}" for f in bedfiles]
+
+	rossi_sites = pd.DataFrame()
+	for filepath in fullpaths:
+		if filepath.endswith('.bed'):
+			tf_sites = read_filename_chip_exo(filepath)
+			rossi_sites = pd.concat([rossi_sites, tf_sites])
+
+	rossi_sites.chr = rossi_sites.chr.str.replace('chr', '').astype(int)
+	rossi_sites = rossi_sites.reset_index(drop=True)
+	rossi_sites = rossi_sites.sort_values(['chr', 'start'])
+
+	return rossi_sites

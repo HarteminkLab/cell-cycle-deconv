@@ -145,6 +145,55 @@ class TimeDeltaAnalysis:
 
 		tracer_plotter.plot_time_delta_curves(orf_name, title=title)
 
+	def compute_promoter_regions(self):
+		promoter_region = self.promoter_analysis.prom_x
+
+		rep1_p1 = pd.read_csv('datasets/computed_mnase/rep1_plus_ones.csv').set_index('orf_name')
+		rep2_p1 = pd.read_csv('datasets/computed_mnase/rep2_plus_ones.csv').set_index('orf_name')
+
+		geneset = self.ge_analysis.geneset
+		plus_ones = rep1_p1.join(rep2_p1, lsuffix="_rep1", rsuffix="_rep2")
+		plus_ones['+1_mean'] = plus_ones.mean(axis=1)
+
+		plus_ones = plus_ones.join(geneset[['gene', 'chr',
+			'strand']], how='inner')
+
+		plus_ones.loc[plus_ones.strand == '+', 'prom_start'] = plus_ones['+1_mean'] \
+			+ promoter_region[0]
+		plus_ones.loc[plus_ones.strand == '+', 'prom_end'] = plus_ones['+1_mean'] \
+			+ promoter_region[1]
+
+		plus_ones.loc[plus_ones.strand == '-', 'prom_end'] = plus_ones['+1_mean'] \
+			- promoter_region[0]
+		plus_ones.loc[plus_ones.strand == '-', 'prom_start'] = plus_ones['+1_mean'] \
+			- promoter_region[1]
+
+		self.plus_ones = plus_ones
+
+	def get_rossi_for_orf(self, orf_name):
+		"""Get the filtered rossi sites for given orf and +1s"""
+		from src.reference_data import read_rossi_sites
+
+		rossi_sites = read_rossi_sites()
+		
+		orf_prom = self.plus_ones.loc[orf_name]
+		filtered_sites = rossi_sites[(rossi_sites.start > orf_prom.prom_start) & 
+					(rossi_sites.start < orf_prom.prom_end) &
+					(rossi_sites.chr == orf_prom.chr)].copy()
+		
+		def create_color_mapping_for_tfs(tf_names):
+			colormap = plt.get_cmap('tab10')
+			color_mapping = {}
+			for i in range(len(tf_names)):
+				tf_name = tf_names[i]
+				color_mapping[tf_name] = colormap(i)
+			return color_mapping
+
+		# Add a color for plotting
+		color_mapping = create_color_mapping_for_tfs(filtered_sites.tf.unique())
+		filtered_sites['tf_color'] = filtered_sites.tf.map(lambda tf: color_mapping[tf])
+
+		return filtered_sites
 
 def compute_mother_daughter_max_mins(config, gene_fs):
 	"""
@@ -217,19 +266,6 @@ def compute_mother_daughter_deltas(config, ge_mother_max_mins, prom_mother_max_m
 										lsuffix='_mother', rsuffix='_daughter')
 	return mother_daughter_max_deltas
 
-
-# def minimal_angle_degrees(angle1, angle2):
-# 	# Compute the absolute difference and map it into the range [0, 360]
-# 	difference = np.abs(angle1 - angle2) % 360
-	
-# 	# If the difference is greater than 180 degrees, take the shorter way around the circle
-# 	difference[difference > 180] = 360 - difference
-
-
-
-# 	#difference[difference > 180] = difference-180
-	
-# 	return difference
 
 def minimal_angle_degrees(angle1, angle2):
 	# Calculate the difference

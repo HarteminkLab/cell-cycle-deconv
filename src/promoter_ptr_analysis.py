@@ -22,12 +22,10 @@ class PromoterPTRAnalysis:
 		prom_len = prom_x[1]-prom_x[0]
 
 		sm_lens = GlobalConstants.BIN_HEIGHT, GlobalConstants.BIN_HEIGHT*3
-		sm_range = sm_lens[1]-sm_lens[0]
 
 		self.prom_x = prom_x
 		self.prom_len = prom_len
 		self.sm_lens = sm_lens
-		self.sm_range = sm_range
 
 		# Convert the ranges into indices
 		self.promoter_bin_indices = (prom_x[0] + GlobalConstants.PROM_LEN) // GlobalConstants.BIN_WIDTH, \
@@ -142,3 +140,83 @@ class PromoterPTRAnalysis:
 
 		return strand_corrected_f_imgs
 
+
+	def plot_orf_name_imgs(self, time_delta_analysis, orf_name):
+
+		f_index = self.geneset[['strand']].copy()
+		f_index['gene_index'] = np.arange(len(f_index))
+
+
+		gene = f_index.loc[orf_name]
+		gene_imgs = self.f_imgs[gene.gene_index]
+
+		gene_imgs = self.f_imgs[f_index.loc[orf_name].gene_index]
+
+		fig, (peak_axs, trough_axs) = plt.subplots(2, 3, figsize=(8, 3))
+		plt.subplots_adjust(top=0.8, hspace=0.35)
+		
+		# add box around promoter occupancy
+		# add identified motifs from chip-exo and fimo
+		x1, x2 = self.prom_x
+		y1, y2 = self.sm_lens
+		
+		def show_img(ax, img):
+			if gene.strand == '-':
+				img = np.fliplr(img)
+
+			from src.global_config import GlobalConstants
+
+			ax.imshow(img, origin='lower', cmap='magma_r', aspect='auto',
+				extent=[-GlobalConstants.PROM_LEN, GlobalConstants.GB_LEN,
+				0, GlobalConstants.MAX_Y_LEN])
+			ax.set_xticks([])
+			ax.set_yticks([])
+			ax.axvline(-GlobalConstants.BIN_WIDTH, c='#555', lw=1, ls='solid', alpha=0.5)
+			from src.plot_helpers import plot_rect2
+			plot_rect2(ax, x1, y1, x2, y2, edgecolor='blue', fill=None, lw=0.75)
+		
+		def plot_branch_peak_trough(prom_indices, ax_peak, ax_trough, name):
+			show_img(ax_peak, gene_imgs[int(prom_indices.index_max)])
+			ax_peak.set_ylabel("Peak")
+			show_img(ax_trough, gene_imgs[int(prom_indices.index_min)])
+			ax_trough.set_ylabel("Trough")
+			ax_peak.set_title(name)
+		
+		mother_prom_indices = time_delta_analysis.prom_mother_max_mins.loc[orf_name]
+		daughter_prom_indices = time_delta_analysis.prom_daughter_max_mins.loc[orf_name]
+		
+		plot_branch_peak_trough(mother_prom_indices, peak_axs[0], trough_axs[0], 'Mother')
+		plot_branch_peak_trough(daughter_prom_indices, peak_axs[1], trough_axs[1], 'Daughter')
+		
+		from src.sgd import get_gene_title_name
+		
+		gene_title = get_gene_title_name(orf_name)
+		plt.suptitle(gene_title, fontsize=16)
+
+		from src.plot_helpers import hide_spines
+		hide_spines(peak_axs[2])
+		hide_spines(trough_axs[2])
+
+		# Load the tf sites bound to the promoter and
+		# correct the location based on the plus one
+		# (the plot is centered on the +1) and correct for strand
+		tf_sites = time_delta_analysis.get_rossi_for_orf(orf_name)
+		row = time_delta_analysis.plus_ones.loc[orf_name]
+		plus_1 = row['+1_mean']
+		tf_sites['loc_corrected'] = tf_sites['start'] - plus_1
+		if gene.strand == '-':
+			tf_sites['loc_corrected'] = -tf_sites['loc_corrected']
+
+		def plot_tf_sites(ax, tf_sites):
+			for idx, tf_site in tf_sites.iterrows():
+				ax.scatter(tf_site.loc_corrected, 15, marker='^', s=10, color=tf_site.tf_color,
+					label=tf_site.tf)
+
+		for ax in [peak_axs[0], peak_axs[1], trough_axs[0], trough_axs[1]]:
+			plot_tf_sites(ax, tf_sites)
+
+		plot_tf_sites(peak_axs[2], tf_sites)
+		peak_axs[2].legend(loc='upper left', ncol=3, frameon=False)
+		peak_axs[2].set_ylim(0, 1)
+
+		print(tf_sites[['tf', 'loc_corrected']])

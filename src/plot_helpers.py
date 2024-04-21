@@ -101,3 +101,43 @@ def plot_density(data, ax=None, color='red', arange=None,
 				 solid_joinstyle='round', ls=ls)
 
 	return y
+
+def plot_rect2(ax, x1, y1, x2, y2, color=None, facecolor=None, 
+	edgecolor=None, ls='solid', fill_alpha=1., zorder=40, lw=0.0, 
+	inset=(0.0, 0.0), fill=True, joinstyle='round'):
+	"""
+	Plot a rectangle for ORF plotting, updated to x1 x2 and y1 y2 rather than width height
+	"""
+
+	import matplotlib.patches as patches
+
+	if edgecolor is None: edgecolor = color
+	if facecolor is None: facecolor = color
+
+	x = x1
+	y = y1
+	width = x2-x1
+	height = y2-y1
+
+	patch = ax.add_patch(
+					patches.Rectangle(
+						(x, y + inset[1]/2.0),   # (x,y)
+						width, height - inset[1], # size
+						facecolor=facecolor,
+						edgecolor=edgecolor,
+						lw=lw,
+						joinstyle=joinstyle,
+						ls=ls,
+						fill=fill,
+						alpha=fill_alpha,
+						zorder=zorder
+					))
+
+def hide_spines(ax):
+	ax.spines['top'].set_visible(False)
+	ax.spines['bottom'].set_visible(False)
+	ax.spines['left'].set_visible(False)
+	ax.spines['right'].set_visible(False)
+
+	ax.set_xticks([])
+	ax.set_yticks([])
