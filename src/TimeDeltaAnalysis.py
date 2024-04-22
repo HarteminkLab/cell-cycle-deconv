@@ -193,6 +193,8 @@ class TimeDeltaAnalysis:
 		color_mapping = create_color_mapping_for_tfs(filtered_sites.tf.unique())
 		filtered_sites['tf_color'] = filtered_sites.tf.map(lambda tf: color_mapping[tf])
 
+		filtered_sites = filtered_sites.sort_values('tf')
+
 		return filtered_sites
 
 def compute_mother_daughter_max_mins(config, gene_fs):
