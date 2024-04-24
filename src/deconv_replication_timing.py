@@ -133,3 +133,100 @@ class DeconvReplicationProfileAnalysis:
 
 		self.alphas = alphas
 		self.alpha_fs = alpha_fs
+
+
+	def plot_alpha_search_results(self):
+
+		config = self.config
+		alphas = self.alphas
+		alpha_fs = self.alpha_fs
+
+		# For indexing the result
+		i_indices = config.get_Hpositions_for_branch('i')
+		t_indices = config.get_Hpositions_for_branch('t')
+		b_indices = config.get_Hpositions_for_branch('b')
+		cg1_ind = config.get_Hpositions_for_phase('CG1')
+		dg1_ind = config.get_Hpositions_for_phase('DG1')
+		postG1_ind = config.get_Hpositions_for_phase('postG1')
+
+		def plot_alpha_avg(g1_indices, alpha_fs, i, alphas):
+			color = plt.get_cmap('Spectral')(i/len(alphas))
+			alpha = alphas[i]
+			dg1 = alpha_fs[i][g1_indices].mean(axis=1)
+			postg1 = alpha_fs[i][postG1_ind].mean(axis=1)
+			
+			plt.plot(np.arange(len(dg1)), dg1, c='black', lw=2, zorder=1)
+			plt.plot(np.arange(len(postg1)) + len(dg1), postg1, c='gray', lw=3, zorder=1)
+			
+			plt.plot(np.arange(len(dg1)), dg1, c=color)
+			plt.plot(np.arange(len(postg1)) + len(dg1), postg1, c=color, label=alpha)
+			plt.ylim(0.5, 3.75)
+			plt.legend(ncol=3)
+
+		plt.figure(figsize=(17, 4))
+		plt.subplot(1, 4, 1)
+		plt.subplots_adjust(wspace=0.35, top=0.75)
+
+		for i in range(len(alphas)):
+			plot_alpha_avg(cg1_ind, alpha_fs, i, alphas)
+		plt.title("Mother")
+
+		plt.subplot(1, 4, 2)
+		for i in range(len(alphas)):
+			plot_alpha_avg(dg1_ind, alpha_fs, i, alphas)
+		plt.title("Daughter")
+
+		mean_dg1 = np.median(alpha_fs[:, dg1_ind[0], :], axis=1)
+		mean_cg1 = np.median(alpha_fs[:, cg1_ind[0], :], axis=1)
+		avg_cg1_dg1 = (mean_dg1+mean_cg1)/2
+
+		plt.subplot(1, 4, 3)
+		plt.plot(alphas, avg_cg1_dg1, label="CG1/DG1 mean")
+
+		min_ind = np.argmin(mean_cg1)
+		min_alpha = alphas[min_ind]
+		plt.axvline(min_alpha, c='black', lw=1, ls='dotted')
+		plt.axvline(14, c='black', lw=1, ls='dotted')
+		plt.xlabel("Alpha")
+		plt.ylabel("First time point occupancy")
+		plt.title("Determining Alpha from CG1/DG1")
+
+		# The continuity from the end of CG1 to the start of PostG1
+		plt.subplot(1, 4, 4)
+		last_dg1 = np.median(alpha_fs[:, dg1_ind[-1], :], axis=1)
+		last_cg1 = np.median(alpha_fs[:, cg1_ind[-1], :], axis=1)
+		start_postg1 = np.median(alpha_fs[:, postG1_ind[0], :], axis=1)
+		cg1_dg1_post_g1_diff = (np.abs(last_dg1-start_postg1) + np.abs(last_cg1-start_postg1))/2.
+		plt.plot(alphas, cg1_dg1_post_g1_diff, label="DG1/CG1 and postG1")
+		plt.axvline(14, c='black', lw=1, ls='dotted')
+		plt.title("Continuity\nbetween G1 and PostG1")
+		plt.suptitle("Replicate 1, chromosome 4", fontsize=32)
+
+	def plot_example_alpha_repl_timing(self, ind):
+		
+		config = self.config
+		alpha_fs = self.alpha_fs
+		t_indices = config.get_Hpositions_for_branch('t')
+		b_indices = config.get_Hpositions_for_branch('b')
+
+		t_tps = config.get_timepoints_for_branch('t')
+		b_tps = config.get_timepoints_for_branch('b')
+		
+		plt.figure(figsize=(13, 4))
+
+		alpha = self.alphas[ind]
+
+		plt.subplot(2, 1, 1)
+		plt.imshow(alpha_fs[ind][t_indices], origin='lower', 
+				   vmin=1, vmax=2, aspect='auto',
+				  extent=[0, 1000, t_tps[0], t_tps[-1]])
+		plt.title("Mother")
+		plt.xticks([])
+
+		plt.subplot(2, 1, 2)
+		plt.imshow(alpha_fs[ind][b_indices], origin='lower', vmin=1, vmax=2, aspect='auto',
+				  extent=[0, 1000, b_tps[0], b_tps[-1]])
+		plt.title("Daughter")
+		plt.xticks([])
+
+		plt.suptitle(f"Deconvolved gene replication profile, chr4, replicate 1, alpha={alpha}")
