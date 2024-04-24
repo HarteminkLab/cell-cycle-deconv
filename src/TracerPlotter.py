@@ -128,7 +128,7 @@ def normalize_max_min(dat, indices=None):
 	if indices is None: indices = np.arange(len(dat))
 
 	min_v, max_v = dat[indices].min(), dat[indices].max()
-	delta = max_v - min_v
+	delta = (max_v - min_v) + 1e-5 # avoid divide by zero
 	dat = dat.copy()
 	dat = (dat - min_v) / delta
 	return dat

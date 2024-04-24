@@ -72,6 +72,7 @@ class DeconvReplicationProfileAnalysis:
 			mnase_analysis = self.mnase_analysis_rep1
 		else:
 			mnase_analysis = self.mnase_analysis_rep2
+		self.replicate = replicate
 
 		from src.geneset import get_deconvolved_geneset
 		geneset = get_deconvolved_geneset()

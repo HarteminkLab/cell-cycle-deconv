@@ -325,7 +325,7 @@ class MNaseOriginAnalysis:
 		replication_timepoints = timepoints[replication_timing_idx]
 		return replication_timepoints
 
-	def compute_bin_curves_and_expression_correlations(self):
+	def compute_bin_curves(self):
 
 		from src.config import read_yl_vst_data_rep
 		from scipy.stats import pearsonr
@@ -336,16 +336,12 @@ class MNaseOriginAnalysis:
 
 		self.load_mnase_data(self.replicate, 1)
 
-		expression_vst_data = read_yl_vst_data_rep(replicate=self.replicate)
-
 		# In the case of replicate 2, the gene expression has one fewer
 		# timepoint, so select the columns for those timepoints in the
 		# chromatin data
-		curve_timepoints = expression_vst_data.columns
-		bin_curves = expression_vst_data.copy()
+		curve_timepoints = self.timepoints
+		bin_curves = pd.DataFrame(index=geneset.index.values, columns=curve_timepoints)
 		bin_curves.loc[:] = 0.
-
-		sel_tps_mask = [True if t in curve_timepoints else False for t in self.timepoints]
 
 		timer = Timer()
 
@@ -359,15 +355,10 @@ class MNaseOriginAnalysis:
 
 			for orf_name, gene in chrom_genes.iterrows():
 				bin_idx, bin_start = self.get_bin_for_position(gene.TSS)
-				bin_copy_num_curve = self.counts_normalized_by_copy[sel_tps_mask, bin_idx]
+				bin_copy_num_curve = self.counts_normalized_by_copy[:, bin_idx]
 				bin_curves.loc[orf_name] = bin_copy_num_curve
 
-		expression_bin_correlation = expression_vst_data.T.corrwith(bin_curves.T)
-		expression_bin_correlations = expression_bin_correlation.dropna()
-
 		self.bin_curves = bin_curves
-		self.expression_vst_data = expression_vst_data
-		self.expression_bin_correlations = expression_bin_correlations
 
 		timer.print_time()
 
@@ -381,7 +372,9 @@ class MNaseOriginAnalysis:
 		mu0, lambda_val, delta, gamma1, gamma2, alpha = intervals[0], intervals[1],\
 			intervals[2], intervals[7], intervals[8], intervals[5]
 
-		normalized_bin_curves = self.bin_curves.apply(lambda row: 
+		bin_curves = self.bin_curves
+
+		normalized_bin_curves = bin_curves.apply(lambda row: 
 			normalize_first_cc_bin_curves(row, lambda_val), axis=1)
 		self.normalized_bin_curves = normalized_bin_curves
 
