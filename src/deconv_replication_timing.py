@@ -73,6 +73,7 @@ class DeconvReplicationProfileAnalysis:
 		else:
 			mnase_analysis = self.mnase_analysis_rep2
 		self.replicate = replicate
+		self.chrom = chrom
 
 		from src.geneset import get_deconvolved_geneset
 		geneset = get_deconvolved_geneset()
@@ -201,7 +202,7 @@ class DeconvReplicationProfileAnalysis:
 		plt.plot(alphas, cg1_dg1_post_g1_diff, label="DG1/CG1 and postG1")
 		plt.axvline(14, c='black', lw=1, ls='dotted')
 		plt.title("Continuity\nbetween G1 and PostG1")
-		plt.suptitle("Replicate 1, chromosome 4", fontsize=32)
+		plt.suptitle(f"Replicate {self.replicate}, chromosome {self.chrom}", fontsize=32)
 
 	def plot_example_alpha_repl_timing(self, ind):
 		
@@ -230,4 +231,4 @@ class DeconvReplicationProfileAnalysis:
 		plt.title("Daughter")
 		plt.xticks([])
 
-		plt.suptitle(f"Deconvolved gene replication profile, chr4, replicate 1, alpha={alpha}")
+		plt.suptitle(f"Deconvolved gene replication profile, chr{self.chrom}, replicate {self.replicate}, alpha={alpha}")
