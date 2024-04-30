@@ -44,7 +44,7 @@ class CombinedChromatinModel:
 		self.chrom2_model.create_deconvolution_bins()
 
 
-	def	setup_deconv_model(self, gamma=0.006, gamma_prime=0):
+	def	setup_deconv_model(self, gamma=0.006, G1=None, G2=None, wavelet="Symmlet"):
 		from src.helpers import calcH
 		from src.model import Model
 
@@ -55,8 +55,16 @@ class CombinedChromatinModel:
 
 		# Next we will need to setup the deconvolution model to combine the H
 		# and the deconvolution G data
-		self.G1 = chrom1_model.G
-		self.G2 = chrom2_model.G
+
+		if G1 is None:
+			self.G1 = chrom1_model.G
+		else:
+			self.G1 = G1
+
+		if G2 is None:
+			self.G2 = chrom2_model.G
+		else:
+			self.G2 = G2
 
 		# Combine the two G datasets row-wise
 		self.G = np.concatenate([self.G1, self.G2])
@@ -81,7 +89,7 @@ class CombinedChromatinModel:
 		self.deconv_model.gamma = self.gamma
 
 		self.solver = ChromatinDeconvolveSolver(self.deconv1_model, self.H, self.G, 
-			image_shape=image_shape, wavelet_name='bior4.4', gamma_prime=gamma_prime)
+			image_shape=image_shape, wavelet=wavelet)
 		self.solver.define_deconvolution_problem()
 
 		# For plotting results
@@ -92,18 +100,18 @@ class CombinedChromatinModel:
 
 		self.found_optimal_success = None
 		self.deconvolved_f_value = None
-		self.gamma_prime = gamma_prime
 
 
-	def deconvolve(self, verbose=False, gamma=0.006, gamma_prime=0):
+	def deconvolve(self, verbose=False, gamma=0.006, G1=None, G2=None,
+			wavelet="Symmlet"):
 
 		from src.timer import Timer
 
 		timer = Timer()
 
-		self.setup_deconv_model(gamma, gamma_prime)
+		self.setup_deconv_model(gamma, G1=G1, G2=G2, wavelet=wavelet)
 
-		print_fl(f"Deconvolving combined model with gamma={self.gamma}, gamma_prime={gamma_prime}")
+		print_fl(f"Deconvolving combined model with gamma={self.gamma}")
 		print_fl(f"Deconvolving bin size: {self.chrom1_model.bin_width}x{self.chrom1_model.bin_height}")
 		print_fl(f"of G shape: {self.G.shape}")
 
@@ -129,7 +137,7 @@ class CombinedChromatinModel:
 		timer = Timer()
 
 		# Let's stick to no spatial smoothing for now
-		self.setup_deconv_model(gamma_prime=0)
+		self.setup_deconv_model()
 		self.find_gamma_chromatin = FindOptimalGammaChromatin(self.solver)
 		self.found_optimal_success = self.find_gamma_chromatin.find_optimal(silence=False)
 		self.gamma = self.find_gamma_chromatin.gamma

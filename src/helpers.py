@@ -227,7 +227,12 @@ def WavMat(h, N, k0=None, shift=2):
 def MakeONFilter(Type, Par):
     # ... (previous code)
 
-    if Type == 'Symmlet':
+    if Type == "Haar":
+
+        f = np.array([1, 1]) / np.sqrt(2);
+
+
+    elif Type == 'Symmlet':
         if Par == 4:
             f = np.array([-0.107148901418, -0.041910965125, 0.703739068656,
                           1.136658243408, 0.421234534204, -0.140317624179,

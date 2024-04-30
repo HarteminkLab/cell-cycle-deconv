@@ -29,5 +29,6 @@ def create_dynamic_alpha_config(alpha, replicate):
 	name = f"Dynamic config, rep{replicate}, alpha={alpha}"
 	config = Config(wt1=wt_data, model_wt1_lines=config_lines, name=name)
 	config.replicate = replicate
+	config.alpha = alpha
 
 	return config

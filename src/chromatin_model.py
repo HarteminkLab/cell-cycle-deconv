@@ -625,28 +625,28 @@ class ChromatinModel:
 		# we need to recalculate H with the chromatin number of timepoints
 		self.deconv_model.H, self.deconv_model.Hpos = calcH(self.config.intervals_wt1, self.timepoints)
 
-	def setup_solver(self, gamma_prime=0):
+	def setup_solver(self, wavelet="Symmlet"):
 		from src.chromatin_deconvolution_solver import ChromatinDeconvolveSolver
+		from src.replication_deconvolution_solver import ReplicationChromatinDeconvolveSolver
 
 		image_shape = self.deconv_hist_unflattened.shape[1:]
-		self.gamma_prime = gamma_prime
 		self.solver = ChromatinDeconvolveSolver(self.deconv_model, self.deconv_model.H, self.G, 
-			image_shape=image_shape, wavelet_name='bior4.4', gamma_prime=gamma_prime)
+			image_shape=image_shape, wavelet=wavelet)
 		self.solver.define_deconvolution_problem()
 		self.found_optimal_success = None
 		self.deconvolved_f_value = None
 
 
-	def deconvolve(self, solver=cvxpy.MOSEK, verbose=False, gamma_prime=0):
+	def deconvolve(self, solver=cvxpy.MOSEK, verbose=False, wavelet="Symmlet"):
 		"""
 		Deconvolve the chromatin for a single gamma value
 		"""
 
 		timer = Timer()
 		self.setup_deconv_model()
-		self.setup_solver(gamma_prime)
+		self.setup_solver(wavelet)
 
-		print_fl(f"Deconvolving with gamma={self.gamma}, gamma_prime={self.gamma_prime}")
+		print_fl(f"Deconvolving with gamma={self.gamma}")
 
 		self.solver.solve(gamma_value=self.gamma, verbose=verbose)
 
