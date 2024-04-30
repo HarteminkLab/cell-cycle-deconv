@@ -53,44 +53,26 @@ class ReplicationChromatinDeconvolveSolver:
 		f_pg1 = self.config.get_Hpositions_for_phase('postG1')
 
 
-		# Add the start of S to the G1s
-		# f_rg1 = np.concatenate([f_rg1, f_pg1[:5]])
-		# f_dg1 = np.concatenate([f_dg1, f_pg1[:5]])
-		# f_cg1 = np.concatenate([f_cg1, f_pg1[:5]])
-
-
 		f_rg1_padded = pad_with_subset(f_rg1)
 		f_cg1_padded = pad_with_subset(f_cg1)
 		f_dg1_padded = pad_with_subset(f_dg1)
 
 		# Add the end of S to the beginning of G2M
-		f_s_sub = f_pg1[:len(f_pg1)//2]
-		f_g2m_sub = f_pg1[-len(f_pg1)//2:]
+
+		# how much indices do we allow for replication to occur?
+		s_len = 50
+
+		f_s_sub = f_pg1[:s_len]
+		f_g2m_sub = f_pg1[s_len:]
 
 		f_s_padded = pad_with_subset(f_s_sub)
 		f_g2m_padded = pad_with_subset(f_g2m_sub)
 
-		# Can we enforce smoothing on S that allows for the step?
-		# Perhaps it would need a lower multiplier compared to the other 
-		# wavelet enforcements.
-		#
-		# For now, we can test with half of the post g1 list
-
-
-		# Appears to work, but we need to enforce the start of S
-		# and the end of the G1s
-		#
-		# and the end of S and the start of G2M
-
-
 		W1 = get_wavelet_kernel(len(f_rg1_padded), type=self.wavelet)
 		W2 = get_wavelet_kernel(len(f_cg1_padded), type=self.wavelet)
 		W3 = get_wavelet_kernel(len(f_dg1_padded), type=self.wavelet)
-		
 		W5 = get_wavelet_kernel(len(f_g2m_padded), type=self.wavelet)
-
-
-		W4 = get_wavelet_kernel(len(f_s_padded), type="Symmlet")
+		W4 = get_wavelet_kernel(len(f_s_padded), type=self.wavelet)
 
 		g_mean = G.mean()
 
@@ -127,30 +109,33 @@ class ReplicationChromatinDeconvolveSolver:
 			prev_index = f_s_padded[i-1]
 			constraints.append(f[index] >= f[prev_index])
 
-		constraints.append(f[f_s_padded[0]] == f[f_cg1_padded[0]])
-		constraints.append(f[f_s_padded[0]] == f[f_dg1_padded[0]])
-		constraints.append(f[f_s_padded[0]] == f[f_rg1_padded[0]])
+		constraints.append(f[f_s_padded[0]] == f[f_cg1_padded[-1]])
+		constraints.append(f[f_s_padded[0]] == f[f_dg1_padded[-1]])
+		constraints.append(f[f_s_padded[0]] == f[f_rg1_padded[-1]])
 		constraints.append(f[f_s_padded[-1]] <= f[f_g2m_sub[0]])
 		
 		for i in range(1, len(f_rg1_padded)):
 			index = f_rg1_padded[i]
 			prev_index = f_rg1_padded[i-1]
-			constraints.append(f[index] == f[prev_index])
+			constraints.append(f[index] >= f[prev_index])
 
 		for i in range(1, len(f_dg1_padded)):
 			index = f_dg1_padded[i]
 			prev_index = f_dg1_padded[i-1]
-			constraints.append(f[index] == f[prev_index])
+			constraints.append(f[index] >= f[prev_index])
 
 		for i in range(1, len(f_cg1_padded)):
 			index = f_cg1_padded[i]
 			prev_index = f_cg1_padded[i-1]
-			constraints.append(f[index] == f[prev_index])
+			constraints.append(f[index] >= f[prev_index])
 
 		for i in range(1, len(f_g2m_sub)):
 			index = f_g2m_sub[i]
 			prev_index = f_g2m_sub[i-1]
-			constraints.append(f[index] == f[prev_index])
+			constraints.append(f[index] >= f[prev_index])
+
+		# halted cells
+		constraints.append(f[index] >= f[prev_index])
 
 		# -------------------------------------------------
 
@@ -161,7 +146,7 @@ class ReplicationChromatinDeconvolveSolver:
 			self.gamma * (cvxpy.sum(cvxpy.abs(smooth_f_i_result)) +
 							cvxpy.sum(cvxpy.abs(smooth_f_t_result)) + 
 							cvxpy.sum(cvxpy.abs(smooth_f_b_result)) +
-							#0.1 * cvxpy.sum(cvxpy.abs(smooth_f_s_result)) +
+							cvxpy.sum(cvxpy.abs(smooth_f_s_result)) +
 							cvxpy.sum(cvxpy.abs(smooth_f_g2m_result))
 							)/g_mean  
 		)
