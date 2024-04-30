@@ -307,3 +307,30 @@ def get_alive_halted_mass(model_intervals, timepoints):
     return mass_dic
 
 
+
+def compute_closest_pow2(n):
+    """Compute the closest power of 2"""
+    intval = np.ceil(np.log2(n))    
+    closest_pow2 = 2**intval
+    return int(closest_pow2)
+
+
+def pad_with_subset(f_subset):
+
+    n = len(f_subset)
+    closest_pow2 = compute_closest_pow2(n)
+
+    # Before padding, let's see if we can mirror a subset of the start and of the indices
+    # padding can get a little complicated
+    missing_count = closest_pow2 - n
+
+    missing_front = missing_count//2
+    missing_end = missing_count - missing_front
+    f_front_padding = f_subset[:missing_front]
+    f_end_padding = f_subset[-missing_end:]
+    
+    f_front_padding = np.flip(f_front_padding)
+    f_end_padding = np.flip(f_end_padding)
+    
+    f_subset_padded = np.concatenate([f_front_padding, f_subset, f_end_padding])
+    return f_subset_padded
