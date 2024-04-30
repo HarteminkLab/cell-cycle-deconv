@@ -16,14 +16,16 @@ from src.wavelets_2d_linalg import decompose_flattened_kron_coeffs, \
 
 class ReplicationChromatinDeconvolveSolver:
 	"""
-	In this class, we will perform some changes to the chromatin deconvolution to handle the copy number transition
-	from 1 to 2. We expect this transition to be a step-wise transition so we will use Haar. And the smoothing
-	constraints will be different as we expect from postG1 to G1, the contraint no longer needs to be smooth.
+	In this class, we will perform some changes to the chromatin deconvolution 
+	to handle the copy number transition from 1 to 2. We expect this transition to be a 
+	step-wise transition so we will use Haar. And the smoothing constraints will be 
+	different as we expect from postG1 to G1, the contraint no longer needs to be smooth.
 	"""
 
-	def __init__(self, deconv_model, H, G, image_shape, solver=cvxpy.MOSEK, wavelet="Haar"):
+	def __init__(self, config, H, G, image_shape, 
+		solver=cvxpy.MOSEK, wavelet="Haar"):
 
-		self.deconv_model = deconv_model
+		self.config = config
 		self.solver = solver
 		self.wavelet = wavelet
 		self.G = G
@@ -43,14 +45,14 @@ class ReplicationChromatinDeconvolveSolver:
 		eps = 1e-5
 		G = G + eps
 
-		f_dg1 = self.deconv_model.config.get_Hpositions_for_phase('DG1')
-		f_rg1 = self.deconv_model.config.get_Hpositions_for_phase('RG1')
-		f_cg1 = self.deconv_model.config.get_Hpositions_for_phase('CG1')
-		f_pg1 = self.deconv_model.config.get_Hpositions_for_phase('postG1')
+		f_dg1 = self.config.get_Hpositions_for_phase('DG1')
+		f_rg1 = self.config.get_Hpositions_for_phase('RG1')
+		f_cg1 = self.config.get_Hpositions_for_phase('CG1')
+		f_pg1 = self.config.get_Hpositions_for_phase('postG1')
 
-		f_b = self.deconv_model.config.get_Hpositions_for_branch('b')
-		f_i = self.deconv_model.config.get_Hpositions_for_branch('i')
-		f_t = self.deconv_model.config.get_Hpositions_for_branch('t')
+		f_b = self.config.get_Hpositions_for_branch('b')
+		f_i = self.config.get_Hpositions_for_branch('i')
+		f_t = self.config.get_Hpositions_for_branch('t')
 
 		# The bottom and top branches need to enforce the start
 		# of G1 is smooth from the end of postG1, so concatenate those
@@ -104,17 +106,19 @@ class ReplicationChromatinDeconvolveSolver:
 
 		# TODO: Testing a prototype idea for replication profile smoothing
 
-		# According to Xin deconvModelBud, we should smooth RG1, CG1, DG1, and postG1 for budding index
+		# According to Xin deconvModelBud, we should smooth RG1, CG1, DG1, and postG1 
+		# 	g index
 		# with the expectation that the G1s are 0 and postG1 is 100
 		#
-		# For our copy number deconvolution, we will want to deconvolve but allow for S-phase to be
-		# freely transition from 1-2 copy number but have RG1, CG1, DG1 all be copy number 1.
+		# For our copy number deconvolution, we will want to deconvolve but allow for 
+		# S-phase to be freely transition from 1-2 copy number but have RG1, CG1, 
+		# DG1 all be copy number 1.
 		#
 
-		# f_dg1 = self.deconv_model.config.get_Hpositions_for_phase('DG1')
-		# f_rg1 = self.deconv_model.config.get_Hpositions_for_phase('RG1')
-		# f_cg1 = self.deconv_model.config.get_Hpositions_for_phase('CG1')
-		# f_pg1 = self.deconv_model.config.get_Hpositions_for_phase('postG1')
+		# f_dg1 = self.config.get_Hpositions_for_phase('DG1')
+		# f_rg1 = self.config.get_Hpositions_for_phase('RG1')
+		# f_cg1 = self.config.get_Hpositions_for_phase('CG1')
+		# f_pg1 = self.config.get_Hpositions_for_phase('postG1')
 
 		# print(len(f_dg1))
 		# print(len(f_rg1))
@@ -151,10 +155,12 @@ class ReplicationChromatinDeconvolveSolver:
 			# cvxpy.sum(cvxpy.norm(elementwise_result, 2)**2)
 			# cvxpy.sum_squares(elementwise_result)
 			# 
-			# However, there is an implementation detail in cvxpy that favors norm calls over sum of squares:
+			# However, there is an implementation detail in cvxpy that favors norm 
+			# calls over sum of squares:
 			#
 			# motivated by:
-			# https://stackoverflow.com/questions/65526377/cvxpy-returns-infeasible-inaccurate-on-quadratic-programming-optimization-proble
+			# https://stackoverflow.com/questions/65526377/cvxpy-returns-infeasible-
+			# inaccurate-on-quadratic-programming-optimization-proble
 			# https://cvxr.com/cvx/doc/advanced.html#eliminating-quadratic-forms
 			# 
 			# cvxpy.sum_squares(elementwise_result)
@@ -184,13 +190,15 @@ class ReplicationChromatinDeconvolveSolver:
 		self.verbose = verbose
 
 		# The epsilon value affects the precision of the solver
-		self.result = self.prob.solve(solver=self.solver, warm_start=True, verbose=self.verbose, eps=1e-4)
+		self.result = self.prob.solve(solver=self.solver, warm_start=True, 
+			verbose=self.verbose, eps=1e-4)
 		f = self.f.value
 
 		if self.result == float('-inf'):
 			raise ValueError("No result, possibly too low of coverage for this gene")
 
-		# ------- Upon completion, compute the smoothing norm and fitting/residual norms --------------
+		# ------- Upon completion, compute the smoothing norm and 
+		# fitting/residual norms --------------
 
 		H = self.H
 		G = self.G
@@ -203,9 +211,9 @@ class ReplicationChromatinDeconvolveSolver:
 		m = G.shape[1]
 		u = H.shape[1]
 
-		f_b = self.deconv_model.config.get_Hpositions_for_branch('b')
-		f_i = self.deconv_model.config.get_Hpositions_for_branch('i')
-		f_t = self.deconv_model.config.get_Hpositions_for_branch('t')
+		f_b = self.config.get_Hpositions_for_branch('b')
+		f_i = self.config.get_Hpositions_for_branch('i')
+		f_t = self.config.get_Hpositions_for_branch('t')
 
 		# f_it = np.concatenate([f_i, f_t])
 
@@ -221,7 +229,8 @@ class ReplicationChromatinDeconvolveSolver:
 		# individual elements in the matrix result
 		# Normalize by the result by the size of the grid, m
 		matmul_res = np.matmul(H, f) / G - 1
-		rn = np.sum(matmul_res**2) / m # Equivalent to: np.linalg.norm(matmul_res, ord='fro')**2 / m
+		rn = np.sum(matmul_res**2) / m 
+		# Equivalent to: np.linalg.norm(matmul_res, ord='fro')**2 / m
 
 		# Extending the smoothing term, is a little trickier
 		# There is no predefined name for the L1 norm type of
@@ -243,5 +252,6 @@ class ReplicationChromatinDeconvolveSolver:
 
 def create_mirror(ind_vec):
 	ind_vec_n_2 = len(ind_vec) // 2
-	ind_vec_mirror = np.concatenate([np.flip(ind_vec[:ind_vec_n_2]), ind_vec, np.flip(ind_vec[-ind_vec_n_2:])])
+	ind_vec_mirror = np.concatenate([np.flip(ind_vec[:ind_vec_n_2]), ind_vec, 
+		np.flip(ind_vec[-ind_vec_n_2:])])
 	return ind_vec_mirror
