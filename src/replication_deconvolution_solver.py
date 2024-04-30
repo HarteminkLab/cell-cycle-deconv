@@ -22,24 +22,26 @@ class ReplicationChromatinDeconvolveSolver:
 	different as we expect from postG1 to G1, the contraint no longer needs to be smooth.
 	"""
 
-	def __init__(self, config, H, G, image_shape, 
-		solver=cvxpy.MOSEK, wavelet="Haar"):
+	def __init__(self, config, G, solver=cvxpy.MOSEK, wavelet="Haar"):
+
+		from src.helpers import calcH
 
 		self.config = config
+		self.H, Hpos = calcH(config.intervals_wt1, config.WT1_TIMEPOINTS)
+
 		self.solver = solver
 		self.wavelet = wavelet
 		self.G = G
-		self.H = H
-		self.image_shape = image_shape
 
+	def plot_raw_data(self):
+		plt.figure(figsize=(4, 2))
+		plt.plot(self.G[:, 0])
 
 	def define_deconvolution_problem(self):
 
 		solver = self.solver
-		#spatial_wavelet = self.spatial_wavelet
 		G = self.G
 		H = self.H
-		image_shape = self.image_shape
 		
 		# We will add a very small value to g, to avoid divide by zero errors
 		eps = 1e-5
@@ -102,40 +104,6 @@ class ReplicationChromatinDeconvolveSolver:
 		smooth_f_t_result = W2@f[f_t_mirror]
 		smooth_f_b_result = W3@f[f_b_mirror]
 
-		# -------------------- Smoothing for replication profile ------------------
-
-		# TODO: Testing a prototype idea for replication profile smoothing
-
-		# According to Xin deconvModelBud, we should smooth RG1, CG1, DG1, and postG1 
-		# 	g index
-		# with the expectation that the G1s are 0 and postG1 is 100
-		#
-		# For our copy number deconvolution, we will want to deconvolve but allow for 
-		# S-phase to be freely transition from 1-2 copy number but have RG1, CG1, 
-		# DG1 all be copy number 1.
-		#
-
-		# f_dg1 = self.config.get_Hpositions_for_phase('DG1')
-		# f_rg1 = self.config.get_Hpositions_for_phase('RG1')
-		# f_cg1 = self.config.get_Hpositions_for_phase('CG1')
-		# f_pg1 = self.config.get_Hpositions_for_phase('postG1')
-
-		# print(len(f_dg1))
-		# print(len(f_rg1))
-		# print(len(f_cg1))
-		# print(len(f_pg1))
-
-		# W1 = get_wavelet_kernel(len(f_dg1), type=self.wavelet)
-		# W2 = get_wavelet_kernel(len(f_rg1), type=self.wavelet)
-		# W3 = get_wavelet_kernel(len(f_cg1), type=self.wavelet)
-		# W4 = get_wavelet_kernel(len(f_pg1), type=self.wavelet)
-
-		# # The smoothing constraints
-		# smooth_f_i_result = W1@f[f_dg1]
-		# smooth_f_t_result = W2@f[f_rg1]
-		# smooth_f_b_result = W3@f[f_cg1]
-		# smooth_f_p_result = W3@f[f_pg1]
-
 		# -------------------------------------------------------------------------
 
 		elementwise_result = cvxpy.multiply(H@f, 1.0/G) - 1
@@ -150,28 +118,7 @@ class ReplicationChromatinDeconvolveSolver:
 
 		objective = cvxpy.Minimize(
 
-			# Mathematically these are equivalent:
-			#
-			# cvxpy.sum(cvxpy.norm(elementwise_result, 2)**2)
-			# cvxpy.sum_squares(elementwise_result)
-			# 
-			# However, there is an implementation detail in cvxpy that favors norm 
-			# calls over sum of squares:
-			#
-			# motivated by:
-			# https://stackoverflow.com/questions/65526377/cvxpy-returns-infeasible-
-			# inaccurate-on-quadratic-programming-optimization-proble
-			# https://cvxr.com/cvx/doc/advanced.html#eliminating-quadratic-forms
-			# 
-			# cvxpy.sum_squares(elementwise_result)
 			cvxpy.sum(cvxpy.norm(elementwise_result, 'fro')**2)
-
-			# Smoothing along time
-			# + self.gamma * (self.factor_i*cvxpy.sum(cvxpy.abs(smooth_f_i_result)) +
-			# 				cvxpy.sum(cvxpy.abs(smooth_f_t_result)) + 
-			# 				cvxpy.sum(cvxpy.abs(smooth_f_b_result) +
-			# 					      cvxpy.abs(smooth_f_p_result))
-			# 				)/g_mean  
 
 			+ self.gamma * (self.factor_i*cvxpy.sum(cvxpy.abs(smooth_f_i_result)) +
 							cvxpy.sum(cvxpy.abs(smooth_f_t_result)) + 
@@ -247,8 +194,43 @@ class ReplicationChromatinDeconvolveSolver:
 
 		l1_norm_on_coeffs = 0
 		self.rn, self.sn, self.l1_norm_on_coeffs = rn, sn, l1_norm_on_coeffs
+		self.f = f
 
 		return f, rn, sn, l1_norm_on_coeffs
+
+	def plot_result(self):
+		plt.figure(figsize=(13, 2))
+		config = self.config
+
+		f_dg1 = config.get_Hpositions_for_phase('DG1')
+		f_rg1 = config.get_Hpositions_for_phase('RG1')
+		f_cg1 = config.get_Hpositions_for_phase('CG1')
+		f_pg1 = config.get_Hpositions_for_phase('postG1')
+
+		f_rg1_tps = config.get_phase_timepoints_for_phase('RG1')
+		f_cg1_tps = config.get_phase_timepoints_for_phase('CG1')
+		f_dg1_tps = config.get_phase_timepoints_for_phase('DG1')
+		f_pg1_tps = config.get_phase_timepoints_for_phase('postG1')
+
+		plt.subplot(1, 4, 1)
+		plt.plot(f_rg1_tps, self.f[f_rg1])
+		plt.plot(f_pg1_tps, self.f[f_pg1])
+		plt.title("Recovery")
+
+		plt.subplot(1, 4, 2)
+		plt.plot(f_cg1_tps, self.f[f_cg1])
+		plt.plot(f_pg1_tps, self.f[f_pg1])
+		plt.title("Mother")
+
+		plt.subplot(1, 4, 3)
+		plt.plot(f_dg1_tps, self.f[f_dg1])
+		plt.plot(f_pg1_tps, self.f[f_pg1])
+		plt.title("Daughter")
+
+		plt.subplot(1, 4, 4)
+		plt.plot(self.G)
+		plt.plot(self.H@self.f)
+		plt.title("Predicted/Raw")
 
 def create_mirror(ind_vec):
 	ind_vec_n_2 = len(ind_vec) // 2

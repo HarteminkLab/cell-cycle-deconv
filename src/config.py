@@ -204,6 +204,21 @@ class Config:
 		self.phase_columns = phase_columns
 		self.num_columns = num_columns
 
+	def get_phase_timepoints_for_phase(self, phase):
+		rg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('i')[0][1].values
+		cg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('t')[0][1].values
+		dg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('b')[0][1].values
+		postg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('b')[1][1].values
+
+		phase_map = {
+			'RG1': rg1_timepoints,
+			'CG1': cg1_timepoints,
+			'DG1': dg1_timepoints,
+			'postG1': postg1_timepoints,
+		}
+		return phase_map[phase]
+
+
 	def get_phase_timepoints_for_plotting(self):
 
 		cg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('t')[0][1].values
