@@ -323,6 +323,18 @@ class ReplicationChromatinDeconvolveSolver:
 	    return g
 
 
+	def save_results(self, directory):
+
+		f_file = f"{directory}/chr{self.chrom}_f.npy"
+		repl_file = f"{directory}/chr{self.chrom}_repl.csv"
+
+		np.save(f_file, self.f)
+		self.repl_timing_df.to_csv(repl_file)
+
+		print(f"Saved {f_file}")
+		print(f"Saved {repl_file}")
+
+
 def create_mirror(ind_vec):
 	ind_vec_n_2 = len(ind_vec) // 2
 	ind_vec_mirror = np.concatenate([np.flip(ind_vec[:ind_vec_n_2]), ind_vec, 
