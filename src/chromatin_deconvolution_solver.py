@@ -80,8 +80,9 @@ class ChromatinDeconvolveSolver:
 
 		self.gamma = cvxpy.Parameter(nonneg=True, name='gamma')
 
-		# i branch is half the length of t and b
-		self.factor_i = 2
+		# with the updated alpha, the i t and b are approximately all the same length
+		# this was previously 2, when i was half the length of the other two branches
+		self.factor_i = 1
 
 		# The smoothing constraints
 		smooth_f_i_result = W1@f[f_i_mirror]

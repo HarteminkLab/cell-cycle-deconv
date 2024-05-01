@@ -8,6 +8,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from src.helpers import get_wavelet_kernel, pad_with_subset
 from src.utils import print_fl
+from src.geneset import get_deconvolved_geneset
 
 
 from src.wavelets_2d_linalg import decompose_flattened_kron_coeffs, \
@@ -22,15 +23,13 @@ class ReplicationChromatinDeconvolveSolver:
 	different as we expect from postG1 to G1, the contraint no longer needs to be smooth.
 	"""
 
-	def __init__(self, config, H, G, solver=cvxpy.MOSEK, wavelet="Haar"):
+	def __init__(self, mnase_analysis_rep1, mnase_analysis_rep2, solver=cvxpy.MOSEK, wavelet="Haar"):
 
-		from src.helpers import calcH
-
-		self.config = config
-		self.H = H
 		self.solver = solver
 		self.wavelet = wavelet
-		self.G = G
+		self.geneset = get_deconvolved_geneset()
+		self.mnase_analysis_rep1 = mnase_analysis_rep1
+		self.mnase_analysis_rep2 = mnase_analysis_rep2
 
 	def plot_raw_data(self):
 		plt.figure(figsize=(4, 2))
@@ -39,6 +38,7 @@ class ReplicationChromatinDeconvolveSolver:
 	def define_deconvolution_problem(self):
 
 		solver = self.solver
+		config = self.config
 		G = self.G
 		H = self.H
 		
@@ -46,22 +46,27 @@ class ReplicationChromatinDeconvolveSolver:
 		eps = 1e-5
 		G = G + eps
 
-		f_i = self.config.get_Hpositions_for_branch('i')
-		f_t = self.config.get_Hpositions_for_branch('t')
-		f_b = self.config.get_Hpositions_for_branch('b')
+		f_i = config.get_Hpositions_for_branch('i')
+		f_t = config.get_Hpositions_for_branch('t')
+		f_b = config.get_Hpositions_for_branch('b')
 
-		f_rg1 = self.config.get_Hpositions_for_phase('RG1')
-		f_dg1 = self.config.get_Hpositions_for_phase('DG1')
-		f_cg1 = self.config.get_Hpositions_for_phase('CG1')
-		f_pg1 = self.config.get_Hpositions_for_phase('postG1')
+		f_dg1 = config.get_Hpositions_for_phase('DG1')
+		f_rg1 = config.get_Hpositions_for_phase('RG1')
+		f_cg1 = config.get_Hpositions_for_phase('CG1')
+		f_pg1 = config.get_Hpositions_for_phase('postG1')
 
-		f_rg1_padded = pad_with_subset(f_rg1)
-		f_cg1_padded = pad_with_subset(f_cg1)
-		f_dg1_padded = pad_with_subset(f_dg1)
+		# Smooth each branch separately, but not the end of postG1 into G1.
+		# As we now expect the end of G2M to be copy number 2, and the start
+		# of G1 to be copy number 1.
 
-		W1 = get_wavelet_kernel(len(f_i), type=self.wavelet)
-		W2 = get_wavelet_kernel(len(f_t), type=self.wavelet)
-		W3 = get_wavelet_kernel(len(f_b), type=self.wavelet)
+		# We can try mirroring to handle edge effects though.
+		f_i_mirror = create_mirror(f_i)
+		f_t_mirror = create_mirror(f_t)
+		f_b_mirror = create_mirror(f_b)
+
+		W1 = get_wavelet_kernel(len(f_i_mirror), type=self.wavelet)
+		W2 = get_wavelet_kernel(len(f_t_mirror), type=self.wavelet)
+		W3 = get_wavelet_kernel(len(f_b_mirror), type=self.wavelet)
 
 		g_mean = G.mean()
 
@@ -73,13 +78,12 @@ class ReplicationChromatinDeconvolveSolver:
 
 		self.gamma = cvxpy.Parameter(nonneg=True, name='gamma')
 
-		# i branch is half the length of t and b
-		self.factor_i = 2.
+		# with the updated alpha, the i t and b are approximately all the same length
+		self.factor_i = 1.
 
-		# The smoothing constraints
-		smooth_f_i_result = W1@f[f_i]
-		smooth_f_t_result = W2@f[f_t]
-		smooth_f_b_result = W3@f[f_b]
+		smooth_f_i_result = W1@f[f_i_mirror]
+		smooth_f_t_result = W2@f[f_t_mirror]
+		smooth_f_b_result = W3@f[f_b_mirror]
 
 		# -------------------------------------------------------------------------
 
@@ -135,50 +139,56 @@ class ReplicationChromatinDeconvolveSolver:
 							cvxpy.sum(cvxpy.abs(smooth_f_t_result)) + 
 							cvxpy.sum(cvxpy.abs(smooth_f_b_result)) 
 							)/g_mean  
-
-
-			# What if we were to add an L1 norm on the values of F, would that crunch the values to make it
-			# more like a step function?
-
-
 		)
 
-
-
-
-		# -------- End definition of the 	 ------------
+		# -------- End definition ------------
 
 		# Perform the convex optimization
 		self.prob = cvxpy.Problem(objective, constraints)
 		self.f = f
 
-	from src.sgd import get_chromosome_length
-
-	def plot_replication_timing(self, chr_genes, chrom):
+	def plot_replication_timing(self):
 
 		from src.sgd import get_chromosome_length
 
-		config1 = self.config
-		t_pos = config1.get_Hpositions_for_branch('t')
-		t_tps = config1.get_timepoints_for_branch('t')
+		chr_genes = self.chr_genes
+		chrom = self.chrom
 
-		lambda_val = config1.intervals_wt1[0][1]
-		gamma1 = config1.intervals_wt1[0][7]
-		gamma2 = config1.intervals_wt1[0][8]
-		alpha = config1.intervals_wt1[0][5]
-
-		cg1_len = alpha + lambda_val*gamma1
-
+		config = self.config
 		chrom_len = get_chromosome_length(chrom)
 
-		time_indices = np.argmax((self.f[t_pos] > 1.75), axis=0)
+		self.compute_replication_timing()
 
 		plt.figure(figsize=(13, 2))
-		plt.plot(chr_genes.start, t_tps[time_indices] + cg1_len, c='black', lw=0.5, ls='dotted')
-		plt.scatter(chr_genes.start, t_tps[time_indices] + cg1_len, s=2, c='black')
+		plt.plot(chr_genes.start, self.repl_timing_df.timing, c='black', lw=0.5, ls='dotted')
+		plt.scatter(chr_genes.start, self.repl_timing_df.timing, s=2, c='black')
 		plt.ylim(60, 20)
 		plt.xlim(0, chrom_len)
 		plt.title(f"Combined Haar model replicate profile, chr{chrom}")
+
+	def compute_replication_timing(self, threshold = 0.75):
+		"""Compute the replication timing for all genes, assume that we can just
+		use the mother timing for now, as we expect replication to occur in S-phase
+		and each branch shares the same PostG1"""
+
+		config = self.config
+		t_pos = config.get_Hpositions_for_branch('t')
+		t_tps = config.get_timepoints_for_branch('t')
+
+		lambda_val = config.intervals_wt1[0][1]
+		gamma1 = config.intervals_wt1[0][7]
+		gamma2 = config.intervals_wt1[0][8]
+		alpha = config.intervals_wt1[0][5]
+
+		cg1_len = alpha + lambda_val*gamma1
+
+		time_indices = np.argmax((self.f[t_pos] > 1+threshold), axis=0)
+		repl_timing = t_tps[time_indices] + cg1_len
+
+		repl_timing_df = self.chr_genes[[]].copy()
+		repl_timing_df['timing'] = repl_timing
+
+		self.repl_timing_df = repl_timing_df
 
 	def plot_replication_hm(self, normalize=False, mask=False):
 		f = self.f.copy()
@@ -210,6 +220,8 @@ class ReplicationChromatinDeconvolveSolver:
 		
 		plt.subplot(3, 1, 3)
 		plot_repl_im(f[b_indices])
+
+		plt.suptitle(f"Combined model, chr{self.chrom}, gamma={self.gamma.value}")
 
 
 	def plot_raw_predicted(self):
@@ -276,9 +288,44 @@ class ReplicationChromatinDeconvolveSolver:
 		plt.plot(self.H@f)
 		plt.title("Predicted/Raw")
 
+	def set_chromosome(self, chrom):
+		self.chrom = chrom
+		self.chr_genes = self.geneset[self.geneset.chr == chrom]
+
+		g1 = self.get_g_for_chrom(self.mnase_analysis_rep1, self.chrom)
+		g2 = self.get_g_for_chrom(self.mnase_analysis_rep2, self.chrom)
+		self.G = np.concatenate([g1, g2])
+
+	def load_combined_config(self):
+
+		from src.config import load_yl_rg1_vst_config
+		from src.helpers import calcH
+		from src.global_config import GlobalConstants
+
+		config1 = load_yl_rg1_vst_config(1)
+		config2 = load_yl_rg1_vst_config(2)
+		H1, Hpos = calcH(config1.intervals_wt1, GlobalConstants.CHROM_WT1_TIMEPOINTS)
+		H2, Hpos = calcH(config2.intervals_wt1, GlobalConstants.CHROM_WT2_TIMEPOINTS)
+
+		# Use config1 for timepoints
+		self.config = config1
+
+		self.H = np.concatenate([H1, H2])
+
+	def get_g_for_chrom(self, mnase_analysis, chrom):
+	    """Get the g curve for deconvolution for a chromosome"""
+	    chr_curves = mnase_analysis.normalized_bin_curves.join(self.chr_genes[[]], how='inner')
+	    g = chr_curves.values.T
+
+	    # Add 1 to enforce copy number values 1-2, also easier to deconvolve values
+	    # away from 0.
+	    g = g + 1.
+	    return g
+
 
 def create_mirror(ind_vec):
 	ind_vec_n_2 = len(ind_vec) // 2
 	ind_vec_mirror = np.concatenate([np.flip(ind_vec[:ind_vec_n_2]), ind_vec, 
 		np.flip(ind_vec[-ind_vec_n_2:])])
 	return ind_vec_mirror
+
