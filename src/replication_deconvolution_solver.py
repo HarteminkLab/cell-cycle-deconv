@@ -47,32 +47,22 @@ class ReplicationChromatinDeconvolveSolver:
 		eps = 1e-5
 		G = G + eps
 
+		f_i = self.config.get_Hpositions_for_branch('i')
+		f_t = self.config.get_Hpositions_for_branch('t')
+		f_b = self.config.get_Hpositions_for_branch('b')
+
 		f_rg1 = self.config.get_Hpositions_for_phase('RG1')
 		f_dg1 = self.config.get_Hpositions_for_phase('DG1')
 		f_cg1 = self.config.get_Hpositions_for_phase('CG1')
 		f_pg1 = self.config.get_Hpositions_for_phase('postG1')
 
-
 		f_rg1_padded = pad_with_subset(f_rg1)
 		f_cg1_padded = pad_with_subset(f_cg1)
 		f_dg1_padded = pad_with_subset(f_dg1)
 
-		# Add the end of S to the beginning of G2M
-
-		# how much indices do we allow for replication to occur?
-		s_len = 50
-
-		f_s_sub = f_pg1[:s_len]
-		f_g2m_sub = f_pg1[s_len:]
-
-		f_s_padded = pad_with_subset(f_s_sub)
-		f_g2m_padded = pad_with_subset(f_g2m_sub)
-
-		W1 = get_wavelet_kernel(len(f_rg1_padded), type=self.wavelet)
-		W2 = get_wavelet_kernel(len(f_cg1_padded), type=self.wavelet)
-		W3 = get_wavelet_kernel(len(f_dg1_padded), type=self.wavelet)
-		W5 = get_wavelet_kernel(len(f_g2m_padded), type=self.wavelet)
-		W4 = get_wavelet_kernel(len(f_s_padded), type=self.wavelet)
+		W1 = get_wavelet_kernel(len(f_i), type=self.wavelet)
+		W2 = get_wavelet_kernel(len(f_t), type=self.wavelet)
+		W3 = get_wavelet_kernel(len(f_b), type=self.wavelet)
 
 		g_mean = G.mean()
 
@@ -85,14 +75,12 @@ class ReplicationChromatinDeconvolveSolver:
 		self.gamma = cvxpy.Parameter(nonneg=True, name='gamma')
 
 		# i branch is half the length of t and b
-		self.factor_i = 1.
+		self.factor_i = 2.
 
 		# The smoothing constraints
-		smooth_f_i_result = W1@f[f_rg1_padded]
-		smooth_f_t_result = W2@f[f_cg1_padded]
-		smooth_f_b_result = W3@f[f_dg1_padded]
-		smooth_f_s_result = W4@f[f_s_padded]
-		smooth_f_g2m_result = W5@f[f_g2m_padded]
+		smooth_f_i_result = W1@f[f_i]
+		smooth_f_t_result = W2@f[f_t]
+		smooth_f_b_result = W3@f[f_b]
 
 		# -------------------------------------------------------------------------
 
@@ -104,38 +92,39 @@ class ReplicationChromatinDeconvolveSolver:
 
 		constraints = [f >= 0]
 
-		for i in range(1, len(f_s_padded)):
-			index = f_s_padded[i]
-			prev_index = f_s_padded[i-1]
-			constraints.append(f[index] >= f[prev_index])
+		# ------ Constrain monotonic transitions ----------
 
-		constraints.append(f[f_s_padded[0]] == f[f_cg1_padded[-1]])
-		constraints.append(f[f_s_padded[0]] == f[f_dg1_padded[-1]])
-		constraints.append(f[f_s_padded[0]] == f[f_rg1_padded[-1]])
-		constraints.append(f[f_s_padded[-1]] <= f[f_g2m_sub[0]])
+		# End of G1 to postG1
+		constraints.append(f[f_pg1[0]] >= f[f_cg1[-1]])
+		constraints.append(f[f_pg1[0]] >= f[f_dg1[-1]])
+		constraints.append(f[f_pg1[0]] >= f[f_rg1[-1]])
 		
-		for i in range(1, len(f_rg1_padded)):
-			index = f_rg1_padded[i]
-			prev_index = f_rg1_padded[i-1]
+		# RG1
+		for i in range(1, len(f_rg1)):
+			index = f_rg1[i]
+			prev_index = f_rg1[i-1]
 			constraints.append(f[index] >= f[prev_index])
 
-		for i in range(1, len(f_dg1_padded)):
-			index = f_dg1_padded[i]
-			prev_index = f_dg1_padded[i-1]
+		# DG1
+		for i in range(1, len(f_dg1)):
+			index = f_dg1[i]
+			prev_index = f_dg1[i-1]
 			constraints.append(f[index] >= f[prev_index])
 
-		for i in range(1, len(f_cg1_padded)):
-			index = f_cg1_padded[i]
-			prev_index = f_cg1_padded[i-1]
+		# CG1
+		for i in range(1, len(f_cg1)):
+			index = f_cg1[i]
+			prev_index = f_cg1[i-1]
 			constraints.append(f[index] >= f[prev_index])
 
-		for i in range(1, len(f_g2m_sub)):
-			index = f_g2m_sub[i]
-			prev_index = f_g2m_sub[i-1]
+		# Post G1
+		for i in range(1, len(f_pg1)):
+			index = f_pg1[i]
+			prev_index = f_pg1[i-1]
 			constraints.append(f[index] >= f[prev_index])
 
-		# halted cells
-		constraints.append(f[index] >= f[prev_index])
+		# Halted cells are equal to Recovery cells
+		constraints.append(f[index] == f[-1])
 
 		# -------------------------------------------------
 
@@ -143,12 +132,14 @@ class ReplicationChromatinDeconvolveSolver:
 
 			cvxpy.sum(cvxpy.norm(elementwise_result, 'fro')**2) +
 
-			self.gamma * (cvxpy.sum(cvxpy.abs(smooth_f_i_result)) +
+			self.gamma * (self.factor_i*cvxpy.sum(cvxpy.abs(smooth_f_i_result)) +
 							cvxpy.sum(cvxpy.abs(smooth_f_t_result)) + 
-							cvxpy.sum(cvxpy.abs(smooth_f_b_result)) +
-							cvxpy.sum(cvxpy.abs(smooth_f_s_result)) +
-							cvxpy.sum(cvxpy.abs(smooth_f_g2m_result))
+							cvxpy.sum(cvxpy.abs(smooth_f_b_result)) 
 							)/g_mean  
+
+
+			# What if we were to add an L1 norm on the values of F, would that crunch the values to make it
+			# more like a step function?
 		)
 
 		# -------- End definition of the 	 ------------
@@ -156,6 +147,53 @@ class ReplicationChromatinDeconvolveSolver:
 		# Perform the convex optimization
 		self.prob = cvxpy.Problem(objective, constraints)
 		self.f = f
+
+
+	def plot_replication_hm(self, normalize=False, mask=False):
+		f = self.f.copy()
+
+		if normalize:
+			f_norm = f
+			f_norm = f_norm / f_norm.max(axis=0).reshape((1, -1))
+			f = f_norm
+
+		config = self.config
+		
+		i_indices = config.get_Hpositions_for_branch('i')
+		t_indices = config.get_Hpositions_for_branch('t')
+		b_indices = config.get_Hpositions_for_branch('b')
+
+		plt.figure(figsize=(13, 3))
+
+		if mask:
+			f = f > 0.75
+		
+		def plot_repl_im(f):
+			plt.imshow(f, origin='lower', aspect='auto', vmin=0, vmax=1.)
+		
+		plt.subplot(3, 1, 1)
+		plot_repl_im(f[i_indices])
+		
+		plt.subplot(3, 1, 2)
+		plot_repl_im(f[t_indices])
+		
+		plt.subplot(3, 1, 3)
+		plot_repl_im(f[b_indices])
+
+
+	def plot_raw_predicted(self):
+		pred_G = self.H @ self.f
+
+		def plot_repl_im(f):
+			plt.imshow(f, origin='lower', aspect='auto', vmin=1, vmax=2.)
+
+		plt.figure(figsize=(13, 3))
+		plt.subplot(2, 1, 1)
+		plot_repl_im(self.G)
+
+		plt.subplot(2, 1, 2)
+		plot_repl_im(pred_G)
+
 
 	def solve(self, gamma_value, verbose=False):
 
@@ -171,9 +209,11 @@ class ReplicationChromatinDeconvolveSolver:
 
 		return f
 
-	def plot_result(self):
+	def plot_result(self, i):
 		plt.figure(figsize=(13, 2))
 		config = self.config
+
+		f = self.f[:, i]
 
 		f_dg1 = config.get_Hpositions_for_phase('DG1')
 		f_rg1 = config.get_Hpositions_for_phase('RG1')
@@ -186,24 +226,25 @@ class ReplicationChromatinDeconvolveSolver:
 		f_pg1_tps = config.get_phase_timepoints_for_phase('postG1')
 
 		plt.subplot(1, 4, 1)
-		plt.plot(f_rg1_tps, self.f[f_rg1])
-		plt.plot(f_pg1_tps, self.f[f_pg1])
+		plt.plot(f_rg1_tps, f[f_rg1])
+		plt.plot(f_pg1_tps, f[f_pg1])
 		plt.title("Recovery")
 
 		plt.subplot(1, 4, 2)
-		plt.plot(f_cg1_tps, self.f[f_cg1])
-		plt.plot(f_pg1_tps, self.f[f_pg1])
+		plt.plot(f_cg1_tps, f[f_cg1])
+		plt.plot(f_pg1_tps, f[f_pg1])
 		plt.title("Mother")
 
 		plt.subplot(1, 4, 3)
-		plt.plot(f_dg1_tps, self.f[f_dg1])
-		plt.plot(f_pg1_tps, self.f[f_pg1])
+		plt.plot(f_dg1_tps, f[f_dg1])
+		plt.plot(f_pg1_tps, f[f_pg1])
 		plt.title("Daughter")
 
 		plt.subplot(1, 4, 4)
-		plt.plot(self.G)
-		plt.plot(self.H@self.f)
+		plt.plot(self.G[:, i])
+		plt.plot(self.H@f)
 		plt.title("Predicted/Raw")
+
 
 def create_mirror(ind_vec):
 	ind_vec_n_2 = len(ind_vec) // 2
