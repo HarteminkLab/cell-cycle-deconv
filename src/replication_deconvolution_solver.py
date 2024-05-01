@@ -22,13 +22,12 @@ class ReplicationChromatinDeconvolveSolver:
 	different as we expect from postG1 to G1, the contraint no longer needs to be smooth.
 	"""
 
-	def __init__(self, config, G, solver=cvxpy.MOSEK, wavelet="Haar"):
+	def __init__(self, config, H, G, solver=cvxpy.MOSEK, wavelet="Haar"):
 
 		from src.helpers import calcH
 
 		self.config = config
-		self.H, Hpos = calcH(config.intervals_wt1, config.WT1_TIMEPOINTS)
-
+		self.H = H
 		self.solver = solver
 		self.wavelet = wavelet
 		self.G = G
@@ -140,7 +139,12 @@ class ReplicationChromatinDeconvolveSolver:
 
 			# What if we were to add an L1 norm on the values of F, would that crunch the values to make it
 			# more like a step function?
+
+
 		)
+
+
+
 
 		# -------- End definition of the 	 ------------
 
@@ -148,6 +152,33 @@ class ReplicationChromatinDeconvolveSolver:
 		self.prob = cvxpy.Problem(objective, constraints)
 		self.f = f
 
+	from src.sgd import get_chromosome_length
+
+	def plot_replication_timing(self, chr_genes, chrom):
+
+		from src.sgd import get_chromosome_length
+
+		config1 = self.config
+		t_pos = config1.get_Hpositions_for_branch('t')
+		t_tps = config1.get_timepoints_for_branch('t')
+
+		lambda_val = config1.intervals_wt1[0][1]
+		gamma1 = config1.intervals_wt1[0][7]
+		gamma2 = config1.intervals_wt1[0][8]
+		alpha = config1.intervals_wt1[0][5]
+
+		cg1_len = alpha + lambda_val*gamma1
+
+		chrom_len = get_chromosome_length(chrom)
+
+		time_indices = np.argmax((self.f[t_pos] > 1.75), axis=0)
+
+		plt.figure(figsize=(13, 2))
+		plt.plot(chr_genes.start, t_tps[time_indices] + cg1_len, c='black', lw=0.5, ls='dotted')
+		plt.scatter(chr_genes.start, t_tps[time_indices] + cg1_len, s=2, c='black')
+		plt.ylim(60, 20)
+		plt.xlim(0, chrom_len)
+		plt.title(f"Combined Haar model replicate profile, chr{chrom}")
 
 	def plot_replication_hm(self, normalize=False, mask=False):
 		f = self.f.copy()
@@ -155,7 +186,7 @@ class ReplicationChromatinDeconvolveSolver:
 		if normalize:
 			f_norm = f
 			f_norm = f_norm / f_norm.max(axis=0).reshape((1, -1))
-			f = f_norm
+			f = f_norm+1.
 
 		config = self.config
 		
@@ -166,10 +197,10 @@ class ReplicationChromatinDeconvolveSolver:
 		plt.figure(figsize=(13, 3))
 
 		if mask:
-			f = f > 0.75
+			f = (f > 1.75) + 1.
 		
 		def plot_repl_im(f):
-			plt.imshow(f, origin='lower', aspect='auto', vmin=0, vmax=1.)
+			plt.imshow(f, origin='lower', aspect='auto', vmin=1, vmax=2)
 		
 		plt.subplot(3, 1, 1)
 		plot_repl_im(f[i_indices])

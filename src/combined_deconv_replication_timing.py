@@ -129,7 +129,11 @@ class CombinedDeconvReplicationProfileAnalysis:
 		xs = repl_timing.start
 		
 		plt.figure(figsize=(13, 2))
-		plt.plot(xs, repl_timing.tp + alpha)
+
+		plt.plot(xs, repl_timing.tp + alpha, c='black', lw=0.5, ls='dotted')
+		plt.scatter(xs, repl_timing.tp + alpha, s=2, c='black')
+
+
 		plt.ylim(45, 10)
 		plt.xlim(0, chrom_len)
 		plt.title(f"Combined replicate timing, chr{chrom}")

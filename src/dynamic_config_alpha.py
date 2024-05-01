@@ -1,7 +1,7 @@
 
 from src.config import Config, read_yl_vst_data_rep
 from src.create_models import ModelCreation
-
+from src.global_config import GlobalConstants
 
 def create_dynamic_alpha_config(alpha, replicate):
 	"""
@@ -30,5 +30,10 @@ def create_dynamic_alpha_config(alpha, replicate):
 	config = Config(wt1=wt_data, model_wt1_lines=config_lines, name=name)
 	config.replicate = replicate
 	config.alpha = alpha
+
+	if replicate == 1:
+		config.WT1_TIMEPOINTS = GlobalConstants.CHROM_WT1_TIMEPOINTS
+	else:
+		config.WT1_TIMEPOINTS = GlobalConstants.CHROM_WT2_TIMEPOINTS
 
 	return config
