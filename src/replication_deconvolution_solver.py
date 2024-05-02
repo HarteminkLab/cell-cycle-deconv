@@ -151,7 +151,7 @@ class ReplicationChromatinDeconvolveSolver:
 
 		from src.sgd import get_chromosome_length
 
-		chr_genes = self.chr_genes
+		repl_timing = self.repl_timing_df.join(self.chr_genes[['start']], how='inner')
 		chrom = self.chrom
 
 		config = self.config
@@ -160,8 +160,8 @@ class ReplicationChromatinDeconvolveSolver:
 		self.compute_replication_timing()
 
 		plt.figure(figsize=(13, 2))
-		plt.plot(chr_genes.start, self.repl_timing_df.timing, c='black', lw=0.5, ls='dotted')
-		plt.scatter(chr_genes.start, self.repl_timing_df.timing, s=2, c='black')
+		plt.plot(repl_timing.start, repl_timing.timing, c='black', lw=0.5, ls='dotted')
+		plt.scatter(repl_timing.start, repl_timing.timing, s=2, c='black')
 		plt.ylim(60, 20)
 		plt.xlim(0, chrom_len)
 		plt.title(f"Combined Haar model replicate profile, chr{chrom}")
@@ -196,8 +196,16 @@ class ReplicationChromatinDeconvolveSolver:
 
 		repl_timing_df = self.chr_genes[[]].copy()
 		repl_timing_df['timing'] = repl_timing
+		repl_timing_df['H_index'] = t_pos[time_indices]
 
-		self.repl_timing_df = repl_timing_df
+		# Filter out anomolous timings
+		filtered_repl_timing = repl_timing_df.copy()
+		filtered_repl_timing.loc[repl_timing_df.timing > lambda_val*0.8, 'timing'] = np.nan
+
+		print(f"Setting {len(filtered_repl_timing[np.isnan(filtered_repl_timing.timing)])} anomalous "
+			"timings to nan, timing is near the end of the cell cycle.")
+
+		self.repl_timing_df = filtered_repl_timing
 
 	def plot_replication_hm(self, normalize=False, mask=False):
 		f = self.f.copy()
@@ -309,11 +317,11 @@ class ReplicationChromatinDeconvolveSolver:
 		# cell cycle and can cause some oddities in the replication profile, so drop those as well.
 		deconv_geneset = self.chr_genes[[]].copy()
 		deconv_geneset['keep_gene'] = (G1.max(axis=0) > 1.) & (G2.max(axis=0) > 1.) & \
-									  (G1.min(axis=0) > 0.8) & (G2.min(axis=0) > 0.8)
+									  (G1.min(axis=0) > 0.9) & (G2.min(axis=0) > 0.9)
 		keep_gene_idx = deconv_geneset[deconv_geneset.keep_gene].index
 
 		print(f"Chr{self.chrom}: Dropped {len(self.chr_genes) - len(keep_gene_idx)} genes with low bin coverage or\n"
-			  "lower minim occupancy in the second cell cycle.")
+			  "lower min occupancy in the second cell cycle than first.")
 
 		# Subset the chromosome gene list by the high coverage bins and
 		# recompute G1 and G2
