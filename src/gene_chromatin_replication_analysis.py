@@ -113,7 +113,7 @@ class GeneChromatinReplicationAnalysis:
 		def compute_delta_timing(subset_genes):
 			from scipy import stats
 			subset_genes = subset_genes.copy().dropna()
-			min_delta = subset_genes.replication_timing-subset_genes.prior_tp
+			min_delta = subset_genes.post_tp - subset_genes.replication_timing
 			# Use mode, as most genes will not require the wrap-around timepoint calculation
 			# todo: This shouldn't be necessary if we are able to calculate the wrap-around
 			# for the timepoints properly.
@@ -137,7 +137,7 @@ class GeneChromatinReplicationAnalysis:
 
 		def plot_f_img(img):
 			plt.imshow(img, cmap='magma_r', 
-					   origin='lower', aspect='auto', vmin=0, vmax=15)
+					   origin='lower', aspect='auto', vmin=0, vmax=30)
 			plt.xticks([])
 			plt.yticks([])
 
@@ -147,7 +147,7 @@ class GeneChromatinReplicationAnalysis:
 		
 		plt.subplot(4, 2, 1)
 		plot_f_img(prior)
-		plt.ylabel(f"Prior to replication\n-{self.delta_min:.1f} min", rotation=0, ha='right')
+		plt.ylabel(f"Prior to replication\n-{self.delta_min:.0f} min", rotation=0, ha='right')
 
 		plt.subplot(4, 2, 3)
 		plot_f_img(at)
@@ -155,13 +155,13 @@ class GeneChromatinReplicationAnalysis:
 
 		plt.subplot(4, 2, 5)
 		plot_f_img(post)
-		plt.ylabel(f"Post-replication\n{self.delta_min:.1f} min", rotation=0, ha='right')
+		plt.ylabel(f"Post-replication\n+{self.delta_min:.0f} min", rotation=0, ha='right')
 
 		# -------- Difference plots ---------------
 
 		def plot_f_img_diff(img):
 			plt.imshow(img, origin='lower', aspect='auto', 
-					   cmap='RdBu_r', vmin=-0.75, vmax=0.75)
+					   cmap='RdBu_r', vmin=-2, vmax=2)
 			plt.xticks([])
 			plt.yticks([])
 			plt.gca().yaxis.set_label_position("right")
