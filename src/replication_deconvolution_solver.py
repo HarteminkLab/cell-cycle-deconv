@@ -184,12 +184,7 @@ class ReplicationChromatinDeconvolveSolver:
 		# Normalize such that end of G2M is copy number 2 and start is copy number 1
 		f_normed = np.apply_along_axis(normalize_max_min, 0, f_mother)+1.
 
-		lambda_val = config.intervals_wt1[0][1]
-		gamma1 = config.intervals_wt1[0][7]
-		gamma2 = config.intervals_wt1[0][8]
-		alpha = config.intervals_wt1[0][5]
-
-		cg1_len = alpha + lambda_val*gamma1
+		rg1_len, cg1_len, dg1_len = config.get_g1_lens()
 
 		time_indices = np.argmax((f_normed > 1+threshold), axis=0)
 		repl_timing = t_tps[time_indices] + cg1_len
@@ -379,3 +374,18 @@ def create_mirror(ind_vec):
 		np.flip(ind_vec[-ind_vec_n_2:])])
 	return ind_vec_mirror
 
+def plot_chrom_repl_timing_from_data(repl_timing, geneset, chrom):
+    
+    from src.sgd import get_chromosome_length
+    
+    chrom_len = get_chromosome_length(chrom)
+    
+    repl_timing = repl_timing.join(geneset[['chr', 'start']])
+    chr_repl_genes = repl_timing[repl_timing.chr == chrom]
+        
+    plt.figure(figsize=(13, 2))
+    plt.plot(chr_repl_genes.start, chr_repl_genes.timing, lw=0.5, c='black', ls='dotted')
+    plt.scatter(chr_repl_genes.start, chr_repl_genes.timing, s=1, c='black')
+    plt.ylim(60, 20)
+    plt.title(f"Replication timing, Chr{chrom}")
+    plt.xlim(0, chrom_len)

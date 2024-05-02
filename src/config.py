@@ -58,6 +58,22 @@ class Config:
 
 		self.create_helper_structures()
 
+	def get_g1_lens(self):
+		
+		mu0 = self.parameters.loc['mu0'].value
+		lambda_val = self.parameters.loc['lambda'].value
+		delta = self.parameters.loc['delta'].value
+		gamma1 = self.parameters.loc['gamma1'].value
+		gamma2 = self.parameters.loc['gamma2'].value
+		alpha = self.parameters.loc['alpha'].value
+		
+		cg1_len = alpha + lambda_val*gamma1
+		dg1_len = alpha + lambda_val*gamma1 + delta
+		rg1_len = mu0
+
+		return rg1_len, cg1_len, dg1_len
+
+
 	def all_orfs(self):
 		return self.wt1_df.index.values
 
@@ -204,6 +220,17 @@ class Config:
 		self.phase_columns = phase_columns
 		self.num_columns = num_columns
 
+		# todo: New data frame containing index, timepoints and phase,
+		# can use this data structure for some other functions.
+		self.H_map_df = self.get_H_dataframe_mapping()
+		self.parameters = pd.DataFrame(
+			data=self.intervals_wt1[0],
+			index=['mu0', 'lambda', 'delta', 'sigma0', 'sigmav', 'alpha', 
+			'beta', 'gamma1', 'gamma2', 'halted'],
+			columns=['value']
+		)
+
+
 	def get_phase_timepoints_for_phase(self, phase):
 		rg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('i')[0][1].values
 		cg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('t')[0][1].values
@@ -217,6 +244,44 @@ class Config:
 			'postG1': postg1_timepoints,
 		}
 		return phase_map[phase]
+
+	def get_timepoint_for_index(self, h_index):
+		"""Get the timepoint for an index"""
+		return self.H_map_df.loc[h_index].timepoint
+
+	def get_H_dataframe_mapping(self):
+		rg1_indices = self.get_timepoints_phases_Hpositions_for_branch('i')[0][2]
+		cg1_indices = self.get_timepoints_phases_Hpositions_for_branch('t')[0][2]
+		dg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[0][2]
+		postg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[1][2]
+
+		rg1_tps = self.get_timepoints_phases_Hpositions_for_branch('i')[0][1].values
+		cg1_tps = self.get_timepoints_phases_Hpositions_for_branch('t')[0][1].values
+		dg1_tps = self.get_timepoints_phases_Hpositions_for_branch('b')[0][1].values
+		postg1_tps = self.get_timepoints_phases_Hpositions_for_branch('b')[1][1].values
+
+		def df_for_phase_set(indices, tps, phase):
+			df = pd.DataFrame(
+				data={
+					'h_index': indices,
+					'timepoint': tps,
+					'phase': np.repeat(phase, len(indices)),
+				})
+			return df
+
+		rg1_df = df_for_phase_set(rg1_indices, rg1_tps, 'RG1')
+		dg1_df = df_for_phase_set(dg1_indices, dg1_tps, 'DG1')
+		cg1_df = df_for_phase_set(cg1_indices, cg1_tps, 'CG1')
+		postg1_df = df_for_phase_set(postg1_indices, postg1_tps, 'postG1')
+
+		df = pd.concat([
+			rg1_df,
+			dg1_df,
+			cg1_df,
+			postg1_df 
+		])
+
+		return df.reset_index(drop=True).set_index('h_index')
 
 
 	def get_phase_timepoints_for_plotting(self):
