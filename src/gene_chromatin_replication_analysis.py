@@ -111,10 +111,15 @@ class GeneChromatinReplicationAnalysis:
 		subset_genes['post_tp'] = [self.config.get_timepoint_for_index(i)+cg1_len for i in post_index]
 
 		def compute_delta_timing(subset_genes):
+			from scipy import stats
 			subset_genes = subset_genes.copy().dropna()
-			row = subset_genes.iloc[-1]
-			return row.replication_timing-row.prior_tp
+			min_delta = subset_genes.replication_timing-subset_genes.prior_tp
+			# Use mode, as most genes will not require the wrap-around timepoint calculation
+			# todo: This shouldn't be necessary if we are able to calculate the wrap-around
+			# for the timepoints properly.
+			return stats.mode(min_delta.values, keepdims=True)[0][0]
 
+		# Compute the delta pre-replication and post-replication in minutes
 		self.delta_min = compute_delta_timing(subset_genes)
 
 		prior_f_images = sc_subset_f_imgs[np.arange(n), prior_index]
@@ -132,7 +137,7 @@ class GeneChromatinReplicationAnalysis:
 
 		def plot_f_img(img):
 			plt.imshow(img, cmap='magma_r', 
-					   origin='lower', aspect='auto', vmin=0, vmax=25)
+					   origin='lower', aspect='auto', vmin=0, vmax=15)
 			plt.xticks([])
 			plt.yticks([])
 
@@ -156,23 +161,23 @@ class GeneChromatinReplicationAnalysis:
 
 		def plot_f_img_diff(img):
 			plt.imshow(img, origin='lower', aspect='auto', 
-					   cmap='RdBu_r', vmin=-1, vmax=1)
+					   cmap='RdBu_r', vmin=-0.75, vmax=0.75)
 			plt.xticks([])
 			plt.yticks([])
 			plt.gca().yaxis.set_label_position("right")
 
 		plt.subplot(4, 2, 2)
-		plot_f_img_diff(at-prior)
-		plt.ylabel("at-Prior", rotation=0, ha='left')
-
-		plt.subplot(4, 2, 4)
-		plot_f_img_diff(post-prior)
-
-		plt.ylabel("Post-Prior", rotation=0, ha='left')
+		plot_f_img_diff(at - prior)
+		plt.ylabel("Difference: At - Prior", rotation=0, ha='left')
 
 		plt.subplot(4, 2, 6)
-		plot_f_img_diff(post-at)
-		plt.ylabel("Post-at", rotation=0, ha='left')
+		plot_f_img_diff(post - prior)
+
+		plt.ylabel("Difference: Post - Prior", rotation=0, ha='left')
+
+		plt.subplot(4, 2, 4)
+		plot_f_img_diff(post - at)
+		plt.ylabel("Difference: Post - At", rotation=0, ha='left')
 
 		if title is not None:
 			title = f"{title}\nPrior/Post Replication, n={len(self.subset_genes)}"
