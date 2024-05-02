@@ -166,14 +166,23 @@ class ReplicationChromatinDeconvolveSolver:
 		plt.xlim(0, chrom_len)
 		plt.title(f"Combined Haar model replicate profile, chr{chrom}")
 
-	def compute_replication_timing(self, threshold = 0.75):
+	def compute_replication_timing(self, threshold = 0.8):
 		"""Compute the replication timing for all genes, assume that we can just
 		use the mother timing for now, as we expect replication to occur in S-phase
 		and each branch shares the same PostG1"""
 
+		from src.TracerPlotter import normalize_max_min
+
 		config = self.config
+
 		t_pos = config.get_Hpositions_for_branch('t')
 		t_tps = config.get_timepoints_for_branch('t')
+
+		# Compute with the top/mother branch
+		f_mother = self.f[t_pos]
+
+		# Normalize such that end of G2M is copy number 2 and start is copy number 1
+		f_normed = np.apply_along_axis(normalize_max_min, 0, f_mother)+1.
 
 		lambda_val = config.intervals_wt1[0][1]
 		gamma1 = config.intervals_wt1[0][7]
@@ -182,7 +191,7 @@ class ReplicationChromatinDeconvolveSolver:
 
 		cg1_len = alpha + lambda_val*gamma1
 
-		time_indices = np.argmax((self.f[t_pos] > 1+threshold), axis=0)
+		time_indices = np.argmax((f_normed > 1+threshold), axis=0)
 		repl_timing = t_tps[time_indices] + cg1_len
 
 		repl_timing_df = self.chr_genes[[]].copy()
@@ -292,9 +301,30 @@ class ReplicationChromatinDeconvolveSolver:
 		self.chrom = chrom
 		self.chr_genes = self.geneset[self.geneset.chr == chrom]
 
-		g1 = self.get_g_for_chrom(self.mnase_analysis_rep1, self.chrom)
-		g2 = self.get_g_for_chrom(self.mnase_analysis_rep2, self.chrom)
-		self.G = np.concatenate([g1, g2])
+		G1 = self.get_g_for_chrom(self.mnase_analysis_rep1, self.chrom)
+		G2 = self.get_g_for_chrom(self.mnase_analysis_rep2, self.chrom)
+
+		# If a bin has max low coverage (==1), let's drop it from the gene list
+		# If a bin's lowest coverage drops below 0.9, then the bin's occupancy is lowest in the second
+		# cell cycle and can cause some oddities in the replication profile, so drop those as well.
+		deconv_geneset = self.chr_genes[[]].copy()
+		deconv_geneset['keep_gene'] = (G1.max(axis=0) > 1.) & (G2.max(axis=0) > 1.) & \
+									  (G1.min(axis=0) > 0.8) & (G2.min(axis=0) > 0.8)
+		keep_gene_idx = deconv_geneset[deconv_geneset.keep_gene].index
+
+		print(f"Chr{self.chrom}: Dropped {len(self.chr_genes) - len(keep_gene_idx)} genes with low bin coverage or\n"
+			  "lower minim occupancy in the second cell cycle.")
+
+		# Subset the chromosome gene list by the high coverage bins and
+		# recompute G1 and G2
+		self.chr_genes = self.chr_genes.loc[keep_gene_idx]
+
+		G1 = self.get_g_for_chrom(self.mnase_analysis_rep1, self.chrom)
+		G2 = self.get_g_for_chrom(self.mnase_analysis_rep2, self.chrom)
+
+		self.G1 = G1
+		self.G2 = G2
+		self.G = np.concatenate([G1, G2])
 
 	def load_combined_config(self):
 
