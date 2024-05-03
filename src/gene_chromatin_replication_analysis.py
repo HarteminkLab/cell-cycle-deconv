@@ -68,6 +68,95 @@ class GeneChromatinReplicationAnalysis:
 		self.geneset_repl['expression_at_replication'] = expression_at_replication
 
 
+		# Add replication direction
+		repl_direction = self.compute_replication_direction(geneset_repl)
+		self.geneset_repl['replication_direction'] = repl_direction.repl_direction
+
+	def compute_replication_direction(self, repl_genes):
+		def compute_left_right_fork(prev_gene, gene, next_gene):
+
+			direction = None
+			# If gene to the left is earlier
+			# and gene to the right is later,
+			# gene transcribes left to right from the watson strand pov
+			if (prev_gene.replication_timing <= gene.replication_timing and
+				gene.replication_timing <= next_gene.replication_timing):
+				direction = 'right'
+
+			# If gene to the right is earlier
+			# and gene to the late is later,
+			# gene transcribes right to left from the watson strand pov
+			elif (prev_gene.replication_timing >= gene.replication_timing and
+				gene.replication_timing >= next_gene.replication_timing):
+				direction = 'left'
+
+			# Gene is earlier than neighbors, early peak
+			elif (prev_gene.replication_timing >= gene.replication_timing and
+				gene.replication_timing <= next_gene.replication_timing): 
+				direction = 'early_peak'
+				
+			# Gene is later than neighbors, late trough
+			elif (prev_gene.replication_timing <= gene.replication_timing and
+				gene.replication_timing >= next_gene.replication_timing): 
+				direction = 'late_trough'
+
+			return direction
+
+		# Iterate and compute the direction of transcription using neighbors
+		repl_dir_genes = self.geneset_repl.copy()
+		repl_dir_genes['repl_direction'] = None
+
+		for chrom in range(1, 17):
+			
+			chr_repl_genes = repl_genes[repl_genes.chr == chrom]
+			n_chr_genes = len(chr_repl_genes)
+			
+			for i in range(0, n_chr_genes):
+				
+				prev_i = i-1
+				next_i = i+1
+				
+				if i == 0:
+					prev_i = i
+				elif i == n_chr_genes-1:
+					next_i = i
+					
+				prev_gene = chr_repl_genes.iloc[prev_i]
+				gene = chr_repl_genes.iloc[i]
+				next_gene = chr_repl_genes.iloc[next_i]
+				direction = compute_left_right_fork(prev_gene, gene, next_gene)
+				
+				repl_dir_genes.loc[gene.name, 'repl_direction'] = direction
+		return repl_dir_genes
+
+	def plot_replication_direction(self, chrom):
+		repl_dir_genes = self.geneset_repl
+		chr_genes = repl_dir_genes[repl_dir_genes.chr == chrom]
+
+		color_map = {
+			'left': 'blue',
+			'right': 'red',
+			'early_peak': 'gray',
+			'late_trough': 'black'
+		}
+
+		marker_map = {
+			'left': '<',
+			'right': '>',
+			'early_peak': '^',
+			'late_trough': 'v'
+		}
+
+		plt.figure(figsize=(13, 2))
+
+		for direction in marker_map.keys():
+			dir_genes = chr_genes[chr_genes.replication_direction == direction]
+			plt.scatter(dir_genes.TSS, dir_genes.replication_timing, c=color_map[direction],
+			 marker=marker_map[direction], s=20)
+
+		plt.ylim(65, 25)
+		plt.title(f"Replication direction, chr{chrom}")
+
 	def select_subset(self, subset_orfs=None, delta_index=25):
 
 		geneset_repl = self.geneset_repl.copy()
@@ -161,7 +250,7 @@ class GeneChromatinReplicationAnalysis:
 
 		def plot_f_img_diff(img):
 			plt.imshow(img, origin='lower', aspect='auto', 
-					   cmap='RdBu_r', vmin=-2, vmax=2)
+					   cmap='RdBu_r', vmin=-1, vmax=1)
 			plt.xticks([])
 			plt.yticks([])
 			plt.gca().yaxis.set_label_position("right")
