@@ -229,22 +229,105 @@ class GeneChromatinReplicationAnalysis:
 					   origin='lower', aspect='auto', vmin=0, vmax=30)
 			plt.xticks([])
 			plt.yticks([])
+			plt.axvline(9, c='black', lw=0.5, ls='solid', alpha=0.5)
 
 		prior = self.prior_f_images.mean(axis=0)
 		post = self.post_f_images.mean(axis=0)
 		at = self.at_f_images.mean(axis=0)
 		
-		plt.subplot(4, 2, 1)
+		plt.subplot(4, 3, 1)
 		plot_f_img(prior)
-		plt.ylabel(f"Prior to replication\n-{self.delta_min:.0f} min", rotation=0, ha='right')
+		plt.title(f"Prior to replication -{self.delta_min:.0f} min", fontsize=9)
 
-		plt.subplot(4, 2, 3)
+		plt.subplot(4, 3, 4)
 		plot_f_img(at)
-		plt.ylabel("At replication", rotation=0, ha='right')
+		plt.title("At replication", fontsize=9)
 
-		plt.subplot(4, 2, 5)
+		plt.subplot(4, 3, 7)
 		plot_f_img(post)
-		plt.ylabel(f"Post-replication\n+{self.delta_min:.0f} min", rotation=0, ha='right')
+		plt.title(f"Post-replication +{self.delta_min:.0f} min", fontsize=9)
+
+		# -------- Difference trace plots plots ---------------
+
+		from src.chromatin_metrics import yl_rep2_len_spans
+		from src.global_config import GlobalConstants
+
+		small_lens, med_lens, nuc_lens = yl_rep2_len_spans()
+		
+		small_bins = small_lens[0]//GlobalConstants.BIN_HEIGHT, small_lens[1]//GlobalConstants.BIN_HEIGHT
+		med_lens = med_lens[0]//GlobalConstants.BIN_HEIGHT, med_lens[1]//GlobalConstants.BIN_HEIGHT
+		nuc_bins = nuc_lens[0]//GlobalConstants.BIN_HEIGHT, nuc_lens[1]//GlobalConstants.BIN_HEIGHT
+
+		def plot_frag_traces(trace_img):
+
+			# -------- subpanel definitions -----------
+			sub_panel_height = 1.0
+			sub_panel_height_2 = sub_panel_height/2
+
+			num_panels = 3
+			total_height = sub_panel_height*3
+			total_height_2 = total_height/2
+
+			# scale the traceplots so they fit in the subpanels
+			scalar = 0.75
+
+			# -----------------------------------------
+
+			small_trace = trace_img[small_bins[0]:small_bins[1]].sum(axis=0)*scalar
+			intermediate_trace = trace_img[med_lens[0]:med_lens[1]].sum(axis=0)*scalar
+			nuc_trace = trace_img[nuc_bins[0]:nuc_bins[1]].sum(axis=0)*scalar
+
+			# Fill between plot
+			def plot_fill_pos_neg(trace_data, offset):
+				xs = np.arange(0, len(trace_data))
+				positive_color = plt.get_cmap('RdBu_r')(0.7)
+				negative_color = plt.get_cmap('RdBu_r')(0.3)
+
+				positive_trace = trace_data.copy()
+				positive_trace[positive_trace < 0] = 0
+				positive_trace[positive_trace > sub_panel_height_2] = sub_panel_height_2 # truncate within bounds
+
+				negative_trace = trace_data.copy()
+				negative_trace[negative_trace > 0] = 0
+				negative_trace[negative_trace < -sub_panel_height_2] = -sub_panel_height_2 # truncate within bounds
+
+				plt.fill_between(xs, positive_trace+offset, offset, color=positive_color, lw=0)
+				plt.fill_between(xs, negative_trace+offset, offset, color=negative_color, lw=0)
+
+			plot_fill_pos_neg(nuc_trace, sub_panel_height)
+			plot_fill_pos_neg(intermediate_trace, 0)
+			plot_fill_pos_neg(small_trace, -sub_panel_height)
+
+			# tss
+			plt.axvline(9, c='black', lw=0.5, ls='solid', alpha=0.5)
+
+			# Dividers between subpanels
+			plt.axhline(-sub_panel_height_2, c='black', lw=1)
+			plt.axhline(sub_panel_height_2, c='black', lw=1)
+
+
+			plt.ylim(-total_height_2, total_height_2)
+			plt.xlim(0, trace_img.shape[1]-1)
+			plt.xticks([])
+			plt.yticks([-sub_panel_height, 0, sub_panel_height], ['Sm', "Int", "Nuc"], rotation=0, ha='right',
+				fontsize=7)
+			plt.gca().tick_params(axis='y', which='major', length=0, pad=2)
+
+		at_minus_prior = at - prior
+		post_minus_at = post - at
+		post_minus_prior = post - prior
+
+		plt.subplot(4, 3, 2)
+		plot_frag_traces(at_minus_prior)
+		plt.title("Frag. Difference: At - Prior", fontsize=9)
+
+		plt.subplot(4, 3, 5)
+		plot_frag_traces(post_minus_at)
+		plt.title("Frag. Difference: Post - At", fontsize=9)
+
+		plt.subplot(4, 3, 8)
+		plot_frag_traces(post_minus_prior)
+		plt.title("Frag. Difference: Post - Prior", fontsize=9)
 
 		# -------- Difference plots ---------------
 
@@ -254,22 +337,22 @@ class GeneChromatinReplicationAnalysis:
 			plt.xticks([])
 			plt.yticks([])
 			plt.gca().yaxis.set_label_position("right")
+			plt.axvline(9, c='black', lw=0.5, ls='solid', alpha=0.5)
 
-		plt.subplot(4, 2, 2)
-		plot_f_img_diff(at - prior)
-		plt.ylabel("Difference: At - Prior", rotation=0, ha='left')
+		plt.subplot(4, 3, 3)
+		plot_f_img_diff(at_minus_prior)
+		plt.title("Difference: At - Prior", fontsize=9)
 
-		plt.subplot(4, 2, 6)
-		plot_f_img_diff(post - prior)
+		plt.subplot(4, 3, 6)
+		plot_f_img_diff(post_minus_at)
+		plt.title("Difference: Post - At", fontsize=9)
 
-		plt.ylabel("Difference: Post - Prior", rotation=0, ha='left')
-
-		plt.subplot(4, 2, 4)
-		plot_f_img_diff(post - at)
-		plt.ylabel("Difference: Post - At", rotation=0, ha='left')
+		plt.subplot(4, 3, 9)
+		plot_f_img_diff(post_minus_prior)
+		plt.title("Difference: Post - Prior", fontsize=9)
 
 		if title is not None:
-			title = f"{title}\nPrior/Post Replication, n={len(self.subset_genes)}"
+			title = f"{title}, Prior/Post Replication, n={len(self.subset_genes)}"
 		else:
 			title = f"Prior/Post Replication, n={len(self.subset_genes)}"
 
