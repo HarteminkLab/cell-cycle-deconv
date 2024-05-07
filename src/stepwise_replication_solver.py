@@ -9,6 +9,8 @@ from matplotlib import pyplot as plt
 from src.utils import print_fl
 from src.global_config import GlobalConstants
 from src.config import load_yl_rg1_vst_config
+from src.geneset import get_deconvolved_geneset
+
 
 class StepReplicationChromatinDeconvolveSolver:
 	"""
@@ -21,52 +23,80 @@ class StepReplicationChromatinDeconvolveSolver:
 		self.mnase_analysis_rep1 = mnase_analysis_rep1
 		self.mnase_analysis_rep2 = mnase_analysis_rep2
 
-		self.config = load_yl_rg1_vst_config(1)
-		self.H, _ = calcH(self.config.intervals_wt1, 
+		self.config1 = load_yl_rg1_vst_config(1)
+		self.config2 = load_yl_rg1_vst_config(2)
+
+		self.H1, _ = calcH(self.config1.intervals_wt1, 
 			GlobalConstants.CHROM_WT1_TIMEPOINTS)
 
-	def select_bins(self):
+		self.H2, _ = calcH(self.config2.intervals_wt1, 
+			GlobalConstants.CHROM_WT2_TIMEPOINTS)
+
+		self.H = np.concatenate([self.H1, self.H2])
+
+		self.geneset = get_deconvolved_geneset()
+
+
+	def set_chrom(self, chrom):
+		"""Select the bins for the given chromosome"""
+
+		self.chrom = chrom
+
+		bin_curves1 = self.mnase_analysis_rep1.normalized_bin_curves
+		bin_curves2 = self.mnase_analysis_rep2.normalized_bin_curves
+
+		self.chr_genes = self.geneset[self.geneset.chr == chrom]
+
+		self.chr_bin_curves1 = bin_curves1.loc[self.chr_genes.index]
+		self.chr_bin_curves2 = bin_curves2.loc[self.chr_genes.index]
+
+	def select_bins(self, bins):
 
 		from src.sgd import get_orfname
 
-		early_bin = self.mnase_analysis_rep1.normalized_bin_curves\
-			.loc['YAR018C']
-		late_bin = self.mnase_analysis_rep1.normalized_bin_curves\
-			.loc['YAL067C']
-
 		# use copy number dataset to determine range of values
-		copy_num_file = f'datasets/computed_mnase/dna_copy_scaling_rep1.csv'
-		copy_num_rep1 = pd.read_csv(copy_num_file).set_index("Unnamed: 0")
 
-		# the values of g are normalized to be between 0-1.
-		# So normalize them to be within the range of the copy number
-		# values. 
-		# todo: Should rethink how the bins should be normalized.
-		#       As they should reflect the actual copy number of the sample
-		#       including the halted cells proportion, meaning
-		#       the max will never actually get to 2.0 in the experiment.
-		copy_min, copy_max = copy_num_rep1.min().scale, copy_num_rep1.max().scale
-		scale_g = (copy_max-copy_min)
+		def load_copy_num(replicate):
+			copy_num_file = f'datasets/computed_mnase/dna_copy_scaling_rep{replicate}.csv'
+			copy_num_rep = pd.read_csv(copy_num_file).set_index("Unnamed: 0")
+			return copy_num_rep
 
-		g_early = early_bin.values.reshape((-1, 1))*scale_g+copy_min
-		g_late = late_bin.values.reshape((-1, 1))*scale_g+copy_min
+		def scale_bins(bins, replicate):
 
-		bins = self.mnase_analysis_rep1.normalized_bin_curves.iloc[:100].values.T
-		bins_normalized = bins * scale_g + copy_min
+			copy_num_rep = load_copy_num(replicate)
+			# the values of g are normalized to be between 0-1.
+			# So normalize them to be within the range of the copy number
+			# values. 
+			# todo: Should rethink how the bins should be normalized.
+			#       As they should reflect the actual copy number of the sample
+			#       including the halted cells proportion, meaning
+			#       the max will never actually get to 2.0 in the experiment.
+			copy_min, copy_max = copy_num_rep.min().scale, copy_num_rep.max().scale
+			scale_g = (copy_max-copy_min)
+			bins_normalized = bins * scale_g + copy_min
+			return bins_normalized
 
-		self.g = bins_normalized
+		# Load the bins for each replicate
+		bins1 = self.chr_bin_curves1.iloc[bins].values.T
+		bins2 = self.chr_bin_curves2.iloc[bins].values.T
 
-		print(f"G is of shape: ", self.g.shape)
+		# Normalize by the replicate's copy number
+		# rather than 0-1, ~1-1.5, (handles number of halted cells)
+		self.g1 = scale_bins(bins1, 1)
+		self.g2 = scale_bins(bins2, 2)
+
+		# Concatenate for the combined model
+		self.g = np.concatenate([self.g1, self.g2])
 
 
-	def solve(self):
+	def solve(self, verbose=False):
 
 		g = self.g
 
 		n, m = self.H.shape
 		n, u = self.g.shape
 
-		config = self.config
+		config = self.config1
 		transition_point = cp.Variable(integer=True)
 
 		f_dg1_i = config.get_Hpositions_for_phase('DG1')
@@ -101,15 +131,16 @@ class StepReplicationChromatinDeconvolveSolver:
 		    constraints.append(f[index] >= f[prev_index])
 
 		problem = cp.Problem(objective, constraints)
-		problem.solve(verbose=False)
+		problem.solve(verbose=verbose, solver=cp.MOSEK)
 
-		print("CVXPY problem finished with status: ", problem.status)
+		if verbose:
+			print("CVXPY problem finished with status: ", problem.status)
 
 		self.f = f.value
 
-	def compute_replication_timing(self):
-		replication_timing_indices = (self.f > 1.5).argmax(axis=0)
-		replication_timing = [self.config.get_timepoint_for_index(i) 
+	def compute_replication_timing(self, f):
+		replication_timing_indices = (f > 1.5).argmax(axis=0)
+		replication_timing = [self.config1.get_timepoint_for_index(i) 
 			for i in replication_timing_indices]
 		self.replication_timing_df = pd.DataFrame(data={
 			'H_index': replication_timing_indices,
