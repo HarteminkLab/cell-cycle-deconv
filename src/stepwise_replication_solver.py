@@ -25,20 +25,20 @@ class StepReplicationChromatinDeconvolveSolver:
 		self.H, _ = calcH(self.config.intervals_wt1, 
 			GlobalConstants.CHROM_WT1_TIMEPOINTS)
 
-	def select_bin(self):
+	def select_bins(self):
 
 		from src.sgd import get_orfname
 
 		early_bin = self.mnase_analysis_rep1.normalized_bin_curves\
-			.loc[get_orfname('VPS8')]
+			.loc['YAR018C']
 		late_bin = self.mnase_analysis_rep1.normalized_bin_curves\
-			.loc[get_orfname('SSK22')]
+			.loc['YAL067C']
 
 		# use copy number dataset to determine range of values
 		copy_num_file = f'datasets/computed_mnase/dna_copy_scaling_rep1.csv'
 		copy_num_rep1 = pd.read_csv(copy_num_file).set_index("Unnamed: 0")
 
-		# the values of g are normalized to be between 1 and 2.
+		# the values of g are normalized to be between 0-1.
 		# So normalize them to be within the range of the copy number
 		# values. 
 		# todo: Should rethink how the bins should be normalized.
@@ -48,10 +48,15 @@ class StepReplicationChromatinDeconvolveSolver:
 		copy_min, copy_max = copy_num_rep1.min().scale, copy_num_rep1.max().scale
 		scale_g = (copy_max-copy_min)
 
-		g_early = late_bin.values.reshape((-1, 1))*scale_g+copy_max
-		g_late = early_bin.values.reshape((-1, 1))*scale_g+copy_min
-		
-		self.g = np.hstack([g_early, g_late])
+		g_early = early_bin.values.reshape((-1, 1))*scale_g+copy_min
+		g_late = late_bin.values.reshape((-1, 1))*scale_g+copy_min
+
+		bins = self.mnase_analysis_rep1.normalized_bin_curves.iloc[:100].values.T
+		bins_normalized = bins * scale_g + copy_min
+
+		self.g = bins_normalized
+
+		print(f"G is of shape: ", self.g.shape)
 
 
 	def solve(self):
@@ -99,9 +104,17 @@ class StepReplicationChromatinDeconvolveSolver:
 		problem.solve(verbose=False)
 
 		print("CVXPY problem finished with status: ", problem.status)
-		# print("Transition point", (f.value > 1.5).argmax())
 
 		self.f = f.value
+
+	def compute_replication_timing(self):
+		replication_timing_indices = (self.f > 1.5).argmax(axis=0)
+		replication_timing = [self.config.get_timepoint_for_index(i) 
+			for i in replication_timing_indices]
+		self.replication_timing_df = pd.DataFrame(data={
+			'H_index': replication_timing_indices,
+			'replication_time': replication_timing
+			})
 
 	def plot_result(self):
 		plt.figure(figsize=(13, 2))
@@ -110,7 +123,5 @@ class StepReplicationChromatinDeconvolveSolver:
 		plt.plot(self.f)
 
 		plt.subplot(1, 3, 2)
-		plt.plot(self.H@self.f)
-
-		plt.subplot(1, 3, 3)
-		plt.plot(self.g)
+		plt.plot(self.g, c='black')
+		plt.plot(self.H@self.f, c='red')
