@@ -22,18 +22,21 @@ class StepReplicationChromatinDeconvolveSolver:
 		self.mnase_analysis_rep2 = mnase_analysis_rep2
 
 		self.config = load_yl_rg1_vst_config(1)
-		self.H, _ = calcH(self.config.intervals_wt1, GlobalConstants.CHROM_WT1_TIMEPOINTS)
-
+		self.H, _ = calcH(self.config.intervals_wt1, 
+			GlobalConstants.CHROM_WT1_TIMEPOINTS)
 
 	def select_bin(self):
 
 		from src.sgd import get_orfname
 
-		early_bin = self.mnase_analysis_rep1.normalized_bin_curves.loc[get_orfname('VPS8')]
-		late_bin = self.mnase_analysis_rep1.normalized_bin_curves.loc[get_orfname('SSK22')]
+		early_bin = self.mnase_analysis_rep1.normalized_bin_curves\
+			.loc[get_orfname('VPS8')]
+		late_bin = self.mnase_analysis_rep1.normalized_bin_curves\
+			.loc[get_orfname('SSK22')]
 
 		# use copy number dataset to determine range of values
-		copy_num_rep1 = pd.read_csv(f'datasets/computed_mnase/dna_copy_scaling_rep1.csv').set_index("Unnamed: 0")
+		copy_num_file = f'datasets/computed_mnase/dna_copy_scaling_rep1.csv'
+		copy_num_rep1 = pd.read_csv(copy_num_file).set_index("Unnamed: 0")
 
 		# the values of g are normalized to be between 1 and 2.
 		# So normalize them to be within the range of the copy number
@@ -45,15 +48,19 @@ class StepReplicationChromatinDeconvolveSolver:
 		copy_min, copy_max = copy_num_rep1.min().scale, copy_num_rep1.max().scale
 		scale_g = (copy_max-copy_min)
 
-		g = late_bin.values.reshape((-1, 1))*scale_g+copy_max
-		g = early_bin.values.reshape((-1, 1))*scale_g+copy_min
+		g_early = late_bin.values.reshape((-1, 1))*scale_g+copy_max
+		g_late = early_bin.values.reshape((-1, 1))*scale_g+copy_min
 		
-		self.g = g
+		self.g = np.hstack([g_early, g_late])
 
 
 	def solve(self):
 
 		g = self.g
+
+		n, m = self.H.shape
+		n, u = self.g.shape
+
 		config = self.config
 		transition_point = cp.Variable(integer=True)
 
@@ -62,11 +69,11 @@ class StepReplicationChromatinDeconvolveSolver:
 		f_cg1_i = config.get_Hpositions_for_phase('CG1')
 		f_pg1_i = config.get_Hpositions_for_phase('postG1')
 
-		f_rg1 = np.zeros((len(f_dg1_i), 1)).astype(bool)
-		f_cg1 = np.zeros((len(f_dg1_i), 1)).astype(bool)
-		f_dg1 = np.zeros((len(f_dg1_i), 1)).astype(bool)
-		f_pg1 = cp.Variable((len(f_pg1_i), 1), boolean=True)
-		f_halted = np.zeros((1, 1)).astype(bool)
+		f_rg1 = np.zeros((len(f_dg1_i), u)).astype(bool)
+		f_cg1 = np.zeros((len(f_dg1_i), u)).astype(bool)
+		f_dg1 = np.zeros((len(f_dg1_i), u)).astype(bool)
+		f_pg1 = cp.Variable((len(f_pg1_i), u), boolean=True)
+		f_halted = np.zeros((1, u)).astype(bool)
 
 		# F is vertical stack of 0s for all of the G1s, the
 		# Post G1 boolean vector we are searching for, and a 0 for halted
@@ -74,7 +81,11 @@ class StepReplicationChromatinDeconvolveSolver:
 		# and the final solution.
 		f = cp.vstack([f_rg1, f_cg1, f_dg1, f_pg1, f_halted])+1
 
-		objective = cp.Minimize(cp.norm(self.H@f - self.g))
+		elementwise_result = self.H@f - self.g
+
+		objective = cp.Minimize(
+			cp.sum(cp.norm(elementwise_result, 'fro')**2)
+		)
 
 		constraints = []
 		                        
@@ -88,7 +99,7 @@ class StepReplicationChromatinDeconvolveSolver:
 		problem.solve(verbose=False)
 
 		print("CVXPY problem finished with status: ", problem.status)
-		print("Transition point", (f.value > 1.5).argmax())
+		# print("Transition point", (f.value > 1.5).argmax())
 
 		self.f = f.value
 
