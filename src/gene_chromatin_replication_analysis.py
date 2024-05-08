@@ -389,7 +389,7 @@ class GeneChromatinReplicationAnalysis:
 		self.gene_nuc_entropy, self.normalized_gene_nuc_entropy = \
 			gene_nuc_entropy, normalized_gene_nuc_entropy
 
-	def plot_entropy_heatmap(self, subset_orfs, title, vmin=-2, vmax=2, fig=None):
+	def plot_entropy_heatmap(self, subset_orfs, title, vmin=-3, vmax=3, fig=None):
 
 		if fig is None:
 			fig = plt.figure(figsize=(6, 6))
