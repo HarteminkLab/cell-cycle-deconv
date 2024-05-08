@@ -18,7 +18,8 @@ class GeneChromatinReplicationAnalysis:
 	Goal: Make it easy to examine different subsets of genes at different time deltas
 	before and after the replication.
 
-	To identify potential effects of the replication fork in the chromatin at genes (expressed/unexpressed), transcribing
+	To identify potential effects of the replication fork in the chromatin at genes 
+	(expressed/unexpressed), transcribing
 	with and towards the replication fork, etc.
 	"""
 
@@ -45,7 +46,8 @@ class GeneChromatinReplicationAnalysis:
 
 		# There may be some genes for which we don't have gene expression data as well
 		gene_index = geneset_repl.join(ge_analysis.gene_expression_f[[]], how='inner').f_gene_index
-		gene_orf_name_index = geneset_repl.join(ge_analysis.gene_expression_f[[]], how='inner').index.values
+		gene_orf_name_index = geneset_repl.join(ge_analysis.gene_expression_f[[]], 
+			how='inner').index.values
 		geneset_repl = geneset_repl.loc[gene_orf_name_index]
 
 		# Subset the set f images (np array) so use the integer index
@@ -64,7 +66,8 @@ class GeneChromatinReplicationAnalysis:
 
 		# Next compute the expression value at replication time
 		repl_h_index = self.geneset_repl.replication_H_index
-		expression_at_replication = self.gene_expression_f.apply(lambda row: row.iloc[repl_h_index[row.name]], axis=1)
+		expression_at_replication = self.gene_expression_f.apply(lambda 
+			row: row.iloc[repl_h_index[row.name]], axis=1)
 		self.geneset_repl['expression_at_replication'] = expression_at_replication
 
 
@@ -196,15 +199,19 @@ class GeneChromatinReplicationAnalysis:
 		subset_genes['prior_i'] = prior_index
 		subset_genes['post_i'] = post_index
 
-		subset_genes['prior_tp'] = [self.config.get_timepoint_for_index(i)+cg1_len for i in prior_index]
-		subset_genes['post_tp'] = [self.config.get_timepoint_for_index(i)+cg1_len for i in post_index]
+		subset_genes['prior_tp'] = [self.config.get_timepoint_for_index(i)+cg1_len
+		 for i in prior_index]
+		subset_genes['post_tp'] = [self.config.get_timepoint_for_index(i)+cg1_len 
+		for i in post_index]
 
 		def compute_delta_timing(subset_genes):
 			from scipy import stats
 			subset_genes = subset_genes.copy().dropna()
 			min_delta = subset_genes.post_tp - subset_genes.replication_timing
-			# Use mode, as most genes will not require the wrap-around timepoint calculation
-			# todo: This shouldn't be necessary if we are able to calculate the wrap-around
+			# Use mode, as most genes will not require the wrap-around timepoint
+			# calculation
+			# todo: This shouldn't be necessary if we are able to calculate the 
+			# wrap-around
 			# for the timepoints properly.
 			return stats.mode(min_delta.values, keepdims=True)[0][0]
 
@@ -254,9 +261,12 @@ class GeneChromatinReplicationAnalysis:
 
 		small_lens, med_lens, nuc_lens = yl_rep2_len_spans()
 		
-		small_bins = small_lens[0]//GlobalConstants.BIN_HEIGHT, small_lens[1]//GlobalConstants.BIN_HEIGHT
-		med_lens = med_lens[0]//GlobalConstants.BIN_HEIGHT, med_lens[1]//GlobalConstants.BIN_HEIGHT
-		nuc_bins = nuc_lens[0]//GlobalConstants.BIN_HEIGHT, nuc_lens[1]//GlobalConstants.BIN_HEIGHT
+		small_bins = small_lens[0]//GlobalConstants.BIN_HEIGHT,  \
+			small_lens[1]//GlobalConstants.BIN_HEIGHT
+		med_lens = med_lens[0]//GlobalConstants.BIN_HEIGHT, \
+			med_lens[1]//GlobalConstants.BIN_HEIGHT
+		nuc_bins = nuc_lens[0]//GlobalConstants.BIN_HEIGHT, \
+			nuc_lens[1]//GlobalConstants.BIN_HEIGHT
 
 		def plot_frag_traces(trace_img):
 
@@ -285,14 +295,19 @@ class GeneChromatinReplicationAnalysis:
 
 				positive_trace = trace_data.copy()
 				positive_trace[positive_trace < 0] = 0
-				positive_trace[positive_trace > sub_panel_height_2] = sub_panel_height_2 # truncate within bounds
+				# truncate within bounds
+				positive_trace[positive_trace > sub_panel_height_2] = sub_panel_height_2 
+
 
 				negative_trace = trace_data.copy()
 				negative_trace[negative_trace > 0] = 0
-				negative_trace[negative_trace < -sub_panel_height_2] = -sub_panel_height_2 # truncate within bounds
+			    # truncate within bounds
+				negative_trace[negative_trace < -sub_panel_height_2] = -sub_panel_height_2
 
-				plt.fill_between(xs, positive_trace+offset, offset, color=positive_color, lw=0)
-				plt.fill_between(xs, negative_trace+offset, offset, color=negative_color, lw=0)
+				plt.fill_between(xs, positive_trace+offset, offset, 
+					color=positive_color, lw=0)
+				plt.fill_between(xs, negative_trace+offset, offset, 
+					color=negative_color, lw=0)
 
 			plot_fill_pos_neg(nuc_trace, sub_panel_height)
 			plot_fill_pos_neg(intermediate_trace, 0)
@@ -309,7 +324,8 @@ class GeneChromatinReplicationAnalysis:
 			plt.ylim(-total_height_2, total_height_2)
 			plt.xlim(0, trace_img.shape[1]-1)
 			plt.xticks([])
-			plt.yticks([-sub_panel_height, 0, sub_panel_height], ['Sm', "Int", "Nuc"], rotation=0, ha='right',
+			plt.yticks([-sub_panel_height, 0, sub_panel_height], ['Sm', "Int", "Nuc"], 
+				rotation=0, ha='right',
 				fontsize=7)
 			plt.gca().tick_params(axis='y', which='major', length=0, pad=2)
 
@@ -381,18 +397,13 @@ class GeneChromatinReplicationAnalysis:
 		self.gene_nuc_entropy, self.normalized_gene_nuc_entropy = \
 			gene_nuc_entropy, normalized_gene_nuc_entropy
 
-	def plot_entropy_heatmap(self, subset_orfs, title, vmin=-3, vmax=3, fig=None):
+
+	def plot_heatmap(self, plot_data, replication_df, vmin, vmax, fig, title):
 
 		if fig is None:
 			fig = plt.figure(figsize=(6, 6))
 
-		replication_df = self.geneset_repl.loc[subset_orfs]
-
-		n = len(subset_orfs)
-
-		indices_of_repl = get_repl_positions_in_t(self, replication_df.replication_H_index.values)
-
-		nuc_entropy = self.normalized_gene_nuc_entropy[replication_df.f_gene_index]
+		n = len(replication_df)
 
 		# Plot the G1 and postG1 heatmaps separately
 		postG1_indices = self.config.get_Hpositions_for_phase('postG1')
@@ -406,9 +417,9 @@ class GeneChromatinReplicationAnalysis:
 		cg1_indices_in_t = np.arange(len_cg1_inds)
 		postG1_indices_in_t = np.arange(len_cg1_inds, len_cg1_inds+len_pg1_inds)
 
-		plt.imshow(nuc_entropy[:, cg1_indices_in_t], aspect='auto', cmap='RdBu_r',
+		plt.imshow(plot_data[:, cg1_indices_in_t], aspect='auto', cmap='RdBu_r',
 			vmin=vmin,vmax=vmax, extent=[cg1_ts[0], postG1_ts[0], 0, n], origin='lower')
-		plt.imshow(nuc_entropy[:, postG1_indices_in_t], aspect='auto', cmap='RdBu_r',
+		plt.imshow(plot_data[:, postG1_indices_in_t], aspect='auto', cmap='RdBu_r',
 			vmin=vmin,vmax=vmax, extent=[postG1_ts[0], postG1_ts[-1], 0, n], origin='lower')
 
 		plt.xlabel("Deconvolved time along mother branch, min")
@@ -418,29 +429,49 @@ class GeneChromatinReplicationAnalysis:
 		ys = np.arange(n)
 
 		# Offset the replication timing by the cg1 length
-		plt.scatter(replication_df.replication_timing-cg1_len, ys, s=0.5, c='black', marker='D')
+		plt.scatter(replication_df.replication_timing-cg1_len, ys, s=0.5, 
+			c='black', marker='D')
 		plt.title(f"{title}, n={len(ys)}")
 
 		# Earliest at the top
 		plt.ylim(n, 0)
 
-	def plot_early_late_entropy_hm_comparision(self, k=200):
+	def plot_early_late_entropy_hm_comparision(self, k=500):
+		sorted_geneset = self.geneset_repl.sort_values('replication_timing')
+		nuc_entropy = self.normalized_gene_nuc_entropy[sorted_geneset.f_gene_index]
+		self.plot_early_late_hm_comparision(nuc_entropy, k=k)
+
+
+	def plot_early_late_sm_hm_comparision(self, promoter_analysis, k=500):
+
+		sorted_geneset = self.geneset_repl.sort_values('replication_timing')
+		t_indices = self.config.get_Hpositions_for_branch('t')
+
+		sm_t_dat = promoter_analysis.sm_prom_occ_df.loc[sorted_geneset.index][t_indices]
+		mean = sm_t_dat.values.mean(axis=1).reshape((-1, 1))
+		normalized_sm_t_dat = (sm_t_dat.values - mean)
+
+		self.plot_early_late_hm_comparision(normalized_sm_t_dat, k=k)
+
+	def plot_early_late_hm_comparision(self, normalized_sm_t_dat, k=500):
 
 		sorted_geneset = self.geneset_repl.sort_values('replication_timing')
 
 		fig = plt.figure(figsize=(13, 6))
 
 		plt.subplot(1, 3, 1)
-		self.plot_entropy_heatmap(sorted_geneset.index, "All genes", fig=fig)
+		self.plot_heatmap(normalized_sm_t_dat, sorted_geneset,
+                                     vmin=-3, vmax=3, title="All genes", fig=fig)
 
 		plt.subplot(1, 3, 2)
-		self.plot_entropy_heatmap(sorted_geneset.head(k).index, 
-		    f"Earliest k={k}", fig=fig)
+		self.plot_heatmap(normalized_sm_t_dat[:k], sorted_geneset.head(k), 
+		    vmin=-3, vmax=3, title=f"Earliest k={k}", fig=fig)
 
 		plt.subplot(1, 3, 3)
-		self.plot_entropy_heatmap(sorted_geneset.tail(k).index, 
-		    f"Latest k={k}",
+		self.plot_heatmap(normalized_sm_t_dat[-k:], sorted_geneset.tail(k), 
+		    vmin=-3, vmax=3, title=f"Latest k={k}",
 		    fig=fig)
+		plt.suptitle("Promoter small fragments w.r.t Replication timing")
 
 	
 def get_repl_positions_in_t(gene_chrom_repl_analysis, indices_in_t_of_replication):
