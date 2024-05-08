@@ -317,15 +317,15 @@ class GeneChromatinReplicationAnalysis:
 		post_minus_at = post - at
 		post_minus_prior = post - prior
 
-		plt.subplot(4, 3, 2)
-		plot_frag_traces(at_minus_prior)
-		plt.title("Frag. Difference: At - Prior", fontsize=9)
+		# plt.subplot(4, 3, 2)
+		# plot_frag_traces(at_minus_prior)
+		# plt.title("Frag. Difference: At - Prior", fontsize=9)
+
+		# plt.subplot(4, 3, 5)
+		# plot_frag_traces(post_minus_at)
+		# plt.title("Frag. Difference: Post - At", fontsize=9)
 
 		plt.subplot(4, 3, 5)
-		plot_frag_traces(post_minus_at)
-		plt.title("Frag. Difference: Post - At", fontsize=9)
-
-		plt.subplot(4, 3, 8)
 		plot_frag_traces(post_minus_prior)
 		plt.title("Frag. Difference: Post - Prior", fontsize=9)
 
@@ -339,15 +339,7 @@ class GeneChromatinReplicationAnalysis:
 			plt.gca().yaxis.set_label_position("right")
 			plt.axvline(9, c='black', lw=0.5, ls='solid', alpha=0.5)
 
-		plt.subplot(4, 3, 3)
-		plot_f_img_diff(at_minus_prior)
-		plt.title("Difference: At - Prior", fontsize=9)
-
 		plt.subplot(4, 3, 6)
-		plot_f_img_diff(post_minus_at)
-		plt.title("Difference: Post - At", fontsize=9)
-
-		plt.subplot(4, 3, 9)
 		plot_f_img_diff(post_minus_prior)
 		plt.title("Difference: Post - Prior", fontsize=9)
 
@@ -431,6 +423,24 @@ class GeneChromatinReplicationAnalysis:
 
 		# Earliest at the top
 		plt.ylim(n, 0)
+
+	def plot_early_late_entropy_hm_comparision(self, k=200):
+
+		sorted_geneset = self.geneset_repl.sort_values('replication_timing')
+
+		fig = plt.figure(figsize=(13, 6))
+
+		plt.subplot(1, 3, 1)
+		self.plot_entropy_heatmap(sorted_geneset.index, "All genes", fig=fig)
+
+		plt.subplot(1, 3, 2)
+		self.plot_entropy_heatmap(sorted_geneset.head(k).index, 
+		    f"Earliest k={k}", fig=fig)
+
+		plt.subplot(1, 3, 3)
+		self.plot_entropy_heatmap(sorted_geneset.tail(k).index, 
+		    f"Latest k={k}",
+		    fig=fig)
 
 	
 def get_repl_positions_in_t(gene_chrom_repl_analysis, indices_in_t_of_replication):
