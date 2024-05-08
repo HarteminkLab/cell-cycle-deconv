@@ -401,17 +401,36 @@ class GeneChromatinReplicationAnalysis:
 		indices_of_repl = get_repl_positions_in_t(self, replication_df.replication_H_index.values)
 
 		nuc_entropy = self.normalized_gene_nuc_entropy[replication_df.f_gene_index]
-		
-		plt.imshow(nuc_entropy, aspect='auto', cmap='RdBu_r', vmin=vmin,
-				   vmax=vmax)
+
+		# Plot the G1 and postG1 heatmaps separately
+		postG1_indices = self.config.get_Hpositions_for_phase('postG1')
+		cg1_indices = self.config.get_Hpositions_for_phase('CG1')
+
+		postG1_ts = self.config.get_phase_timepoints_for_phase('postG1')
+		cg1_ts = self.config.get_phase_timepoints_for_phase('CG1')
+
+		len_pg1_inds = len(postG1_indices)
+		len_cg1_inds = len(cg1_indices)
+		cg1_indices_in_t = np.arange(len_cg1_inds)
+		postG1_indices_in_t = np.arange(len_cg1_inds, len_cg1_inds+len_pg1_inds)
+
+		plt.imshow(nuc_entropy[:, cg1_indices_in_t], aspect='auto', cmap='RdBu_r',
+			vmin=vmin,vmax=vmax, extent=[cg1_ts[0], postG1_ts[0], 0, n], origin='lower')
+		plt.imshow(nuc_entropy[:, postG1_indices_in_t], aspect='auto', cmap='RdBu_r',
+			vmin=vmin,vmax=vmax, extent=[postG1_ts[0], postG1_ts[-1], 0, n], origin='lower')
 
 		plt.xlabel("Deconvolved time along mother branch, min")
-		plt.xlabel("Deconvolved time, mother branch")
 		plt.ylabel("Genes sorted by replication time")
 
+		_, cg1_len, _ = self.config.get_g1_lens()
 		ys = np.arange(n)
-		plt.scatter(indices_of_repl, ys, s=0.5, c='black', marker='D')
+
+		# Offset the replication timing by the cg1 length
+		plt.scatter(replication_df.replication_timing-cg1_len, ys, s=0.5, c='black', marker='D')
 		plt.title(f"{title}, n={len(ys)}")
+
+		# Earliest at the top
+		plt.ylim(n, 0)
 
 	
 def get_repl_positions_in_t(gene_chrom_repl_analysis, indices_in_t_of_replication):
