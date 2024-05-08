@@ -475,7 +475,7 @@ class GeneChromatinReplicationAnalysis:
 
 	def plot_early_late_plus_one_comparison(self, k=500):
 
-		plus_fp = 'output/computed_plus_one_movement_znorm_2024_05_08.csv'
+		plus_fp = 'output/computed_plus_one_movement_meannorm_2024_05_08.csv'
 		gene_plus_one_position_z = pd.read_csv(plus_fp)
 		gene_plus_one_position_z = gene_plus_one_position_z.set_index('orf_name')
 
@@ -484,7 +484,7 @@ class GeneChromatinReplicationAnalysis:
 		dat = gene_plus_one_position_z.loc[sorted_geneset.index].values
 
 		self.plot_early_late_hm_comparision(dat, 
-			title="+1 nucleosome shift", vmin=-2, vmax=2, k=k)
+			title="+1 nucleosome shift", vmin=-3, vmax=3, k=k)
 
 	def plot_early_late_hm_comparision(self, data_to_plot, k=500, title=None,
 		vmin=-3, vmax=3):
