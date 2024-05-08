@@ -357,3 +357,79 @@ class GeneChromatinReplicationAnalysis:
 			title = f"Prior/Post Replication, n={len(self.subset_genes)}"
 
 		plt.suptitle(title)
+
+
+	def compute_gene_nuc_entropy(self):
+
+		from src.chromatin_metrics import yl_rep2_len_spans
+		from src.global_config import GlobalConstants
+		from src.helpers import calc_entropy
+
+		gene_f_images = self.sc_f_w_repl_images.astype(float)
+
+		config = self.config
+		t_indices = config.get_Hpositions_for_branch('t')
+
+		small_lens, med_lens, nuc_lens = yl_rep2_len_spans()
+		nuc_bins = nuc_lens[0]//GlobalConstants.BIN_HEIGHT, \
+			nuc_lens[1]//GlobalConstants.BIN_HEIGHT
+		med_bins = med_lens[0]//GlobalConstants.BIN_HEIGHT, \
+			med_lens[1]//GlobalConstants.BIN_HEIGHT
+
+		# Get the nucleosomes for all genes and collapse the fragment length dimension    
+		nucs_over_time = gene_f_images[:, t_indices, nuc_bins[0]:nuc_bins[1]].sum(axis=2)
+		nucs_over_time = nucs_over_time.astype(float)
+		nucs_over_time[np.isnan(nucs_over_time)] = 0.
+		gene_nuc_entropy = np.apply_along_axis(calc_entropy, 2, nucs_over_time)
+
+		# Z-score normalization
+		normalized_gene_nuc_entropy = (gene_nuc_entropy - gene_nuc_entropy.mean(axis=1)\
+									.reshape((-1, 1))) / \
+									gene_nuc_entropy.std(axis=1).reshape((-1, 1))
+		self.gene_nuc_entropy, self.normalized_gene_nuc_entropy = \
+			gene_nuc_entropy, normalized_gene_nuc_entropy
+
+	def plot_entropy_heatmap(self, subset_orfs, title, vmin=-2, vmax=2, fig=None):
+
+		if fig is None:
+			fig = plt.figure(figsize=(6, 6))
+
+		replication_df = self.geneset_repl.loc[subset_orfs]
+
+		n = len(subset_orfs)
+
+		indices_of_repl = get_repl_positions_in_t(self, replication_df.replication_H_index.values)
+
+		nuc_entropy = self.normalized_gene_nuc_entropy[replication_df.f_gene_index]
+		
+		plt.imshow(nuc_entropy, aspect='auto', cmap='RdBu_r', vmin=vmin,
+				   vmax=vmax)
+
+		plt.xlabel("Deconvolved time along mother branch, min")
+		plt.xlabel("Deconvolved time, mother branch")
+		plt.ylabel("Genes sorted by replication time")
+
+		ys = np.arange(n)
+		plt.scatter(indices_of_repl, ys, s=0.5, c='black', marker='D')
+		plt.title(f"{title}, n={len(ys)}")
+
+	
+def get_repl_positions_in_t(gene_chrom_repl_analysis, indices_in_t_of_replication):
+	"""Get replication indices in terms of the top branches indexing.
+	Subset the top branch indices, then convert the replication indices (that
+	were in H indexing) into the top branches indexing.
+	
+	H = [0, 1, 2, 3]
+	top = [2, 3] # subset of H
+	repl = [2, 3] # indices in H
+	
+	return [0, 1] # updated indices in the top vector
+	"""
+	from src.helpers import indices_of_mapping_array
+
+	config = gene_chrom_repl_analysis.config
+	t_timepoints = config.get_timepoints_for_branch('t')
+	h_positions = config.get_Hpositions_for_branch('t')
+	ret_indices = indices_of_mapping_array(h_positions, 
+		indices_in_t_of_replication)
+	return ret_indices

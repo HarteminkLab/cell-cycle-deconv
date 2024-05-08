@@ -50,17 +50,13 @@ class StepReplicationChromatinDeconvolveSolver:
 		self.chr_bin_curves1 = bin_curves1.loc[self.chr_genes.index]
 		self.chr_bin_curves2 = bin_curves2.loc[self.chr_genes.index]
 
+		self.adjust_bins_for_anomalous_min_maxes()
+
 	def select_bins(self, bins):
 
 		from src.sgd import get_orfname
 
 		# use copy number dataset to determine range of values
-
-		def load_copy_num(replicate):
-			copy_num_file = f'datasets/computed_mnase/dna_copy_scaling_rep{replicate}.csv'
-			copy_num_rep = pd.read_csv(copy_num_file).set_index("Unnamed: 0")
-			return copy_num_rep
-
 		def scale_bins(bins, replicate):
 
 			copy_num_rep = load_copy_num(replicate)
@@ -77,8 +73,11 @@ class StepReplicationChromatinDeconvolveSolver:
 			return bins_normalized
 
 		# Load the bins for each replicate
-		bins1 = self.chr_bin_curves1.iloc[bins].values.T
-		bins2 = self.chr_bin_curves2.iloc[bins].values.T
+		# bins1 = self.chr_bin_curves1.iloc[bins].values.T
+		# bins2 = self.chr_bin_curves2.iloc[bins].values.T
+
+		bins1 = self.adjusted_curves_1.iloc[bins].values.T
+		bins2 = self.adjusted_curves_2.iloc[bins].values.T
 
 		# Normalize by the replicate's copy number
 		# rather than 0-1, ~1-1.5, (handles number of halted cells)
@@ -123,12 +122,12 @@ class StepReplicationChromatinDeconvolveSolver:
 		)
 
 		constraints = []
-		                        
+								
 		# Post G1
 		for i in range(1, len(f_pg1_i)):
-		    index = f_pg1_i[i]
-		    prev_index = f_pg1_i[i-1]
-		    constraints.append(f[index] >= f[prev_index])
+			index = f_pg1_i[i]
+			prev_index = f_pg1_i[i-1]
+			constraints.append(f[index] >= f[prev_index])
 
 		problem = cp.Problem(objective, constraints)
 		problem.solve(verbose=verbose, solver=cp.MOSEK)
@@ -156,3 +155,117 @@ class StepReplicationChromatinDeconvolveSolver:
 		plt.subplot(1, 3, 2)
 		plt.plot(self.g, c='black')
 		plt.plot(self.H@self.f, c='red')
+
+
+	def adjust_bins_for_anomalous_min_maxes(self):
+		"""Adjust bins for situations in which the min in the second half
+		of the raw data is less than the first half. Possibly due to alpha
+		factor changes.
+
+		Record the bins/genes in which this occurs.
+		"""
+		adjusted_curves_1 = self.chr_bin_curves1.copy()
+		adjusted_curves_2 = self.chr_bin_curves2.copy()
+
+		fixed_genes = []
+
+		for bin_id in np.arange(len(self.chr_bin_curves1)):
+
+			adjusted_gene = self.chr_genes.iloc[bin_id]
+			should_normalize = False
+
+			bin_dat, normalized_bin_dat, copy_scaling, (first_half, second_half),\
+				(normalized_first, normalized_second) = \
+				self.normalize_raw_bin_by_half_copy_scaling(bin_id, replicate=1)\
+
+			# Normalization is needed if min in second half 
+			# is less than the first cell cycle
+			if first_half.min() > second_half.min():
+				should_normalize = True
+				adjusted_curves_1.iloc[bin_id] = normalized_bin_dat
+
+			bin_dat, normalized_bin_dat, copy_scaling, (first_half, second_half),\
+				(normalized_first, normalized_second) = \
+				self.normalize_raw_bin_by_half_copy_scaling(bin_id, replicate=2)\
+
+			if first_half.min() > second_half.min():
+				should_normalize = True
+				adjusted_curves_2.iloc[bin_id] = normalized_bin_dat
+
+			if should_normalize:
+				fixed_genes.append(adjusted_gene)
+
+		self.adjusted_curves_1 = adjusted_curves_1
+		self.adjusted_curves_2 = adjusted_curves_2
+		self.adjusted_genes = fixed_genes
+
+	def normalize_raw_bin_by_half_copy_scaling(self, bin_id, replicate):
+		
+		if replicate == 1:
+			bin_dat = self.chr_bin_curves1.iloc[bin_id]
+			copy_scaling = load_copy_num(1)
+			recovery_len, first_s_start, first_s_end, first_cc_end = \
+				self.config1.get_key_timepoints_in_raw()
+		else:
+			bin_dat = self.chr_bin_curves2.iloc[bin_id]
+			copy_scaling = load_copy_num(2)
+			recovery_len, first_s_start, first_s_end, first_cc_end = \
+				self.config2.get_key_timepoints_in_raw()
+
+
+		# Normalize copy scaling vector to the same as how the 
+		# bins were normalized. 
+		# todo: we may want to refactor/rethink this normalization process
+		# for all bins..
+		from src.TracerPlotter import normalize_max_min
+		copy_scaling_normalized = normalize_max_min(copy_scaling.values)
+		copy_scaling.loc[:] = copy_scaling_normalized
+
+		# Example bin: 50 in chr10
+		# It also appears that there is a signal of recovery enrichment
+		# from 0-30 minutes in the raw data.
+
+		first_half_indices = bin_dat.index <= first_cc_end
+		second_half_indices = bin_dat.index > first_cc_end+10
+
+		first_half = bin_dat.loc[first_half_indices]
+		second_half = bin_dat.loc[second_half_indices]
+
+		first_half_copy_num = copy_scaling[first_half_indices]
+		second_half_copy_num = copy_scaling[second_half_indices]
+		cp_first_half_min, cp_first_half_max = first_half_copy_num.min().scale, \
+			first_half_copy_num.max().scale
+
+		cp_second_half_min, cp_second_half_max = second_half_copy_num.min().scale, \
+			second_half_copy_num.max().scale
+
+		def normalize_to_a_b(dat, min_a, max_b):
+			"""Normalize a vector to match a given min and max values.
+			"""
+			dat = dat.copy()
+			dat = (dat - dat.min()) / (dat.max() - dat.min())
+			dat = dat*(max_b-min_a)+min_a
+			return dat
+
+		normalized_first = normalize_to_a_b(first_half, 
+			cp_first_half_min, cp_first_half_max)
+		normalized_second = normalize_to_a_b(second_half, 
+			cp_second_half_min, cp_second_half_max)
+
+		# Because we are normalizing by two disjointed curves
+		# Interpolate the middle point as the middle point between the two
+		normalized_bin_dat = bin_dat.copy()
+		normalized_bin_dat.loc[first_half_indices] = normalized_first
+		normalized_bin_dat.loc[second_half_indices] = normalized_second
+
+		middle_pt = (normalized_first.iloc[-1]+normalized_second.iloc[0])/2.
+		normalized_bin_dat.iloc[len(normalized_first)] = middle_pt
+		
+		return bin_dat, normalized_bin_dat, copy_scaling, \
+			(first_half, second_half), (normalized_first, normalized_second)
+
+
+def load_copy_num(replicate):
+	copy_num_file = f'datasets/computed_mnase/dna_copy_scaling_rep{replicate}.csv'
+	copy_num_rep = pd.read_csv(copy_num_file).set_index("Unnamed: 0")
+	return copy_num_rep

@@ -448,6 +448,31 @@ class Config:
 
 		return genelist_orfs
 
+	def get_key_timepoints_in_raw(self):
+
+		intervals = self.intervals_wt1[0]
+		mu0, lambda_len, gamma1, gamma2, alpha = intervals[0], intervals[1], intervals[7], intervals[8], intervals[5]
+
+		# Estimate the first S from mu0, lambda, gamma1, and gamma2
+		cg1_length = gamma1*lambda_len+alpha
+		s_start = (lambda_len*gamma1)
+		s_end = (lambda_len*gamma2)
+		s_length = s_end - s_start
+
+		# For the first cell cycle, mu0 includes the first G1
+		# so S starts when Recovery (mu0) ends
+		first_s_start = mu0
+		first_s_end = mu0+s_length
+		lambda_len = lambda_len
+
+		# The end of the first cycle is computed
+		# by taking the cell cycle length, subtracting the length of S (to get G1 and G2/M)
+		# Then subtract out what the first G1 would be.
+		# Then offset by mu0 length to get the actual timepoint for the end of the first cell cycle
+		g1_recovery_would_start_here = first_s_start - cg1_length
+		end_of_first_lambd = g1_recovery_would_start_here+lambda_len
+
+		return mu0, first_s_start, first_s_end, end_of_first_lambd
 
 def read_yl_vst_data_rep(replicate):
 	wt_data = pd.read_csv(f'datasets/yl_cell_cycle/replicate{replicate}_deseq2_vst_counts.csv')
