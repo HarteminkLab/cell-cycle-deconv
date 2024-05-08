@@ -301,7 +301,7 @@ class GeneChromatinReplicationAnalysis:
 
 				negative_trace = trace_data.copy()
 				negative_trace[negative_trace > 0] = 0
-			    # truncate within bounds
+				# truncate within bounds
 				negative_trace[negative_trace < -sub_panel_height_2] = -sub_panel_height_2
 
 				plt.fill_between(xs, positive_trace+offset, offset, 
@@ -418,12 +418,12 @@ class GeneChromatinReplicationAnalysis:
 		postG1_indices_in_t = np.arange(len_cg1_inds, len_cg1_inds+len_pg1_inds)
 
 		plt.imshow(plot_data[:, cg1_indices_in_t], aspect='auto', cmap='RdBu_r',
-			vmin=vmin,vmax=vmax, extent=[cg1_ts[0], postG1_ts[0], 0, n], origin='lower')
+			vmin=vmin,vmax=vmax, extent=[cg1_ts[0], postG1_ts[0], 1, n], origin='lower')
 		plt.imshow(plot_data[:, postG1_indices_in_t], aspect='auto', cmap='RdBu_r',
-			vmin=vmin,vmax=vmax, extent=[postG1_ts[0], postG1_ts[-1], 0, n], origin='lower')
+			vmin=vmin,vmax=vmax, extent=[postG1_ts[0], postG1_ts[-1], 1, n], origin='lower')
 
 		plt.xlabel("Deconvolved time along mother branch, min")
-		plt.ylabel("Genes sorted by replication time")
+		plt.ylabel("Gene rank sorted by replication time")
 
 		_, cg1_len, _ = self.config.get_g1_lens()
 		ys = np.arange(n)
@@ -434,12 +434,13 @@ class GeneChromatinReplicationAnalysis:
 		plt.title(f"{title}, n={len(ys)}")
 
 		# Earliest at the top
-		plt.ylim(n, 0)
+		plt.ylim(n, 1)
 
 	def plot_early_late_entropy_hm_comparision(self, k=500):
 		sorted_geneset = self.geneset_repl.sort_values('replication_timing')
 		nuc_entropy = self.normalized_gene_nuc_entropy[sorted_geneset.f_gene_index]
-		self.plot_early_late_hm_comparision(nuc_entropy, k=k)
+		self.plot_early_late_hm_comparision(nuc_entropy, k=k, 
+			title="Nucleosome entropy")
 
 
 	def plot_early_late_sm_hm_comparision(self, promoter_analysis, k=500):
@@ -447,31 +448,66 @@ class GeneChromatinReplicationAnalysis:
 		sorted_geneset = self.geneset_repl.sort_values('replication_timing')
 		t_indices = self.config.get_Hpositions_for_branch('t')
 
+		# Sort the data by the replication timing
 		sm_t_dat = promoter_analysis.sm_prom_occ_df.loc[sorted_geneset.index][t_indices]
 		mean = sm_t_dat.values.mean(axis=1).reshape((-1, 1))
 		normalized_sm_t_dat = (sm_t_dat.values - mean)
 
-		self.plot_early_late_hm_comparision(normalized_sm_t_dat, k=k)
+		self.plot_early_late_hm_comparision(normalized_sm_t_dat, k=k, 
+			title="Promoter small fragments")
 
-	def plot_early_late_hm_comparision(self, normalized_sm_t_dat, k=500):
+	def plot_early_late_gene_expression_comparison(self, ge_analysis, k=500):
+
+		sorted_geneset = self.geneset_repl.sort_values('replication_timing')
+		t_indices = self.config.get_Hpositions_for_branch('t')
+		gene_expression_f = ge_analysis.gene_expression_f.join(sorted_geneset[[]], 
+			how='inner')
+
+		# Sort the data by the replication timing
+		ge_sorted_by_rep = gene_expression_f.loc[sorted_geneset.index]
+		dat = ge_sorted_by_rep.values.astype(float)
+
+		dat = dat[:, t_indices]
+		dat = (dat - dat.mean(axis=1).reshape((-1, 1))) / (dat.std(axis=1).reshape((-1, 1)))
+
+		self.plot_early_late_hm_comparision(dat, 
+			title="Deconvolved gene expression")
+
+	def plot_early_late_plus_one_comparison(self, k=500):
+
+		plus_fp = 'output/computed_plus_one_movement_znorm_2024_05_08.csv'
+		gene_plus_one_position_z = pd.read_csv(plus_fp)
+		gene_plus_one_position_z = gene_plus_one_position_z.set_index('orf_name')
+
+		# Sort the data by the replication timing
+		sorted_geneset = self.geneset_repl.sort_values('replication_timing')
+		dat = gene_plus_one_position_z.loc[sorted_geneset.index].values
+
+		self.plot_early_late_hm_comparision(dat, 
+			title="+1 nucleosome shift", vmin=-2, vmax=2, k=k)
+
+	def plot_early_late_hm_comparision(self, data_to_plot, k=500, title=None,
+		vmin=-3, vmax=3):
 
 		sorted_geneset = self.geneset_repl.sort_values('replication_timing')
 
 		fig = plt.figure(figsize=(13, 6))
+		plt.suptitle(title, fontsize=23)
+		plt.subplots_adjust(top=0.85)
 
 		plt.subplot(1, 3, 1)
-		self.plot_heatmap(normalized_sm_t_dat, sorted_geneset,
-                                     vmin=-3, vmax=3, title="All genes", fig=fig)
+		self.plot_heatmap(data_to_plot, sorted_geneset,
+									 vmin=vmin, vmax=vmax, title="All genes", fig=fig)
 
 		plt.subplot(1, 3, 2)
-		self.plot_heatmap(normalized_sm_t_dat[:k], sorted_geneset.head(k), 
-		    vmin=-3, vmax=3, title=f"Earliest k={k}", fig=fig)
+		self.plot_heatmap(data_to_plot[:k], sorted_geneset.head(k), 
+			vmin=vmin, vmax=vmax, title=f"Earliest k={k}", fig=fig)
 
 		plt.subplot(1, 3, 3)
-		self.plot_heatmap(normalized_sm_t_dat[-k:], sorted_geneset.tail(k), 
-		    vmin=-3, vmax=3, title=f"Latest k={k}",
-		    fig=fig)
-		plt.suptitle("Promoter small fragments w.r.t Replication timing")
+		self.plot_heatmap(data_to_plot[-k:], sorted_geneset.tail(k), 
+			vmin=vmin, vmax=vmax, title=f"Latest k={k}",
+			fig=fig)
+
 
 	
 def get_repl_positions_in_t(gene_chrom_repl_analysis, indices_in_t_of_replication):
@@ -493,3 +529,35 @@ def get_repl_positions_in_t(gene_chrom_repl_analysis, indices_in_t_of_replicatio
 	ret_indices = indices_of_mapping_array(h_positions, 
 		indices_in_t_of_replication)
 	return ret_indices
+
+
+def compute_plus_one_movement(gene, nuc_bins_sum, t_indices):
+
+	from src.global_config import GlobalConstants
+	from src.helpers import weighted_mean
+
+	# todo: adjust this logic to handle three bins, currently the +1 lies
+	# between two bins, it should lie exactly one a single bin
+
+	bin_width = GlobalConstants.BIN_WIDTH
+	bin_width_2 = bin_width//2
+
+	gene_nuc_bins = nuc_bins_sum[gene.gene_idx]
+
+	center_bin = 9 # The +1 lies on the start of the bin index: 9
+	num_bins_padding = 3
+
+	# Padding to see how much the nucleosome shifts
+	plus_one_bins = center_bin-num_bins_padding, center_bin+num_bins_padding
+	plus_one_bin_values = gene_nuc_bins[t_indices, plus_one_bins[0]:plus_one_bins[1]]
+
+	# Define where the bins are in the bp coordinates relative
+	# to 0 (+1 location)
+	bin_bp_positions = np.arange(-num_bins_padding*bin_width, 
+		num_bins_padding*bin_width, bin_width)+bin_width_2
+
+	weighted_avg_p1_pos = np.apply_along_axis(lambda row: weighted_mean(bin_bp_positions, row), 
+					   1, plus_one_bin_values)
+
+	return weighted_avg_p1_pos
+

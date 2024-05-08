@@ -360,4 +360,17 @@ def indices_of_mapping_array(A, B):
 	"""
 	indices = [np.where(A == b)[0][0] for b in B]
 	return indices
+
+
+def weighted_mean(x_values, y_values):
+	"""
+	Calculate the weighted mean of x_values weighted by y_values.
 	
+	Parameters:
+	x_values (np.array): array of x-axis values.
+	y_values (np.array): array of weights (counts) corresponding to x_values.
+	
+	Returns:
+	float: the weighted mean of the x_values.
+	"""
+	return np.average(x_values, weights=y_values)

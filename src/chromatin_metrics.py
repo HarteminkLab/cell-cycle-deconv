@@ -392,10 +392,25 @@ def yl_replicate_length_bins():
 
 
 def yl_rep2_len_spans():
+	"""Length spans as defined from the replicate 2 dataset,
+	these should also match replicate 1, todo: rename this function"""
 	nucleosome_len_span=(145, 195)
 	mid_frag_span=(100, 145)
 	small_frag_span=(0, 100)
 	return small_frag_span, mid_frag_span, nucleosome_len_span
+
+def len_bins():
+	from src.global_config import GlobalConstants
+	small_lens, med_lens, nuc_lens = yl_rep2_len_spans()
+		
+	small_bins = small_lens[0]//GlobalConstants.BIN_HEIGHT,  \
+		small_lens[1]//GlobalConstants.BIN_HEIGHT
+	med_bins = med_lens[0]//GlobalConstants.BIN_HEIGHT, \
+		med_lens[1]//GlobalConstants.BIN_HEIGHT
+	nuc_bins = nuc_lens[0]//GlobalConstants.BIN_HEIGHT, \
+		nuc_lens[1]//GlobalConstants.BIN_HEIGHT
+
+	return small_bins, med_bins, nuc_bins
 
 
 def plot_len_counts(len_counts_df):

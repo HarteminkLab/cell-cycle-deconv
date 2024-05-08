@@ -69,6 +69,7 @@ class PromoterPTRAnalysis:
 				timer.print_time(f"{i+1}/{len(f_filepaths)}")
 			i += 1
 		self.all_gene_fs_df = all_gene_fs_df
+		self.geneset['gene_idx'] = np.arange(len(all_gene_fs_df))
 
 
 	def correct_f_images_by_strand(self):
