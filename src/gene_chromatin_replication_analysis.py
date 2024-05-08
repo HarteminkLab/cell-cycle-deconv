@@ -378,14 +378,26 @@ class GeneChromatinReplicationAnalysis:
 		config = self.config
 		t_indices = config.get_Hpositions_for_branch('t')
 
+		bin_width, bin_height = GlobalConstants.BIN_WIDTH, GlobalConstants.BIN_HEIGHT
+
 		small_lens, med_lens, nuc_lens = yl_rep2_len_spans()
-		nuc_bins = nuc_lens[0]//GlobalConstants.BIN_HEIGHT, \
-			nuc_lens[1]//GlobalConstants.BIN_HEIGHT
-		med_bins = med_lens[0]//GlobalConstants.BIN_HEIGHT, \
-			med_lens[1]//GlobalConstants.BIN_HEIGHT
+		nuc_bins = nuc_lens[0]//bin_height, \
+			nuc_lens[1]//bin_height
+		med_bins = med_lens[0]//bin_height, \
+			med_lens[1]//bin_height
+
+		# Starting with the the end of the promoter bins
+		# through the end of the total number of bins
+		# include the +1, so subtract 1
+		gene_body_bins = GlobalConstants.PROM_LEN//bin_width-1, GlobalConstants.NUM_BINS_X
 
 		# Get the nucleosomes for all genes and collapse the fragment length dimension    
-		nucs_over_time = gene_f_images[:, t_indices, nuc_bins[0]:nuc_bins[1]].sum(axis=2)
+		nucs_over_time = gene_f_images[:, t_indices, nuc_bins[0]:nuc_bins[1], 
+			gene_body_bins[0]:gene_body_bins[1]].sum(axis=2)
+
+		print("Shape of the f images: ", gene_f_images.shape)
+		print("Shape of the bins to compute entropy over: ", nucs_over_time.shape)
+
 		nucs_over_time = nucs_over_time.astype(float)
 		nucs_over_time[np.isnan(nucs_over_time)] = 0.
 		gene_nuc_entropy = np.apply_along_axis(calc_entropy, 2, nucs_over_time)
