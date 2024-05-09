@@ -443,7 +443,7 @@ class GeneChromatinReplicationAnalysis:
 		# Offset the replication timing by the cg1 length
 		plt.scatter(replication_df.replication_timing-cg1_len, ys, s=0.5, 
 			c='black', marker='D')
-		plt.title(f"{title}, n={len(ys)}")
+		plt.title(f"{title}")
 
 		# Earliest at the top
 		plt.ylim(n, 1)
@@ -453,7 +453,6 @@ class GeneChromatinReplicationAnalysis:
 		nuc_entropy = self.normalized_gene_nuc_entropy[sorted_geneset.f_gene_index]
 		self.plot_early_late_hm_comparision(nuc_entropy, k=k, 
 			title="Nucleosome entropy")
-
 
 	def plot_early_late_sm_hm_comparision(self, promoter_analysis, k=500):
 
@@ -487,12 +486,21 @@ class GeneChromatinReplicationAnalysis:
 
 	def plot_early_late_plus_one_comparison(self, k=500):
 
-		plus_fp = 'output/computed_plus_one_movement_meannorm_2024_05_08.csv'
+		plus_fp = 'output/deconvolved_plus_one_tracking/computed_plus_one_movement_meannorm.csv'
 		gene_plus_one_position_z = pd.read_csv(plus_fp)
 		gene_plus_one_position_z = gene_plus_one_position_z.set_index('orf_name')
 
 		# Sort the data by the replication timing
 		sorted_geneset = self.geneset_repl.sort_values('replication_timing')
+
+		p1_meta_data = pd.read_csv('output/deconvolved_plus_one_tracking/p1_meta_data.csv').set_index('orf_name')
+		sorted_geneset = p1_meta_data[['bin_max']].join(sorted_geneset, how='inner')
+
+		# Filter out low nuc coverage genes
+		sorted_geneset = sorted_geneset[sorted_geneset.bin_max > 10]
+
+		print(len(sorted_geneset))
+
 		dat = gene_plus_one_position_z.loc[sorted_geneset.index].values
 
 		self.plot_early_late_hm_comparision(dat, 
@@ -508,8 +516,9 @@ class GeneChromatinReplicationAnalysis:
 		plt.subplots_adjust(top=0.85)
 
 		plt.subplot(1, 3, 1)
+		n = len(data_to_plot)
 		self.plot_heatmap(data_to_plot, sorted_geneset,
-									 vmin=vmin, vmax=vmax, title="All genes", fig=fig)
+									 vmin=vmin, vmax=vmax, title=f"All genes, n={n}", fig=fig)
 
 		plt.subplot(1, 3, 2)
 		self.plot_heatmap(data_to_plot[:k], sorted_geneset.head(k), 
@@ -542,34 +551,4 @@ def get_repl_positions_in_t(gene_chrom_repl_analysis, indices_in_t_of_replicatio
 		indices_in_t_of_replication)
 	return ret_indices
 
-
-def compute_plus_one_movement(gene, nuc_bins_sum, t_indices):
-
-	from src.global_config import GlobalConstants
-	from src.helpers import weighted_mean
-
-	# todo: adjust this logic to handle three bins, currently the +1 lies
-	# between two bins, it should lie exactly one a single bin
-
-	bin_width = GlobalConstants.BIN_WIDTH
-	bin_width_2 = bin_width//2
-
-	gene_nuc_bins = nuc_bins_sum[int(gene.gene_idx)]
-
-	center_bin = 9 # The +1 lies on the start of the bin index: 9
-	num_bins_padding = 2
-
-	# Padding to see how much the nucleosome shifts
-	plus_one_bins = center_bin-num_bins_padding, center_bin+num_bins_padding
-	plus_one_bin_values = gene_nuc_bins[t_indices, plus_one_bins[0]:plus_one_bins[1]]
-
-	# Define where the bins are in the bp coordinates relative
-	# to 0 (+1 location)
-	bin_bp_positions = np.arange(-num_bins_padding*bin_width, 
-		num_bins_padding*bin_width, bin_width)+bin_width_2
-
-	weighted_avg_p1_pos = np.apply_along_axis(lambda row: weighted_mean(bin_bp_positions, row), 
-					   1, plus_one_bin_values)
-
-	return weighted_avg_p1_pos, plus_one_bin_values
 
