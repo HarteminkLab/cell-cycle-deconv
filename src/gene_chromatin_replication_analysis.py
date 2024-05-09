@@ -554,10 +554,10 @@ def compute_plus_one_movement(gene, nuc_bins_sum, t_indices):
 	bin_width = GlobalConstants.BIN_WIDTH
 	bin_width_2 = bin_width//2
 
-	gene_nuc_bins = nuc_bins_sum[gene.gene_idx]
+	gene_nuc_bins = nuc_bins_sum[int(gene.gene_idx)]
 
 	center_bin = 9 # The +1 lies on the start of the bin index: 9
-	num_bins_padding = 3
+	num_bins_padding = 2
 
 	# Padding to see how much the nucleosome shifts
 	plus_one_bins = center_bin-num_bins_padding, center_bin+num_bins_padding
@@ -571,5 +571,5 @@ def compute_plus_one_movement(gene, nuc_bins_sum, t_indices):
 	weighted_avg_p1_pos = np.apply_along_axis(lambda row: weighted_mean(bin_bp_positions, row), 
 					   1, plus_one_bin_values)
 
-	return weighted_avg_p1_pos
+	return weighted_avg_p1_pos, plus_one_bin_values
 
