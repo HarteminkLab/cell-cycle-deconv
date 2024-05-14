@@ -783,7 +783,7 @@ class GeneChromatinReplicationAnalysis:
 								'Late'])
 
 		# Plot the box plot
-		plt.figure(figsize=(8, 4))
+		plt.figure(figsize=(6, 4))
 		ax = plt.gca()
 
 		box_plotter.plot_box_plot(ax)

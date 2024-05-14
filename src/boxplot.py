@@ -31,11 +31,11 @@ class BoxPlotPlotter():
 
 		q1, q3, median, lower_whisker, upper_whisker, outliers = box_plot_dat
 
-		color = plt.get_cmap('inferno_r')(group_index/self.num_categories*0.5+0.25)
+		color = plt.get_cmap('plasma_r')(group_index/self.num_categories*0.8+0.2)
 
 		# box plot width
-		width = 0.1
-		padding = 0.05 # between grouped plots
+		width = 0.075
+		padding = 0.025 # between grouped plots
 
 		x_center = x_location # Center of the group of box plots
 		# Total width
@@ -57,7 +57,7 @@ class BoxPlotPlotter():
 
 		plt.plot([x_location, x_location], [lower_whisker, q1], color=color, zorder=2, lw=1)
 		plt.plot([x_location, x_location], [q3, upper_whisker], color=color, zorder=2, lw=1)
-		plt.scatter([x_location] * len(outliers), outliers, color='black', s=4)  # Outliers
+		plt.scatter([x_location] * len(outliers), outliers, color='#777', s=3)  # Outliers
 
 		plt.plot([x_location - width / 2, x_location + width / 2], [median, median], 
 			color='black', linestyle='-', linewidth=1, solid_capstyle='butt', zorder=11)
@@ -111,7 +111,9 @@ class BoxPlotPlotter():
 
 		ax.set_xticks(xticks)
 		ax.set_xticklabels(xticklabels)
-		ax.set_xlim(xticks[0]-.5, xticks[-1]+1.25)
+		ax.set_xlim(xticks[0]-.5, xticks[-1]+1.5)
+		ax.set_ylim(1.8, 4.2)
+
 		ax.set_xlabel("Gene expression cutoffs, VST")
 		ax.set_ylabel("Nucleosome entropy")
 		ax.set_title("Nucleosome Entropy and expression during replication")
