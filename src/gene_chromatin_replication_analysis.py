@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 from src.utils import print_fl
 from src.geneset import get_deconvolved_geneset
 from src.config import load_yl_rg1_vst_config
-
+from src.global_config import GlobalConstants
 
 class GeneChromatinReplicationAnalysis:
 	"""
@@ -406,11 +406,19 @@ class GeneChromatinReplicationAnalysis:
 		normalized_gene_nuc_entropy = (gene_nuc_entropy - gene_nuc_entropy.mean(axis=1)\
 									.reshape((-1, 1))) / \
 									gene_nuc_entropy.std(axis=1).reshape((-1, 1))
-		self.gene_nuc_entropy, self.normalized_gene_nuc_entropy = \
-			gene_nuc_entropy, normalized_gene_nuc_entropy
+
+		entropy_df = pd.DataFrame(gene_nuc_entropy, 
+    		index=self.geneset_repl.index)
+
+		normalized_entropy_df = pd.DataFrame(normalized_gene_nuc_entropy, 
+    		index=self.geneset_repl.index)
+
+		self.entropy_df = entropy_df
+		self.normalized_entropy_df = normalized_entropy_df
 
 
-	def plot_heatmap(self, plot_data, replication_df, vmin, vmax, fig, title):
+	def plot_heatmap(self, plot_data, replication_df, vmin, vmax, fig, title, 
+		cmap='RdBu_r', show_colorbar=False):
 
 		if fig is None:
 			fig = plt.figure(figsize=(6, 6))
@@ -429,10 +437,13 @@ class GeneChromatinReplicationAnalysis:
 		cg1_indices_in_t = np.arange(len_cg1_inds)
 		postG1_indices_in_t = np.arange(len_cg1_inds, len_cg1_inds+len_pg1_inds)
 
-		plt.imshow(plot_data[:, cg1_indices_in_t], aspect='auto', cmap='RdBu_r',
+		plt.imshow(plot_data[:, cg1_indices_in_t], aspect='auto', cmap=cmap,
 			vmin=vmin,vmax=vmax, extent=[cg1_ts[0], postG1_ts[0], 1, n], origin='lower')
-		plt.imshow(plot_data[:, postG1_indices_in_t], aspect='auto', cmap='RdBu_r',
+		plt.imshow(plot_data[:, postG1_indices_in_t], aspect='auto', cmap=cmap,
 			vmin=vmin,vmax=vmax, extent=[postG1_ts[0], postG1_ts[-1], 1, n], origin='lower')
+
+		if show_colorbar:
+			plt.colorbar()
 
 		plt.xlabel("Deconvolved time along mother branch, min")
 		plt.ylabel("Gene rank sorted by replication time")
@@ -448,15 +459,37 @@ class GeneChromatinReplicationAnalysis:
 		# Earliest at the top
 		plt.ylim(n, 1)
 
-	def plot_early_late_entropy_hm_comparision(self, k=500):
-		sorted_geneset = self.geneset_repl.sort_values('replication_timing')
-		nuc_entropy = self.normalized_gene_nuc_entropy[sorted_geneset.f_gene_index]
-		self.plot_early_late_hm_comparision(nuc_entropy, k=k, 
-			title="Nucleosome entropy")
+	def plot_early_late_entropy_hm_comparision(self, k=200, normalize=False,
+		subset_orfs=None, title=None):
 
-	def plot_early_late_sm_hm_comparision(self, promoter_analysis, k=500):
+		geneset = self.geneset_repl
 
-		sorted_geneset = self.geneset_repl.sort_values('replication_timing')
+		if subset_orfs is not None:
+			geneset = geneset.loc[subset_orfs]
+
+		sorted_geneset = geneset.sort_values('replication_timing')
+
+		if normalize:
+
+			if title is None: title = "Nucleosome entropy"
+			nuc_entropy = self.entropy_df.loc[sorted_geneset.index].values
+			self.plot_early_late_hm_comparision(nuc_entropy, sorted_geneset, k=k, 
+				title=title, vmin=3, vmax=4., cmap='viridis')
+		else:
+			if title is None: title = "Normalized nucleosome entropy"
+			nuc_entropy = self.normalized_entropy_df.loc[sorted_geneset.index].values
+			self.plot_early_late_hm_comparision(nuc_entropy, sorted_geneset, k=k, 
+				title=title)
+
+	def plot_early_late_sm_hm_comparision(self, promoter_analysis, k=500,
+		subset_orfs=None, title=None, normalize=False):
+
+		geneset = self.geneset_repl
+
+		if subset_orfs is not None:
+			geneset = geneset.loc[subset_orfs]
+
+		sorted_geneset = geneset.sort_values('replication_timing')
 		t_indices = self.config.get_Hpositions_for_branch('t')
 
 		# Sort the data by the replication timing
@@ -464,8 +497,15 @@ class GeneChromatinReplicationAnalysis:
 		mean = sm_t_dat.values.mean(axis=1).reshape((-1, 1))
 		normalized_sm_t_dat = (sm_t_dat.values - mean)
 
-		self.plot_early_late_hm_comparision(normalized_sm_t_dat, k=k, 
-			title="Promoter small fragments")
+		if title is None:
+			title = title
+
+		if normalize:
+			self.plot_early_late_hm_comparision(normalized_sm_t_dat, sorted_geneset, k=k, 
+				title=title)
+		else:
+			self.plot_early_late_hm_comparision(sm_t_dat.values, sorted_geneset, k=k, 
+				title=title, vmin=0, vmax=50, cmap="viridis")
 
 	def plot_early_late_gene_expression_comparison(self, ge_analysis, k=500):
 
@@ -481,35 +521,30 @@ class GeneChromatinReplicationAnalysis:
 		dat = dat[:, t_indices]
 		dat = (dat - dat.mean(axis=1).reshape((-1, 1))) / (dat.std(axis=1).reshape((-1, 1)))
 
-		self.plot_early_late_hm_comparision(dat, 
+		self.plot_early_late_hm_comparision(dat, sorted_geneset,  
 			title="Deconvolved gene expression")
 
 	def plot_early_late_plus_one_comparison(self, k=500):
 
-		plus_fp = 'output/deconvolved_plus_one_tracking/computed_plus_one_movement_meannorm.csv'
-		gene_plus_one_position_z = pd.read_csv(plus_fp)
+		gene_plus_one_position_z = pd.read_csv(GlobalConstants.PLUS_ONE_FILEPATH)
 		gene_plus_one_position_z = gene_plus_one_position_z.set_index('orf_name')
 
 		# Sort the data by the replication timing
 		sorted_geneset = self.geneset_repl.sort_values('replication_timing')
 
-		p1_meta_data = pd.read_csv('output/deconvolved_plus_one_tracking/p1_meta_data.csv').set_index('orf_name')
+		p1_meta_data = pd.read_csv(GlobalConstants.PLUS_ONE_METADATA_FILEPATH).set_index('orf_name')
 		sorted_geneset = p1_meta_data[['bin_max']].join(sorted_geneset, how='inner')
 
 		# Filter out low nuc coverage genes
 		sorted_geneset = sorted_geneset[sorted_geneset.bin_max > 10]
 
-		print(len(sorted_geneset))
-
 		dat = gene_plus_one_position_z.loc[sorted_geneset.index].values
 
-		self.plot_early_late_hm_comparision(dat, 
+		self.plot_early_late_hm_comparision(dat, sorted_geneset, 
 			title="+1 nucleosome shift", vmin=-3, vmax=3, k=k)
 
-	def plot_early_late_hm_comparision(self, data_to_plot, k=500, title=None,
-		vmin=-3, vmax=3):
-
-		sorted_geneset = self.geneset_repl.sort_values('replication_timing')
+	def plot_early_late_hm_comparision(self, data_to_plot, sorted_geneset, k=500, title=None,
+		vmin=-3, vmax=3, cmap='RdBu_r'):
 
 		fig = plt.figure(figsize=(13, 6))
 		plt.suptitle(title, fontsize=23)
@@ -518,16 +553,18 @@ class GeneChromatinReplicationAnalysis:
 		plt.subplot(1, 3, 1)
 		n = len(data_to_plot)
 		self.plot_heatmap(data_to_plot, sorted_geneset,
-									 vmin=vmin, vmax=vmax, title=f"All genes, n={n}", fig=fig)
+									 vmin=vmin, vmax=vmax, cmap=cmap,
+									 title=f"All genes, n={n}", fig=fig)
 
 		plt.subplot(1, 3, 2)
 		self.plot_heatmap(data_to_plot[:k], sorted_geneset.head(k), 
-			vmin=vmin, vmax=vmax, title=f"Earliest k={k}", fig=fig)
+			vmin=vmin, vmax=vmax, title=f"Earliest k={k}", fig=fig, 
+			 cmap=cmap)
 
 		plt.subplot(1, 3, 3)
 		self.plot_heatmap(data_to_plot[-k:], sorted_geneset.tail(k), 
 			vmin=vmin, vmax=vmax, title=f"Latest k={k}",
-			fig=fig)
+			fig=fig, cmap=cmap, show_colorbar=True)
 
 
 	

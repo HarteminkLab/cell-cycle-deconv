@@ -24,3 +24,13 @@ class GlobalConstants:
 
 	CHROM_WT1_TIMEPOINTS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]
 	CHROM_WT2_TIMEPOINTS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140]
+
+	# Chromatin measures
+	PLUS_ONE_FILEPATH = 'output/deconvolved_plus_one_tracking/computed_plus_one_movement_meannorm.csv'
+	PLUS_ONE_METADATA_FILEPATH = 'output/deconvolved_plus_one_tracking/p1_meta_data.csv'
+	GB_ENTROPY = 'output/normalized_gb_entropy.csv'
+	SMALL_FRAG_OCC_FILEPATH = 'output/small_fragments_occupancy.csv'
+
+	# Replication timing
+	REPL_TIMING_FILEPATH = 'datasets/computed_mnase/all_repl_timing_deconvolved.csv'
+

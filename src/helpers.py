@@ -374,3 +374,21 @@ def weighted_mean(x_values, y_values):
 	float: the weighted mean of the x_values.
 	"""
 	return np.average(x_values, weights=y_values)
+
+
+def common_index(arr_of_dfs, index_of_ordering):
+    """Return the common index using set logic, use df in the index of ordering
+    to keep the ordering in the returned array"""
+    
+    order_arr_df = arr_of_dfs[index_of_ordering].copy()
+    order_arr_df['index_for_ordering'] = np.arange(len(order_arr_df))
+    
+    intersect_set = set(order_arr_df.index)
+    for df in arr_of_dfs:
+        intersect_set = intersect_set.intersection(set(df.index.values))
+    intersect_list = np.array(list(intersect_set))
+    
+    arr_df = order_arr_df.loc[intersect_list].sort_values('index_for_ordering')
+    
+    return arr_df.index.values
+    
