@@ -377,18 +377,42 @@ def weighted_mean(x_values, y_values):
 
 
 def common_index(arr_of_dfs, index_of_ordering):
-    """Return the common index using set logic, use df in the index of ordering
-    to keep the ordering in the returned array"""
-    
-    order_arr_df = arr_of_dfs[index_of_ordering].copy()
-    order_arr_df['index_for_ordering'] = np.arange(len(order_arr_df))
-    
-    intersect_set = set(order_arr_df.index)
-    for df in arr_of_dfs:
-        intersect_set = intersect_set.intersection(set(df.index.values))
-    intersect_list = np.array(list(intersect_set))
-    
-    arr_df = order_arr_df.loc[intersect_list].sort_values('index_for_ordering')
-    
-    return arr_df.index.values
-    
+	"""Return the common index using set logic, use df in the index of ordering
+	to keep the ordering in the returned array"""
+	
+	order_arr_df = arr_of_dfs[index_of_ordering].copy()
+	order_arr_df['index_for_ordering'] = np.arange(len(order_arr_df))
+	
+	intersect_set = set(order_arr_df.index)
+	for df in arr_of_dfs:
+		intersect_set = intersect_set.intersection(set(df.index.values))
+	intersect_list = np.array(list(intersect_set))
+	
+	arr_df = order_arr_df.loc[intersect_list].sort_values('index_for_ordering')
+	
+	return arr_df.index.values
+	
+def get_quantile_values(dat, q):
+	"""Get the quantile values and segment the input data."""
+	qvals = np.quantile(dat, q=q)
+	
+	lower_val = float('-inf')
+	
+	segments = []
+	lens = []
+	for i in range(len(qvals)):
+		
+		qval = qvals[i]
+		cur_seg = dat[(dat > lower_val) & (dat < qval)]
+		segments.append(cur_seg)
+		
+		# Update lower range
+		lower_val = qval
+		lens.append(len(cur_seg))
+		
+	# Get last segment, > qval
+	cur_seg = dat[(dat > qval)]
+	segments.append(cur_seg)
+	lens.append(len(cur_seg))
+		
+	return tuple(segments), tuple(qvals), tuple(lens)

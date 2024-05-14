@@ -408,13 +408,24 @@ class GeneChromatinReplicationAnalysis:
 									gene_nuc_entropy.std(axis=1).reshape((-1, 1))
 
 		entropy_df = pd.DataFrame(gene_nuc_entropy, 
-    		index=self.geneset_repl.index)
+			index=self.geneset_repl.index)
+
+		# 0 will be a clear outlier with the range of entropy values we compute
+		entropy_df.fillna(0.) 
 
 		normalized_entropy_df = pd.DataFrame(normalized_gene_nuc_entropy, 
-    		index=self.geneset_repl.index)
+			index=self.geneset_repl.index)
 
 		self.entropy_df = entropy_df
 		self.normalized_entropy_df = normalized_entropy_df
+		self.mean_entropy_per_gene = entropy_df.mean(axis=1)
+
+		# Compute the entropy at time of replication
+		repl_indices_t = self.get_repl_positions_in_t()
+		entropy_at_repl = self.entropy_df.values[\
+			np.arange(len(repl_indices_t)), repl_indices_t]
+		self.entropy_at_repl = pd.Series(entropy_at_repl, 
+			index=self.mean_entropy_per_gene.index) # Convert the nd array to a pd.series
 
 
 	def plot_heatmap(self, plot_data, replication_df, vmin, vmax, fig, title, 
@@ -425,39 +436,30 @@ class GeneChromatinReplicationAnalysis:
 
 		n = len(replication_df)
 
-		# Plot the G1 and postG1 heatmaps separately
-		postG1_indices = self.config.get_Hpositions_for_phase('postG1')
-		cg1_indices = self.config.get_Hpositions_for_phase('CG1')
-
-		postG1_ts = self.config.get_phase_timepoints_for_phase('postG1')
-		cg1_ts = self.config.get_phase_timepoints_for_phase('CG1')
-
-		len_pg1_inds = len(postG1_indices)
-		len_cg1_inds = len(cg1_indices)
-		cg1_indices_in_t = np.arange(len_cg1_inds)
-		postG1_indices_in_t = np.arange(len_cg1_inds, len_cg1_inds+len_pg1_inds)
-
-		plt.imshow(plot_data[:, cg1_indices_in_t], aspect='auto', cmap=cmap,
-			vmin=vmin,vmax=vmax, extent=[cg1_ts[0], postG1_ts[0], 1, n], origin='lower')
-		plt.imshow(plot_data[:, postG1_indices_in_t], aspect='auto', cmap=cmap,
-			vmin=vmin,vmax=vmax, extent=[postG1_ts[0], postG1_ts[-1], 1, n], origin='lower')
+		self.plot_gene_hm_dat_t_branch(plot_data, cmap=cmap, vmin=vmin, vmax=vmax)
 
 		if show_colorbar:
 			plt.colorbar()
 
-		plt.xlabel("Deconvolved time along mother branch, min")
-		plt.ylabel("Gene rank sorted by replication time")
+		plt.xlabel("Time, min")
 
 		_, cg1_len, _ = self.config.get_g1_lens()
 		ys = np.arange(n)
 
 		# Offset the replication timing by the cg1 length
-		plt.scatter(replication_df.replication_timing-cg1_len, ys, s=0.5, 
-			c='black', marker='D')
+		replication_time = replication_df.replication_timing-cg1_len
+
+		plt.plot(replication_time-5., ys, lw=0.5, 
+			c='black')
+
+		plt.plot(replication_time+5., ys, lw=0.5, 
+			c='black')
+
 		plt.title(f"{title}")
 
 		# Earliest at the top
 		plt.ylim(n, 1)
+		plt.yticks([])
 
 	def plot_early_late_entropy_hm_comparision(self, k=200, normalize=False,
 		subset_orfs=None, title=None):
@@ -567,25 +569,249 @@ class GeneChromatinReplicationAnalysis:
 			fig=fig, cmap=cmap, show_colorbar=True)
 
 
-	
-def get_repl_positions_in_t(gene_chrom_repl_analysis, indices_in_t_of_replication):
-	"""Get replication indices in terms of the top branches indexing.
-	Subset the top branch indices, then convert the replication indices (that
-	were in H indexing) into the top branches indexing.
-	
-	H = [0, 1, 2, 3]
-	top = [2, 3] # subset of H
-	repl = [2, 3] # indices in H
-	
-	return [0, 1] # updated indices in the top vector
-	"""
-	from src.helpers import indices_of_mapping_array
+	def plot_gene_hm_dat_t_branch(self, plot_data, cmap, vmin, vmax):
 
-	config = gene_chrom_repl_analysis.config
-	t_timepoints = config.get_timepoints_for_branch('t')
-	h_positions = config.get_Hpositions_for_branch('t')
-	ret_indices = indices_of_mapping_array(h_positions, 
-		indices_in_t_of_replication)
-	return ret_indices
+		n = len(plot_data)
+		
+		# Plot the G1 and postG1 heatmaps separately
+		postG1_indices = self.config.get_Hpositions_for_phase('postG1')
+		cg1_indices = self.config.get_Hpositions_for_phase('CG1')
 
+		postG1_ts = self.config.get_phase_timepoints_for_phase('postG1')
+		cg1_ts = self.config.get_phase_timepoints_for_phase('CG1')
+
+		len_pg1_inds = len(postG1_indices)
+		len_cg1_inds = len(cg1_indices)
+		cg1_indices_in_t = np.arange(len_cg1_inds)
+		postG1_indices_in_t = np.arange(len_cg1_inds, len_cg1_inds+len_pg1_inds)
+
+		plt.imshow(plot_data[:, cg1_indices_in_t], aspect='auto', cmap=cmap,
+			vmin=vmin,vmax=vmax, extent=[cg1_ts[0], postG1_ts[0], 1, n], origin='lower')
+		plt.imshow(plot_data[:, postG1_indices_in_t], aspect='auto', cmap=cmap,
+			vmin=vmin,vmax=vmax, extent=[postG1_ts[0], postG1_ts[-1], 1, n], origin='lower')
+	
+
+	def plot_hi_lo_entropy_hm_analysis(self):
+
+		# Let's partition out the different entropy levels
+		# discern whether there is a pattern amongst low and high entropic nucleosomes
+
+		from src.helpers import get_quantile_values
+
+		geneset = self.geneset_repl
+		sorted_geneset = geneset.sort_values('replication_timing')
+		nuc_entropy = self.entropy_df.loc[sorted_geneset.index]
+
+		mean_entropy_per_gene = self.mean_entropy_per_gene.loc[sorted_geneset.index]
+		plt.figure(figsize=(4, 2))
+		plt.hist(mean_entropy_per_gene, bins=20)
+		plt.title("Distribution of mean entropy per gene")
+		plt.xlabel("Entropy, log2")
+
+		segments, qvals, lens = get_quantile_values(mean_entropy_per_gene.dropna(), q=[0.25, 0.75])
+		low_e_genes, med_e_genes, high_e_genes = segments
+		qlow, qhigh = qvals
+
+		plt.axvline(qlow, c='red')
+		plt.axvline(qhigh, c='red')
+
+		fig = plt.figure(figsize=(9, 3))
+		plt.subplots_adjust(wspace=0.25)
+		plt.subplot(1, 3, 1)
+		repl_timing = sorted_geneset.loc[low_e_genes.index]
+		dat = nuc_entropy.loc[low_e_genes.index]
+
+		self.plot_heatmap(dat.values, repl_timing, 
+			vmin=2.8, vmax=3.2, cmap='viridis', fig=fig, 
+			title=f"Low entropy genes\nn={len(dat)}", 
+			show_colorbar=True)
+
+		plt.subplot(1, 3, 2)
+		repl_timing = sorted_geneset.loc[med_e_genes.index]
+		dat = nuc_entropy.loc[med_e_genes.index]
+
+		self.plot_heatmap(dat.values, repl_timing, 
+			vmin=3.2, vmax=3.5, cmap='viridis', fig=fig, 
+			title=f"Medium entropy genes\nn={len(dat)}", 
+			show_colorbar=True)
+
+		plt.subplot(1, 3, 3)
+
+		repl_timing = sorted_geneset.loc[high_e_genes.index]
+		dat = nuc_entropy.loc[high_e_genes.index]
+
+		self.plot_heatmap(dat.values, repl_timing, 
+			vmin=3.5, vmax=4., cmap='viridis', fig=fig, 
+			title=f"High entropy genes\nn={len(dat)}", 
+			show_colorbar=True)
+
+	def get_entropy_vs_tx_df(self, entropy_at_repl_time=True):
+		sorted_geneset = self.geneset_repl.sort_values('replication_timing')
+
+		if entropy_at_repl_time:
+			entropy_values = self.entropy_at_repl
+		else:
+			entropy_values = self.mean_entropy_per_gene
+
+		# Test this, we can now examine by gene transcript level.
+		# Is there a relationship between baseline entropy level and expression level?
+		entropy_vs_exp_df = sorted_geneset.loc[entropy_values.index][['replication_timing', 
+			'expression_at_replication']]
+		entropy_vs_exp_df['entropy_value'] = entropy_values
+		return entropy_vs_exp_df
+
+	
+	def plot_entropy_vs_expression_analysis(self, entropy_at_repl_time=True,
+		x_cutoffs = []):
+		def plot_entropy_vs_expression_scatter(entropy_vs_exp_df, title):
+
+			from src.DensityScatterPlotter import DensityScatterPlotter
+
+			entropy_vs_exp_df = entropy_vs_exp_df.dropna()
+
+			x, y = entropy_vs_exp_df.expression_at_replication, \
+				entropy_vs_exp_df.entropy_value
+			
+			ax = plt.gca()
+			n = len(x)
+
+			density_scatter_pltr = DensityScatterPlotter()
+			density_scatter_pltr.bw = [0.05, 0.02]
+			density_scatter_pltr.cmap = 'viridis'
+			density_scatter_pltr.alpha = 1.
+			density_scatter_pltr.set_data(x, y)
+			density_scatter_pltr.plot_ax(ax, plot_colorbar=False)
+			ax.set_title(f"{title},\nn={n}")
+			ax.set_xlim(2.5, 20)
+			ax.set_ylim(2, 4.2)
+
+			for x in x_cutoffs:
+				ax.axvline(x, c='black', lw=1, ls='dotted')
+
+		entropy_vs_exp_df = self.get_entropy_vs_tx_df(entropy_at_repl_time)
+
+		from src.helpers import get_quantile_values
+
+		# ---------- Compute segments
+
+		segments, qvals, lens = get_quantile_values(entropy_vs_exp_df.replication_timing, 
+			q=[0.25, 0.5, 0.75])
+		early_genes, early_mid_genes, mid_late_genes, late_genes = segments
+		qlow, qmid, qhigh = qvals
+
+		# ---------- Plot
+
+		fig = plt.figure(figsize=(20, 4))
+		plt.suptitle("Gene expression vs Entropy", fontsize=16)
+		plt.subplots_adjust(top=0.8)
+
+		plt.subplot(1, 5, 1)
+		plot_entropy_vs_expression_scatter(entropy_vs_exp_df, title="All genes")
+
+		plt.subplot(1, 5, 2)		
+		plot_entropy_vs_expression_scatter(entropy_vs_exp_df.loc[early_genes.index], 
+			title="Early replicating genes")
+
+		plt.subplot(1, 5, 3)
+		plot_entropy_vs_expression_scatter(entropy_vs_exp_df.loc[early_mid_genes.index],
+			title="Mid replicating  genes")
+
+		plt.subplot(1, 5, 4)
+		plot_entropy_vs_expression_scatter(entropy_vs_exp_df.loc[mid_late_genes.index],
+			title="Mid replicating  genes")
+
+		plt.subplot(1, 5, 5)
+		plot_entropy_vs_expression_scatter(entropy_vs_exp_df.loc[late_genes.index],
+			title="Late replicating genes")
+
+
+	def plot_box_plot_entropy_ge(self, x_cutoffs):
+
+		# Let's try to segment by equal spaces of the expression values
+		# Visually recreate the above plot, may not be equal number of groups.
+
+
+		def assign_group_cutoffs(data_df, key, group_cutoffs, group_names):
+			dat_df = data_df.copy()
+
+			# assign groups by these ranges:
+			for i in range(1, len(group_cutoffs)):
+				
+				group_name = group_names[i-1]
+					
+				left = group_cutoffs[i-1]
+				right = group_cutoffs[i]
+				sel = (dat_df[key] >= left) & (dat_df[key] < right)
+				dat_df.loc[sel, 'group_id'] = i
+				dat_df.loc[sel, 'group_name'] = group_name
+
+			dat_df['group_id'] = dat_df['group_id'].astype(int)
+
+			return dat_df
+
+		grouped_data_df = assign_group_cutoffs(
+			self.get_entropy_vs_tx_df(),
+			'expression_at_replication',  [0, x_cutoffs[0], x_cutoffs[1], 100], 
+				[f'<{x_cutoffs[0]}', 
+				 f'{x_cutoffs[0]}-{x_cutoffs[1]}', 
+				 f'>{x_cutoffs[1]}'])
+
+
+		# ------- Box plotter ----------
+
+		from src.boxplot import BoxPlotPlotter
+
+		# Segments of early, mid, late genes
+		entropy_vs_exp_df = self.get_entropy_vs_tx_df(entropy_at_repl_time=True)
+		from src.helpers import get_quantile_values
+		segments, qvals, lens = get_quantile_values(entropy_vs_exp_df.replication_timing, 
+			q=[0.25, 0.5, 0.75])
+		early_genes, early_mid_genes, mid_late_genes, late_genes = segments
+
+		box_plotter = BoxPlotPlotter()
+		box_plotter.set_data([grouped_data_df.loc[early_genes.index],
+							  grouped_data_df.loc[early_mid_genes.index],
+							  grouped_data_df.loc[mid_late_genes.index],
+							  grouped_data_df.loc[late_genes.index],
+							 ], data_key='entropy_value', 
+							 group_key='group_id',
+							 group_name_key='group_name',
+							category_names=[
+								'Early',
+								'Early-mid',
+								'Mid-late',
+								'Late'])
+
+		# Plot the box plot
+		plt.figure(figsize=(8, 4))
+		ax = plt.gca()
+
+		box_plotter.plot_box_plot(ax)
+
+		# todo: How many genes in each category?
+		# todo: range of replication time to handle the fact that
+		#        entropy may occur later a little after replication
+
+
+	def get_repl_positions_in_t(self):
+		"""Get replication indices in terms of the top branches indexing.
+		Subset the top branch indices, then convert the replication indices (that
+		were in H indexing) into the top branches indexing.
+		
+		H = [0, 1, 2, 3]
+		top = [2, 3] # subset of H
+		repl = [2, 3] # indices in H
+		
+		return [0, 1] # updated indices in the top vector
+		"""
+		from src.helpers import indices_of_mapping_array
+
+		indices_in_t_of_replication = self.geneset_repl.replication_H_index
+
+		config = self.config
+		t_timepoints = config.get_timepoints_for_branch('t')
+		h_positions = config.get_Hpositions_for_branch('t')
+		ret_indices = indices_of_mapping_array(h_positions, 
+			indices_in_t_of_replication)
+		return ret_indices
 
