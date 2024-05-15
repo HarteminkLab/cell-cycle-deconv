@@ -675,9 +675,17 @@ class GeneChromatinReplicationAnalysis:
 			ax = plt.gca()
 			n = len(x)
 
+   
+			ax.scatter(x, y, s=13, edgecolor='#ddd', facecolors='none', 
+				zorder=1)
+
+			# A custom color map with less extreme ends
+			from src.plot_helpers import create_sub_colormap
+			cmap = create_sub_colormap('YlGnBu_r', 0.3, 0.9, 'lighter_YlBuGn')
+
 			density_scatter_pltr = DensityScatterPlotter()
-			density_scatter_pltr.bw = [0.05, 0.02]
-			density_scatter_pltr.cmap = 'viridis'
+			density_scatter_pltr.bw = [0.1, 0.025]
+			density_scatter_pltr.cmap = cmap
 			density_scatter_pltr.alpha = 1.
 			density_scatter_pltr.set_data(x, y)
 			density_scatter_pltr.plot_ax(ax, plot_colorbar=False)

@@ -31,7 +31,7 @@ class BoxPlotPlotter():
 
 		q1, q3, median, lower_whisker, upper_whisker, outliers = box_plot_dat
 
-		color = plt.get_cmap('plasma_r')(group_index/self.num_categories*0.8+0.2)
+		color = plt.get_cmap('plasma_r')(group_index/self.num_categories*0.6+0.2)
 
 		# box plot width
 		width = 0.075

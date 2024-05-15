@@ -141,3 +141,34 @@ def hide_spines(ax):
 
 	ax.set_xticks([])
 	ax.set_yticks([])
+
+
+
+def create_sub_colormap(original_cmap_name, cmin, cmax, new_cmap_name):
+    """
+    Create a new colormap based on a subrange of an existing colormap.
+    
+    Parameters:
+    - original_cmap_name (str): Name of the original colormap.
+    - cmin (float): Minimum value of the range (0 to 1).
+    - cmax (float): Maximum value of the range (0 to 1).
+    - new_cmap_name (str): Name for the new colormap.
+    
+    Returns:
+    - new_cmap (LinearSegmentedColormap): New colormap based on the specified range.
+    """
+
+    from matplotlib.colors import LinearSegmentedColormap
+
+    
+    # Get the original colormap
+    original_cmap = plt.get_cmap(original_cmap_name)
+    
+    # Extract the colors from the original colormap within the specified range
+    n_colors = 256
+    original_colors = original_cmap(np.linspace(cmin, cmax, n_colors))
+    
+    # Create a new colormap from the extracted colors
+    new_cmap = LinearSegmentedColormap.from_list(new_cmap_name, original_colors)
+    
+    return new_cmap
