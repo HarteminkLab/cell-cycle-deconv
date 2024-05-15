@@ -416,3 +416,24 @@ def get_quantile_values(dat, q):
 	lens.append(len(cur_seg))
 		
 	return tuple(segments), tuple(qvals), tuple(lens)
+
+
+def get_mean_between_indices(df, start, end):
+	"""
+	Compute the mean values between the start and end indices for each row in the DataFrame.
+
+	Parameters:
+	df (pd.DataFrame): The input DataFrame.
+	start (np.ndarray): The start indices.
+	end (np.ndarray): The end indices.
+
+	Returns:
+	np.ndarray: A vector of mean values.
+	"""
+	mean_values = []
+
+	for i in range(len(df)):
+		row = df.iloc[i, start[i]:end[i]+1]
+		mean_values.append(row.mean())
+
+	return np.array(mean_values)

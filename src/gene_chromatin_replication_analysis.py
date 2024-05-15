@@ -815,12 +815,26 @@ class GeneChromatinReplicationAnalysis:
 		from src.helpers import indices_of_mapping_array
 
 		indices_in_t_of_replication = self.geneset_repl.replication_H_index
+		return self.convert_h_indices_to_t(indices_in_t_of_replication)
 
+	def convert_h_indices_to_t(self, indices_in_t):
+		"""Get replication indices in terms of the top branches indexing.
+		Subset the top branch indices, then convert the replication indices (that
+		were in H indexing) into the top branches indexing.
+		
+		H = [0, 1, 2, 3]
+		top = [2, 3] # subset of H
+		indices = [2, 3] # indices in H
+		
+		return [0, 1] # updated indices in the top vector
+		"""
+
+		from src.helpers import indices_of_mapping_array
 		config = self.config
 		t_timepoints = config.get_timepoints_for_branch('t')
 		h_positions = config.get_Hpositions_for_branch('t')
 		ret_indices = indices_of_mapping_array(h_positions, 
-			indices_in_t_of_replication)
+			indices_in_t)
 		return ret_indices
 
 
@@ -878,31 +892,80 @@ class GeneChromatinReplicationAnalysis:
 
 		return repl_deltas
 
-	def plot_replication_delta_windows(gene_chrom_repl_analysis):
+
+	def compute_delta_entropies(self):
+		"""Compute the delta entropy values for +/- 5 and 10 minutes"""
+
+		self.delta_entropy_5 = self.compute_delta_entropy(self.replication_delta_5)
+		self.delta_entropy_10 = self.compute_delta_entropy(self.replication_delta_10)
+
+	def compute_delta_entropy(self, replication_df):
+		"""
+		Compute the entropy at repl_time-delta  and repl_time+delta. Represents change in entropy through replication
+
+		And the average entropy between [-delta, +delta]. Represents entropy through replication
+		"""
+
+		minus_delta_idx_H = replication_df.repl_H_index_minus_delta
+		plus_delta_idx_H = replication_df.repl_H_index_plus_delta
+
+		# Convert to indices in t
+		# And keep as series object
+		index = minus_delta_idx_H.index
+		minus_delta_idx_t = self.convert_h_indices_to_t(minus_delta_idx_H)
+		plus_delta_idx_t = self.convert_h_indices_to_t(plus_delta_idx_H)
+		minus_delta_idx_t = pd.Series(minus_delta_idx_t, index=index)
+		plus_delta_idx_t = pd.Series(plus_delta_idx_t, index=index)
+
+		# ------------ Compute entropy ---------------
+
+		n = len(minus_delta_idx_t)
+		entropy_df = self.entropy_df
+
+		# Entropy at -delta and +delta
+		minus_delta_entropy = entropy_df.values[np.arange(n), minus_delta_idx_t]
+		plus_delta_entropy = entropy_df.values[np.arange(n), plus_delta_idx_t]
+
+		# Avreage entropy through replication [-delta, +delta]
+		from src.helpers import get_mean_between_indices
+		mean_delta_entropy = get_mean_between_indices(entropy_df, 
+		    minus_delta_idx_t, plus_delta_idx_t)
+		mean_delta_entropy = pd.Series(mean_delta_entropy, index=index)
+
+		# Create a dataframe for the computed entropy values
+		delta_entropy_replication_df = replication_df.copy()
+		delta_entropy_replication_df['minus_delta_entropy'] = minus_delta_entropy
+		delta_entropy_replication_df['plus_delta_entropy'] = plus_delta_entropy
+		delta_entropy_replication_df['mean_delta_entropy'] = mean_delta_entropy
+
+		return delta_entropy_replication_df
+
+
+	def plot_replication_delta_windows(self):
 
 		fig = plt.figure(figsize=(8, 3))
-		_, cg1_len, _ = gene_chrom_repl_analysis.config.get_g1_lens()
+		_, cg1_len, _ = self.config.get_g1_lens()
 
 		plt.subplot(1, 2, 1)
-		repl_deltas = gene_chrom_repl_analysis.replication_delta_5.sort_values('replication_timing')
+		repl_deltas = self.replication_delta_5.sort_values('replication_timing')
 		ys = np.arange(len(repl_deltas))
 		plt.plot(repl_deltas.replication_timing-cg1_len, ys, lw=1, c='black')
 		plt.plot(repl_deltas.repl_tp_minus_delta, ys, lw=1, c='red')
 		plt.plot(repl_deltas.repl_tp_plus_delta, ys, lw=1, c='red')
 		plt.xlim(-20, 65)
 		plt.ylim(len(ys), 0)
-		plt.title("5 min")
+		plt.title("$\\pm$5 min")
 		plt.xlabel("Time, minutes")
 		plt.ylabel("Gene index")
 			
 		plt.subplot(1, 2, 2)
-		repl_deltas = gene_chrom_repl_analysis.replication_delta_10.sort_values('replication_timing')
+		repl_deltas = self.replication_delta_10.sort_values('replication_timing')
 		plt.plot(repl_deltas.replication_timing-cg1_len, ys, lw=1, c='black')
 		plt.plot(repl_deltas.repl_tp_minus_delta, ys, lw=1, c='red')
 		plt.plot(repl_deltas.repl_tp_plus_delta, ys, lw=1, c='red')
 		plt.xlim(-20, 65)
 		plt.ylim(len(ys), 0)
-		plt.title("10 min")
+		plt.title("$\\pm$10 min")
 		plt.xlabel("Time, minutes")
 		plt.yticks([])
 
