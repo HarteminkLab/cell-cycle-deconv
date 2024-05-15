@@ -899,15 +899,15 @@ class GeneChromatinReplicationAnalysis:
 		self.delta_entropy_5 = self.compute_delta_entropy(self.replication_delta_5)
 		self.delta_entropy_10 = self.compute_delta_entropy(self.replication_delta_10)
 
-	def compute_delta_entropy(self, replication_df):
+	def compute_delta_entropy(self, replication_delta_df):
 		"""
 		Compute the entropy at repl_time-delta  and repl_time+delta. Represents change in entropy through replication
 
 		And the average entropy between [-delta, +delta]. Represents entropy through replication
 		"""
 
-		minus_delta_idx_H = replication_df.repl_H_index_minus_delta
-		plus_delta_idx_H = replication_df.repl_H_index_plus_delta
+		minus_delta_idx_H = replication_delta_df.repl_H_index_minus_delta
+		plus_delta_idx_H = replication_delta_df.repl_H_index_plus_delta
 
 		# Convert to indices in t
 		# And keep as series object
@@ -929,11 +929,11 @@ class GeneChromatinReplicationAnalysis:
 		# Avreage entropy through replication [-delta, +delta]
 		from src.helpers import get_mean_between_indices
 		mean_delta_entropy = get_mean_between_indices(entropy_df, 
-		    minus_delta_idx_t, plus_delta_idx_t)
+			minus_delta_idx_t, plus_delta_idx_t)
 		mean_delta_entropy = pd.Series(mean_delta_entropy, index=index)
 
 		# Create a dataframe for the computed entropy values
-		delta_entropy_replication_df = replication_df.copy()
+		delta_entropy_replication_df = replication_delta_df.copy()
 		delta_entropy_replication_df['minus_delta_entropy'] = minus_delta_entropy
 		delta_entropy_replication_df['plus_delta_entropy'] = plus_delta_entropy
 		delta_entropy_replication_df['mean_delta_entropy'] = mean_delta_entropy
@@ -941,6 +941,45 @@ class GeneChromatinReplicationAnalysis:
 		return delta_entropy_replication_df
 
 
+	def compute_delta_gene_expressions(self):
+		"""Compute the delta entropy values for +/- 5 and 10 minutes"""
+		self.delta_expression_5 = self.compute_delta_gene_expression(self.replication_delta_5)
+		self.delta_expression_10 = self.compute_delta_gene_expression(self.replication_delta_10)
+
+	def compute_delta_gene_expression(self, replication_delta_df):
+		# Do the same for gene expression
+		# gene_chrom_repl_analysis.compute_delta_gene_expression()
+
+		gene_expression_df = self.gene_expression_f
+
+		# gene expression is in terms of H, so the indices can be used directly
+		minus_delta_idx_H = replication_delta_df.repl_H_index_minus_delta
+		plus_delta_idx_H = replication_delta_df.repl_H_index_plus_delta
+
+		index = minus_delta_idx_H.index
+		gene_expression_df = gene_expression_df.loc[index].copy()
+		# ------------ Compute entropy ---------------
+
+		n = len(minus_delta_idx_H)
+
+		# Expression at -delta and +delta
+		minus_delta_expression = gene_expression_df.values[np.arange(n), minus_delta_idx_H]
+		plus_delta_expression = gene_expression_df.values[np.arange(n), plus_delta_idx_H]
+
+		# Average expresison through replication [-delta, +delta]
+		from src.helpers import get_mean_between_indices
+		mean_delta_expression = get_mean_between_indices(gene_expression_df, 
+			minus_delta_idx_H, plus_delta_idx_H)
+		mean_delta_expression = pd.Series(mean_delta_expression, index=index)
+
+		# Create a dataframe for the computed entropy values
+		delta_expression_replication_df = replication_delta_df.copy()
+		delta_expression_replication_df['minus_delta_expression'] = minus_delta_expression
+		delta_expression_replication_df['plus_delta_expression'] = plus_delta_expression
+		delta_expression_replication_df['mean_delta_expression'] = mean_delta_expression
+
+		return delta_expression_replication_df
+		
 	def plot_replication_delta_windows(self):
 
 		fig = plt.figure(figsize=(8, 3))
