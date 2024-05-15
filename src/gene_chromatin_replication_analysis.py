@@ -823,3 +823,88 @@ class GeneChromatinReplicationAnalysis:
 			indices_in_t_of_replication)
 		return ret_indices
 
+
+	def compute_replication_window_deltas(self):
+		"""Compute the indices and timepoints for replication span for +/- 5 and 10 minutes"""
+
+		# Compute for 5 minute and 10 minutes
+		self.replication_delta_5 = self.compute_replication_window_delta(5)
+		self.replication_delta_10 = self.compute_replication_window_delta(10)
+
+
+	def compute_replication_window_delta(self, delta_in_min=5):
+		"""Compute the span of indices and timepoints around replication time to provide
+		a range of when replication approximately occurred. 
+		
+		Handle edge cases:
+		1. G1 and postG1 are not evenly spaced
+		2. Handle wrap around if near the start or end of the top branches indices.
+		"""
+		
+		from src.delta_replication_indexing import get_delta_rep_index
+		
+		config = self.config
+
+		gene_repls = self.geneset_repl
+		g1_indices = config.get_Hpositions_for_phase('CG1')
+		postg1_indices = config.get_Hpositions_for_phase('postG1')
+
+		g1_tps = config.get_phase_timepoints_for_phase('CG1')
+		postg1_tps = config.get_phase_timepoints_for_phase('postG1')
+
+		repl_deltas = gene_repls[['replication_timing', 'replication_H_index']].copy()
+
+		repl_deltas['repl_H_index_minus_delta'] = 0
+		repl_deltas['repl_H_index_plus_delta'] = 0
+		repl_deltas['repl_tp_minus_delta'] = 0
+		repl_deltas['repl_tp_plus_delta'] = 0
+		repl_deltas['delta_min'] = delta_in_min
+
+		for orf_name, gene in gene_repls.iterrows():
+
+			index_of_rep_H = gene.replication_H_index
+			rep_timing = gene.replication_timing
+
+			idx_minus_delta_in_H, idx_plus_delta_in_H, \
+			tp_minus_delta, tp_plus_delta \
+				= get_delta_rep_index(g1_indices, postg1_indices, g1_tps, postg1_tps,
+				index_of_rep_H, delta_in_min)
+
+			repl_deltas.loc[orf_name, 'repl_H_index_minus_delta'] = idx_minus_delta_in_H
+			repl_deltas.loc[orf_name, 'repl_H_index_plus_delta'] = idx_plus_delta_in_H
+
+			repl_deltas.loc[orf_name, 'repl_tp_minus_delta'] = tp_minus_delta
+			repl_deltas.loc[orf_name, 'repl_tp_plus_delta'] = tp_plus_delta
+
+		return repl_deltas
+
+	def plot_replication_delta_windows(gene_chrom_repl_analysis):
+
+		fig = plt.figure(figsize=(8, 3))
+		_, cg1_len, _ = gene_chrom_repl_analysis.config.get_g1_lens()
+
+		plt.subplot(1, 2, 1)
+		repl_deltas = gene_chrom_repl_analysis.replication_delta_5.sort_values('replication_timing')
+		ys = np.arange(len(repl_deltas))
+		plt.plot(repl_deltas.replication_timing-cg1_len, ys, lw=1, c='black')
+		plt.plot(repl_deltas.repl_tp_minus_delta, ys, lw=1, c='red')
+		plt.plot(repl_deltas.repl_tp_plus_delta, ys, lw=1, c='red')
+		plt.xlim(-20, 65)
+		plt.ylim(len(ys), 0)
+		plt.title("5 min")
+		plt.xlabel("Time, minutes")
+		plt.ylabel("Gene index")
+			
+		plt.subplot(1, 2, 2)
+		repl_deltas = gene_chrom_repl_analysis.replication_delta_10.sort_values('replication_timing')
+		plt.plot(repl_deltas.replication_timing-cg1_len, ys, lw=1, c='black')
+		plt.plot(repl_deltas.repl_tp_minus_delta, ys, lw=1, c='red')
+		plt.plot(repl_deltas.repl_tp_plus_delta, ys, lw=1, c='red')
+		plt.xlim(-20, 65)
+		plt.ylim(len(ys), 0)
+		plt.title("10 min")
+		plt.xlabel("Time, minutes")
+		plt.yticks([])
+
+		plt.suptitle("Replication timing deltas")
+		plt.subplots_adjust(top=0.8)
