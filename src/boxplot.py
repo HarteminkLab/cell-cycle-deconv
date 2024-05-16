@@ -17,6 +17,19 @@ class BoxPlotPlotter():
 		self.group_key = group_key
 		self.group_name_key = group_name_key
 		self.category_names = category_names
+		self.plot_outliers = True
+		self.plot_whiskers = True
+		self.legend = True
+		self.auto_xticks = True
+		self.color_prop_override = False
+
+		# todo: default ylims for first box plot example
+		# set this for future boxplots
+		self.ylims = 1.8, 4.2
+
+		# Box plot width
+		self.width = 0.075
+		self.padding = 0.025 # between grouped plots
 
 	def create_boxplot_data(self, arr_dat):
 		q1, median, q3 = np.percentile(arr_dat, [25, 50, 75])
@@ -31,11 +44,17 @@ class BoxPlotPlotter():
 
 		q1, q3, median, lower_whisker, upper_whisker, outliers = box_plot_dat
 
-		color = plt.get_cmap('plasma_r')(group_index/self.num_categories*0.6+0.2)
+		# If overriding color index for manually coloring
+		if self.color_prop_override:
+			color_prop = self.color_prop_override
+		else:
+			color_prop = group_index/self.num_categories
+
+		color = plt.get_cmap('plasma_r')(color_prop*0.6+0.2)
 
 		# box plot width
-		width = 0.075
-		padding = 0.025 # between grouped plots
+		width = self.width
+		padding = self.padding # between grouped plots
 
 		x_center = x_location # Center of the group of box plots
 		# Total width
@@ -55,9 +74,12 @@ class BoxPlotPlotter():
 		plot_rect2(ax, x1, y1, x2, y2, zorder=10,
 			color=color)
 
-		plt.plot([x_location, x_location], [lower_whisker, q1], color=color, zorder=2, lw=1)
-		plt.plot([x_location, x_location], [q3, upper_whisker], color=color, zorder=2, lw=1)
-		plt.scatter([x_location] * len(outliers), outliers, color='#777', s=3)  # Outliers
+		if self.plot_whiskers:
+			plt.plot([x_location, x_location], [lower_whisker, q1], color=color, zorder=2, lw=1)
+			plt.plot([x_location, x_location], [q3, upper_whisker], color=color, zorder=2, lw=1)
+
+		if self.plot_outliers:
+			plt.scatter([x_location] * len(outliers), outliers, color='#777', s=3)  # Outliers
 
 		plt.plot([x_location - width / 2, x_location + width / 2], [median, median], 
 			color='black', linestyle='-', linewidth=1, solid_capstyle='butt', zorder=11)
@@ -106,14 +128,39 @@ class BoxPlotPlotter():
 			legend_line = mlines.Line2D([], [], color=color, linewidth=4, label=self.category_names[i])
 			legend_items.append(legend_line)
 
-		# Add these lines to the legend.
-		ax.legend(handles=legend_items, loc='center right', title="Replication")
+		# Add these lines to the legend
+		if self.legend:
+			ax.legend(handles=legend_items, loc='center right', title="Replication")
 
-		ax.set_xticks(xticks)
-		ax.set_xticklabels(xticklabels)
-		ax.set_xlim(xticks[0]-.5, xticks[-1]+1.5)
-		ax.set_ylim(1.8, 4.2)
+		# Auto xticks
+		if self.auto_xticks:
+			ax.set_xticks(xticks)
+			ax.set_xticklabels(xticklabels)
+			ax.set_xlim(xticks[0]-.5, xticks[-1]+1.5)
+
+		if self.ylims is not None:
+			ax.set_ylim(*self.ylims)
 
 		ax.set_xlabel("Gene expression cutoffs, VST")
 		ax.set_ylabel("Nucleosome entropy")
 		ax.set_title(title)
+
+
+# Reduce the columns to plot fewer box plots
+def get_boxplot_data_for_metric_df(dat, subselect_index, data_key):
+	"""Convert a dataframe of genes x h-indexes to a narrow format """
+
+	from src.helpers import combine_columns_with_bins
+
+	# Select the columns to combine
+	selected_dat = dat.loc[subselect_index]
+	bins = np.arange(0, dat.columns[-1], 1)
+	combined_cols_df = combine_columns_with_bins(selected_dat, 
+	   bins=bins)
+
+	# Narrow format for the box plotter
+	narrow_format_df = combined_cols_df.unstack().reset_index()
+	narrow_format_df.columns = ["H_range", "orf_name", data_key]
+	narrow_format_df.H_range = narrow_format_df.H_range.astype(int)
+
+	return narrow_format_df

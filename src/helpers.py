@@ -437,3 +437,34 @@ def get_mean_between_indices(df, start, end):
 		mean_values.append(row.mean())
 
 	return np.array(mean_values)
+
+
+def combine_columns_with_bins(df, bins):
+	"""
+	Combine columns of a DataFrame according to bin edges and return a new DataFrame.
+
+	Parameters:
+	df (pd.DataFrame): The input DataFrame.
+	bins (array-like): The bin edges used to combine columns.
+
+	Returns:
+	pd.DataFrame: A new DataFrame with the combined columns.
+	"""
+	# Ensure bins are sorted and unique
+
+	import pandas as pd
+
+	bins = np.unique(bins)
+	
+	# Initialize an empty dictionary to store combined columns
+	combined_data = {}
+
+	# Iterate over the bins to combine columns
+	for i in range(len(bins) - 1):
+		start_col = bins[i]
+		end_col = bins[i + 1]
+		
+		# Sum the columns between the start and end bin edges
+		combined_data[f'{start_col}'] = df.iloc[:, start_col:end_col].mean(axis=1)
+	
+	return pd.DataFrame(combined_data)

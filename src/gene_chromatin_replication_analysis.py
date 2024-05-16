@@ -1042,3 +1042,29 @@ class GeneChromatinReplicationAnalysis:
 
 		plt.suptitle("Replication timing deltas")
 		plt.subplots_adjust(top=0.8)
+
+
+from src.boxplot import BoxPlotPlotter
+def plot_box_timecourse(ax, dat_narrow_df, color_prop, title):
+	"""Plot a boxplot of the time course of metric values"""
+	box_plotter = BoxPlotPlotter()
+	box_plotter.set_data([
+		dat_narrow_df], 
+						 data_key='entropy', 
+						 group_key='H_range',
+						 group_name_key='H_range',
+						 category_names=[
+							''])
+	box_plotter.ylims = None
+	box_plotter.plot_outliers = False
+	box_plotter.plot_whiskers = False
+	box_plotter.width = 0.75
+	box_plotter.legend = False
+	box_plotter.auto_xticks = False
+	box_plotter.color_prop_override = color_prop
+	
+	n = len(dat_narrow_df.orf_name.unique())
+	
+	title = f"{title}, n={n}"
+	box_plotter.plot_box_plot(ax=ax, title=title)
+	plt.ylabel("")
