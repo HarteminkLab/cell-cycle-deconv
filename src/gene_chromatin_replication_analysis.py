@@ -759,11 +759,9 @@ class GeneChromatinReplicationAnalysis:
 			title="Late replicating genes")
 
 
-	def plot_box_plot_entropy_ge(self, x_cutoffs):
-
-		# Let's try to segment by equal spaces of the expression values
-		# Visually recreate the above plot, may not be equal number of groups.
-
+	def ge_get_cutoffs_at_repl(self, x_cutoffs):
+		"""Get the gene expression cutoffs, assign each gene to the 
+		expression level cutoff group during replication time."""
 
 		def assign_group_cutoffs(data_df, key, group_cutoffs, group_names):
 			dat_df = data_df.copy()
@@ -790,6 +788,15 @@ class GeneChromatinReplicationAnalysis:
 				 f'{x_cutoffs[0]}-{x_cutoffs[1]}', 
 				 f'>{x_cutoffs[1]}'])
 
+		return grouped_data_df
+
+
+	def plot_box_plot_entropy_ge(self, x_cutoffs):
+
+		# Let's try to segment by equal spaces of the expression values
+		# Visually recreate the above plot, may not be equal number of groups.
+
+		grouped_data_df = self.ge_get_cutoffs_at_repl(x_cutoffs)
 
 		# ------- Box plotter ----------
 
