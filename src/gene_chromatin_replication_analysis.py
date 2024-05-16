@@ -429,7 +429,7 @@ class GeneChromatinReplicationAnalysis:
 
 
 	def plot_heatmap(self, plot_data, replication_df, vmin, vmax, fig, title, 
-		cmap='RdBu_r', show_colorbar=False):
+		cmap='RdBu_r', show_colorbar=False, show_n_title=True):
 
 		if fig is None:
 			fig = plt.figure(figsize=(6, 6))
@@ -452,6 +452,9 @@ class GeneChromatinReplicationAnalysis:
 			plt.plot(delta_replication.repl_tp_minus_delta, ys, lw=0.5, c='black')
 			plt.plot(replication_time, ys, lw=0.5, c='black', alpha=0.5)
 			plt.plot(delta_replication.repl_tp_plus_delta, ys, lw=0.5, c='black')
+
+		if show_n_title:
+			title = f"{title}, n={len(plot_data)}"
 
 		plt.title(f"{title}")
 
