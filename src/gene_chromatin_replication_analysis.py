@@ -436,11 +436,6 @@ class GeneChromatinReplicationAnalysis:
 
 		n = len(replication_df)
 
-		self.plot_gene_hm_dat_t_branch(plot_data, cmap=cmap, vmin=vmin, vmax=vmax)
-
-		if show_colorbar:
-			plt.colorbar()
-
 		plt.xlabel("Time, min")
 
 		_, cg1_len, _ = self.config.get_g1_lens()
@@ -449,17 +444,25 @@ class GeneChromatinReplicationAnalysis:
 		# Offset the replication timing by the cg1 length
 		replication_time = replication_df.replication_timing-cg1_len
 
-		plt.plot(replication_time-5., ys, lw=0.5, 
-			c='black')
+		if self.entropy_tx_analysis_mode == "at_replication":
+			plt.plot(replication_time, ys, lw=0.5, c='black')
+		elif self.entropy_tx_analysis_mode == "avg_delta_5_replication":
 
-		plt.plot(replication_time+5., ys, lw=0.5, 
-			c='black')
+			delta_replication = self.replication_delta_5.loc[replication_df.index]
+			plt.plot(delta_replication.repl_tp_minus_delta, ys, lw=0.5, c='black')
+			plt.plot(replication_time, ys, lw=0.5, c='black', alpha=0.5)
+			plt.plot(delta_replication.repl_tp_plus_delta, ys, lw=0.5, c='black')
 
 		plt.title(f"{title}")
 
 		# Earliest at the top
 		plt.ylim(n, 1)
 		plt.yticks([])
+
+		self.plot_gene_hm_dat_t_branch(plot_data, cmap=cmap, vmin=vmin, vmax=vmax)
+		if show_colorbar:
+			plt.colorbar()
+
 
 	def plot_early_late_entropy_hm_comparision(self, k=200, normalize=False,
 		subset_orfs=None, title=None):
@@ -589,6 +592,8 @@ class GeneChromatinReplicationAnalysis:
 			vmin=vmin,vmax=vmax, extent=[cg1_ts[0], postG1_ts[0], 1, n], origin='lower')
 		plt.imshow(plot_data[:, postG1_indices_in_t], aspect='auto', cmap=cmap,
 			vmin=vmin,vmax=vmax, extent=[postG1_ts[0], postG1_ts[-1], 1, n], origin='lower')
+
+		plt.xlim(cg1_ts[0], postG1_ts[-1])
 	
 
 	def plot_hi_lo_entropy_hm_analysis(self):
@@ -615,7 +620,7 @@ class GeneChromatinReplicationAnalysis:
 		plt.axvline(qlow, c='red')
 		plt.axvline(qhigh, c='red')
 
-		fig = plt.figure(figsize=(9, 3))
+		fig = plt.figure(figsize=(13, 4))
 		plt.subplots_adjust(wspace=0.25)
 		plt.subplot(1, 3, 1)
 		repl_timing = sorted_geneset.loc[low_e_genes.index]
@@ -645,36 +650,55 @@ class GeneChromatinReplicationAnalysis:
 			title=f"High entropy genes\nn={len(dat)}", 
 			show_colorbar=True)
 
-	def get_entropy_vs_tx_df(self, entropy_at_repl_time=True):
-		sorted_geneset = self.geneset_repl.sort_values('replication_timing')
+	def set_entropy_vs_tx_df(self, mode='at_replication'):
 
-		if entropy_at_repl_time:
-			entropy_values = self.entropy_at_repl
-		else:
+		# Set the mode of analysis, to compare at/during replication
+		# at the exact time of replication vs [-delta, +delta] range around replication
+		self.entropy_tx_analysis_mode = mode
+
+		sorted_geneset_repl_df = self.geneset_repl.sort_values('replication_timing')
+
+		if mode == 'at_replication':
 			entropy_values = self.mean_entropy_per_gene
+			expression_values = sorted_geneset_repl_df['expression_at_replication']
+			mode_name = "at replication"
 
-		# Test this, we can now examine by gene transcript level.
-		# Is there a relationship between baseline entropy level and expression level?
-		entropy_vs_exp_df = sorted_geneset.loc[entropy_values.index][['replication_timing', 
-			'expression_at_replication']]
+		elif mode == 'avg_delta_5_replication':
+			entropy_values = self.delta_entropy_5['mean_delta_entropy']
+			expression_values = self.delta_expression_5['mean_delta_expression']
+			mode_name = "$replication \\pm$ 5 min "
+
+		elif mode == 'avg_delta_10_replication':
+			entropy_values = self.delta_entropy_10['mean_delta_entropy']
+			expression_values = self.delta_expression_10['mean_delta_expression']
+			mode_name = "$replication \\pm$ 10 min "
+
+		else:
+			raise ValueError(f"Unhandled mode: {mode}")
+
+		# Entropy and expression data frame
+		self.mode_name = mode_name
+		entropy_vs_exp_df = sorted_geneset_repl_df.loc[entropy_values.index][['replication_timing']]
+		entropy_vs_exp_df['expression'] = expression_values
 		entropy_vs_exp_df['entropy_value'] = entropy_values
-		return entropy_vs_exp_df
 
+		self.entropy_vs_exp_df = entropy_vs_exp_df
+
+	def get_entropy_vs_tx_df(self):
+		return self.entropy_vs_exp_df
 	
-	def plot_entropy_vs_expression_analysis(self, entropy_at_repl_time=True,
-		x_cutoffs = []):
+	def plot_entropy_vs_expression_analysis(self, x_cutoffs = []):
 		def plot_entropy_vs_expression_scatter(entropy_vs_exp_df, title):
 
 			from src.DensityScatterPlotter import DensityScatterPlotter
 
 			entropy_vs_exp_df = entropy_vs_exp_df.dropna()
 
-			x, y = entropy_vs_exp_df.expression_at_replication, \
+			x, y = entropy_vs_exp_df.expression, \
 				entropy_vs_exp_df.entropy_value
 			
 			ax = plt.gca()
 			n = len(x)
-
    
 			ax.scatter(x, y, s=13, edgecolor='#ddd', facecolors='none', 
 				zorder=1)
@@ -696,7 +720,7 @@ class GeneChromatinReplicationAnalysis:
 			for x in x_cutoffs:
 				ax.axvline(x, c='black', lw=1, ls='dotted')
 
-		entropy_vs_exp_df = self.get_entropy_vs_tx_df(entropy_at_repl_time)
+		entropy_vs_exp_df = self.get_entropy_vs_tx_df()
 
 		from src.helpers import get_quantile_values
 
@@ -710,11 +734,13 @@ class GeneChromatinReplicationAnalysis:
 		# ---------- Plot
 
 		fig = plt.figure(figsize=(20, 4))
-		plt.suptitle("Gene expression vs Entropy", fontsize=16)
+		plt.suptitle(f"Gene expression vs Entropy, {self.mode_name}", fontsize=16)
 		plt.subplots_adjust(top=0.8)
 
 		plt.subplot(1, 5, 1)
 		plot_entropy_vs_expression_scatter(entropy_vs_exp_df, title="All genes")
+		plt.xlabel("Gene expression, VST")
+		plt.ylabel("Entropy, log2")
 
 		plt.subplot(1, 5, 2)		
 		plot_entropy_vs_expression_scatter(entropy_vs_exp_df.loc[early_genes.index], 
@@ -759,7 +785,7 @@ class GeneChromatinReplicationAnalysis:
 
 		grouped_data_df = assign_group_cutoffs(
 			self.get_entropy_vs_tx_df(),
-			'expression_at_replication',  [0, x_cutoffs[0], x_cutoffs[1], 100], 
+			'expression',  [0, x_cutoffs[0], x_cutoffs[1], 100], 
 				[f'<{x_cutoffs[0]}', 
 				 f'{x_cutoffs[0]}-{x_cutoffs[1]}', 
 				 f'>{x_cutoffs[1]}'])
@@ -770,7 +796,7 @@ class GeneChromatinReplicationAnalysis:
 		from src.boxplot import BoxPlotPlotter
 
 		# Segments of early, mid, late genes
-		entropy_vs_exp_df = self.get_entropy_vs_tx_df(entropy_at_repl_time=True)
+		entropy_vs_exp_df = self.get_entropy_vs_tx_df()
 		from src.helpers import get_quantile_values
 		segments, qvals, lens = get_quantile_values(entropy_vs_exp_df.replication_timing, 
 			q=[0.25, 0.5, 0.75])
@@ -794,11 +820,7 @@ class GeneChromatinReplicationAnalysis:
 		plt.figure(figsize=(6, 4))
 		ax = plt.gca()
 
-		box_plotter.plot_box_plot(ax)
-
-		# todo: How many genes in each category?
-		# todo: range of replication time to handle the fact that
-		#        entropy may occur later a little after replication
+		box_plotter.plot_box_plot(ax, title=f"Nucleosome Entropy vs expression, {self.mode_name}")
 
 
 	def get_repl_positions_in_t(self):

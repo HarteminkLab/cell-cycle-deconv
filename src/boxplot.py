@@ -65,7 +65,7 @@ class BoxPlotPlotter():
 		return color
 
 
-	def plot_box_plot(self, ax):
+	def plot_box_plot(self, ax, title):
 		"""Plot a box plot of a dataframe with a quantile column to separate
 		the data into distinct columns"""
 
@@ -116,4 +116,4 @@ class BoxPlotPlotter():
 
 		ax.set_xlabel("Gene expression cutoffs, VST")
 		ax.set_ylabel("Nucleosome entropy")
-		ax.set_title("Nucleosome Entropy and expression during replication")
+		ax.set_title(title)
