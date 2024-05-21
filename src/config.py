@@ -558,7 +558,8 @@ def get_yl2019_chromatin_timepoints(replicate):
 
 	if replicate == 1:
 		return np.array([ 0, 10, 20, 30, 40, 50, 60, 70, 
-			80, 90, 100, 110, 120, 130, 140, 150])	
+			80, 90, 100, 110, 120, 130, 140, 150])
+
 	elif replicate == 2:
 		return np.array([ 0, 10, 20, 30, 40, 50, 60, 70, 
 			80, 90, 100, 110, 120, 130, 140])
