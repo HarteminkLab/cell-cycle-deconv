@@ -392,6 +392,7 @@ def common_index(arr_of_dfs, index_of_ordering):
 	
 	return arr_df.index.values
 	
+
 def get_quantile_values(dat, q):
 	"""Get the quantile values and segment the input data."""
 	qvals = np.quantile(dat, q=q)
@@ -420,7 +421,8 @@ def get_quantile_values(dat, q):
 
 def get_mean_between_indices(df, start, end):
 	"""
-	Compute the mean values between the start and end indices for each row in the DataFrame.
+	Compute the mean values between the start and end indices 
+	for each row in the DataFrame.
 
 	Parameters:
 	df (pd.DataFrame): The input DataFrame.

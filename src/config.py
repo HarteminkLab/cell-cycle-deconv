@@ -89,8 +89,10 @@ class Config:
 
 	def read_model_lines(self, f):
 
-		LENGTHS, DESCRIPTION, I, T, B = '# lengths', '# description', '# i', '# t', '# b' 
-		lengths, relations, initial_tps, top_tps, bottom_tps, parseFlag = [], [], [], [], [], -1
+		LENGTHS, DESCRIPTION, I, T, B = '# lengths', '# description', \
+			'# i', '# t', '# b' 
+		lengths, relations, initial_tps, top_tps, bottom_tps, parseFlag = [], \
+			[], [], [], [], -1
 
 		for line in f:
 			line = line.strip()
@@ -140,11 +142,13 @@ class Config:
 				elif label == 'b':
 					bottom_phase_map[num] = (notation, i)
 
-		return lengths, relations, initial_tps, top_tps, bottom_tps, (initial_phase_map, top_phase_map, bottom_phase_map)
+		return lengths, relations, initial_tps, top_tps, bottom_tps, (initial_phase_map,
+			top_phase_map, bottom_phase_map)
 
 	def parse_lengths(self, line):
 		segments = line.split(' ')
-		if segments[0] in ('mu0', 'lambda', 'delta', 'sigma0', 'sigmav', 'alpha', 'beta', 'gamma1', 'gamma2', 'halted'):
+		if segments[0] in ('mu0', 'lambda', 'delta', 'sigma0', 'sigmav', 'alpha', \
+			'beta', 'gamma1', 'gamma2', 'halted'):
 			value = float(segments[1])
 		else:
 			raise ValueError(f'Wrong parameter {segments[0]} in line {line}')
@@ -414,11 +418,21 @@ class Config:
 		cg1_indices = self.get_timepoints_phases_Hpositions_for_branch('t')[0][2]
 		rg1_indices = self.get_timepoints_phases_Hpositions_for_branch('i')[0][2]
 
+		# Compute the G2M and S indices by collecting the length of S
+		mu0, s_start, s_end, first_lambda = self.get_key_timepoints_in_raw()
+		s_len = s_end - s_start
+		postg1_tps = self.get_phase_timepoints_for_phase('postG1')
+		s_end_idx = (postg1_tps > s_len).argmax()
+		g2_m_indices = postg1_indices[s_end_idx:]
+		s_indices = postg1_indices[:s_end_idx]
+
 		Hpositions_dic = {
 			'DG1': dg1_indices,
 			'postG1': postg1_indices,
 			'CG1': cg1_indices,
 			'RG1': rg1_indices,
+			'S': s_indices,
+			'G2/M': g2_m_indices
 		}
 		return Hpositions_dic[phase]
 
@@ -451,7 +465,8 @@ class Config:
 	def get_key_timepoints_in_raw(self):
 
 		intervals = self.intervals_wt1[0]
-		mu0, lambda_len, gamma1, gamma2, alpha = intervals[0], intervals[1], intervals[7], intervals[8], intervals[5]
+		mu0, lambda_len, gamma1, gamma2, alpha = intervals[0], intervals[1], \
+			intervals[7], intervals[8], intervals[5]
 
 		# Estimate the first S from mu0, lambda, gamma1, and gamma2
 		cg1_length = gamma1*lambda_len+alpha
@@ -466,9 +481,11 @@ class Config:
 		lambda_len = lambda_len
 
 		# The end of the first cycle is computed
-		# by taking the cell cycle length, subtracting the length of S (to get G1 and G2/M)
+		# by taking the cell cycle length, subtracting the length of S 
+		# (to get G1 and G2/M)
 		# Then subtract out what the first G1 would be.
-		# Then offset by mu0 length to get the actual timepoint for the end of the first cell cycle
+		# Then offset by mu0 length to get the actual timepoint for the 
+		# end of the first cell cycle
 		g1_recovery_would_start_here = first_s_start - cg1_length
 		end_of_first_lambd = g1_recovery_would_start_here+lambda_len
 
