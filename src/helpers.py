@@ -470,3 +470,61 @@ def combine_columns_with_bins(df, bins):
 		combined_data[f'{start_col}'] = df.iloc[:, start_col:end_col].mean(axis=1)
 	
 	return pd.DataFrame(combined_data)
+
+
+def select_columns_by_indices(df, start_indices, end_indices):
+	"""
+	Select columns from the DataFrame based on the provided start and end indices for each row.
+
+	Parameters:
+	df (pd.DataFrame): The input DataFrame with columns labeled from 1 to 10 and rows indexed from 1 to 10.
+	start_indices (list of int): List of start indices mapping to column names.
+	end_indices (list of int): List of end indices mapping to column names.
+
+	Returns:
+	pd.DataFrame: A new DataFrame with the selected columns of shape (10x5).
+	"""
+
+	import pandas as pd
+
+	new_data = []
+	
+	for row in range(len(df)):
+		start = start_indices[row]
+		end = end_indices[row]
+		
+		# if start is less than zero, add padding of nan values
+		# by default if the end extends past the df's length, nas are added
+		# but the same isn't true for negative values
+		if start < 0:
+			set_nan = True
+			num_nans = -start
+			start = 0
+		else:
+			set_nan = False
+			
+		selected_columns = df.iloc[row, start:end]  # Adjust for 0-based indexing
+		selected_columns = selected_columns.values
+		
+		if set_nan:
+			nans = np.repeat(np.nan, num_nans)
+			selected_columns = np.concatenate([nans, selected_columns])
+
+		new_data.append(selected_columns)
+	
+	# Create a new DataFrame with the selected columns
+	new_df = pd.DataFrame(new_data, index=df.index)
+	
+	return new_df
+
+
+def get_equal_partitions(vec, k):
+	"""Compute equal partitions of a given vector. Returns 
+	a vector of the start and indices of each partition"""
+	n = len(vec)
+	bin_edges = np.arange(0, n, n/k)
+	bin_edges = np.concatenate([bin_edges.astype(int), np.array([n-1])])
+	partition_indices = []
+	for i in range(1, len(bin_edges)):
+		partition_indices.append((bin_edges[i-1], bin_edges[i]))
+	return partition_indices

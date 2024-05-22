@@ -12,7 +12,7 @@ class BoxPlotPlotter():
 
 	def set_data(self, dfs_to_plot, data_key, group_key, group_name_key, category_names):
 
-		self.quantile_dfs_to_plot = dfs_to_plot
+		self.dfs_to_plot = dfs_to_plot
 		self.data_key = data_key
 		self.group_key = group_key
 		self.group_name_key = group_name_key
@@ -22,6 +22,7 @@ class BoxPlotPlotter():
 		self.legend = True
 		self.auto_xticks = True
 		self.color_prop_override = False
+		self.color = None
 
 		# todo: default ylims for first box plot example
 		# set this for future boxplots
@@ -50,7 +51,10 @@ class BoxPlotPlotter():
 		else:
 			color_prop = group_index/self.num_categories
 
-		color = plt.get_cmap('plasma_r')(color_prop*0.6+0.2)
+		if self.color is not None:
+			color = self.color
+		else:
+			color = plt.get_cmap('plasma_r')(color_prop*0.6+0.2)
 
 		# box plot width
 		width = self.width
@@ -91,14 +95,14 @@ class BoxPlotPlotter():
 		"""Plot a box plot of a dataframe with a quantile column to separate
 		the data into distinct columns"""
 
-		self.num_categories = len(self.quantile_dfs_to_plot)
+		self.num_categories = len(self.dfs_to_plot)
 
 		xticks = []
 		xticklabels = []
 		colors = []
 
 		for category_index in range(self.num_categories):
-			dataframe = self.quantile_dfs_to_plot[category_index]
+			dataframe = self.dfs_to_plot[category_index]
 			group_keys = sorted(dataframe[self.group_key].unique())
 		
 			# For each quantile plot a box and whisker plot
@@ -147,20 +151,20 @@ class BoxPlotPlotter():
 
 
 # Reduce the columns to plot fewer box plots
-def get_boxplot_data_for_metric_df(dat, subselect_index, data_key):
+def get_boxplot_data_for_metric_df(dat, subselect_index, data_key, binstep=1, index_range_key='H_range'):
 	"""Convert a dataframe of genes x h-indexes to a narrow format """
 
 	from src.helpers import combine_columns_with_bins
 
 	# Select the columns to combine
 	selected_dat = dat.loc[subselect_index]
-	bins = np.arange(0, dat.columns[-1], 1)
+	bins = np.arange(0, dat.columns[-1], binstep)
 	combined_cols_df = combine_columns_with_bins(selected_dat, 
 	   bins=bins)
 
 	# Narrow format for the box plotter
 	narrow_format_df = combined_cols_df.unstack().reset_index()
-	narrow_format_df.columns = ["H_range", "orf_name", data_key]
-	narrow_format_df.H_range = narrow_format_df.H_range.astype(int)
+	narrow_format_df.columns = [index_range_key, "orf_name", data_key]
+	narrow_format_df[index_range_key] = narrow_format_df[index_range_key].astype(int)
 
 	return narrow_format_df

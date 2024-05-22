@@ -33,4 +33,3 @@ class GlobalConstants:
 
 	# Replication timing
 	REPL_TIMING_FILEPATH = 'datasets/computed_mnase/all_repl_timing_deconvolved.csv'
-
