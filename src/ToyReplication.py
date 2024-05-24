@@ -90,12 +90,14 @@ class ToyReplication:
 	def normalize_reads_matrix(self, reads_mat, plot=True):
 
 		# Compute the original depth (number of reads per timepoint)
-		self.original_depth = reads_mat.sum(axis=1)
+		self.original_depth = reads_mat.mean(axis=1)
 
 		# Scale the number of reads per timepoint by the replication matrix (reads with two
 		# copies are multiplied by 2). And compute the updated depth (increased)
-		copy_mult_reads = (self.replication_matrix * reads_mat)
-		self.scaled_depth = copy_mult_reads.sum(axis=1)
+
+		# Invert the replication matrix, regions with 2 copies need to be downscaled by half
+		copy_mult_reads = (1./self.replication_matrix * reads_mat)
+		self.scaled_depth = copy_mult_reads.mean(axis=1)
 
 		# Now scaled the copy adjusted reads by the read depth to 
 		# acheive the original read depth
@@ -107,35 +109,47 @@ class ToyReplication:
 		plt.subplots_adjust(hspace=0.5, wspace=0.3)
 
 		plt.imshow(reads_mat, aspect='auto', origin='lower', 
-			cmap='inferno',
+			cmap='RdBu_r', vmin=0, vmax=2.,
 			extent=[0, self.n, 0, self.timepoints[-1]])
 		plt.title("Reads")
 		plt.ylabel("Genome position, 10kb")
 		plt.ylabel("Time, min")
+		plt.colorbar()
 
 		plt.subplot(2, 3, 2)
-		plt.plot(self.timepoints, self.original_depth)
-		plt.xlabel("Time, min")
-		plt.ylabel("Total reads")
-		plt.title("Total reads")
+		plt.imshow(copy_mult_reads, aspect='auto', origin='lower', 
+			cmap='RdBu_r', vmin=0, vmax=2.,
+			extent=[0, self.n, 0, self.timepoints[-1]])
+		plt.title("Copy adjusted reads")
+		plt.ylabel("Genome position, 10kb")
+		plt.ylabel("Time, min")
+		plt.colorbar()
 
-		plt.subplot(2, 3, 4)
+		plt.subplot(2, 3, 3)
 		plt.imshow(self.rescaled_reads, aspect='auto', origin='lower', 
-			cmap='inferno',
+			cmap='RdBu_r', vmin=0, vmax=2.,
 			extent=[0, self.n, 0, self.timepoints[-1]])
 		plt.title("Normalized reads")
 		plt.ylabel("Genome position, 10kb")
 		plt.ylabel("Time, min")
+		plt.colorbar()
+
+
+		plt.subplot(2, 3, 4)
+		plt.plot(self.timepoints, self.original_depth)
+		plt.xlabel("Time, min")
+		plt.ylabel("Average reads")
+		plt.title("Average reads")
 
 		plt.subplot(2, 3, 5)
 		plt.plot(self.timepoints, self.scaled_depth)
 		plt.xlabel("Time, min")
-		plt.ylabel("Total reads")
-		plt.title("Total reads scaled by copy number")
+		plt.ylabel("Average reads")
+		plt.title("Average reads scaled by copy number")
 
 		plt.subplot(2, 3, 6)
-		plt.plot(self.timepoints, self.rescaled_reads.sum(axis=1))
+		plt.plot(self.timepoints, self.rescaled_reads.mean(axis=1))
 		plt.xlabel("Time, min")
-		plt.ylabel("Total reads")
-		plt.title("Total reads normalized")
+		plt.ylabel("Average reads")
+		plt.title("Average reads normalized")
 
