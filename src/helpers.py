@@ -94,6 +94,9 @@ def calcH(model_intervals, timepoints):
 				matrix = top_partial_H[num]
 			elif label == 'b':
 				matrix = bottom_partial_H[num]
+
+
+
 			if idx == 1:
 				Hsegments[i] = matrix
 			else:

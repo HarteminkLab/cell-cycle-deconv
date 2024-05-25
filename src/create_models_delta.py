@@ -76,7 +76,7 @@ class ModelCreation:
 				{"i":[mu0, position_of_s, 49]}],
 			"CG1":[
 				{"t":[-alpha, position_of_s, 49]},
-				{"b":[-alpha, position_of_s, 39]}],
+				{"b":[-alpha, position_of_s, 49]}],
 			"Delta":[
 				{"b":[-delta-alpha, -alpha, 10]}],
 			"postG1":[
