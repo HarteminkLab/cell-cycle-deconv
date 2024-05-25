@@ -75,12 +75,13 @@ class ModelFile:
         description = self.description
 
         color_mapping = {}
-        color_names = ["raw", "fit", "R", "RG1", "CG1", "DG1", "postRG1", "postG1"];
+        color_names = ["raw", "fit", "R", "RG1", "CG1", "Delta", "DG1", "postRG1", "postG1"];
         colors = [np.array([158, 50, 50])/255.,
              np.array([145, 180, 98])/255.,
              np.array([199, 148, 144])/255.,
              np.array([199, 148, 144])/255.,
              np.array([147, 168, 198])/255.,
+             np.array([165, 197, 204])/255.,
              np.array([165, 197, 204])/255.,
              np.array([237, 187, 183])/255.,
              np.array([223, 192, 158])/255.]
