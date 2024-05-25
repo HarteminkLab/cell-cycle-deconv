@@ -157,7 +157,7 @@ halted %f
 # description
 %s i 0
 CG1 %s
-DG1 b 0
+Delta b 0
 postG1 %s
 %s""" % (-mu0, lambd, delta, sigma0, sigmav, alpha, beta, gamma1, gamma2, halted,
 			 Rname, CG1_intervals, PG1_intervals, intervals)
