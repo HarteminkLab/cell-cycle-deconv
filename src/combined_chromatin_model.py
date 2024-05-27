@@ -86,9 +86,9 @@ class CombinedChromatinModel:
 		self.deconv_model = self.deconv1_model
 		self.deconv_model.gamma = self.gamma
 
-		self.solver = ChromatinDeconvolveSolver(self.deconv1_model.config, self.H, 
+		self.solver = ChromatinDeconvolveSolver(self.deconv1_model.config, self.H, self.G,
 			wavelet=wavelet)
-		self.solver.define_deconvolution_problem(self.G[:, 0:1])
+		self.solver.define_deconvolution_problem(self.G)
 
 		# For plotting results
 		self.chrom1_model.solver = self.solver
@@ -113,29 +113,10 @@ class CombinedChromatinModel:
 		print_fl(f"of G shape: {self.G.shape}")
 		print_fl(f"Deconvolving with gamma={self.gamma}")
 
-		deconvolved_f_value = np.zeros((self.deconv_model.H.shape[1], self.G.shape[1]))
-
-		# Setup of the solver with single dimension G
-		m = self.G.shape[1]
-		self.sn = 0
-		self.rn = 0
-		for i in range(m):
-
-			# Set the solver's G value
-			current_G = self.G[:, i:i+1]
-			self.solver.define_deconvolution_problem(current_G)
-			self.solver.solve(gamma_value=self.gamma, verbose=verbose)
-
-			current_f = self.solver.f.value.flatten()
-			deconvolved_f_value[:, i] = current_f
-
-			self.rn += self.solver.rn / m
-			self.sn += self.solver.sn / m
-
-			if verbose_progress and i % 100 == 0:
-				timer.print_time(f"{i}/{m}")
-
-		self.deconvolved_f_value = deconvolved_f_value
+		self.deconvolved_f_value = self.solver.deconvolve_G_iteratively(self.gamma,
+			verbose=verbose, verbose_progress=verbose_progress)
+		self.rn = self.solver.rn
+		self.sn = self.solver.sn
 
 		print_fl(f"Deconvolved in : {timer.get_time()}")
 		print_fl(f"The fitting norm is {self.rn:.2f}, "
@@ -161,10 +142,13 @@ class CombinedChromatinModel:
 		self.find_gamma_chromatin = FindOptimalGammaChromatin(self.solver)
 		self.found_optimal_success = self.find_gamma_chromatin.find_optimal(silence=False)
 		self.gamma = self.find_gamma_chromatin.gamma
+		self.rn = self.find_gamma_chromatin.rn
+		self.sn = self.find_gamma_chromatin.sn
+		self.deconvolved_f_value = self.find_gamma_chromatin.f
 
-		self.set_results(self.solver.f.value, 
+		self.set_results(self.deconvolved_f_value, 
 						  self.rn, self.sn,
-						  self.solver.gamma.value)
+						  self.gamma)
 
 		print_fl(f"Found optimal gamma in: {timer.get_time()}")
 		print_fl(f"Find optimal success: {self.found_optimal_success}")

@@ -151,7 +151,7 @@ class FindOptimalGammaChromatin:
 				if not silence:
 					print_fl(f'  ... findElbow: base_rn is too large or something wrong in search, use default {self.gamma:.4f}')
 
-		print_fl(f'{self.solver.deconv_model.orf_name}: ... final gamma = {self.gamma:.5f}')
+		print_fl(f'Final gamma = {self.gamma:.5f}')
 		self.conv_optim()
 		print_fl(f"Time to find optimal gamma: {self.timer.get_time()}")
 

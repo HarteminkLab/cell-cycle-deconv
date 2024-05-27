@@ -694,7 +694,10 @@ class ChromatinModel:
 		self.setup_solver()
 		self.find_gamma_chromatin = FindOptimalGammaChromatin(self.solver)
 		self.found_optimal_success = self.find_gamma_chromatin.find_optimal(silence=False)
+		self.deconvolved_f_value = self.find_gamma_chromatin.f
 		self.gamma = self.find_gamma_chromatin.gamma
+		self.rn = self.find_gamma_chromatin.rn
+		self.sn = self.find_gamma_chromatin.sn
 
 		print_fl(f"Found optimal gamma in: {timer.get_time()}")
 		print_fl(f"Find optimal success: {self.found_optimal_success}")
