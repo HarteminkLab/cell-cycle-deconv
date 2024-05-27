@@ -19,12 +19,13 @@ class ChromatinDeconvolveSolver:
 	"""Class to handle chromatin deconvolution, will be useful for scanning for gamma values and reusing the same
 	problem definition"""
 
-	def __init__(self, config, H, solver=cvxpy.MOSEK, wavelet="Symmlet"):
+	def __init__(self, config, H, G, solver=cvxpy.MOSEK, wavelet="Symmlet"):
 
 		self.config = config
 		self.solver = solver
 		self.wavelet = wavelet
 		self.H = H
+		self.G = G
 
 		f_b = self.config.get_Hpositions_for_branch('b')
 		f_i = self.config.get_Hpositions_for_branch('i')
@@ -51,6 +52,43 @@ class ChromatinDeconvolveSolver:
 		self.W2 = W2
 		self.W3 = W3
 
+
+	def deconvolve_G_iteratively(self, gamma, verbose=False, verbose_progress=True):
+		"""Iteratively deconvolve columns of G, appears to be more accurate
+		as the optimization can strictly treat each problem independently"""
+
+		from src.timer import Timer
+		timer = Timer()
+
+		deconvolved_f_value = np.zeros((self.H.shape[1], self.G.shape[1]))
+
+		# Setup of the solver with single dimension G
+		m = self.G.shape[1]
+		running_sn = 0
+		running_rn = 0
+
+		for i in range(m):
+
+			# Set the solver's G value
+			current_G = self.G[:, i:i+1]
+			self.define_deconvolution_problem(current_G)
+			self.solve(gamma_value=gamma, verbose=verbose)
+
+			current_f = self.f.value.flatten()
+			deconvolved_f_value[:, i] = current_f
+
+			running_rn += self.rn / m
+			running_sn += self.sn / m
+
+			if verbose_progress and i % 100 == 0:
+				timer.print_time(f"{i}/{m}")
+
+		self.deconvolved_f_value = deconvolved_f_value
+		self.rn = running_rn
+		self.sn = running_sn
+		return self.deconvolved_f_value
+
+
 	def define_deconvolution_problem(self, G):
 
 		solver = self.solver
@@ -60,7 +98,7 @@ class ChromatinDeconvolveSolver:
 		# We will add a very small value to g, to avoid divide by zero errors
 		eps = 1e-5
 		G = G + eps
-		self.G = G
+		self.current_G = G
 
 		g_mean = G.mean()
 
@@ -89,7 +127,7 @@ class ChromatinDeconvolveSolver:
 		smooth_f_t_result = W2@f[f_t_mirror]
 		smooth_f_b_result = W3@f[f_b_mirror]
 
-		elementwise_result = cvxpy.multiply(H@f, 1.0/self.G) - 1
+		elementwise_result = cvxpy.multiply(H@f, 1.0/G) - 1
 
 		n = G.shape[0]
 		m = G.shape[1]
@@ -130,7 +168,7 @@ class ChromatinDeconvolveSolver:
 		# ------- Upon completion, compute the smoothing norm and fitting/residual norms --------------
 
 		H = self.H
-		G = self.G
+		G = self.current_G
 		g_mean = G.mean()
 
 		eps = 1e-5

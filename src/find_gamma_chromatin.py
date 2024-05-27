@@ -21,7 +21,10 @@ class FindOptimalGammaChromatin:
 		the results"""
 
 		# Update the results from the solver
-		self.f, self.rn, self.sn, _ = self.solver.solve(self.gamma)
+		self.f = self.solver.deconvolve_G_iteratively(self.gamma,
+			verbose=False, verbose_progress=False)
+		self.rn = self.solver.rn
+		self.sn = self.solver.sn
 
 	def find_optimal(self, silence=True):
 

@@ -631,9 +631,9 @@ class ChromatinModel:
 		from src.chromatin_deconvolution_solver import ChromatinDeconvolveSolver
 		from src.replication_deconvolution_solver import ReplicationChromatinDeconvolveSolver
 
-		self.solver = ChromatinDeconvolveSolver(self.deconv_model.config, self.deconv_model.H, 
+		self.solver = ChromatinDeconvolveSolver(self.deconv_model.config, self.deconv_model.H, self.G, 
 			wavelet=wavelet)
-		self.solver.define_deconvolution_problem(self.G[:, 0:1])
+
 		self.found_optimal_success = None
 		self.deconvolved_f_value = None
 
@@ -649,30 +649,10 @@ class ChromatinModel:
 		self.setup_solver(wavelet)
 
 		print_fl(f"Deconvolving with gamma={self.gamma}")
-
-		deconvolved_f_value = np.zeros((self.deconv_model.H.shape[1], self.G.shape[1]))
-
-		# Setup of the solver with single dimension G
-		m = self.G.shape[1]
-		self.sn = 0
-		self.rn = 0
-		for i in range(m):
-
-			# Set the solver's G value
-			current_G = self.G[:, i:i+1]
-			self.solver.define_deconvolution_problem(current_G)
-			self.solver.solve(gamma_value=self.gamma, verbose=verbose)
-
-			current_f = self.solver.f.value.flatten()
-			deconvolved_f_value[:, i] = current_f
-
-			self.rn += self.solver.rn / m
-			self.sn += self.solver.sn / m
-
-			if verbose_progress and i % 100 == 0:
-				timer.print_time(f"{i}/{m}")
-
-		self.deconvolved_f_value = deconvolved_f_value
+		self.deconvolved_f_value = self.solver.deconvolve_G_iteratively(self.gamma,
+			verbose=verbose, verbose_progress=verbose_progress)
+		self.rn = self.solver.rn
+		self.sn = self.solver.sn
 
 		print_fl(f"Deconvolved in : {timer.get_time()}")
 		print_fl(f"The fitting norm is {self.rn:.2f}, "
