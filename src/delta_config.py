@@ -234,7 +234,6 @@ class Config:
 			columns=['value']
 		)
 
-
 	def get_phase_timepoints_for_phase(self, phase):
 		rg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('i')[0][1].values
 		cg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('t')[0][1].values
@@ -416,11 +415,14 @@ class Config:
 		Refactor this if we start using other models. This method is used for plotting purposes.
 		"""
 
-		dg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[0][2]
+		delta_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[0][2]
 		postg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[1][2]
 		cg1_indices = self.get_timepoints_phases_Hpositions_for_branch('t')[0][2]
 		rg1_indices = self.get_timepoints_phases_Hpositions_for_branch('i')[0][2]
-
+		dg1_indices = np.concatenate([
+			delta_indices, cg1_indices
+		])
+		
 		# Compute the G2M and S indices by collecting the length of S
 		mu0, s_start, s_end, first_lambda = self.get_key_timepoints_in_raw()
 		s_len = s_end - s_start
@@ -431,6 +433,7 @@ class Config:
 
 		Hpositions_dic = {
 			'DG1': dg1_indices,
+			'Delta': delta_indices,
 			'postG1': postg1_indices,
 			'CG1': cg1_indices,
 			'RG1': rg1_indices,

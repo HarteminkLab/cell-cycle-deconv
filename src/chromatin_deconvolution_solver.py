@@ -8,6 +8,7 @@ import numpy as np
 from matplotlib import pyplot as plt
 from src.helpers import get_wavelet_kernel
 from src.utils import print_fl
+from src.model import create_mirror
 
 
 from src.wavelets_2d_linalg import decompose_flattened_kron_coeffs, \
@@ -40,22 +41,11 @@ class ChromatinDeconvolveSolver:
 		eps = 1e-5
 		G = G + eps
 
-		f_dg1 = self.deconv_model.config.get_Hpositions_for_phase('DG1')
-		f_rg1 = self.deconv_model.config.get_Hpositions_for_phase('RG1')
-		f_cg1 = self.deconv_model.config.get_Hpositions_for_phase('CG1')
-		f_pg1 = self.deconv_model.config.get_Hpositions_for_phase('postG1')
-
 		f_b = self.deconv_model.config.get_Hpositions_for_branch('b')
 		f_i = self.deconv_model.config.get_Hpositions_for_branch('i')
 		f_t = self.deconv_model.config.get_Hpositions_for_branch('t')
 
 		f_it = np.concatenate([f_i, f_t])
-
-		def create_mirror(ind_vec):
-			ind_vec_n_2 = len(ind_vec) // 2
-			ind_vec_mirror = np.concatenate([np.flip(ind_vec[:ind_vec_n_2]), ind_vec, 
-				np.flip(ind_vec[-ind_vec_n_2:])])
-			return ind_vec_mirror
 
 		# The bottom and top branches need to enforce the start
 		# of G1 is smooth from the end of postG1, so concatenate those
@@ -64,13 +54,19 @@ class ChromatinDeconvolveSolver:
 		f_i_mirror = create_mirror(f_i)
 		f_t_mirror = create_mirror(np.concatenate([f_t, f_t]))
 
-		f_it_mirror = create_mirror(f_it)
-
 		W1 = get_wavelet_kernel(len(f_i_mirror), type=self.wavelet)
 		W2 = get_wavelet_kernel(len(f_t_mirror), type=self.wavelet)
 		W3 = get_wavelet_kernel(len(f_b_mirror), type=self.wavelet)
 
 		g_mean = G.mean()
+
+		self.f_b_mirror = f_b_mirror
+		self.f_i_mirror = f_i_mirror
+		self.f_t_mirror = f_t_mirror
+
+		self.W1 = W1
+		self.W2 = W2
+		self.W3 = W3
 
 		# -------- Define the optimization ------------
 
@@ -109,7 +105,8 @@ class ChromatinDeconvolveSolver:
 			# However, there is an implementation detail in cvxpy that favors norm calls over sum of squares:
 			#
 			# motivated by:
-			# https://stackoverflow.com/questions/65526377/cvxpy-returns-infeasible-inaccurate-on-quadratic-programming-optimization-proble
+			# https://stackoverflow.com/questions/65526377/cvxpy-returns-infeasible-
+			# inaccurate-on-quadratic-programming-optimization-proble
 			# https://cvxr.com/cvx/doc/advanced.html#eliminating-quadratic-forms
 			# 
 			# cvxpy.sum_squares(elementwise_result)
@@ -152,18 +149,6 @@ class ChromatinDeconvolveSolver:
 		m = G.shape[1]
 		u = H.shape[1]
 
-		f_b = self.deconv_model.config.get_Hpositions_for_branch('b')
-		f_i = self.deconv_model.config.get_Hpositions_for_branch('i')
-		f_t = self.deconv_model.config.get_Hpositions_for_branch('t')
-
-		#f_it = np.concatenate([f_i, f_t])
-
-		# We will use the non-mirrored wavelet kernel sizes, because we are operating on the 
-		# final f values
-		W1 = get_wavelet_kernel(len(f_i), type=self.wavelet)
-		W2 = get_wavelet_kernel(len(f_t), type=self.wavelet)
-		W3 = get_wavelet_kernel(len(f_b), type=self.wavelet)
-
 		# Extending the deconvolution a matrix form, 
 		# The norm is computing us the Frobeius norm
 		# Which is equivalent to the sum of squares of the
@@ -177,9 +162,9 @@ class ChromatinDeconvolveSolver:
 		# computation on a matrix, so we manually take the absolute values
 		# and take the sum.
 		# Normalize by the gene expression level and the size of the grid, m
-		f_i_matmul_res = np.matmul(W1, f[f_i])
-		f_t_matmul_res = np.matmul(W2, f[f_t])
-		f_b_matmul_res = np.matmul(W3, f[f_b])
+		f_i_matmul_res = np.matmul(self.W1, f[self.f_i_mirror])
+		f_t_matmul_res = np.matmul(self.W2, f[self.f_t_mirror])
+		f_b_matmul_res = np.matmul(self.W3, f[self.f_b_mirror])
 
 		sn = ((self.factor_i * np.sum(np.abs(f_i_matmul_res)) + 
 			   				   np.sum(np.abs(f_t_matmul_res)) + 

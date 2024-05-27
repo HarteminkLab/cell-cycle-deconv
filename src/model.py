@@ -59,17 +59,15 @@ class Model:
 		f_t = self.config.get_Hpositions_for_branch('t')
 		f_b = self.config.get_Hpositions_for_branch('b')
 
-		def create_mirror(ind_vec):
-			ind_vec_n_2 = len(ind_vec) // 2
-			ind_vec_mirror = np.concatenate([np.flip(ind_vec[:ind_vec_n_2]), ind_vec, np.flip(ind_vec[-ind_vec_n_2:])])
-			return ind_vec_mirror
-
 		# The bottom and top branches need to enforce the start
 		# of G1 is smooth from the end of postG1, so concatenate those
 		# Then mirror the ends to handle edge effects
-		f_b_mirror = create_mirror(np.concatenate([f_b, f_b]))
+		f_b_doubled = np.concatenate([f_b, f_b])
+		f_t_doubled = np.concatenate([f_t, f_t])
+
+		f_b_mirror = create_mirror(f_b_doubled)
 		f_i_mirror = create_mirror(f_i)
-		f_t_mirror = create_mirror(np.concatenate([f_t, f_t]))
+		f_t_mirror = create_mirror(f_t_doubled)
 
 		W1 = get_wavelet_kernel(len(f_i_mirror))
 		W2 = get_wavelet_kernel(len(f_t_mirror))
@@ -115,13 +113,9 @@ class Model:
 		# predicted g
 		self.pred_g = np.matmul(self.H, f)
 
-		W1 = get_wavelet_kernel(len(f_i))
-		W2 = get_wavelet_kernel(len(f_t))
-		W3 = get_wavelet_kernel(len(f_b))
-
-		sn = (np.linalg.norm(np.matmul(W1, f[f_i]), 1)
-			  + np.linalg.norm(np.matmul(W2, f[f_t]), 1)
-			  + np.linalg.norm(np.matmul(W3, f[f_b]), 1)) / np.mean(self.g)
+		sn = (np.linalg.norm(np.matmul(W1, f[f_i_mirror]), 1)
+			  + np.linalg.norm(np.matmul(W2, f[f_t_mirror]), 1)
+			  + np.linalg.norm(np.matmul(W3, f[f_b_mirror]), 1)) / np.mean(self.g)
 		rn = np.square(np.clip(np.linalg.norm(np.matmul(self.H, f) / (self.g) - 1), 0, None))
 
 		self.sn = sn
@@ -453,3 +447,21 @@ def save_df(df, save_path, silent=True):
 	df.to_csv(save_path)
 	if not silent: print(f"Saved to {save_path}")
 
+
+def create_mirror(ind_vec):
+
+	# Determine if the input vector is a power of 2,
+	# if it is not, use an inset that: after mirroring
+	# the output vector will be a power of 2
+	from src.helpers import compute_closest_pow2
+	vec_len = len(ind_vec)
+	closet_pow2 = compute_closest_pow2(vec_len)
+	if closet_pow2-vec_len > 0:
+		inset_index = (closet_pow2 - vec_len)//2
+
+	# Otherwise use half of the input vector
+	else:
+		inset_index = len(ind_vec) // 2
+
+	ind_vec_mirror = np.concatenate([np.flip(ind_vec[:inset_index]), ind_vec, np.flip(ind_vec[-inset_index:])])
+	return ind_vec_mirror

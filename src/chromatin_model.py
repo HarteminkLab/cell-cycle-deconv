@@ -366,7 +366,8 @@ class ChromatinModel:
 		Also note, that the indices in H (and f) have their own indices per phase so 
 		we will need to map into those values as well (phase_indices[phase_indices_index])
 		"""
-		phase_indices = self.config.phase_columns[phase]
+		phase_indices = self.config.get_Hpositions_for_phase(phase)
+
 		phase_indices_index = len(phase_indices) / (columns-1) * column
 		phase_indices_index = round(phase_indices_index)
 		phase_indices_index = min(phase_indices_index, len(phase_indices)-1)

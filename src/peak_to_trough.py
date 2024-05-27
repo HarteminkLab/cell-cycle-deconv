@@ -66,10 +66,8 @@ def compute_max_min_locations(config, gene_f, ret_all=False):
 
 	"""
 
-	c_indices = np.concatenate([config.phase_columns['CG1'], 
-								  config.phase_columns['postG1']])
-	d_indices = np.concatenate([config.phase_columns['DG1'], 
-								  config.phase_columns['postG1']])
+	c_indices = config.get_Hpositions_for_branch('t')
+	d_indices = config.get_Hpositions_for_branch('b')
 	c_timepoints = config.get_timepoints_for_branch('t')
 	d_timepoints = config.get_timepoints_for_branch('b')
 
@@ -155,10 +153,8 @@ def compute_max_min_locations(config, gene_f, ret_all=False):
 
 def compute_ptr(config, gene_f, lo=0.2, hi=0.8, return_indices=False):
 
-	c_indices = np.concatenate([config.phase_columns['CG1'], 
-								  config.phase_columns['postG1']])
-	d_indices = np.concatenate([config.phase_columns['DG1'], 
-								  config.phase_columns['postG1']])
+	c_indices = config.get_Hpositions_for_branch('t')
+	d_indices = config.get_Hpositions_for_branch('b')
 
 	cg1_f = gene_f[c_indices]
 	dg1_f = gene_f[d_indices]
