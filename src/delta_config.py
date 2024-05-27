@@ -518,7 +518,7 @@ def load_yl_delta_config(replicate):
 
 
 
-def load_combined_gene_expression_config(alphas=[22, 20]):
+def load_delta_combined_gene_expression_config(alphas=[22, 20]):
 
 	from src.config import read_yl_vst_data_rep
 

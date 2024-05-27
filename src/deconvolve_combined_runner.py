@@ -8,6 +8,9 @@ from src.utils import print_fl, mkdirs_safe
 from src.timer import Timer
 from src.model import Model
 from src.config import load_yl_rg1_vst_config
+from src.config import load_combined_yl_alpha_vst_gene_expression_config
+from src.delta_config import load_delta_combined_gene_expression_config, load_yl_delta_config
+
 from matplotlib import pyplot as plt
 from src.combined_chromatin_model import CombinedChromatinModel
 
@@ -29,7 +32,7 @@ def main():
 
 	Example script command for replicate 1, gene index 10, and gamma value of 0.006
 
-	python src/deconvolve_combined_runner.py output/deconvolution_results_006_2024-03-08/ 0.006 10
+	python src/deconvolve_combined_runner.py output/deconvolve_combined_delta_2024_05_27 10
 
 
 	"""
@@ -72,8 +75,8 @@ def main():
 
 	# ----------------------
 
-	config1 = load_yl_rg1_vst_config(1)
-	config2 = load_yl_rg1_vst_config(2)
+	config1 = load_yl_delta_config(1)
+	config2 = load_yl_delta_config(2)
 
 	combined_model = CombinedChromatinModel(config1, config2)
 	combined_model.load_combined_mnase_gene(gene['gene'])
@@ -86,10 +89,9 @@ def main():
 	# ----------------------
 
 	# Deconvolve the combined gene expression model
-	from src.config import load_combined_yl_alpha_vst_gene_expression_config
 	from src.model import Model
 
-	combined_ge_config = load_combined_yl_alpha_vst_gene_expression_config()
+	combined_ge_config = load_delta_combined_gene_expression_config()
 	ge_model = Model(combined_ge_config, gene['gene'])
 	ge_model.deconvolve_find_optimal_gamma()
 
