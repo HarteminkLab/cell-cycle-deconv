@@ -75,7 +75,6 @@ def main():
 	config1 = load_yl_rg1_vst_config(1)
 	config2 = load_yl_rg1_vst_config(2)
 
-
 	combined_model = CombinedChromatinModel(config1, config2)
 	combined_model.load_combined_mnase_gene(gene['gene'])
 

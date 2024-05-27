@@ -511,8 +511,25 @@ def load_yl_delta_config(replicate):
 	expression_data = read_yl_vst_data_rep(replicate)
 	model_filename = f'models/yl_cell_cycle/wt{replicate}_rg1_delta.{alpha}.label'
 	config = Config(wt1=expression_data, model_wt1_file=model_filename, 
-		name=f'Replicate {replicate} delta-DG1, $\\alpha$={alpha}', 
+		name=f'Replicate {replicate} Delta-DG1, $\\alpha$={alpha}', 
 		replicate=replicate, alpha=alpha)
 
 	return config
 
+
+
+def load_combined_gene_expression_config(alphas=[22, 20]):
+
+	from src.config import read_yl_vst_data_rep
+
+	WT1 = read_yl_vst_data_rep(1)
+	WT2 = read_yl_vst_data_rep(2)
+
+	# model files
+	model_wt1_file = f'models/yl_cell_cycle/wt1_rg1_delta.{alphas[0]}.label'
+	model_wt2_file = f'models/yl_cell_cycle/wt2_rg1_delta.{alphas[1]}.label'
+
+	config = Config(wt1=WT1, wt2=WT2, model_wt1_file=model_wt1_file, 
+		model_wt2_file=model_wt2_file, name=f'Combined delta-DG1, $\\alpha$={alphas[0]},{alphas[1]}')
+
+	return config

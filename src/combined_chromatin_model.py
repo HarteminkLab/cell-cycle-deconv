@@ -7,6 +7,7 @@ from matplotlib import pyplot as plt
 from src.chromatin_model import ChromatinModel
 from src.chromatin_deconvolution_solver import ChromatinDeconvolveSolver
 from src.utils import print_fl
+from src.global_config import GlobalConstants
 
 
 class CombinedChromatinModel:
@@ -69,9 +70,6 @@ class CombinedChromatinModel:
 		# Combine the two G datasets row-wise
 		self.G = np.concatenate([self.G1, self.G2])
 
-		image_shape = self.chrom1_model.deconv_hist_unflattened.shape[1:]
-		self.image_shape = image_shape
-
 		# Create the first replicates model and H
 		self.deconv1_model = Model(chrom1_model.config, chrom1_model.gene_name, chrom1_model.gamma)
 		self.H1, self.H1pos = calcH(chrom1_model.config.intervals_wt1, chrom1_model.timepoints)
@@ -88,9 +86,9 @@ class CombinedChromatinModel:
 		self.deconv_model = self.deconv1_model
 		self.deconv_model.gamma = self.gamma
 
-		self.solver = ChromatinDeconvolveSolver(self.deconv1_model, self.H, self.G, 
-			image_shape=image_shape, wavelet=wavelet)
-		self.solver.define_deconvolution_problem()
+		self.solver = ChromatinDeconvolveSolver(self.deconv1_model.config, self.H, 
+			wavelet=wavelet)
+		self.solver.define_deconvolution_problem(self.G[:, 0:1])
 
 		# For plotting results
 		self.chrom1_model.solver = self.solver
@@ -103,27 +101,49 @@ class CombinedChromatinModel:
 
 
 	def deconvolve(self, verbose=False, gamma=0.006, G1=None, G2=None,
-			wavelet="Symmlet"):
+			wavelet="Symmlet", verbose_progress=True):
 
 		from src.timer import Timer
 
 		timer = Timer()
-
 		self.setup_deconv_model(gamma, G1=G1, G2=G2, wavelet=wavelet)
 
 		print_fl(f"Deconvolving combined model with gamma={self.gamma}")
 		print_fl(f"Deconvolving bin size: {self.chrom1_model.bin_width}x{self.chrom1_model.bin_height}")
 		print_fl(f"of G shape: {self.G.shape}")
+		print_fl(f"Deconvolving with gamma={self.gamma}")
 
-		self.solver.solve(gamma_value=self.gamma, verbose=verbose)
+		deconvolved_f_value = np.zeros((self.deconv_model.H.shape[1], self.G.shape[1]))
 
-		self.set_results(self.solver.f.value, 
-						  self.solver.rn, self.solver.sn,
-						  self.solver.gamma.value)
+		# Setup of the solver with single dimension G
+		m = self.G.shape[1]
+		self.sn = 0
+		self.rn = 0
+		for i in range(m):
+
+			# Set the solver's G value
+			current_G = self.G[:, i:i+1]
+			self.solver.define_deconvolution_problem(current_G)
+			self.solver.solve(gamma_value=self.gamma, verbose=verbose)
+
+			current_f = self.solver.f.value.flatten()
+			deconvolved_f_value[:, i] = current_f
+
+			self.rn += self.solver.rn / m
+			self.sn += self.solver.sn / m
+
+			if verbose_progress and i % 100 == 0:
+				timer.print_time(f"{i}/{m}")
+
+		self.deconvolved_f_value = deconvolved_f_value
 
 		print_fl(f"Deconvolved in : {timer.get_time()}")
-		print_fl(f"The fitting norm is {self.solver.rn:.2f}, "
-			  f"the smoothing norm is: {self.solver.sn:.2f}")
+		print_fl(f"The fitting norm is {self.rn:.2f}, "
+			  f"the smoothing norm is: {self.sn:.2f}")
+
+		self.set_results(self.deconvolved_f_value, 
+						  self.rn, self.sn,
+						  self.solver.gamma.value)
 
 
 	def deconvolve_find_optimal_gamma(self):
@@ -143,13 +163,13 @@ class CombinedChromatinModel:
 		self.gamma = self.find_gamma_chromatin.gamma
 
 		self.set_results(self.solver.f.value, 
-						  self.solver.rn, self.solver.sn,
+						  self.rn, self.sn,
 						  self.solver.gamma.value)
 
 		print_fl(f"Found optimal gamma in: {timer.get_time()}")
 		print_fl(f"Find optimal success: {self.found_optimal_success}")
-		print_fl(f"The fitting norm is {self.solver.rn:.2f}, "
-			  f"the smoothing norm is: {self.solver.sn:.2f}")
+		print_fl(f"The fitting norm is {self.rn:.2f}, "
+			  f"the smoothing norm is: {self.sn:.2f}")
 
 	def set_results(self, f, rn, sn, gamma):
 		"""Following completion of deconvolution or find gamma deconvolution, we
@@ -159,7 +179,6 @@ class CombinedChromatinModel:
 		have plotting code individually, so we set the results in each of them
 		"""
 
-		self.f = f
 		self.rn = rn
 		self.sn = sn
 		self.gamma = gamma
@@ -184,7 +203,7 @@ class CombinedChromatinModel:
 		self.chrom2_model.compute_ptr()
 
 
-	def create_deconvolution_plots_abbreviated_flipped(self, ge_model=None, vmax=30):
+	def create_deconvolution_plots_abbreviated_flipped(self, ge_model=None, vmax=50):
 		"""Create the deconvolution plot defined in chromatin_model.py
 		"""
 
@@ -242,7 +261,7 @@ class CombinedChromatinModel:
 			'model2_path': self.chrom2_model.config.model_wt1_file,
 			'run_date': run_date,
 			'replicate': "combined",
-			'image_shape': str(self.image_shape),
+			'image_shape': str(GlobalConstants.IMAGE_SHAPE),
 			'rep1_+1': self.chrom1_model.computed_plus_one,
 			'rep1_+2': self.chrom2_model.computed_plus_one
 			},

@@ -135,7 +135,7 @@ class ChromatinModel:
 
 
 	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, 
-		vmin=0, vmax=30, smooth=False, f=None, mask=None):
+		vmin=0, vmax=50, smooth=False, f=None, mask=None):
 
 		if f is None:
 			f = self.deconvolved_f().copy()
@@ -638,7 +638,8 @@ class ChromatinModel:
 		self.deconvolved_f_value = None
 
 
-	def deconvolve(self, solver=cvxpy.MOSEK, verbose=False, wavelet="Symmlet"):
+	def deconvolve(self, solver=cvxpy.MOSEK, verbose=False, 
+			wavelet="Symmlet", verbose_progress=True):
 		"""
 		Deconvolve the chromatin for a single gamma value
 		"""
@@ -668,7 +669,7 @@ class ChromatinModel:
 			self.rn += self.solver.rn / m
 			self.sn += self.solver.sn / m
 
-			if i % 20 == 0:
+			if verbose_progress and i % 100 == 0:
 				timer.print_time(f"{i}/{m}")
 
 		self.deconvolved_f_value = deconvolved_f_value
