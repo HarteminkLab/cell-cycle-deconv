@@ -15,7 +15,8 @@ class GlobalConstants:
 
 	MAX_Y_LEN = 256
 
-	NUM_BINS_X = (PROM_LEN + GB_LEN) // BIN_WIDTH
+	# Add one more bin to center the +1 on a bin
+	NUM_BINS_X = (PROM_LEN + GB_LEN + 1) // BIN_WIDTH
 	NUM_BINS_Y = (MAX_Y_LEN) // BIN_HEIGHT
 
 	IMAGE_SHAPE = (NUM_BINS_Y, NUM_BINS_X)

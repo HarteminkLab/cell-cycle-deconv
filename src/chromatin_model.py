@@ -30,25 +30,26 @@ class ChromatinModel:
 
 	def __init__(self, config):
 
+		from src.global_config import GlobalConstants
+
 		# Padding defines the window around the TSS to retrieve MNase data
 		self.padding = 1000
 		self.geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
 		self.config = config
 		self.gamma = 0.006 # default gamma value
 
-		self.bin_width = 32
-		self.bin_height = 32
-		self.prom_len = 288
-		self.gb_len = 512
+		self.bin_width = GlobalConstants.BIN_WIDTH
+		self.bin_height = GlobalConstants.BIN_HEIGHT
+		self.prom_len = GlobalConstants.PROM_LEN
+		self.gb_len = GlobalConstants.GB_LEN
 		self.chr = None
 
-		self.max_y_len = 256
+		self.max_y_len = GlobalConstants.MAX_Y_LEN
 
 		# For computing the image shape
-		self.num_bins_x = (self.prom_len + self.gb_len) // self.bin_width
-		self.num_bins_y = (self.max_y_len) // self.bin_height
-
-		self.image_shape = (self.num_bins_y, self.num_bins_x)
+		self.num_bins_x = GlobalConstants.NUM_BINS_X
+		self.num_bins_y = GlobalConstants.NUM_BINS_Y
+		self.image_shape = GlobalConstants.IMAGE_SHAPE
 
 	def load_deconvolution_results(self, gene_name):
 		from src.sgd import get_gene_name_orf_name, get_gene
@@ -775,10 +776,11 @@ class ChromatinModel:
 		prom_len = self.prom_len
 		gb_len = self.gb_len
 
+		# Add half a bin width to allow for the inclusion of +1 bin 
 		if self.gene.strand == '+':
-			new_span = self.computed_plus_one-prom_len, self.computed_plus_one+gb_len
+			new_span = self.computed_plus_one-prom_len-bin_width//2, self.computed_plus_one+gb_len+bin_width//2
 		else:
-			new_span = self.computed_plus_one-gb_len, self.computed_plus_one+prom_len
+			new_span = self.computed_plus_one-gb_len-bin_width//2, self.computed_plus_one+prom_len+bin_width//2
 
 		self.new_span = new_span
 
