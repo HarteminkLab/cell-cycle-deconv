@@ -26,13 +26,6 @@ class CombinedChromatinModel:
 		self.chrom1_model = ChromatinModel(config1)
 		self.chrom2_model = ChromatinModel(config2)
 
-		bin_size = 32, 32
-		self.chrom1_model.bin_width = bin_size[0]
-		self.chrom2_model.bin_width = bin_size[0]
-
-		self.chrom1_model.bin_height = bin_size[1]
-		self.chrom2_model.bin_height = bin_size[1]
-
 
 	def load_combined_mnase_gene(self, gene_name):
 		"""This takes the place of load_mnase_gene, as we don't need the
@@ -206,11 +199,11 @@ class CombinedChromatinModel:
 
 		return fig
 
-	def save_deconvolved_outputs(self, out_dir, index, using_default_flag):
+	def save_deconvolved_outputs(self, out_dir, index):
 
 		orf_name = self.deconv_model.orf_name
 		gene_name = self.deconv_model.gene_name
-		f = self.solver.f.value
+		f = self.deconvolved_f_value
 		G1 = self.G1
 		G2 = self.G2
 
