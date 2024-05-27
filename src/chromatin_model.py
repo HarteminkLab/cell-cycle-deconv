@@ -631,10 +631,9 @@ class ChromatinModel:
 		from src.chromatin_deconvolution_solver import ChromatinDeconvolveSolver
 		from src.replication_deconvolution_solver import ReplicationChromatinDeconvolveSolver
 
-		image_shape = self.deconv_hist_unflattened.shape[1:]
-		self.solver = ChromatinDeconvolveSolver(self.deconv_model, self.deconv_model.H, self.G, 
-			image_shape=image_shape, wavelet=wavelet)
-		self.solver.define_deconvolution_problem()
+		self.solver = ChromatinDeconvolveSolver(self.deconv_model.config, self.deconv_model.H, 
+			wavelet=wavelet)
+		self.solver.define_deconvolution_problem(self.G[:, 0:1])
 		self.found_optimal_success = None
 		self.deconvolved_f_value = None
 
@@ -650,7 +649,20 @@ class ChromatinModel:
 
 		print_fl(f"Deconvolving with gamma={self.gamma}")
 
-		self.solver.solve(gamma_value=self.gamma, verbose=verbose)
+		deconvolved_f_value = np.zeros((self.deconv_model.H.shape[1], self.G.shape[1]))
+
+		# Setup of the solver with single dimension G
+		for i in range(self.G.shape[1]):
+
+			# Set the solver's G value
+			current_G = self.G[:, i:i+1]
+			self.solver.define_deconvolution_problem(current_G)
+			self.solver.solve(gamma_value=self.gamma, verbose=verbose)
+
+			current_f = self.solver.f.value.flatten()
+			deconvolved_f_value[:, i] = current_f
+
+		self.deconvolved_f_value = deconvolved_f_value
 
 		print_fl(f"Deconvolved in : {timer.get_time()}")
 		print_fl(f"The fitting norm is {self.solver.rn:.2f}, "

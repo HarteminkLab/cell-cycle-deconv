@@ -19,16 +19,34 @@ class ChromatinDeconvolveSolver:
 	"""Class to handle chromatin deconvolution, will be useful for scanning for gamma values and reusing the same
 	problem definition"""
 
-	def __init__(self, config, H, solver=cvxpy.MOSEK, wavelet="Symmlet"):
+	def __init__(self, deconv_model, H, G, solver=cvxpy.MOSEK, wavelet="Symmlet"):
 
-		self.config = config
+		self.deconv_model = deconv_model
 		self.solver = solver
 		self.wavelet = wavelet
+		self.G = G
 		self.H = H
 
-		f_b = self.config.get_Hpositions_for_branch('b')
-		f_i = self.config.get_Hpositions_for_branch('i')
-		f_t = self.config.get_Hpositions_for_branch('t')
+
+	def define_deconvolution_problem(self, G=None):
+
+		solver = self.solver
+
+		if G is None:
+			G = self.G
+
+		H = self.H
+		
+		# We will add a very small value to g, to avoid divide by zero errors
+		eps = 1e-5
+		G = G + eps
+
+		# Set G parameter
+		self.G_param = cvxpy.Parameter(G.shape, nonneg=True, name='G')
+
+		f_b = self.deconv_model.config.get_Hpositions_for_branch('b')
+		f_i = self.deconv_model.config.get_Hpositions_for_branch('i')
+		f_t = self.deconv_model.config.get_Hpositions_for_branch('t')
 
 		f_it = np.concatenate([f_i, f_t])
 
@@ -43,6 +61,8 @@ class ChromatinDeconvolveSolver:
 		W2 = get_wavelet_kernel(len(f_t_mirror), type=self.wavelet)
 		W3 = get_wavelet_kernel(len(f_b_mirror), type=self.wavelet)
 
+		g_mean = G.mean()
+
 		self.f_b_mirror = f_b_mirror
 		self.f_i_mirror = f_i_mirror
 		self.f_t_mirror = f_t_mirror
@@ -50,27 +70,6 @@ class ChromatinDeconvolveSolver:
 		self.W1 = W1
 		self.W2 = W2
 		self.W3 = W3
-
-	def define_deconvolution_problem(self, G):
-
-		solver = self.solver
-
-		H = self.H
-		
-		# We will add a very small value to g, to avoid divide by zero errors
-		eps = 1e-5
-		G = G + eps
-		self.G = G
-
-		g_mean = G.mean()
-
-		f_b_mirror = self.f_b_mirror
-		f_i_mirror = self.f_i_mirror
-		f_t_mirror = self.f_t_mirror
-
-		W1 = self.W1
-		W2 = self.W2
-		W3 = self.W3
 
 		# -------- Define the optimization ------------
 
@@ -89,7 +88,7 @@ class ChromatinDeconvolveSolver:
 		smooth_f_t_result = W2@f[f_t_mirror]
 		smooth_f_b_result = W3@f[f_b_mirror]
 
-		elementwise_result = cvxpy.multiply(H@f, 1.0/self.G) - 1
+		elementwise_result = cvxpy.multiply(H@f, 1.0/G) - 1
 
 		n = G.shape[0]
 		m = G.shape[1]
