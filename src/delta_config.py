@@ -416,7 +416,7 @@ class Config:
 		"""
 
 		delta_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[0][2]
-		postg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[1][2]
+		postg1_indices = self.get_timepoints_phases_Hpositions_for_branch('t')[1][2]
 		cg1_indices = self.get_timepoints_phases_Hpositions_for_branch('t')[0][2]
 		rg1_indices = self.get_timepoints_phases_Hpositions_for_branch('i')[0][2]
 		dg1_indices = np.concatenate([
@@ -498,14 +498,20 @@ class Config:
 		return mu0, first_s_start, first_s_end, end_of_first_lambd
 
 
-def load_yl_delta_config(replicate, alpha=16):
+def load_yl_delta_config(replicate):
+
+	# Precomputed using proportion of cell cycle length and Xin's proportion
+	# of 0.3265
+	alphas = [22, 20]
 	
 	from src.config import read_yl_vst_data_rep
+
+	alpha = alphas[replicate-1]
 
 	expression_data = read_yl_vst_data_rep(replicate)
 	model_filename = f'models/yl_cell_cycle/wt{replicate}_rg1_delta.{alpha}.label'
 	config = Config(wt1=expression_data, model_wt1_file=model_filename, 
-		name=f'Replicate 1 delta-DG1, $\\alpha$={alpha}', 
+		name=f'Replicate {replicate} delta-DG1, $\\alpha$={alpha}', 
 		replicate=replicate, alpha=alpha)
 
 	return config

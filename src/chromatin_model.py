@@ -300,7 +300,7 @@ class ChromatinModel:
 		gene_title = self.gene_title()
 		title = (f"{gene_title}\n" +
 				self.config.name + ", " +
-				f"$\\gamma$={self.solver.gamma.value:.3f}\nrn={self.solver.rn:.2f}, sn={self.solver.sn:.2f}")
+				f"$\\gamma$={self.solver.gamma.value:.3f}\nrn={self.rn:.2f}, sn={self.sn:.2f}")
 		return title
 
 
@@ -652,7 +652,10 @@ class ChromatinModel:
 		deconvolved_f_value = np.zeros((self.deconv_model.H.shape[1], self.G.shape[1]))
 
 		# Setup of the solver with single dimension G
-		for i in range(self.G.shape[1]):
+		m = self.G.shape[1]
+		self.sn = 0
+		self.rn = 0
+		for i in range(m):
 
 			# Set the solver's G value
 			current_G = self.G[:, i:i+1]
@@ -662,11 +665,17 @@ class ChromatinModel:
 			current_f = self.solver.f.value.flatten()
 			deconvolved_f_value[:, i] = current_f
 
+			self.rn += self.solver.rn / m
+			self.sn += self.solver.sn / m
+
+			if i % 20 == 0:
+				timer.print_time(f"{i}/{m}")
+
 		self.deconvolved_f_value = deconvolved_f_value
 
 		print_fl(f"Deconvolved in : {timer.get_time()}")
-		print_fl(f"The fitting norm is {self.solver.rn:.2f}, "
-			  f"the smoothing norm is: {self.solver.sn:.2f}")
+		print_fl(f"The fitting norm is {self.rn:.2f}, "
+			  f"the smoothing norm is: {self.sn:.2f}")
 
 	def compute_ptr(self, quantiles=[0.2, 0.8]):
 
@@ -690,9 +699,6 @@ class ChromatinModel:
 		self.f_ranks = m-1 - f_rank
 
 
-	def get_deconv_results(self):
-		return self.solver.f, self.solver.rn, self.solver.sn
-
 	def deconvolve_find_optimal_gamma(self):
 		"""
 		Find the optimal gamma value using a binary search as defined by Xin, 2011
@@ -711,8 +717,8 @@ class ChromatinModel:
 
 		print_fl(f"Found optimal gamma in: {timer.get_time()}")
 		print_fl(f"Find optimal success: {self.found_optimal_success}")
-		print_fl(f"The fitting norm is {self.solver.rn:.2f}, "
-			  f"the smoothing norm is: {self.solver.sn:.2f}")
+		print_fl(f"The fitting norm is {self.rn:.2f}, "
+			  f"the smoothing norm is: {self.sn:.2f}")
 
 
 	# --------------- Beginning of histogram refactor --------------------
@@ -922,7 +928,7 @@ class ChromatinModel:
 		run_date = datetime.now().strftime("%D")
 
 		df = pd.DataFrame({
-			'rn': self.solver.rn, 'sn': self.solver.sn, 'gm': self.gamma,
+			'rn': self.rn, 'sn': self.sn, 'gm': self.gamma,
 			'config': self.config.name,
 			'model_path': self.config.model_wt1_file,
 			'run_date': run_date,
@@ -978,8 +984,8 @@ def load_chromatin_model_from_disk(gene_name, chromatin_dir, f_only=False):
 	chromatin_model.deconvolved_f_value = f
 	chromatin_model.f_ptrs = ptr.flatten()
 
-	chromatin_model.solver.rn = meta_data.rn
-	chromatin_model.solver.sn = meta_data.sn
+	chromatin_model.rn = meta_data.rn
+	chromatin_model.sn = meta_data.sn
 	chromatin_model.gm = meta_data.gm
 
 	return chromatin_model
