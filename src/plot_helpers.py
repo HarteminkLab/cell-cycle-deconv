@@ -133,14 +133,15 @@ def plot_rect2(ax, x1, y1, x2, y2, color=None, facecolor=None,
 						zorder=zorder
 					))
 
-def hide_spines(ax):
+def hide_spines(ax, hide_ticks=True):
 	ax.spines['top'].set_visible(False)
 	ax.spines['bottom'].set_visible(False)
 	ax.spines['left'].set_visible(False)
 	ax.spines['right'].set_visible(False)
 
-	ax.set_xticks([])
-	ax.set_yticks([])
+	if hide_ticks:
+		ax.set_xticks([])
+		ax.set_yticks([])
 
 
 

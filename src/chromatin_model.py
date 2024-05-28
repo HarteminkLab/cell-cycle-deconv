@@ -260,11 +260,12 @@ class ChromatinModel:
 
 				ax.set_ylim(*ylim)
 
-				if col < len(ax_cols)-1:
-					ax.set_yticks([])
-				else:
-					ax.yaxis.tick_right()
-					ax.yaxis.set_tick_params(pad=3, length=3)
+				# todo: Hide yticks for all cols
+				#if col < len(ax_cols)-1:
+				ax.set_yticks([])
+				#else:
+				#ax.yaxis.tick_right()
+				#ax.yaxis.set_tick_params(pad=3, length=3)
 
 				# Add some grid lines to help show where the chromatin images map to
 				xgridlines = np.linspace(0, x.max(), num_chromatin_rows)
@@ -280,8 +281,7 @@ class ChromatinModel:
 				ax.xaxis.set_tick_params(pad=3, length=0)
 
 				if col == 0:
-					ax.set_ylabel("Expression", fontsize=16, labelpad=10, 
-						ha='right', rotation=0, va='center')
+					ax.set_ylabel("Tx", fontsize=13)
 
 		title = self.define_title()
 		plt.suptitle(title, fontsize=24)

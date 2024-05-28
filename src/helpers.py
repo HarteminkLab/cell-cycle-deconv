@@ -444,35 +444,57 @@ def get_mean_between_indices(df, start, end):
 	return np.array(mean_values)
 
 
-def combine_columns_with_bins(df, bins):
-	"""
-	Combine columns of a DataFrame according to bin edges and return a new DataFrame.
+def combine_with_bins(data, bins, axis=1):
+    """
+    Combine rows or columns of a DataFrame or 2D numpy array according to bin edges and return a new DataFrame or numpy array.
 
-	Parameters:
-	df (pd.DataFrame): The input DataFrame.
-	bins (array-like): The bin edges used to combine columns.
+    Parameters:
+    data (pd.DataFrame or np.ndarray): The input DataFrame or 2D numpy array.
+    bins (array-like): The bin edges used to combine rows or columns.
+    axis (int): The axis along which to combine (0 for rows, 1 for columns).
 
-	Returns:
-	pd.DataFrame: A new DataFrame with the combined columns.
-	"""
-	# Ensure bins are sorted and unique
+    Returns:
+    pd.DataFrame or np.ndarray: A new DataFrame or numpy array with the combined rows or columns.
+    """
+    # Ensure bins are sorted and unique
+    import pandas as pd
 
-	import pandas as pd
+    bins = np.unique(bins)
+    
+    # Check if the input is a DataFrame or numpy array
+    if isinstance(data, pd.DataFrame):
+        data_type = 'DataFrame'
+    elif isinstance(data, np.ndarray):
+        data_type = 'ndarray'
+        data = pd.DataFrame(data)
+    else:
+        raise ValueError("Input data must be a pandas DataFrame or a 2D numpy array.")
+    
+    # Initialize an empty dictionary to store combined data
+    combined_data = {}
 
-	bins = np.unique(bins)
-	
-	# Initialize an empty dictionary to store combined columns
-	combined_data = {}
+    # Iterate over the bins to combine rows or columns
+    for i in range(len(bins) - 1):
+        start_idx = bins[i]
+        end_idx = bins[i + 1]
+        
+        if axis == 1:
+            # Combine columns
+            combined_data[f'{start_idx}'] = data.iloc[:, start_idx:end_idx].mean(axis=1)
+        elif axis == 0:
+            # Combine rows
+            combined_data[f'{start_idx}'] = data.iloc[start_idx:end_idx, :].mean(axis=0)
+        else:
+            raise ValueError("Axis must be 0 (rows) or 1 (columns).")
 
-	# Iterate over the bins to combine columns
-	for i in range(len(bins) - 1):
-		start_col = bins[i]
-		end_col = bins[i + 1]
-		
-		# Sum the columns between the start and end bin edges
-		combined_data[f'{start_col}'] = df.iloc[:, start_col:end_col].mean(axis=1)
-	
-	return pd.DataFrame(combined_data)
+    # Convert the combined data to the appropriate format
+    combined_df = pd.DataFrame(combined_data)
+    if axis == 0:
+    	combined_df = combined_df.T
+
+    if data_type == 'ndarray':
+        return combined_df.to_numpy()
+    return combined_df
 
 
 def select_columns_by_indices(df, start_indices, end_indices):

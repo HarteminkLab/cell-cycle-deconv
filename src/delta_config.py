@@ -438,7 +438,8 @@ class Config:
 			'CG1': cg1_indices,
 			'RG1': rg1_indices,
 			'S': s_indices,
-			'G2/M': g2_m_indices
+			'G2/M': g2_m_indices,
+			'H': np.array([-1])
 		}
 		return Hpositions_dic[phase]
 
