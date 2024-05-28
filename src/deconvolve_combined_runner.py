@@ -119,10 +119,8 @@ def main():
 
 	# -------------- Save the output ------------------
 
-	combined_model.save_deconvolved_outputs(chromatin_out_dir, gene_index, 
-		(not combined_model.found_optimal_success))
+	combined_model.save_deconvolved_outputs(chromatin_out_dir, gene_index)
 	ge_model.save_deconvolved_outputs(geneexpression_out_dir, gene_index)
-
 
 
 if __name__ == '__main__':
