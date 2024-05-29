@@ -238,7 +238,7 @@ class Config:
 		rg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('i')[0][1].values
 		cg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('t')[0][1].values
 		delta_timepoints = self.get_timepoints_phases_Hpositions_for_branch('b')[0][1].values
-		postg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('b')[1][1].values
+		postg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('t')[1][1].values
 
 		phase_map = {
 			'RG1': rg1_timepoints,
