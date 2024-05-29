@@ -53,37 +53,33 @@ class StepReplicationChromatinDeconvolveSolver:
 
 		self.adjust_bins_for_anomalous_min_maxes()
 
+	# use copy number dataset to determine range of values
+	def scale_bins(self, bins, replicate):
+
+		copy_num_rep = load_copy_num(replicate)
+		# the values of g are normalized to be between 0-1.
+		# So normalize them to be within the range of the copy number
+		# values. 
+		# todo: Should rethink how the bins should be normalized.
+		#       As they should reflect the actual copy number of the sample
+		#       including the halted cells proportion, meaning
+		#       the max will never actually get to 2.0 in the experiment.
+		copy_min, copy_max = copy_num_rep.min().scale, copy_num_rep.max().scale
+		scale_g = (copy_max-copy_min)
+		bins_normalized = bins * scale_g + copy_min
+		return bins_normalized
+
 	def select_bins(self, bins):
 
 		from src.sgd import get_orfname
-
-		# use copy number dataset to determine range of values
-		def scale_bins(bins, replicate):
-
-			copy_num_rep = load_copy_num(replicate)
-			# the values of g are normalized to be between 0-1.
-			# So normalize them to be within the range of the copy number
-			# values. 
-			# todo: Should rethink how the bins should be normalized.
-			#       As they should reflect the actual copy number of the sample
-			#       including the halted cells proportion, meaning
-			#       the max will never actually get to 2.0 in the experiment.
-			copy_min, copy_max = copy_num_rep.min().scale, copy_num_rep.max().scale
-			scale_g = (copy_max-copy_min)
-			bins_normalized = bins * scale_g + copy_min
-			return bins_normalized
-
-		# Load the bins for each replicate
-		# bins1 = self.chr_bin_curves1.iloc[bins].values.T
-		# bins2 = self.chr_bin_curves2.iloc[bins].values.T
 
 		bins1 = self.adjusted_curves_1.iloc[bins].values.T
 		bins2 = self.adjusted_curves_2.iloc[bins].values.T
 
 		# Normalize by the replicate's copy number
 		# rather than 0-1, ~1-1.5, (handles number of halted cells)
-		self.g1 = scale_bins(bins1, 1)
-		self.g2 = scale_bins(bins2, 2)
+		self.g1 = self.scale_bins(bins1, 1)
+		self.g2 = self.scale_bins(bins2, 2)
 
 		# Concatenate for the combined model
 		self.g = np.concatenate([self.g1, self.g2])
@@ -92,8 +88,9 @@ class StepReplicationChromatinDeconvolveSolver:
 	def solve(self, verbose=False):
 
 		g = self.g
+		H = self.H
 
-		n, m = self.H.shape
+		n, m = H.shape
 		n, u = self.g.shape
 
 		config = self.config1
@@ -116,7 +113,7 @@ class StepReplicationChromatinDeconvolveSolver:
 		# and the final solution.
 		f = cp.vstack([f_rg1, f_cg1, f_delta, f_pg1, f_halted])+1
 
-		elementwise_result = self.H@f - self.g
+		elementwise_result = H@f - g
 
 		objective = cp.Minimize(
 			cp.sum(cp.norm(elementwise_result, 'fro')**2)
@@ -173,7 +170,7 @@ class StepReplicationChromatinDeconvolveSolver:
 		for bin_id in np.arange(len(self.chr_bin_curves1)):
 
 			adjusted_gene = self.chr_genes.iloc[bin_id]
-			should_normalize = False
+			should_normalize = True#False
 
 			bin_dat, normalized_bin_dat, copy_scaling, (first_half, second_half),\
 				(normalized_first, normalized_second) = \
@@ -181,17 +178,17 @@ class StepReplicationChromatinDeconvolveSolver:
 
 			# Normalization is needed if min in second half 
 			# is less than the first cell cycle
-			if first_half.min() > second_half.min():
-				should_normalize = True
-				adjusted_curves_1.iloc[bin_id] = normalized_bin_dat
+			#if first_half.min() > second_half.min():
+			#	should_normalize = True
+			adjusted_curves_1.iloc[bin_id] = normalized_bin_dat
 
 			bin_dat, normalized_bin_dat, copy_scaling, (first_half, second_half),\
 				(normalized_first, normalized_second) = \
 				self.normalize_raw_bin_by_half_copy_scaling(bin_id, replicate=2)\
 
-			if first_half.min() > second_half.min():
-				should_normalize = True
-				adjusted_curves_2.iloc[bin_id] = normalized_bin_dat
+			#if first_half.min() > second_half.min():
+			#	should_normalize = True
+			adjusted_curves_2.iloc[bin_id] = normalized_bin_dat
 
 			if should_normalize:
 				fixed_genes.append(adjusted_gene)
@@ -200,6 +197,50 @@ class StepReplicationChromatinDeconvolveSolver:
 		self.adjusted_curves_2 = adjusted_curves_2
 		self.adjusted_genes = fixed_genes
 
+
+	def explore_adjustment_and_normalization(self, bin_idx, rep):
+		"""
+		Plot to check how normalization and any adjustments need to be made
+		to a raw bin.
+
+		This procedure is helpful in identifying bins whose occupancy values
+		are affected by alpha factor occupancy values. And for thinking and
+		executing ideas around adjustments needed for these bins to compute
+		an appropriate replicating timing.
+		"""
+
+		# Get the first cell cycle end, to partition the raw data
+		# into two parts
+		recovery_len, first_s_start, first_s_end, first_cc_end = \
+			self.config1.get_key_timepoints_in_raw()
+
+		bin_dat, normalized_bin_dat, copy_scaling, (first_half, second_half),\
+			(normalized_first, normalized_second) = \
+			self.normalize_raw_bin_by_half_copy_scaling(bin_idx, rep)
+		plt.figure(figsize=(11, 2))
+
+		plt.subplot(1, 3, 1)
+		plt.plot(copy_scaling)
+		plt.axvline(first_cc_end, c='red')
+		plt.title("Copy number scaling")
+
+		plt.subplot(1, 3, 2)
+		plt.plot(bin_dat, lw=1, ls='dotted', c='black')
+		plt.axvline(first_cc_end, c='red')
+
+		plt.plot(first_half, c='blue')
+		plt.plot(second_half, c='red')
+		ax = plt.subplot(1, 3, 3)
+		plt.title("First-second half raw")
+
+		plt.plot(normalized_bin_dat, c='black', lw=1, ls='dotted')
+		plt.plot(first_half.index, normalized_first)
+		plt.plot(second_half.index, normalized_second)
+		plt.title("Normalized")
+
+		plt.subplots_adjust(top=0.8)
+		plt.suptitle(f"Bin {bin_idx}, Rep{rep}")
+		
 	def normalize_raw_bin_by_half_copy_scaling(self, bin_id, replicate):
 		
 		if replicate == 1:
@@ -212,7 +253,6 @@ class StepReplicationChromatinDeconvolveSolver:
 			copy_scaling = load_copy_num(2)
 			recovery_len, first_s_start, first_s_end, first_cc_end = \
 				self.config2.get_key_timepoints_in_raw()
-
 
 		# Normalize copy scaling vector to the same as how the 
 		# bins were normalized. 
