@@ -182,6 +182,85 @@ class StepReplicationChromatinDeconvolveSolver:
 		self.adjusted_curves_1 = adjusted_curves_1
 		self.adjusted_curves_2 = adjusted_curves_2
 
+	from src.timer import Timer
+
+	def deconvolve_all_chromosomes(self):
+
+		from src.timer import Timer
+
+		timer = Timer()
+		all_chrom_fs = pd.DataFrame()
+
+		for chrom in range(1, 17):
+			print(f"Chromosome {chrom}")
+			self.deconvolve_chr_all_bins(chrom)
+			current_chr_fs_df = self.chr_fs_df.copy()
+			current_chr_fs_df['chr'] = chrom
+			current_chr_fs_df = current_chr_fs_df.reset_index().rename(
+				columns={'index': 'start'}).set_index(['chr', 'start'])
+			all_chrom_fs = pd.concat([all_chrom_fs, current_chr_fs_df])
+			timer.print_time(f"done.")
+
+		self.all_chrom_fs_df = all_chrom_fs
+
+	def deconvolve_chr_all_bins(self, chrom):
+
+		self.set_chrom(chrom)
+
+		from src.timer import Timer
+
+		timer = Timer()
+
+		n = len(self.chr_bin_curves1)
+
+		all_fs = None
+		for bin_idx in np.arange(n):
+			
+			# Total counts in this bin is 0, skip
+			if (not self.chr_bin_curves1.iloc[bin_idx].sum() > 0):
+				continue
+
+			self.select_bins([bin_idx])
+			self.solve(verbose=False)
+			if bin_idx % 40 == 0:
+				timer.print_time(f"{bin_idx}/{n}")
+			current_f = self.f
+			
+			if all_fs is None:
+				all_fs = np.zeros((n, current_f.shape[0]))
+
+			all_fs[bin_idx] = current_f.flatten()
+
+		all_fs[all_fs == 0] = np.nan
+		all_fs_df = pd.DataFrame(all_fs, index=self.chr_bin_curves1.index)
+		self.chr_fs_df = all_fs_df
+
+	def plot_deconvolved_chrom_f(self):
+
+		from src.sgd import get_chromosome_length
+
+		postg1_indices = self.config1.get_Hpositions_for_phase('postG1')
+		postg1_tps = self.config1.get_phase_timepoints_for_phase('postG1')
+
+		g1lens = self.config1.get_g1_lens()
+		cg1_len = g1lens[1]
+
+		chrom_len = get_chromosome_length(self.chrom)
+		plt.figure(figsize=(9, 2))
+
+		postg1_f = self.chr_fs_df[postg1_indices]
+
+		plt.imshow(postg1_f.T, origin='lower', aspect='auto', 
+				   extent=[0, postg1_f.index[-1], postg1_tps[0]+cg1_len, postg1_tps[-1]+cg1_len],
+				  vmin=1, vmax=2, cmap='inferno')
+		plt.title(f"Chromosome {self.chrom}, replicating timing profile", 
+			fontsize=13, pad=10)
+		plt.yticks(np.arange(20, 40, 5))
+
+		plt.ylim(40, 23)
+		plt.xlabel("Genomic position, bp")
+		plt.ylabel("Replicating timing, min")
+
 
 	def explore_adjustment_and_normalization(self, bin_idx, rep):
 		"""
