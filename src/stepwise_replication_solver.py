@@ -46,10 +46,8 @@ class StepReplicationChromatinDeconvolveSolver:
 		bin_curves1 = self.mnase_analysis_rep1.normalized_bin_curves
 		bin_curves2 = self.mnase_analysis_rep2.normalized_bin_curves
 
-		self.chr_genes = self.geneset[self.geneset.chr == chrom]
-
-		self.chr_bin_curves1 = bin_curves1.loc[self.chr_genes.index]
-		self.chr_bin_curves2 = bin_curves2.loc[self.chr_genes.index]
+		self.chr_bin_curves1 = bin_curves1.loc[chrom]
+		self.chr_bin_curves2 = bin_curves2.loc[chrom]
 
 		self.adjust_bins_for_anomalous_min_maxes()
 
@@ -169,33 +167,20 @@ class StepReplicationChromatinDeconvolveSolver:
 
 		for bin_id in np.arange(len(self.chr_bin_curves1)):
 
-			adjusted_gene = self.chr_genes.iloc[bin_id]
-			should_normalize = True#False
-
 			bin_dat, normalized_bin_dat, copy_scaling, (first_half, second_half),\
 				(normalized_first, normalized_second) = \
 				self.normalize_raw_bin_by_half_copy_scaling(bin_id, replicate=1)\
 
-			# Normalization is needed if min in second half 
-			# is less than the first cell cycle
-			#if first_half.min() > second_half.min():
-			#	should_normalize = True
 			adjusted_curves_1.iloc[bin_id] = normalized_bin_dat
 
 			bin_dat, normalized_bin_dat, copy_scaling, (first_half, second_half),\
 				(normalized_first, normalized_second) = \
 				self.normalize_raw_bin_by_half_copy_scaling(bin_id, replicate=2)\
 
-			#if first_half.min() > second_half.min():
-			#	should_normalize = True
 			adjusted_curves_2.iloc[bin_id] = normalized_bin_dat
-
-			if should_normalize:
-				fixed_genes.append(adjusted_gene)
 
 		self.adjusted_curves_1 = adjusted_curves_1
 		self.adjusted_curves_2 = adjusted_curves_2
-		self.adjusted_genes = fixed_genes
 
 
 	def explore_adjustment_and_normalization(self, bin_idx, rep):

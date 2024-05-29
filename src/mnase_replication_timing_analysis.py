@@ -327,43 +327,35 @@ class MNaseOriginAnalysis:
 
 	def compute_bin_curves(self):
 
-		from src.config import read_yl_vst_data_rep
-		from scipy.stats import pearsonr
-		from src.reference_data import load_analysis_genes
 		from src.timer import Timer
 
-		geneset = load_analysis_genes()
-
-		self.load_mnase_data(self.replicate, 1)
-
-		# In the case of replicate 2, the gene expression has one fewer
-		# timepoint, so select the columns for those timepoints in the
-		# chromatin data
-		curve_timepoints = self.timepoints
-		bin_curves = pd.DataFrame(index=geneset.index.values, columns=curve_timepoints)
-		bin_curves.loc[:] = 0.
-
 		timer = Timer()
+		self.chr_bin_curves = pd.DataFrame()
 
 		for chrom in np.arange(1, 17):
 			print(f"{chrom}", end=", ")
-			chrom_genes = geneset[geneset.chr == chrom]
 
 			self.load_mnase_data(self.replicate, chrom)
 			self.compute_sliding_window_counts_all_times()
 			self.normalize_samples()
 
-			for orf_name, gene in chrom_genes.iterrows():
-				bin_idx, bin_start = self.get_bin_for_position(gene.TSS)
-				bin_copy_num_curve = self.counts_normalized_by_copy[:, bin_idx]
-				bin_curves.loc[orf_name] = bin_copy_num_curve
+			bin_counts = (self.counts_normalized_by_copy)
+			bin_counts_df = pd.DataFrame(bin_counts.T, columns=self.timepoints,
+			            index=self.start_indices)
+			bin_counts_df['chr'] = chrom
+			bin_counts_df = bin_counts_df.reset_index().rename(columns={'index': 'start'})\
+			   .set_index(['chr', 'start'])
 
-		self.bin_curves = bin_curves
+
+			self.chr_bin_curves = pd.concat([self.chr_bin_curves, bin_counts_df])
 
 		timer.print_time()
 
 
-	def compute_replication_timing(self):
+	def normalize_and_compute_raw_replication_timing(self):
+		"""Normalize the bin curves for all chromosomes and compute
+		the raw replication timing curves"""
+
 		from src.sgd import get_orfname
 		from src.config import load_yl_rg1_vst_config
 
@@ -372,7 +364,7 @@ class MNaseOriginAnalysis:
 		mu0, lambda_val, delta, gamma1, gamma2, alpha = intervals[0], intervals[1],\
 			intervals[2], intervals[7], intervals[8], intervals[5]
 
-		bin_curves = self.bin_curves
+		bin_curves = self.chr_bin_curves
 
 		normalized_bin_curves = bin_curves.apply(lambda row: 
 			normalize_first_cc_bin_curves(row, lambda_val), axis=1)
