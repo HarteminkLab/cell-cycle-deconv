@@ -256,12 +256,12 @@ class Config:
 		rg1_indices = self.get_timepoints_phases_Hpositions_for_branch('i')[0][2]
 		cg1_indices = self.get_timepoints_phases_Hpositions_for_branch('t')[0][2]
 		delta_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[0][2]
-		postg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[1][2]
+		postg1_indices = self.get_timepoints_phases_Hpositions_for_branch('t')[1][2]
 
 		rg1_tps = self.get_timepoints_phases_Hpositions_for_branch('i')[0][1].values
 		cg1_tps = self.get_timepoints_phases_Hpositions_for_branch('t')[0][1].values
 		delta_tps = self.get_timepoints_phases_Hpositions_for_branch('b')[0][1].values
-		postg1_tps = self.get_timepoints_phases_Hpositions_for_branch('b')[1][1].values
+		postg1_tps = self.get_timepoints_phases_Hpositions_for_branch('t')[1][1].values
 
 		def df_for_phase_set(indices, tps, phase):
 			df = pd.DataFrame(
@@ -279,8 +279,8 @@ class Config:
 
 		df = pd.concat([
 			rg1_df,
-			delta_df,
 			cg1_df,
+			delta_df,
 			postg1_df 
 		])
 

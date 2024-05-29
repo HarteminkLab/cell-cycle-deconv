@@ -9,6 +9,7 @@ from matplotlib import pyplot as plt
 from src.utils import print_fl
 from src.global_config import GlobalConstants
 from src.config import load_yl_rg1_vst_config
+from src.delta_config import load_yl_delta_config
 from src.geneset import get_deconvolved_geneset
 
 
@@ -23,8 +24,8 @@ class StepReplicationChromatinDeconvolveSolver:
 		self.mnase_analysis_rep1 = mnase_analysis_rep1
 		self.mnase_analysis_rep2 = mnase_analysis_rep2
 
-		self.config1 = load_yl_rg1_vst_config(1)
-		self.config2 = load_yl_rg1_vst_config(2)
+		self.config1 = load_yl_delta_config(1)
+		self.config2 = load_yl_delta_config(2)
 
 		self.H1, _ = calcH(self.config1.intervals_wt1, 
 			GlobalConstants.CHROM_WT1_TIMEPOINTS)
@@ -98,14 +99,14 @@ class StepReplicationChromatinDeconvolveSolver:
 		config = self.config1
 		transition_point = cp.Variable(integer=True)
 
-		f_dg1_i = config.get_Hpositions_for_phase('DG1')
+		f_delta_i = config.get_Hpositions_for_phase('Delta')
 		f_rg1_i = config.get_Hpositions_for_phase('RG1')
 		f_cg1_i = config.get_Hpositions_for_phase('CG1')
 		f_pg1_i = config.get_Hpositions_for_phase('postG1')
 
-		f_rg1 = np.zeros((len(f_dg1_i), u)).astype(bool)
-		f_cg1 = np.zeros((len(f_dg1_i), u)).astype(bool)
-		f_dg1 = np.zeros((len(f_dg1_i), u)).astype(bool)
+		f_rg1 = np.zeros((len(f_rg1_i), u)).astype(bool)
+		f_cg1 = np.zeros((len(f_cg1_i), u)).astype(bool)
+		f_delta = np.zeros((len(f_delta_i), u)).astype(bool)
 		f_pg1 = cp.Variable((len(f_pg1_i), u), boolean=True)
 		f_halted = np.zeros((1, u)).astype(bool)
 
@@ -113,7 +114,7 @@ class StepReplicationChromatinDeconvolveSolver:
 		# Post G1 boolean vector we are searching for, and a 0 for halted
 		# F will be converted to 1+ values in the objective
 		# and the final solution.
-		f = cp.vstack([f_rg1, f_cg1, f_dg1, f_pg1, f_halted])+1
+		f = cp.vstack([f_rg1, f_cg1, f_delta, f_pg1, f_halted])+1
 
 		elementwise_result = self.H@f - self.g
 
