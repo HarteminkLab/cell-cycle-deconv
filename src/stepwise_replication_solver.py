@@ -190,6 +190,7 @@ class StepReplicationChromatinDeconvolveSolver:
 
 		timer = Timer()
 		all_chrom_fs = pd.DataFrame()
+		self.all_chrom_fs_df = all_chrom_fs
 
 		for chrom in range(1, 17):
 			print(f"Chromosome {chrom}")
@@ -214,6 +215,7 @@ class StepReplicationChromatinDeconvolveSolver:
 		n = len(self.chr_bin_curves1)
 
 		all_fs = None
+
 		for bin_idx in np.arange(n):
 			
 			# Total counts in this bin is 0, skip
@@ -221,7 +223,13 @@ class StepReplicationChromatinDeconvolveSolver:
 				continue
 
 			self.select_bins([bin_idx])
-			self.solve(verbose=False)
+
+			try:
+				self.solve(verbose=False)
+			except:
+				print(f"Error with bin: {bin_idx}, skipping.")
+				continue
+
 			if bin_idx % 40 == 0:
 				timer.print_time(f"{bin_idx}/{n}")
 			current_f = self.f
