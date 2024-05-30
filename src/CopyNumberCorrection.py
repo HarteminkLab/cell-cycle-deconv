@@ -17,19 +17,18 @@ class CopyNumberCorrection:
 		
 def correct_copy_number(reads, replication_profile):
 	"""
-	Corrects the read counts by copy number based on the replication profile.
+	Corrects the read counts by copy number based on the replication profile. Both reads and replication profile
+	should be in the same dimension (time along the y-axis and genomic-position/segment along the x-axis)
 
 	Parameters:
-	reads (2D array): Observed read counts at each time point.
-	replication_profile (2D array): Replication profile indicating the copy number at each time point.
+		reads (2D array): Observed read counts at each time point.
+		replication_profile (2D array): Replication profile indicating the copy number at each time point.
 
 	Returns:
-	2D array: Copy number corrected read counts.
+		2D array: Copy number corrected read counts.
 	"""
-	# Compute the average copies per genome at each time point
-	# copies_per_genome = replication_profile.mean(axis=1)
 
-	# Correct for actual replication status
+	# Correct for the replication copy number at each genomic position for each timepoint
 	corrected_reads = reads / replication_profile
 
 	# Re-normalize to ensure each time point sums to the same total
@@ -59,17 +58,15 @@ def plot_reads_bar(corrected_reads, scale=100, color='gray'):
 	for i in range(n):
 		plot_row(corrected_reads, i)
 
-	yticks = np.arange(0, scale*n*2, scale)
-
-	yticklabels = []
-	for i in range(n):
-		yticklabels = yticklabels + [0, scale]
+	spacing_between_plots = scale*2
+	yticks = np.arange(spacing_between_plots/2., spacing_between_plots*n, spacing_between_plots)
+	yticklabels = ["${t_"+str(i+1)+"}$" for i in range(n)]
 
 	plt.yticks(yticks, yticklabels)
 
-
 	xticks = np.arange(0, m)
 	xticklabels = xticks
+	plt.ylim(-spacing_between_plots*0.25, n*spacing_between_plots)
 
 	plt.xticks(xticks+0.5, xticklabels)
 
