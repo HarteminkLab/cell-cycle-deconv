@@ -73,11 +73,12 @@ class ToyReplication:
 		plt.subplot(1, 2, 1)
 		plt.imshow(self.replication_matrix, aspect='auto', origin='lower', 
 			cmap='inferno',
-			extent=[0, self.n, 0, self.timepoints[-1]])
+			extent=[-0.5, self.n-.5, 0, self.timepoints[-1]])
 		plt.title("Simulated Replication")
 		plt.ylabel("Genome position, 10kb")
 		plt.ylabel("Time")
 		plt.xlabel("Genomic position")
+		plt.xticks(np.arange(0, self.replication_matrix.shape[1], 1))
 
 
 		plt.subplot(1, 2, 2)

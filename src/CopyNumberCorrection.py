@@ -46,10 +46,15 @@ def plot_reads_bar(corrected_reads, scale=100, color='gray'):
 		dat = corrected_reads[row, :]
 		dat = np.concatenate([dat[0:], dat[-1:]])
 		xs = np.arange(len(dat))
-		y_offset = np.zeros_like(dat) + row * 2*scale
-		plt.fill_between(xs, dat+y_offset, y_offset, step='post', color=color)
+
+		y_offset = row * 2*scale
+		y_offset_arr = np.zeros_like(dat)+y_offset
+
+		plt.fill_between(xs, dat+y_offset, y_offset, step='post', color=color, lw=0)
+		plt.axhline(y_offset, c='black', lw=0.75)
 
 	n = corrected_reads.shape[0]
+	m = corrected_reads.shape[1]
 
 	for i in range(n):
 		plot_row(corrected_reads, i)
@@ -61,6 +66,12 @@ def plot_reads_bar(corrected_reads, scale=100, color='gray'):
 		yticklabels = yticklabels + [0, scale]
 
 	plt.yticks(yticks, yticklabels)
+
+
+	xticks = np.arange(0, m)
+	xticklabels = xticks
+
+	plt.xticks(xticks+0.5, xticklabels)
 
 
 def plot_observed_vs_corrected(rep_profile, observed_reads, corrected_reads):
