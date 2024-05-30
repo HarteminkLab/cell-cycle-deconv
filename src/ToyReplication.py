@@ -53,7 +53,7 @@ class ToyReplication:
 				
 				# Found a right end of the replication fork
 				if next_copy == 1 and cur_copy == 2:
-					right_ind = j+self.rep_growth_per_min
+					right_ind = j+1+self.rep_growth_per_min
 					right_ind = max(right_ind, 0)
 					updated_row[j:right_ind] = 2
 			
@@ -68,14 +68,16 @@ class ToyReplication:
 
 	def plot_replication(self):
 
-		plt.figure(figsize=(10, 2))
+		plt.figure(figsize=(7, 1.5))
+		plt.subplots_adjust(wspace=0.5)
 		plt.subplot(1, 2, 1)
 		plt.imshow(self.replication_matrix, aspect='auto', origin='lower', 
 			cmap='inferno',
 			extent=[0, self.n, 0, self.timepoints[-1]])
 		plt.title("Simulated Replication")
 		plt.ylabel("Genome position, 10kb")
-		plt.ylabel("Time, min")
+		plt.ylabel("Time")
+		plt.xlabel("Genomic position")
 
 
 		plt.subplot(1, 2, 2)
@@ -83,8 +85,8 @@ class ToyReplication:
 		# matrix
 
 		plt.plot(self.timepoints, self.avg_copy_num)
-		plt.xlabel("Time, min")
-		plt.ylabel("Average copies / genome")
+		plt.xlabel("Time")
+		plt.ylabel("Avg copy #")
 		plt.title("Average copy number over time")
 
 	def normalize_reads_matrix(self, reads_mat, plot=True):
