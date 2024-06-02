@@ -18,7 +18,7 @@ class ToyReplication:
 		self.m = len(self.timepoints)
 
 		# Replication speed
-		self.rep_speed = 1 # 10kb / min
+		self.rep_speed = 40 # 10kb / min
 		self.rep_growth_per_min = self.rep_speed * step_min
 
 		# Start copy number as 1 everywhere
@@ -78,7 +78,7 @@ class ToyReplication:
 		plt.ylabel("Genome position, 10kb")
 		plt.ylabel("Time")
 		plt.xlabel("Genomic position")
-		plt.xticks(np.arange(0, self.replication_matrix.shape[1], 1))
+		# plt.xticks(np.arange(0, self.replication_matrix.shape[1], 1))
 
 
 		plt.subplot(1, 2, 2)

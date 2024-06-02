@@ -20,8 +20,13 @@ class CombinedChromatinModel:
 		# Rename the config such that when plotting with the title
 		# the combined model name is used.
 		# Config2 will not be used for plotting
-		config1.name = f"Combined, $\\alpha$={config1.alpha},{config2.alpha}"
-		config2.name = f"Combined, $\\alpha$={config1.alpha},{config2.alpha}"
+
+		if "Delta" in config1.name:
+			config1.name = f"Combined Delta-DG1, $\\alpha$={config1.alpha},{config2.alpha}"
+			config2.name = f"Combined Delta-DG1, $\\alpha$={config1.alpha},{config2.alpha}"
+		else:
+			config1.name = f"Combined, $\\alpha$={config1.alpha},{config2.alpha}"
+			config2.name = f"Combined, $\\alpha$={config1.alpha},{config2.alpha}"
 
 		self.chrom1_model = ChromatinModel(config1)
 		self.chrom2_model = ChromatinModel(config2)
