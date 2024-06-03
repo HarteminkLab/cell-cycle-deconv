@@ -75,8 +75,13 @@ def main():
 
 	# ----------------------
 
+	# Load the configuration for the combined chromatin and gene expression models
+
 	config1 = load_yl_delta_config(1)
 	config2 = load_yl_delta_config(2)
+	combined_ge_config = load_delta_combined_gene_expression_config()
+
+	# ----------------------
 
 	combined_model = CombinedChromatinModel(config1, config2)
 	combined_model.load_combined_mnase_gene(gene['gene'])
@@ -91,7 +96,6 @@ def main():
 	# Deconvolve the combined gene expression model
 	from src.model import Model
 
-	combined_ge_config = load_delta_combined_gene_expression_config()
 	ge_model = Model(combined_ge_config, gene['gene'])
 	ge_model.deconvolve_find_optimal_gamma()
 

@@ -72,7 +72,12 @@ class ChromatinDeconvolveSolver:
 			# Set the solver's G value
 			current_G = self.G[:, i:i+1]
 			self.define_deconvolution_problem(current_G)
-			self.solve(gamma_value=gamma, verbose=verbose)
+
+			try:
+				self.solve(gamma_value=gamma, verbose=verbose)
+			except cvxpy.error.SolverError:
+				print(f"Error solving i={i}, gamma={gamma}. Skipping.")
+				continue
 
 			current_f = self.f.value.flatten()
 			deconvolved_f_value[:, i] = current_f

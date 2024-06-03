@@ -421,3 +421,15 @@ def add_gene_bin_curve(gene_name, normalized_bin_curves, repl_timing_df):
 	plt.scatter(cross_point_time, y[cross_point_time], marker='D')
 	plt.plot(x, y, label=f"{gene_name}, {cross_point_time}")
 
+
+def get_bin_for_position(position, start_indices, window_size=10000, step=2000):
+	"""Get the bin in which the position is the closest to the center of the bin"""
+
+	win = window_size
+	win_2 = win//2
+
+	position_bin_idx = np.argmin((position - win_2) > start_indices)
+	bin_start = position_bin_idx * step
+	bin_end = bin_start + win
+
+	return position_bin_idx, bin_start
