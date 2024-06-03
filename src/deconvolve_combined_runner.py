@@ -43,6 +43,10 @@ def main():
 
 	geneset = get_deconvolved_geneset()
 
+	# todo: re-running failed geneset
+	geneset = pd.read_csv('output/deconvolve_combined_delta_2024_05_27/rerun_geneset.csv').set_index('orf_name')
+	print(f"todo: Rerunning failed geneset from 6/3/2024, {len(geneset)} genes")
+
 	print_fl(f"System arguments:\t{system_args}")
 
 	# Specify output directory, gamma value and gene index
