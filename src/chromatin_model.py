@@ -620,12 +620,18 @@ class ChromatinModel:
 		refactor in the future
 		"""
 		from src.helpers import calcH
+		from src.calcH_single_g1 import calcH as calcH_single_g1
+		from src.single_G1_config import Config as Config_single_G1
 
 		self.deconv_model = Model(self.config, self.orf_name, self.gamma)
 
 		# The config for MNase and RNA-seq have a different number of timepoints, so 
 		# we need to recalculate H with the chromatin number of timepoints
-		self.deconv_model.H, self.deconv_model.Hpos = calcH(self.config.intervals_wt1, self.timepoints)
+		calcH_function = calcH
+		if isinstance(self.config, Config_single_G1):
+			calcH_function = calcH_single_g1
+
+		self.deconv_model.H, self.deconv_model.Hpos = calcH_function(self.config.intervals_wt1, self.timepoints)
 
 	def setup_solver(self, wavelet="Symmlet"):
 		from src.chromatin_deconvolution_solver import ChromatinDeconvolveSolver

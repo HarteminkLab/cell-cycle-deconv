@@ -3,6 +3,10 @@ from math import comb
 from matplotlib import pyplot as plt
 from scipy.stats import norm
 from src.helpers import calcH, createF, get_wavelet_kernel
+
+from src.calcH_single_g1 import calcH as calcH_single_g1
+from src.single_G1_config import Config as Config_single_G1
+
 from src.sgd import get_gene_name_orf_name
 
 import cvxpy as cp
@@ -34,7 +38,11 @@ class Model:
 
 		self.initial_phase_map, self.top_phase_map, self.bottom_phase_map = config.intervals_wt1[-1]
 
-		H1, self.Hpos = calcH(config.intervals_wt1, config.WT1_TIMEPOINTS)
+		calcH_function = calcH
+		if isinstance(config, Config_single_G1):
+			calcH_function = calcH_single_g1
+
+		H1, self.Hpos = calcH_function(config.intervals_wt1, config.WT1_TIMEPOINTS)
 
 		if self.config.has_two_replicates:
 			g2 = self.config.wt2_df.loc[self.orf_name].values

@@ -564,6 +564,7 @@ def get_yl2019_chromatin_timepoints(replicate):
 		return np.array([ 0, 10, 20, 30, 40, 50, 60, 70, 
 			80, 90, 100, 110, 120, 130, 140])
 
+
 def plot_H(config, H=None):
 	from src.model import color_for_key
 	import matplotlib.pyplot as plt
@@ -571,14 +572,14 @@ def plot_H(config, H=None):
 
 	rg1_cols = config.phase_columns['RG1']
 	cg1_cols = config.phase_columns['CG1']
-	delta_cols = config.phase_columns['Delta']
+	dg1_cols = config.phase_columns['DG1']
 
 	H_cols = np.array([H.shape[1]-1])
 
 	if 'postG1' in config.phase_columns:
 		post_g1_cols = config.phase_columns['postG1']
-		phases = ['H', 'RG1', 'CG1', 'Delta', 'postG1']
-		cols_list = [H_cols, rg1_cols, cg1_cols, delta_cols, post_g1_cols]
+		phases = ['H', 'RG1', 'CG1', 'DG1', 'postG1']
+		cols_list = [H_cols, rg1_cols, cg1_cols, dg1_cols, post_g1_cols]
 
 	plt.figure(figsize=FiguresConfig.FIGSIZE_SHORT_EXTRAWIDE)
 	plt.subplot(1, 2, 1)
