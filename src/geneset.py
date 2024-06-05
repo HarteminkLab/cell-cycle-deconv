@@ -38,6 +38,10 @@ def positive_control_genes():
 
 	return genes
 
+def guo_ds_genes():
+	xin_dg1_genes = pd.read_csv('datasets/datasets_from_web_deconvolution.cs.duke.edu/guo_daughter_specific_genes.csv',
+		header=None)[0].values
+	return xin_dg1_genes
 
 def get_missing_geneset():
 	"""48 genes missing from failed gene expression deconvolution."""

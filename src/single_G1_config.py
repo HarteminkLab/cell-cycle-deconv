@@ -534,7 +534,7 @@ def load_single_g1_config(replicate):
 	return config
 
 
-def load_combined_yl_alpha_vst_gene_expression_config(alphas=[28, 22]):
+def load_combined_single_g1_gene_expression_config(alphas=[28, 22]):
 
 	WT1 = read_yl_vst_data_rep(1)
 	WT2 = read_yl_vst_data_rep(2)
