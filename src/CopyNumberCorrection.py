@@ -22,7 +22,7 @@ class CopyNumberCorrector:
 		from src.timer import Timer
 		from src.helpers import calcH_config
 
-		genes = self.genes
+		genes = self.genes_w_repl_timing
 		repl_profile = pd.read_csv('datasets/computed_mnase/'\
 		    'deconvolved_all_chr_replication_profile_delta_model.csv')
 		repl_profile = repl_profile.set_index(['chr', 'start'])
@@ -69,7 +69,7 @@ class CopyNumberCorrector:
 		for orf_name, gene in genes.iterrows():
 
 			replication_profile = get_gene_replication_profile(gene.name, repl_profile, self.genes)
-			replication_idx = replication_profile.argmax()
+			replication_idx = replication_profile.round().argmax()
 
 			if replication_idx >= 0:
 				repl_timing.loc[orf_name, 'replication_H_index'] = replication_idx
@@ -94,7 +94,7 @@ class CopyNumberCorrector:
 		}, index=self.ge_data.index)
 
 		# Select only genes in our gene set (filtered for low read count)
-		self.ge_comparison_ptr_df = ge_comparison_ptr_df.loc[self.genes.index]
+		self.ge_comparison_ptr_df = ge_comparison_ptr_df.loc[self.genes_w_repl_timing.index]
 
 	def plot_ptrs(self, orfs=None):
 		plt.figure(figsize=(4, 4))
@@ -104,7 +104,11 @@ class CopyNumberCorrector:
 		if orfs is not None:
 			dat = dat.loc[orfs]
 
-		plt.scatter(dat.raw_ptr, dat.corrected_ptr, s=1)
+		dat = dat.join(self.genes_w_repl_timing[['replication_time']], how='inner')
+		dat = dat.sort_values('replication_time', ascending=True)
+
+		plt.scatter(dat.raw_ptr, dat.corrected_ptr, s=1,
+			c=dat.replication_time, cmap='viridis_r')
 		plt.title(f"Uncorrected PTR vs Corrected PTR values,\nn={len(dat)}")
 		plt.xlabel("Raw expression PTR")
 		plt.ylabel("Copy-number-corrected expression PTR")
@@ -163,7 +167,7 @@ def copy_number_correct(H, gene, data_to_correct, repl_profiles, geneset):
 
 	# Identify the time of replication
 	replication_profile = get_gene_replication_profile(gene.name, repl_profiles, geneset)
-	replication_idx = replication_profile.argmax()
+	replication_idx = replication_profile.round().argmax()
 	
 	# Within the H matrix, identify the subset of
 	# postG1 that will be copy number 2
