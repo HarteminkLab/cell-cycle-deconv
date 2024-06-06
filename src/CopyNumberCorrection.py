@@ -50,6 +50,36 @@ class CopyNumberCorrector:
 		self.corrected_gene_expression = corrected_gene_expression
 		self.normalized_corrected_ge = normalize_total_reads(corrected_gene_expression)
 
+	def compute_replication_timing(self):
+		from src.timer import Timer
+		from src.helpers import calcH_config
+
+		genes = self.genes
+		repl_profile = pd.read_csv('datasets/computed_mnase/'\
+		    'deconvolved_all_chr_replication_profile_delta_model.csv')
+		repl_profile = repl_profile.set_index(['chr', 'start'])
+
+		config = load_yl_delta_config(1)
+		H, Hpos = calcH_config(config)
+		    
+		repl_timing = self.genes[[]].copy()
+		repl_timing['replication_time'] = np.nan
+		repl_timing['replication_H_index'] = np.nan
+
+		for orf_name, gene in genes.iterrows():
+
+			replication_profile = get_gene_replication_profile(gene.name, repl_profile, self.genes)
+			replication_idx = replication_profile.argmax()
+
+			if replication_idx >= 0:
+				repl_timing.loc[orf_name, 'replication_H_index'] = replication_idx
+
+			if replication_idx >= 0:
+				repl_timing.loc[orf_name, 'replication_time'] = config.get_timepoint_for_index(replication_idx)
+
+		self.genes_w_repl_timing = self.genes.join(repl_timing).dropna()
+
+
 	def compute_ptrs(self):
 		from src.peak_to_trough import compute_quantile_ptr
 
@@ -66,10 +96,16 @@ class CopyNumberCorrector:
 		# Select only genes in our gene set (filtered for low read count)
 		self.ge_comparison_ptr_df = ge_comparison_ptr_df.loc[self.genes.index]
 
-	def plot_ptrs(self):
+	def plot_ptrs(self, orfs=None):
 		plt.figure(figsize=(4, 4))
-		plt.scatter(self.ge_comparison_ptr_df.raw_ptr, self.ge_comparison_ptr_df.corrected_ptr, s=1)
-		plt.title(f"Uncorrected PTR vs Corrected PTR values,\nn={len(self.ge_comparison_ptr_df)}")
+
+		dat = self.ge_comparison_ptr_df
+
+		if orfs is not None:
+			dat = dat.loc[orfs]
+
+		plt.scatter(dat.raw_ptr, dat.corrected_ptr, s=1)
+		plt.title(f"Uncorrected PTR vs Corrected PTR values,\nn={len(dat)}")
 		plt.xlabel("Raw expression PTR")
 		plt.ylabel("Copy-number-corrected expression PTR")
 
