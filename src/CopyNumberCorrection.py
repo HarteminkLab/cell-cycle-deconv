@@ -5,22 +5,88 @@ import matplotlib.pyplot as plt
 from src.mnase_replication_timing_analysis import get_bin_for_position
 from src.geneset import get_deconvolved_geneset
 from src.helpers import calcH_config
+from src.delta_config import load_yl_delta_config
+from src.config import read_yl_vst_data_rep
 
 
-class CopyNumberCorrection:
-	"""Currently only used in toy example."""
-	
-	def __init__(self, reads, replication_profile):
+class CopyNumberCorrector:
 
-		self.reads = reads
-		self.replication_profile = replication_profile
-		self.corrected_reads = correct_copy_number(reads, replication_profile)
+	def __init__(self):
+		# Load the gene expression data and geneset
+		self.ge_data = read_yl_vst_data_rep(1)
+		self.genes = get_deconvolved_geneset()
+		self.normalized_ge = normalize_total_reads(self.ge_data)
+		
+
+	def correct_for_copy_number(self):
+		from src.timer import Timer
+		from src.helpers import calcH_config
+
+		genes = self.genes
+		repl_profile = pd.read_csv('datasets/computed_mnase/'\
+		    'deconvolved_all_chr_replication_profile_delta_model.csv')
+		repl_profile = repl_profile.set_index(['chr', 'start'])
+
+		config = load_yl_delta_config(1)
+		H, Hpos = calcH_config(config)
+		    
+		timer = Timer()
+		i = 0
+		corrected_gene_expression = self.normalized_ge.copy()
+
+		for orf_name, gene in genes.iterrows():
+		    
+		    if i % 1000 == 0:
+		        timer.print_time(f"{i}/{len(genes)}")
+
+		    gene_expression = self.normalized_ge.loc[gene.name]
+
+		    corrected_data = copy_number_correct(H, gene, gene_expression, 
+		        repl_profile, genes)
+		    corrected_gene_expression.loc[orf_name] = corrected_data
+
+		    i += 1
+
+		self.corrected_gene_expression = corrected_gene_expression
+		self.normalized_corrected_ge = normalize_total_reads(corrected_gene_expression)
+
+	def compute_ptrs(self):
+		from src.peak_to_trough import compute_quantile_ptr
+
+		ge_ptrs = np.apply_along_axis(lambda mat: compute_quantile_ptr(mat,
+		    0.2, 0.8), 1, self.normalized_ge.values)
+		corrected_ge_ptrs = np.apply_along_axis(lambda mat: compute_quantile_ptr(mat,
+		   0.2, 0.8), 1, self.normalized_corrected_ge.values)
+
+		ge_comparison_ptr_df = pd.DataFrame({
+		    "raw_ptr": ge_ptrs,
+		    "corrected_ptr": corrected_ge_ptrs,
+		}, index=self.ge_data.index)
+
+		# Select only genes in our gene set (filtered for low read count)
+		self.ge_comparison_ptr_df = ge_comparison_ptr_df.loc[self.genes.index]
+
+	def plot_ptrs(self):
+		plt.figure(figsize=(4, 4))
+		plt.scatter(self.ge_comparison_ptr_df.raw_ptr, self.ge_comparison_ptr_df.corrected_ptr, s=1)
+		plt.title(f"Uncorrected PTR vs Corrected PTR values,\nn={len(self.ge_comparison_ptr_df)}")
+		plt.xlabel("Raw expression PTR")
+		plt.ylabel("Copy-number-corrected expression PTR")
 
 
-	def plot_observed_vs_corrected(self):
-		plot_observed_vs_corrected(self.replication_profile, self.reads, self.corrected_reads)
+	def plot_corrected_gene(self, orf_name):
+		gene = self.genes.loc[orf_name]
+		plt.figure(figsize=(4, 3))
+		plt.plot(self.normalized_ge.loc[gene.name])
+		plt.plot(self.normalized_corrected_ge.loc[gene.name], ls='dotted')
+		plt.title(orf_name)
 
-	
+def normalize_total_reads(ge_data, total_counts=50000):
+    normalized_reads = ge_data / \
+        ge_data.sum(axis=0).values.reshape((1, -1)) * total_counts
+    return normalized_reads
+
+
 def get_gene_replication_profile(orf_name, repl_profile=None, geneset=None):
 	"""Get the replication profile for a given orf. Note the profile returned
 	using the Delta-DG1 model.
@@ -82,95 +148,3 @@ def copy_number_correct(H, gene, data_to_correct, repl_profiles, geneset):
 
 	return data_corrected
 	
-
-def correct_copy_number(reads, replication_profile):
-	"""
-	Used for the toy example.
-
-	Corrects the read counts by copy number based on the replication profile. Both reads and replication profile
-	should be in the same dimension (time along the y-axis and genomic-position/segment along the x-axis)
-
-	Parameters:
-		reads (2D array): Observed read counts at each time point.
-		replication_profile (2D array): Replication profile indicating the copy number at each time point.
-
-	Returns:
-		2D array: Copy number corrected read counts.
-	"""
-
-	# Correct for the replication copy number at each genomic position for each timepoint
-	corrected_reads = reads / replication_profile
-
-	# Re-normalize to ensure each time point sums to the same total
-	total_reads_per_timepoint = reads.sum(axis=1).reshape((-1, 1))
-	normalization_factors = total_reads_per_timepoint / corrected_reads.sum(axis=1).reshape((-1, 1))
-	normalized_corrected_reads = corrected_reads * normalization_factors
-
-	return normalized_corrected_reads
-
-
-def plot_reads_bar(corrected_reads, scale=100, color='gray'):
-
-	def plot_row(corrected_reads, row):
-		dat = corrected_reads[row, :]
-		dat = np.concatenate([dat[0:], dat[-1:]])
-		xs = np.arange(len(dat))
-
-		y_offset = row * 2*scale
-		y_offset_arr = np.zeros_like(dat)+y_offset
-
-		plt.fill_between(xs, dat+y_offset, y_offset, step='post', color=color, lw=0)
-		plt.axhline(y_offset, c='black', lw=0.75)
-
-	n = corrected_reads.shape[0]
-	m = corrected_reads.shape[1]
-
-	for i in range(n):
-		plot_row(corrected_reads, i)
-
-	spacing_between_plots = scale*2
-	yticks = np.arange(spacing_between_plots/2., spacing_between_plots*n, spacing_between_plots)
-	yticklabels = ["${t_"+str(i+1)+"}$" for i in range(n)]
-
-	plt.yticks(yticks, yticklabels)
-
-	xticks = np.arange(0, m)
-	xticklabels = xticks
-	plt.ylim(-spacing_between_plots*0.25, n*spacing_between_plots)
-
-	# plt.xticks(xticks+0.5, xticklabels)
-
-
-def plot_observed_vs_corrected(rep_profile, observed_reads, corrected_reads):
-	plt.figure(figsize=(11, 6))
-	plt.subplots_adjust(hspace=0.5)
-
-	plt.subplot(2, 3, 1)
-	plot_reads_bar(rep_profile, scale=2., color=plt.get_cmap('tab10')(0))
-	plt.title("Replication profile")
-	plt.xlabel("Genomic position")
-
-	plt.subplot(2, 3, 2)
-	plot_reads_bar(observed_reads)
-	plt.title("Observed reads")
-	plt.xlabel("Genomic position")
-
-	plt.subplot(2, 3, 3)
-	plot_reads_bar(corrected_reads)
-	plt.title("Corrected reads")
-	plt.xlabel("Genomic position")
-
-	plt.subplot(2, 3, 4)
-	plt.plot(rep_profile.mean(axis=1))
-	plt.title("Average copies per genome")
-	plt.xlabel("Time")
-
-	plt.subplot(2, 3, 5)
-	plt.plot(observed_reads.mean(axis=1))
-	plt.title("Observed, total reads per time")
-	plt.xlabel("Time")
-
-	plt.subplot(2, 3, 6)
-	plt.plot(corrected_reads.mean(axis=1))
-	plt.title("Corrected, total reads per time")
-	plt.xlabel("Time")
