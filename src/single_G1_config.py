@@ -506,7 +506,7 @@ def read_yl_vst_data_rep(replicate):
 	return wt_data
 
 
-def load_yl_replicate1_rg1_alpha_vst_config(alpha=28):
+def load_yl_replicate1_rg1_alpha_vst_config(alpha=22):
 	"""Load the model in which alpha is set to delay between separation and cytokinesis"""
 	wt1 = read_yl_vst_data_rep(1)
 	model_wt1_file = f'models/yl_cell_cycle/wt1_rg1.{alpha}.label'
@@ -515,7 +515,7 @@ def load_yl_replicate1_rg1_alpha_vst_config(alpha=28):
 
 	return config
 
-def load_yl_replicate2_rg1_alpha_vst_config(alpha=22):
+def load_yl_replicate2_rg1_alpha_vst_config(alpha=20):
 	"""Load the model in which alpha is set to delay between separation and cytokinesis"""
 	wt2 = read_yl_vst_data_rep(2)
 
@@ -534,7 +534,7 @@ def load_single_g1_config(replicate):
 	return config
 
 
-def load_combined_single_g1_gene_expression_config(alphas=[28, 22]):
+def load_combined_single_g1_gene_expression_config(alphas=[22, 20]):
 
 	WT1 = read_yl_vst_data_rep(1)
 	WT2 = read_yl_vst_data_rep(2)

@@ -8,6 +8,9 @@ START = 1000
 # Maximum number of cell cycle "runs"
 MAX_RUNS = 10
 
+def calcH_config(config):
+	return calcH(config.intervals_wt1, config.WT1_TIMEPOINTS)
+
 def calcH(model_intervals, timepoints):
 	parameters, relations, initial_timepoints, top_timepoints, bottom_timepoints, _ = model_intervals
 

@@ -1,8 +1,14 @@
 
+import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
+from src.mnase_replication_timing_analysis import get_bin_for_position
+from src.geneset import get_deconvolved_geneset
+from src.helpers import calcH_config
+
 
 class CopyNumberCorrection:
+	"""Currently only used in toy example."""
 	
 	def __init__(self, reads, replication_profile):
 
@@ -14,9 +20,71 @@ class CopyNumberCorrection:
 	def plot_observed_vs_corrected(self):
 		plot_observed_vs_corrected(self.replication_profile, self.reads, self.corrected_reads)
 
-		
+    
+def get_gene_replication_profile(orf_name):
+    """Get the replication profile for a given orf. Note the profile returned
+    using the Delta-DG1 model.
+    
+    Loads the deconvolved profile for the given gene orf, from the gene's 
+    assigned bin
+    
+    Returns vector of the deconvolved profile [1 and 2's representing the copy number
+    at each timepoint]
+    """
+    repl_profile = pd.read_csv('datasets/computed_mnase/'\
+        'deconvolved_all_chr_replication_profile_delta_model.csv')
+    repl_profile = repl_profile.set_index(['chr', 'start'])
+
+    from src.geneset import get_deconvolved_geneset
+    
+    geneset = get_deconvolved_geneset()
+    gene = geneset.loc[orf_name]
+    chrom = gene.chr
+    start_indices = repl_profile.loc[chrom].index.values
+
+    chrom_repl_profile = repl_profile.loc[chrom]
+    bin_idx, bin_start_bp = get_bin_for_position(gene.TSS, start_indices)
+    gene_repl_profil = chrom_repl_profile.loc[bin_start_bp]
+    gene_repl_profil.index = gene_repl_profil.index.astype(int)
+    
+    return gene_repl_profil
+    
+
+def copy_number_correct(config, gene, data_to_correct):
+    """Correct the gene data by copy number. Uses the H matrix and the replication timing
+    for a gene to effectly reduce the proportion of data in copy number 2 timepoints to 
+    1. 
+    """
+
+    # Identify the time of replication
+    replication_profile = get_gene_replication_profile(gene.name)
+    replication_idx = replication_profile.argmax()
+    
+    # Within the H matrix, identify the subset of
+    # postG1 that will be copy number 2
+    H, Hpos = calcH_config(config)
+    copy_2_H = H[:, replication_idx:-1]
+
+    # Compute the proportion of copy number 2
+    # and copy number 1 cells
+    prop_cop2 = copy_2_H.sum(axis=1)
+    prop_cop1 = 1 - prop_cop2
+    
+    # Correct the data by halving
+    # the copy number 1 proportion
+    data_cop1 = data_to_correct * prop_cop1
+    data_cop2 = data_to_correct * prop_cop2 * 0.5
+    
+    # Recombine the copy number 1 and copy number 2 (corrected)
+    data_corrected = data_cop1 + data_cop2
+
+    return data_corrected
+    
+
 def correct_copy_number(reads, replication_profile):
 	"""
+	Used for the toy example.
+
 	Corrects the read counts by copy number based on the replication profile. Both reads and replication profile
 	should be in the same dimension (time along the y-axis and genomic-position/segment along the x-axis)
 

@@ -49,7 +49,7 @@ class Model:
 			self.g2 = g2
 			self.g = np.concatenate((g1, g2))
 
-			H2, _ = calcH(config.intervals_wt2, config.WT2_TIMEPOINTS)
+			H2, _ = calcH_function(config.intervals_wt2, config.WT2_TIMEPOINTS)
 			self.H = np.concatenate((H1, H2))
 
 		else:

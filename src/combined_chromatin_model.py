@@ -45,6 +45,8 @@ class CombinedChromatinModel:
 
 	def	setup_deconv_model(self, gamma=0.006, G1=None, G2=None, wavelet="Symmlet"):
 		from src.helpers import calcH
+		from src.calcH_single_g1 import calcH as calcH_single_g1
+		from src.single_G1_config import Config as Config_single_G1
 		from src.model import Model
 
 		chrom1_model = self.chrom1_model
@@ -54,6 +56,10 @@ class CombinedChromatinModel:
 
 		# Next we will need to setup the deconvolution model to combine the H
 		# and the deconvolution G data
+
+		calcH_function = calcH
+		if isinstance(chrom1_model.config, Config_single_G1):
+			calcH_function = calcH_single_g1
 
 		if G1 is None:
 			self.G1 = chrom1_model.G
@@ -70,11 +76,11 @@ class CombinedChromatinModel:
 
 		# Create the first replicates model and H
 		self.deconv1_model = Model(chrom1_model.config, chrom1_model.gene_name, chrom1_model.gamma)
-		self.H1, self.H1pos = calcH(chrom1_model.config.intervals_wt1, chrom1_model.timepoints)
+		self.H1, self.H1pos = calcH_function(chrom1_model.config.intervals_wt1, chrom1_model.timepoints)
 
 		# And the second
 		self.deconv2_model = Model(chrom2_model.config, chrom2_model.gene_name, chrom2_model.gamma)
-		self.H2, self.H2pos = calcH(chrom2_model.config.intervals_wt1, chrom2_model.timepoints)
+		self.H2, self.H2pos = calcH_function(chrom2_model.config.intervals_wt1, chrom2_model.timepoints)
 
 		# Combine the H matrices
 		self.H = np.concatenate([self.H1, self.H2])
