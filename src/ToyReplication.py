@@ -64,6 +64,63 @@ class ToyReplication:
 			self.replication_matrix[i:, :] = updated_row
 			self.avg_copy_num = self.replication_matrix.mean(axis=1)
 
+		# Create a replication timing profile based on the index from 1 to 2
+		# todo: index == time for this example
+		self.replication_times = self.replication_matrix.argmax(axis=0)
+
+	def set_reads(self, reads, tps):
+
+		self.reads = reads
+		self.tps = tps
+
+	def copy_number_correction(self):
+		from src.CopyNumberCorrection import copy_number_correct
+
+		def normalize_read_counts(read_counts, norm_scale=5000., axis=1):
+			"""Normalize reads across columns"""
+			normalized_reads = (read_counts / \
+				read_counts.sum(axis=axis).reshape((-1, 1))) * norm_scale
+			return normalized_reads
+
+		self.copy_num_2_props = create_copy_number_2_prop_mat(self.tps, self.replication_times)
+
+		# Generate reads as constant vector of ones, and normalize
+		self.normalized_reads = normalize_read_counts(self.reads)
+
+		# Copy number correct and normalize the corrected reads
+		self.corrected_copy_num_reads = copy_number_correct(self.copy_num_2_props, self.normalized_reads)
+		self.normalized_corrected_reads = normalize_read_counts(self.corrected_copy_num_reads, axis=1)
+
+
+	def plot_correction(self):
+		extent = [0, self.n, -5, self.tps[-1]+5]
+		 
+		plt.figure(figsize=(19, 3))
+
+		plt.subplot(1, 4, 1)
+		plt.imshow(self.copy_num_2_props, origin='lower', aspect='auto', vmax=1.)
+		plt.colorbar()
+		plt.title("Replicated genome over time")
+
+		plt.subplot(1, 4, 2)
+		plt.imshow(self.normalized_reads, aspect='auto', origin='lower',
+		          cmap='RdBu_r', vmin=70, vmax=130, extent=extent)
+		plt.colorbar()
+		plt.title("Unnormalized reads")
+
+		plt.subplot(1, 4, 3)
+		plt.imshow(self.corrected_copy_num_reads, aspect='auto', origin='lower',
+		          cmap='RdBu_r', vmin=70, vmax=130, extent=extent)
+		plt.colorbar()
+		plt.title("Corrected for copy number")
+
+		plt.subplot(1, 4, 4)
+		plt.imshow(self.normalized_corrected_reads, aspect='auto', origin='lower', 
+		    cmap='RdBu_r', vmin=70, vmax=130, extent=extent)
+		plt.colorbar()
+		plt.title("Normalized + Corrected for copy number")
+
+
 	def plot_replication(self):
 
 		plt.figure(figsize=(7, 1.5))
@@ -154,3 +211,24 @@ class ToyReplication:
 		plt.ylabel("Average reads")
 		plt.title("Average reads normalized")
 
+
+from scipy.stats.distributions import norm
+
+# Approximate a normal distribution of cells moving through the time course
+# the proportion of replicated DNA is determined by the variation in the cells
+# that have crossed the replication time
+
+def create_copy_number_2_prop_mat(tps, replication_times, std=5):
+	"""Create a copy number proportional matrix from replication times
+	and timepoints we are interested in"""
+
+	copy_num_2_props = np.zeros((len(tps), len(replication_times)))
+
+	for j in range(len(replication_times)):
+		replication_time = replication_times[j]    
+		for i in range(len(tps)):
+			t = tps[i]
+			copy_num_2_prop = (1 - norm.cdf(replication_time, loc=t, scale=std))
+			copy_num_2_props[i, j] = copy_num_2_prop
+
+	return copy_num_2_props
