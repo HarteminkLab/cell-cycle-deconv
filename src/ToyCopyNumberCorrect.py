@@ -7,46 +7,6 @@ from src.geneset import get_deconvolved_geneset
 from src.helpers import calcH_config
 
 
-class CopyNumberCorrection:
-	"""Currently only used in toy example."""
-	
-	def __init__(self, reads, replication_profile):
-
-		self.reads = reads
-		self.replication_profile = replication_profile
-		self.corrected_reads = correct_copy_number(reads, replication_profile)
-
-
-	def plot_observed_vs_corrected(self):
-		plot_observed_vs_corrected(self.replication_profile, self.reads, self.corrected_reads)
-	
-
-def correct_copy_number(reads, replication_profile):
-	"""
-	Used for the toy example.
-
-	Corrects the read counts by copy number based on the replication profile. Both reads and replication profile
-	should be in the same dimension (time along the y-axis and genomic-position/segment along the x-axis)
-
-	Parameters:
-		reads (2D array): Observed read counts at each time point.
-		replication_profile (2D array): Replication profile indicating the copy number at each time point.
-
-	Returns:
-		2D array: Copy number corrected read counts.
-	"""
-
-	# Correct for the replication copy number at each genomic position for each timepoint
-	corrected_reads = reads / replication_profile
-
-	# Re-normalize to ensure each time point sums to the same total
-	total_reads_per_timepoint = reads.sum(axis=1).reshape((-1, 1))
-	normalization_factors = total_reads_per_timepoint / corrected_reads.sum(axis=1).reshape((-1, 1))
-	normalized_corrected_reads = corrected_reads * normalization_factors
-
-	return normalized_corrected_reads
-
-
 def plot_reads_bar(corrected_reads, scale=100, color='gray'):
 
 	def plot_row(corrected_reads, row):

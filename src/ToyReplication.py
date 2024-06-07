@@ -8,18 +8,16 @@ class ToyReplication:
 	Class to create an example replication timing profile from predefined origin locations.
 	"""
 
-	def __init__(self, n, origins, step_min, length_timecourse):
+	def __init__(self, n, origins, timepoints):
 
 		self.n = n
-		self.length_timecourse = length_timecourse
-		self.step_min = step_min
 		self.origins = origins
-		self.timepoints = np.arange(0, length_timecourse+step_min, step_min)
+		self.timepoints = timepoints
 		self.m = len(self.timepoints)
 
 		# Replication speed
-		self.rep_speed = 40 # 10kb / min
-		self.rep_growth_per_min = self.rep_speed * step_min
+		self.rep_speed = 1 # 10kb / min
+		self.rep_growth_per_min = self.rep_speed
 
 		# Start copy number as 1 everywhere
 		self.replication_matrix = (np.zeros((self.m, n))+1).astype(int)

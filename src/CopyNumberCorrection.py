@@ -24,29 +24,35 @@ class CopyNumberCorrector:
 
 		genes = self.genes_w_repl_timing
 		repl_profile = pd.read_csv('datasets/computed_mnase/'\
-		    'deconvolved_all_chr_replication_profile_delta_model.csv')
+			'deconvolved_all_chr_replication_profile_delta_model.csv')
 		repl_profile = repl_profile.set_index(['chr', 'start'])
 
 		config = load_yl_delta_config(1)
 		H, Hpos = calcH_config(config)
-		    
+			
 		timer = Timer()
 		i = 0
 		corrected_gene_expression = self.normalized_ge.copy()
 
+		# For each gene
 		for orf_name, gene in genes.iterrows():
-		    
-		    if i % 1000 == 0:
-		        timer.print_time(f"{i}/{len(genes)}")
+			
+			if i % 1000 == 0:
+				timer.print_time(f"{i}/{len(genes)}")
 
-		    gene_expression = self.normalized_ge.loc[gene.name]
+			# Load the gene expression for the gene
+			gene_expression = self.normalized_ge.loc[gene.name]
 
-		    corrected_data = copy_number_correct(H, gene, gene_expression, 
-		        repl_profile, genes)
-		    corrected_gene_expression.loc[orf_name] = corrected_data
+			# Correct the copy number using H and the replication profile
+			# and save into new gene expression table
+			corrected_data = copy_number_correct_H(H, gene, gene_expression, 
+				repl_profile, genes)
+			corrected_gene_expression.loc[orf_name] = corrected_data
 
-		    i += 1
+			i += 1
 
+		# Then, normalize such that for all genes, the samples
+		# are equalized
 		self.corrected_gene_expression = corrected_gene_expression
 		self.normalized_corrected_ge = normalize_total_reads(corrected_gene_expression)
 
@@ -56,12 +62,12 @@ class CopyNumberCorrector:
 
 		genes = self.genes
 		repl_profile = pd.read_csv('datasets/computed_mnase/'\
-		    'deconvolved_all_chr_replication_profile_delta_model.csv')
+			'deconvolved_all_chr_replication_profile_delta_model.csv')
 		repl_profile = repl_profile.set_index(['chr', 'start'])
 
 		config = load_yl_delta_config(1)
 		H, Hpos = calcH_config(config)
-		    
+			
 		repl_timing = self.genes[[]].copy()
 		repl_timing['replication_time'] = np.nan
 		repl_timing['replication_H_index'] = np.nan
@@ -84,17 +90,21 @@ class CopyNumberCorrector:
 		from src.peak_to_trough import compute_quantile_ptr
 
 		ge_ptrs = np.apply_along_axis(lambda mat: compute_quantile_ptr(mat,
-		    0.2, 0.8), 1, self.normalized_ge.values)
+			0.2, 0.8), 1, self.normalized_ge.values)
 		corrected_ge_ptrs = np.apply_along_axis(lambda mat: compute_quantile_ptr(mat,
 		   0.2, 0.8), 1, self.normalized_corrected_ge.values)
 
 		ge_comparison_ptr_df = pd.DataFrame({
-		    "raw_ptr": ge_ptrs,
-		    "corrected_ptr": corrected_ge_ptrs,
+			"raw_ptr": ge_ptrs,
+			"corrected_ptr": corrected_ge_ptrs,
 		}, index=self.ge_data.index)
 
 		# Select only genes in our gene set (filtered for low read count)
 		self.ge_comparison_ptr_df = ge_comparison_ptr_df.loc[self.genes_w_repl_timing.index]
+		self.ge_comparison_ptr_df['difference'] = \
+			self.ge_comparison_ptr_df.corrected_ptr - self.ge_comparison_ptr_df.raw_ptr
+		self.ge_comparison_ptr_df = self.ge_comparison_ptr_df.join(
+			self.genes_w_repl_timing[['replication_time']])
 
 	def plot_ptrs(self, orfs=None):
 		plt.figure(figsize=(4, 4))
@@ -103,9 +113,6 @@ class CopyNumberCorrector:
 
 		if orfs is not None:
 			dat = dat.loc[orfs]
-
-		dat = dat.join(self.genes_w_repl_timing[['replication_time']], how='inner')
-		dat = dat.sort_values('replication_time', ascending=True)
 
 		plt.scatter(dat.raw_ptr, dat.corrected_ptr, s=1,
 			c=dat.replication_time, cmap='viridis_r')
@@ -122,9 +129,9 @@ class CopyNumberCorrector:
 		plt.title(orf_name)
 
 def normalize_total_reads(ge_data, total_counts=50000):
-    normalized_reads = ge_data / \
-        ge_data.sum(axis=0).values.reshape((1, -1)) * total_counts
-    return normalized_reads
+	normalized_reads = ge_data / \
+		ge_data.sum(axis=0).values.reshape((1, -1)) * total_counts
+	return normalized_reads
 
 
 def get_gene_replication_profile(orf_name, repl_profile=None, geneset=None):
@@ -157,31 +164,65 @@ def get_gene_replication_profile(orf_name, repl_profile=None, geneset=None):
 	gene_repl_profil.index = gene_repl_profil.index.astype(int)
 	
 	return gene_repl_profil
-	
 
-def copy_number_correct(H, gene, data_to_correct, repl_profiles, geneset):
-	"""Correct the gene data by copy number. Uses the H matrix and the replication timing
-	for a gene to effectly reduce the proportion of data in copy number 2 timepoints to 
-	1. 
+
+def copy_number_correct_H(H, gene, data_to_correct, repl_profiles, geneset):
+	"""Compute the copy number correction. First compute the proportion of replicated DNA
+	for this segment of the genome, by combining H (which contains the entire mixture of cells at
+	each timepoint) and the replication profile (the index in H in which the gene's local genome
+	has been replicated).
+
+	Procedure:
+	1. Identify the precomputed replication index in H
+	2. Collect the subset of columns in H that signify replicated DNA and sum into a proportions over time
+	3. The replicated proportions over time are then used to compute how much of the data to scale down to 
+		1 copy of DNA.
 	"""
 
 	# Identify the time of replication
 	replication_profile = get_gene_replication_profile(gene.name, repl_profiles, geneset)
 	replication_idx = replication_profile.round().argmax()
+
+	return copy_number_correct_H_index(H, data_to_correct, replication_idx)
+
+
+def copy_number_correct_H_index(H, data_to_correct, replication_idx):
+	"""Compute the copy number correction given an H which contains the 
+	proportions of cells in each phase and the replication index of the exact
+	column in H in which we have estimated the 1d data to have replicated.
+	"""
 	
 	# Within the H matrix, identify the subset of
 	# postG1 that will be copy number 2
+	# This will be from the replication index up until the last index 
+	# (last index is halted cells)
 	copy_2_H = H[:, replication_idx:-1]
 
-	# Compute the proportion of copy number 2
-	# and copy number 1 cells
+	# The proportion of copy number 2 cells
+	# is the sum of the columns of the subset. The columns are the individual
+	# deconvolved timings for f, and we are deconvolving the raw data so
+	# we are only concerned about the rows
 	prop_cop2 = copy_2_H.sum(axis=1)
+
+	return copy_number_correct(prop_cop2, data_to_correct)
+	
+
+def copy_number_correct(prop_cop2, data_to_correct):
+	"""Correct the data by a predefined proportion of copy number 2 at each timepoint
+	index in the data_to_correct vector.
+
+	Parameters:
+		prop_cop2: 2d float array of proportions [0, 1.] of how much of population has been replicated 
+		(has a copy number of 2) at each timepoint.
+		data_to_correct: 1d float array of gene expression/chromatin metrics to correct
+	"""
+
 	prop_cop1 = 1 - prop_cop2
 	
-	# Correct the data by halving
-	# the copy number 1 proportion
-	data_cop1 = data_to_correct * prop_cop1
+	# Correct by, taking the proportion of copy number 2 data
+	# and dividing by 2
 	data_cop2 = data_to_correct * prop_cop2 * 0.5
+	data_cop1 = data_to_correct * prop_cop1
 	
 	# Recombine the copy number 1 and copy number 2 (corrected)
 	data_corrected = data_cop1 + data_cop2
