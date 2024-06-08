@@ -36,8 +36,6 @@ def plot_reads_bar(corrected_reads, scale=100, color='gray'):
 	xticklabels = xticks
 	plt.ylim(-spacing_between_plots*0.25, n*spacing_between_plots)
 
-	# plt.xticks(xticks+0.5, xticklabels)
-
 
 def plot_observed_vs_corrected(rep_profile, observed_reads, corrected_reads):
 	plt.figure(figsize=(11, 6))
