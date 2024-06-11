@@ -491,10 +491,21 @@ class Config:
 
 		return mu0, first_s_start, first_s_end, end_of_first_lambd
 
-def read_yl_vst_data_rep(replicate):
+def read_yl_vst_data_rep(replicate, drop_rep2_70=True):
 	wt_data = pd.read_csv(f'datasets/yl_cell_cycle/replicate{replicate}_deseq2_vst_counts.csv')
 	wt_data = wt_data.rename(columns={"Unnamed: 0": "orf_name"}).set_index('orf_name')
 	wt_data.columns = [int(s.replace('X', '')) for s in wt_data.columns.values]
+
+	# Replicate 2, timepoint 70 appears to be low quality
+	# Checking if removing this timepoint improves the fit quality.
+	if replicate == 2 and drop_rep2_70:
+		# Remove timepoint 70 for replicate 2
+		wt_data = wt_data[wt_data.columns[(wt_data.columns != 70)]]
+
+	# Normalize such that all timepoints are equal
+	target_read_counts = 60000 # (approximate read counts prior to normalization)
+	wt_data.loc[:] = wt_data.values / wt_data.values.sum(axis=0).reshape((1, -1)) * target_read_counts
+
 	return wt_data
 
 
@@ -526,10 +537,10 @@ def load_yl_rg1_vst_config(replicate):
 	return config
 
 
-def load_combined_yl_alpha_vst_gene_expression_config(alphas=[28, 22]):
+def load_combined_yl_alpha_vst_gene_expression_config(alphas=[28, 22], drop_rep2_70=True):
 
 	WT1 = read_yl_vst_data_rep(1)
-	WT2 = read_yl_vst_data_rep(2)
+	WT2 = read_yl_vst_data_rep(2, drop_rep2_70=drop_rep2_70)
 
 	# model files
 	model_wt1_file = f'models/yl_cell_cycle/wt1_rg1.{alphas[0]}.label'

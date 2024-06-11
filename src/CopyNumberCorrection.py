@@ -12,23 +12,27 @@ from src.config import read_yl_vst_data_rep
 class CopyNumberCorrector:
 
 	def __init__(self):
+		
+		from src.helpers import calcH_config
+
 		# Load the gene expression data and geneset
 		self.ge_data = read_yl_vst_data_rep(1)
 		self.genes = get_deconvolved_geneset()
 		self.normalized_ge = normalize_total_reads(self.ge_data)
-		
+
+		repl_profile = pd.read_csv('datasets/computed_mnase/'\
+			'deconvolved_all_chr_replication_profile_delta_model.csv')
+		self.repl_profile = repl_profile.set_index(['chr', 'start'])
+
+		self.config = load_yl_delta_config(1)
+		self.H, Hpos = calcH_config(self.config)
 
 	def correct_for_copy_number(self):
 		from src.timer import Timer
-		from src.helpers import calcH_config
-
+		
 		genes = self.genes_w_repl_timing
-		repl_profile = pd.read_csv('datasets/computed_mnase/'\
-			'deconvolved_all_chr_replication_profile_delta_model.csv')
-		repl_profile = repl_profile.set_index(['chr', 'start'])
-
-		config = load_yl_delta_config(1)
-		H, Hpos = calcH_config(config)
+		H = self.H
+		repl_profile = self.repl_profile
 			
 		timer = Timer()
 		i = 0
@@ -58,15 +62,11 @@ class CopyNumberCorrector:
 
 	def compute_replication_timing(self):
 		from src.timer import Timer
-		from src.helpers import calcH_config
 
 		genes = self.genes
-		repl_profile = pd.read_csv('datasets/computed_mnase/'\
-			'deconvolved_all_chr_replication_profile_delta_model.csv')
-		repl_profile = repl_profile.set_index(['chr', 'start'])
-
-		config = load_yl_delta_config(1)
-		H, Hpos = calcH_config(config)
+		repl_profile = self.repl_profile
+		H = self.H
+		config = self.config
 			
 		repl_timing = self.genes[[]].copy()
 		repl_timing['replication_time'] = np.nan
@@ -107,7 +107,7 @@ class CopyNumberCorrector:
 			self.genes_w_repl_timing[['replication_time']])
 
 	def plot_ptrs(self, orfs=None):
-		plt.figure(figsize=(4, 4))
+		plt.figure(figsize=(5, 4))
 
 		dat = self.ge_comparison_ptr_df
 
@@ -115,18 +115,24 @@ class CopyNumberCorrector:
 			dat = dat.loc[orfs]
 
 		plt.scatter(dat.raw_ptr, dat.corrected_ptr, s=1,
-			c=dat.replication_time, cmap='viridis_r')
+			c=dat.replication_time, cmap='Spectral', vmin=5, vmax=15)
 		plt.title(f"Uncorrected PTR vs Corrected PTR values,\nn={len(dat)}")
 		plt.xlabel("Raw expression PTR")
 		plt.ylabel("Copy-number-corrected expression PTR")
 
 
-	def plot_corrected_gene(self, orf_name):
+	def plot_corrected_gene(self, orf_name, fig=None):
 		gene = self.genes.loc[orf_name]
-		plt.figure(figsize=(4, 3))
+
+		if fig is None:
+			fig = plt.figure(figsize=(4, 3))
 		plt.plot(self.normalized_ge.loc[gene.name])
 		plt.plot(self.normalized_corrected_ge.loc[gene.name], ls='dotted')
-		plt.title(orf_name)
+
+		from src.sgd import get_gene_title_name
+		title = get_gene_title_name(orf_name)
+
+		plt.title(title, pad=10)
 
 def normalize_total_reads(ge_data, total_counts=50000):
 	normalized_reads = ge_data / \

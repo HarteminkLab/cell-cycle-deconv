@@ -122,7 +122,7 @@ class ToyReplication:
 		plt.imshow(self.normalized_corrected_reads, aspect='auto', origin='lower', 
 		    cmap='RdBu_r', vmin=70, vmax=130, extent=extent)
 		plt.colorbar()
-		plt.title("Normalized+Corrected for copy number")
+		plt.title("Normalized+Corrected\nfor copy number")
 
 
 	def plot_replication(self):
