@@ -29,7 +29,7 @@ class ChromatinCopyNumberCorrector:
 	def correct_for_copy_number(self):
 		from src.timer import Timer
 		
-		genes = self.genes_w_repl_timing
+		geneset_w_repl = self.genes_w_repl_timing
 		H = self.H
 		repl_profile = self.repl_profile
 			
@@ -38,9 +38,9 @@ class ChromatinCopyNumberCorrector:
 
 		for orf_name, gene in geneset_w_repl.iterrows():
 		    data = self.normalized_chrom_sum_data.loc[orf_name]
-		    corrected_data = copy_number_correct_H(self.H, gene,
-		                                           data,  
-		        self.repl_profile, geneset_w_repl)
+		    replication_index = int(genes_w_repl_timing.loc[gene.name].replication_H_index)
+		    corrected_data = copy_number_correct_H_index(self.H, gene,
+		                                           data, replication_index)
 		    corrected_chromatin_g_data_sum_window_df.loc[orf_name] = corrected_data
 		    
 		normalized_corrected_g_data = normalize_total_reads(corrected_chromatin_g_data_sum_window_df, 

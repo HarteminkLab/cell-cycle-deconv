@@ -619,17 +619,12 @@ class ChromatinModel:
 		We will try to not use the deconv_model object externally, such that it will be easier to 
 		refactor in the future
 		"""
-		from src.helpers import calcH
-		from src.calcH_single_g1 import calcH as calcH_single_g1
-		from src.single_G1_config import Config as Config_single_G1
 
 		self.deconv_model = Model(self.config, self.orf_name, self.gamma)
 
 		# The config for MNase and RNA-seq have a different number of timepoints, so 
 		# we need to recalculate H with the chromatin number of timepoints
-		calcH_function = calcH
-		if isinstance(self.config, Config_single_G1):
-			calcH_function = calcH_single_g1
+		calcH_function = self.config.calcH_function
 
 		self.deconv_model.H, self.deconv_model.Hpos = calcH_function(self.config.intervals_wt1, self.timepoints)
 

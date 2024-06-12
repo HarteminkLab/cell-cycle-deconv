@@ -38,10 +38,7 @@ class Model:
 
 		self.initial_phase_map, self.top_phase_map, self.bottom_phase_map = config.intervals_wt1[-1]
 
-		calcH_function = calcH
-		if isinstance(config, Config_single_G1):
-			calcH_function = calcH_single_g1
-
+		calcH_function = config.calcH_function
 		H1, self.Hpos = calcH_function(config.intervals_wt1, config.WT1_TIMEPOINTS)
 
 		if self.config.has_two_replicates:

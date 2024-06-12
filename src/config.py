@@ -2,6 +2,8 @@
 import pandas as pd
 import numpy as np
 import os
+from src.helpers import calcH
+
 
 class Config:
 	"""
@@ -15,6 +17,7 @@ class Config:
 		self.name = name
 		self.replicate = replicate
 		self.alpha = alpha
+		self.calcH_function = calcH
 
 		# Replicate 1 configuration
 		if wt1 is not None:

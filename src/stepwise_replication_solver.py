@@ -5,11 +5,13 @@ import pandas as pd
 import numpy as np
 
 from src.helpers import calcH
+from src.calcH_single_g1 import calcH as calcH_single_g1
 from matplotlib import pyplot as plt
 from src.utils import print_fl
 from src.global_config import GlobalConstants
-#from src.config import load_yl_rg1_vst_config
+from src.config import load_yl_rg1_vst_config
 from src.delta_config import load_yl_delta_config
+from src.single_G1_config import load_single_g1_config
 from src.geneset import get_deconvolved_geneset
 
 
@@ -19,18 +21,31 @@ class StepReplicationChromatinDeconvolveSolver:
 	replication occurs.
 	"""
 
-	def __init__(self, mnase_analysis_rep1, mnase_analysis_rep2):
+	def __init__(self, mnase_analysis_rep1, mnase_analysis_rep2, config_type="delta"):
 
 		self.mnase_analysis_rep1 = mnase_analysis_rep1
 		self.mnase_analysis_rep2 = mnase_analysis_rep2
 
-		self.config1 = load_yl_delta_config(1)
-		self.config2 = load_yl_delta_config(2)
+		if config_type == 'delta':
+			self.config1 = load_yl_delta_config(1)
+			self.config2 = load_yl_delta_config(2)
+		elif config_type == 'distinct':
+			self.config1 = load_yl_rg1_vst_config(1)
+			self.config2 = load_yl_rg1_vst_config(2)
+		elif config_type == 'shared':
+			self.config1 = load_single_g1_config(1)
+			self.config2 = load_single_g1_config(2)
+		else:
+			raise ValueError("Invalid config type")
 
-		self.H1, _ = calcH(self.config1.intervals_wt1, 
+		calcH_func = self.config1.calcH_function
+
+		print(f"Deconvolving with config: {config_type}, {type(self.config1)}, {calcH_func}")
+
+		self.H1, _ = calcH_func(self.config1.intervals_wt1, 
 			GlobalConstants.CHROM_WT1_TIMEPOINTS)
 
-		self.H2, _ = calcH(self.config2.intervals_wt1, 
+		self.H2, _ = calcH_func(self.config2.intervals_wt1, 
 			GlobalConstants.CHROM_WT2_TIMEPOINTS)
 
 		self.H = np.concatenate([self.H1, self.H2])
@@ -490,3 +505,26 @@ def interpolate_values(repl_prof_values, step=2000):
 	interpolated_df = pd.DataFrame({'index': indices, 
 		'value': values}).astype(int).set_index('index')
 	return interpolated_df
+
+
+	def compute_replication_timing(self):
+		from src.timer import Timer
+		from src.sgd import get_deconvolved_geneset
+
+		genes = get_deconvolved_geneset()
+		repl_profile = load_replication_profile()
+		H = self.H1
+		config = self.config1
+			
+		repl_timing = self.genes[[]].copy()
+		repl_timing['replication_time'] = np.nan
+		repl_timing['replication_H_index'] = np.nan
+
+		for orf_name, gene in genes.iterrows():
+
+			replication_idx = get_gene_replication_profile(gene.name, repl_profile, self.genes)
+
+			repl_timing.loc[orf_name, 'replication_H_index'] = replication_idx
+			repl_timing.loc[orf_name, 'replication_time'] = config.get_timepoint_for_index(replication_idx)
+
+		self.genes_w_repl_timing = self.genes.join(repl_timing)

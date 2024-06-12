@@ -28,7 +28,7 @@ class CopyNumberCorrector:
 	def correct_for_copy_number(self):
 		from src.timer import Timer
 		
-		genes = self.genes_w_repl_timing
+		genes_w_repl_timing = self.genes_w_repl_timing
 		H = self.H
 		repl_profile = self.repl_profile
 			
@@ -37,18 +37,18 @@ class CopyNumberCorrector:
 		corrected_gene_expression = self.normalized_reads_data.copy()
 
 		# For each gene
-		for orf_name, gene in genes.iterrows():
+		for orf_name, gene in genes_w_repl_timing.iterrows():
 			
 			if i % 1000 == 0:
-				timer.print_time(f"{i}/{len(genes)}")
+				timer.print_time(f"{i}/{len(genes_w_repl_timing)}")
 
 			# Load the gene expression for the gene
 			gene_expression = self.normalized_reads_data.loc[gene.name]
 
 			# Correct the copy number using H and the replication profile
 			# and save into new gene expression table
-			corrected_data = copy_number_correct_H(H, gene, gene_expression, 
-				repl_profile, genes)
+			replication_index = int(genes_w_repl_timing.loc[gene.name].replication_H_index)
+			corrected_data = copy_number_correct_H_index(H, gene_expression, replication_index)
 			corrected_gene_expression.loc[orf_name] = corrected_data
 
 			i += 1
@@ -174,7 +174,8 @@ def get_gene_replication_profile(orf_name, repl_profile=None, geneset=None):
 	return replication_index
 
 
-def copy_number_correct_H(H, gene, data_to_correct, repl_profiles, geneset):
+def copy_number_correct_H_index(H, data_to_correct, replication_idx):
+
 	"""Compute the copy number correction. First compute the proportion of replicated DNA
 	for this segment of the genome, by combining H (which contains the entire mixture of cells at
 	each timepoint) and the replication profile (the index in H in which the gene's local genome
@@ -185,18 +186,6 @@ def copy_number_correct_H(H, gene, data_to_correct, repl_profiles, geneset):
 	2. Collect the subset of columns in H that signify replicated DNA and sum into a proportions over time
 	3. The replicated proportions over time are then used to compute how much of the data to scale down to 
 		1 copy of DNA.
-	"""
-
-	# Identify the time of replication
-	replication_idx = get_gene_replication_profile(gene.name, repl_profiles, geneset)
-
-	return copy_number_correct_H_index(H, data_to_correct, replication_idx)
-
-
-def copy_number_correct_H_index(H, data_to_correct, replication_idx):
-	"""Compute the copy number correction given an H which contains the 
-	proportions of cells in each phase and the replication index of the exact
-	column in H in which we have estimated the 1d data to have replicated.
 	"""
 	
 	# Within the H matrix, identify the subset of

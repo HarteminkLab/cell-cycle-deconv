@@ -44,8 +44,6 @@ class CombinedChromatinModel:
 
 
 	def	setup_deconv_model(self, gamma=0.006, G1=None, G2=None, wavelet="Symmlet"):
-		from src.helpers import calcH
-		from src.calcH_single_g1 import calcH as calcH_single_g1
 		from src.single_G1_config import Config as Config_single_G1
 		from src.model import Model
 
@@ -57,9 +55,7 @@ class CombinedChromatinModel:
 		# Next we will need to setup the deconvolution model to combine the H
 		# and the deconvolution G data
 
-		calcH_function = calcH
-		if isinstance(chrom1_model.config, Config_single_G1):
-			calcH_function = calcH_single_g1
+		calcH_function = self.chrom1_model.config.calcH_function
 
 		if G1 is None:
 			self.G1 = chrom1_model.G
