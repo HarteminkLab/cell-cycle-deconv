@@ -16,9 +16,7 @@ class CopyNumberCorrector:
 		from src.helpers import calcH_config
 
 		# Load the gene expression data and geneset
-		self.ge_data = read_yl_vst_data_rep(1)
 		self.genes = get_deconvolved_geneset()
-		self.normalized_ge = normalize_total_reads(self.ge_data)
 
 		repl_profile = pd.read_csv('datasets/computed_mnase/'\
 			'deconvolved_all_chr_replication_profile_delta_model.csv')
@@ -26,6 +24,10 @@ class CopyNumberCorrector:
 
 		self.config = load_yl_delta_config(1)
 		self.H, Hpos = calcH_config(self.config)
+
+	def load_gene_expression_data(self, replicate):
+		self.reads_data = read_yl_vst_data_rep(replicate)
+		self.normalized_reads_data = normalize_total_reads(self.reads_data)
 
 	def correct_for_copy_number(self):
 		from src.timer import Timer
@@ -36,7 +38,7 @@ class CopyNumberCorrector:
 			
 		timer = Timer()
 		i = 0
-		corrected_gene_expression = self.normalized_ge.copy()
+		corrected_gene_expression = self.normalized_reads_data.copy()
 
 		# For each gene
 		for orf_name, gene in genes.iterrows():
@@ -45,7 +47,7 @@ class CopyNumberCorrector:
 				timer.print_time(f"{i}/{len(genes)}")
 
 			# Load the gene expression for the gene
-			gene_expression = self.normalized_ge.loc[gene.name]
+			gene_expression = self.normalized_reads_data.loc[gene.name]
 
 			# Correct the copy number using H and the replication profile
 			# and save into new gene expression table
@@ -97,7 +99,7 @@ class CopyNumberCorrector:
 		ge_comparison_ptr_df = pd.DataFrame({
 			"raw_ptr": ge_ptrs,
 			"corrected_ptr": corrected_ge_ptrs,
-		}, index=self.ge_data.index)
+		}, index=self.reads_data.index)
 
 		# Select only genes in our gene set (filtered for low read count)
 		self.ge_comparison_ptr_df = ge_comparison_ptr_df.loc[self.genes_w_repl_timing.index]
@@ -134,9 +136,9 @@ class CopyNumberCorrector:
 
 		plt.title(title, pad=10)
 
-def normalize_total_reads(ge_data, total_counts=50000):
-	normalized_reads = ge_data / \
-		ge_data.sum(axis=0).values.reshape((1, -1)) * total_counts
+def normalize_total_reads(read_data, total_counts=50000):
+	normalized_reads = read_data / \
+		read_data.sum(axis=0).values.reshape((1, -1)) * total_counts
 	return normalized_reads
 
 

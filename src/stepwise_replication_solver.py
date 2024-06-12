@@ -207,13 +207,10 @@ class StepReplicationChromatinDeconvolveSolver:
 	def deconvolve_chr_all_bins(self, chrom):
 
 		self.set_chrom(chrom)
-
 		from src.timer import Timer
 
 		timer = Timer()
-
 		n = len(self.chr_bin_curves1)
-
 		all_fs = None
 
 		for bin_idx in np.arange(n):
