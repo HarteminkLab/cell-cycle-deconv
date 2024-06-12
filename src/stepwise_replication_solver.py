@@ -8,7 +8,7 @@ from src.helpers import calcH
 from matplotlib import pyplot as plt
 from src.utils import print_fl
 from src.global_config import GlobalConstants
-from src.config import load_yl_rg1_vst_config
+#from src.config import load_yl_rg1_vst_config
 from src.delta_config import load_yl_delta_config
 from src.geneset import get_deconvolved_geneset
 

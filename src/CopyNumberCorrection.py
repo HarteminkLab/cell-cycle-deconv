@@ -7,7 +7,7 @@ from src.geneset import get_deconvolved_geneset
 from src.helpers import calcH_config
 from src.delta_config import load_yl_delta_config
 from src.config import read_yl_vst_data_rep
-
+from src.stepwise_replication_solver import load_replication_profile
 
 class CopyNumberCorrector:
 
@@ -17,17 +17,13 @@ class CopyNumberCorrector:
 
 		# Load the gene expression data and geneset
 		self.genes = get_deconvolved_geneset()
-
-		repl_profile = pd.read_csv('datasets/computed_mnase/'\
-			'deconvolved_all_chr_replication_profile_delta_model.csv')
-		self.repl_profile = repl_profile.set_index(['chr', 'start'])
+		self.repl_profile = load_replication_profile()
 
 		self.config = load_yl_delta_config(1)
 		self.H, Hpos = calcH_config(self.config)
 
 	def load_gene_expression_data(self, replicate):
-		self.reads_data = read_yl_vst_data_rep(replicate)
-		self.normalized_reads_data = normalize_total_reads(self.reads_data)
+		self.normalized_reads_data = read_yl_vst_data_rep(replicate)
 
 	def correct_for_copy_number(self):
 		from src.timer import Timer
@@ -76,30 +72,26 @@ class CopyNumberCorrector:
 
 		for orf_name, gene in genes.iterrows():
 
-			replication_profile = get_gene_replication_profile(gene.name, repl_profile, self.genes)
-			replication_idx = replication_profile.round().argmax()
+			replication_idx = get_gene_replication_profile(gene.name, repl_profile, self.genes)
 
-			if replication_idx >= 0:
-				repl_timing.loc[orf_name, 'replication_H_index'] = replication_idx
+			repl_timing.loc[orf_name, 'replication_H_index'] = replication_idx
+			repl_timing.loc[orf_name, 'replication_time'] = config.get_timepoint_for_index(replication_idx)
 
-			if replication_idx >= 0:
-				repl_timing.loc[orf_name, 'replication_time'] = config.get_timepoint_for_index(replication_idx)
-
-		self.genes_w_repl_timing = self.genes.join(repl_timing).dropna()
+		self.genes_w_repl_timing = self.genes.join(repl_timing)
 
 
 	def compute_ptrs(self):
 		from src.peak_to_trough import compute_quantile_ptr
 
 		ge_ptrs = np.apply_along_axis(lambda mat: compute_quantile_ptr(mat,
-			0.2, 0.8), 1, self.normalized_ge.values)
+			0.2, 0.8), 1, self.normalized_reads_data.values)
 		corrected_ge_ptrs = np.apply_along_axis(lambda mat: compute_quantile_ptr(mat,
 		   0.2, 0.8), 1, self.normalized_corrected_ge.values)
 
 		ge_comparison_ptr_df = pd.DataFrame({
 			"raw_ptr": ge_ptrs,
 			"corrected_ptr": corrected_ge_ptrs,
-		}, index=self.reads_data.index)
+		}, index=self.normalized_reads_data.index)
 
 		# Select only genes in our gene set (filtered for low read count)
 		self.ge_comparison_ptr_df = ge_comparison_ptr_df.loc[self.genes_w_repl_timing.index]
@@ -122,21 +114,32 @@ class CopyNumberCorrector:
 		plt.xlabel("Raw expression PTR")
 		plt.ylabel("Copy-number-corrected expression PTR")
 
+		cbar = plt.colorbar()
+		cbar.ax.set_ylabel("Repl. time", rotation=270, va='bottom')
+		plt.plot([0, 2], [0, 2], lw=1, ls='dotted', c='gray')
 
-	def plot_corrected_gene(self, orf_name, fig=None):
+		plt.xlim(0.99, 1.2)
+		plt.ylim(0.99, 1.2)
+
+	def plot_corrected_gene(self, gene_or_orfname, fig=None):
+		from src.sgd import get_gene_name_orf_name
+
+		orf_name, gene_name = get_gene_name_orf_name(gene_or_orfname)
 		gene = self.genes.loc[orf_name]
 
 		if fig is None:
 			fig = plt.figure(figsize=(4, 3))
-		plt.plot(self.normalized_ge.loc[gene.name])
-		plt.plot(self.normalized_corrected_ge.loc[gene.name], ls='dotted')
+		plt.plot(self.normalized_reads_data.loc[gene.name], label="Original")
+		plt.plot(self.corrected_gene_expression.loc[gene.name], ls='dotted', label="Corrected")
+		plt.plot(self.normalized_corrected_ge.loc[gene.name], ls='dotted', label="Corrected+Normalized")
 
 		from src.sgd import get_gene_title_name
 		title = get_gene_title_name(orf_name)
 
 		plt.title(title, pad=10)
+		plt.legend()
 
-def normalize_total_reads(read_data, total_counts=50000):
+def normalize_total_reads(read_data, total_counts=60000):
 	normalized_reads = read_data / \
 		read_data.sum(axis=0).values.reshape((1, -1)) * total_counts
 	return normalized_reads
@@ -185,8 +188,7 @@ def copy_number_correct_H(H, gene, data_to_correct, repl_profiles, geneset):
 	"""
 
 	# Identify the time of replication
-	replication_profile = get_gene_replication_profile(gene.name, repl_profiles, geneset)
-	replication_idx = replication_profile.round().argmax()
+	replication_idx = get_gene_replication_profile(gene.name, repl_profiles, geneset)
 
 	return copy_number_correct_H_index(H, data_to_correct, replication_idx)
 
@@ -228,7 +230,7 @@ def copy_number_correct(prop_cop2, data_to_correct):
 	# and dividing by 2
 	data_cop2 = data_to_correct * prop_cop2 * 0.5
 	data_cop1 = data_to_correct * prop_cop1
-	
+
 	# Recombine the copy number 1 and copy number 2 (corrected)
 	data_corrected = data_cop1 + data_cop2
 
