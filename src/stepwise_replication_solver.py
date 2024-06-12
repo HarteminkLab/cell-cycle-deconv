@@ -9,11 +9,15 @@ from src.calcH_single_g1 import calcH as calcH_single_g1
 from matplotlib import pyplot as plt
 from src.utils import print_fl
 from src.global_config import GlobalConstants
+from src.geneset import get_deconvolved_geneset
+
 from src.config import load_yl_rg1_vst_config
 from src.delta_config import load_yl_delta_config
 from src.single_G1_config import load_single_g1_config
-from src.geneset import get_deconvolved_geneset
 
+from src.delta_config import Config as DeltaConfig
+from src.single_G1_config import Config as SharedConfig
+from src.config import Config as DistinctConfig
 
 class StepReplicationChromatinDeconvolveSolver:
 	"""
@@ -22,6 +26,8 @@ class StepReplicationChromatinDeconvolveSolver:
 	"""
 
 	def __init__(self, mnase_analysis_rep1, mnase_analysis_rep2, config_type="delta"):
+
+		self.config_type = config_type
 
 		self.mnase_analysis_rep1 = mnase_analysis_rep1
 		self.mnase_analysis_rep2 = mnase_analysis_rep2
@@ -109,22 +115,49 @@ class StepReplicationChromatinDeconvolveSolver:
 		config = self.config1
 		transition_point = cp.Variable(integer=True)
 
-		f_delta_i = config.get_Hpositions_for_phase('Delta')
-		f_rg1_i = config.get_Hpositions_for_phase('RG1')
-		f_cg1_i = config.get_Hpositions_for_phase('CG1')
-		f_pg1_i = config.get_Hpositions_for_phase('postG1')
-
-		f_rg1 = np.zeros((len(f_rg1_i), u)).astype(bool)
-		f_cg1 = np.zeros((len(f_cg1_i), u)).astype(bool)
-		f_delta = np.zeros((len(f_delta_i), u)).astype(bool)
-		f_pg1 = cp.Variable((len(f_pg1_i), u), boolean=True)
-		f_halted = np.zeros((1, u)).astype(bool)
-
 		# F is vertical stack of 0s for all of the G1s, the
 		# Post G1 boolean vector we are searching for, and a 0 for halted
 		# F will be converted to 1+ values in the objective
 		# and the final solution.
-		f = cp.vstack([f_rg1, f_cg1, f_delta, f_pg1, f_halted])+1
+		if isinstance(config, DeltaConfig):
+			f_delta_i = config.get_Hpositions_for_phase('Delta')
+			f_rg1_i = config.get_Hpositions_for_phase('RG1')
+			f_cg1_i = config.get_Hpositions_for_phase('CG1')
+			f_pg1_i = config.get_Hpositions_for_phase('postG1')
+
+			f_rg1 = np.zeros((len(f_rg1_i), u)).astype(bool)
+			f_cg1 = np.zeros((len(f_cg1_i), u)).astype(bool)
+			f_delta = np.zeros((len(f_delta_i), u)).astype(bool)
+			f_pg1 = cp.Variable((len(f_pg1_i), u), boolean=True)
+			f_halted = np.zeros((1, u)).astype(bool)
+
+			f = cp.vstack([f_rg1, f_cg1, f_delta, f_pg1, f_halted])+1
+
+		elif isinstance(config, SharedConfig):
+			f_rg1_i = config.get_Hpositions_for_phase('RG1')
+			f_cg1_i = config.get_Hpositions_for_phase('CG1')
+			f_pg1_i = config.get_Hpositions_for_phase('postG1')
+
+			f_rg1 = np.zeros((len(f_rg1_i), u)).astype(bool)
+			f_cg1 = np.zeros((len(f_cg1_i), u)).astype(bool)
+			f_pg1 = cp.Variable((len(f_pg1_i), u), boolean=True)
+			f_halted = np.zeros((1, u)).astype(bool)
+
+			f = cp.vstack([f_rg1, f_cg1, f_pg1, f_halted])+1
+
+		elif isinstance(config, DistinctConfig):
+			f_dg1_i = config.get_Hpositions_for_phase('DG1')
+			f_rg1_i = config.get_Hpositions_for_phase('RG1')
+			f_cg1_i = config.get_Hpositions_for_phase('CG1')
+			f_pg1_i = config.get_Hpositions_for_phase('postG1')
+
+			f_rg1 = np.zeros((len(f_rg1_i), u)).astype(bool)
+			f_cg1 = np.zeros((len(f_cg1_i), u)).astype(bool)
+			f_dg1 = np.zeros((len(f_dg1_i), u)).astype(bool)
+			f_pg1 = cp.Variable((len(f_pg1_i), u), boolean=True)
+			f_halted = np.zeros((1, u)).astype(bool)
+
+			f = cp.vstack([f_rg1, f_cg1, f_dg1, f_pg1, f_halted])+1
 
 		elementwise_result = H@f - g
 
@@ -199,7 +232,7 @@ class StepReplicationChromatinDeconvolveSolver:
 
 	from src.timer import Timer
 
-	def deconvolve_all_chromosomes(self):
+	def deconvolve_all_chromosomes(self, chroms=range(1, 17)):
 
 		from src.timer import Timer
 
@@ -207,7 +240,7 @@ class StepReplicationChromatinDeconvolveSolver:
 		all_chrom_fs = pd.DataFrame()
 		self.all_chrom_fs_df = all_chrom_fs
 
-		for chrom in range(1, 17):
+		for chrom in chroms:
 			print(f"Chromosome {chrom}")
 			self.deconvolve_chr_all_bins(chrom)
 			current_chr_fs_df = self.chr_fs_df.copy()
@@ -236,11 +269,11 @@ class StepReplicationChromatinDeconvolveSolver:
 
 			self.select_bins([bin_idx])
 
-			try:
-				self.solve(verbose=False)
-			except:
-				print(f"Error with bin: {bin_idx}, skipping.")
-				continue
+			# try:
+			self.solve(verbose=False)
+			# except:
+			# 	print(f"Error with bin: {bin_idx}, skipping.")
+			# 	continue
 
 			if bin_idx % 40 == 0:
 				timer.print_time(f"{bin_idx}/{n}")
@@ -389,6 +422,52 @@ class StepReplicationChromatinDeconvolveSolver:
 		return bin_dat, normalized_bin_dat, copy_scaling, \
 			(first_half, second_half), (normalized_first, normalized_second)
 
+	def create_replication_timing_indices(self):
+		chroms = self.all_chrom_fs_df.index.get_level_values(0).unique()
+		self.all_chrs_replication_profile = convert_to_replication_timing(self.all_chrom_fs_df, 
+														 chroms=chroms)
+
+	def compute_gene_replication_timing(self):
+		from src.mnase_replication_timing_analysis import get_bin_for_position
+		from src.timer import Timer
+		from src.geneset import get_deconvolved_geneset
+
+		genes = get_deconvolved_geneset()
+		repl_profile = self.all_chrs_replication_profile
+		H = self.H
+		config = self.config1
+			
+		repl_timing = genes[[]].copy()
+		repl_timing['replication_time'] = np.nan
+		repl_timing['replication_H_index'] = np.nan
+
+		chroms = self.all_chrs_replication_profile.index.get_level_values(0).unique()
+
+		for orf_name, gene in genes.iterrows():
+
+			if gene.chr not in chroms: continue
+
+			start_indices = repl_profile.loc[gene.chr].index.values
+			chrom_repl_profile = repl_profile.loc[gene.chr]
+			bin_idx, bin_start_bp = get_bin_for_position(gene.TSS, start_indices)
+
+			replication_index = chrom_repl_profile.loc[bin_start_bp].values[0]
+
+			repl_timing.loc[orf_name, 'replication_H_index'] = replication_index
+			repl_timing.loc[orf_name, 'replication_time'] = config.get_timepoint_for_index(replication_index)
+
+		self.gene_replication_timing = repl_timing
+
+	def save_replication_timings(self, directory):
+
+			save_path = f"{directory}/chrom_replication_timing_{self.config_type}.csv"
+			self.all_chrs_replication_profile.to_csv(save_path)
+			print(f"Saved chromosome replication timingn to {save_path}")
+
+			save_path = f"{directory}/genes_replication_timing_{self.config_type}.csv"
+			self.gene_replication_timing.to_csv(save_path)
+			print(f"Saved gene replication timingn to {save_path}")
+
 
 def load_copy_num(replicate):
 	copy_num_file = f'datasets/computed_mnase/dna_copy_scaling_rep{replicate}.csv'
@@ -396,14 +475,11 @@ def load_copy_num(replicate):
 	return copy_num_rep
 
 
-def load_replication_profile(interpolate=True):
-	repl_profile = pd.read_csv('datasets/computed_mnase/'\
-		'deconvolved_all_chr_replication_profile_delta_model.csv')
-	repl_profile = repl_profile.set_index(['chr', 'start']).round()
+def convert_to_replication_timing(repl_profile, chroms=range(1, 17), interpolate=True):
 
 	replication_profile = pd.DataFrame()
 
-	for chrom in range(1, 17):
+	for chrom in chroms:
 
 		repl_prof_values = repl_profile.loc[chrom].idxmax(axis=1).astype(float)
 
@@ -423,6 +499,16 @@ def load_replication_profile(interpolate=True):
 
 	if interpolate:
 		replication_profile = replication_profile.astype(int)
+
+	return replication_profile
+
+
+def load_replication_profile(interpolate=True):
+	repl_profile = pd.read_csv('datasets/computed_mnase/'\
+		'deconvolved_all_chr_replication_profile_delta_model.csv')
+	repl_profile = repl_profile.set_index(['chr', 'start']).round()
+
+	replication_profile = convert_to_replication_timing(repl_profile, interpolate)
 
 	return replication_profile
 
@@ -506,25 +592,3 @@ def interpolate_values(repl_prof_values, step=2000):
 		'value': values}).astype(int).set_index('index')
 	return interpolated_df
 
-
-	def compute_replication_timing(self):
-		from src.timer import Timer
-		from src.sgd import get_deconvolved_geneset
-
-		genes = get_deconvolved_geneset()
-		repl_profile = load_replication_profile()
-		H = self.H1
-		config = self.config1
-			
-		repl_timing = self.genes[[]].copy()
-		repl_timing['replication_time'] = np.nan
-		repl_timing['replication_H_index'] = np.nan
-
-		for orf_name, gene in genes.iterrows():
-
-			replication_idx = get_gene_replication_profile(gene.name, repl_profile, self.genes)
-
-			repl_timing.loc[orf_name, 'replication_H_index'] = replication_idx
-			repl_timing.loc[orf_name, 'replication_time'] = config.get_timepoint_for_index(replication_idx)
-
-		self.genes_w_repl_timing = self.genes.join(repl_timing)
