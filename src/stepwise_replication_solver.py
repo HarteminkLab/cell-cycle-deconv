@@ -379,3 +379,114 @@ def load_copy_num(replicate):
 	copy_num_file = f'datasets/computed_mnase/dna_copy_scaling_rep{replicate}.csv'
 	copy_num_rep = pd.read_csv(copy_num_file).set_index("Unnamed: 0")
 	return copy_num_rep
+
+
+def load_replication_profile(interpolate=True):
+	repl_profile = pd.read_csv('datasets/computed_mnase/'\
+		'deconvolved_all_chr_replication_profile_delta_model.csv')
+	repl_profile = repl_profile.set_index(['chr', 'start']).round()
+
+	replication_profile = pd.DataFrame()
+
+	for chrom in range(1, 17):
+
+		repl_prof_values = repl_profile.loc[chrom].idxmax(axis=1).astype(float)
+
+		if interpolate:
+			interpolated_values = interpolate_values(repl_prof_values)
+			repl_prof_w_interpolation = repl_prof_values.copy()
+			repl_prof_w_interpolation.loc[np.isnan(repl_prof_values)] = interpolated_values.values.flatten()
+			repl_prof_values = repl_prof_w_interpolation
+
+		chrom_repl_prof = pd.DataFrame({'start': repl_prof_values.index,
+			'replication_index': repl_prof_values.values})
+		chrom_repl_prof['chr'] = chrom
+
+		replication_profile = pd.concat([replication_profile, chrom_repl_prof])
+
+	replication_profile = replication_profile.set_index(['chr', 'start'])
+
+	if interpolate:
+		replication_profile = replication_profile.astype(int)
+
+	return replication_profile
+
+
+def interpolate_values(repl_prof_values, step=2000):
+
+	# Loop through the replication profile values, when a string of nans are reached
+	# record the start and end, then interpolate between before the start and after the end
+	k = len(repl_prof_values.values)
+
+	startna = None
+	lastna = None
+	interpolate_start = np.nan
+	interpolate_end = np.nan
+
+	interpolate_tuples = []
+
+	for i in range(0, k):
+		prior_index = repl_prof_values.index[i-1]
+		prior_value = repl_prof_values.values[i-1]
+		index = repl_prof_values.index[i]
+		value = repl_prof_values.values[i]
+
+		if np.isnan(value):
+			if startna is None:
+				startna = index
+				interpolate_start = prior_value
+		elif not startna is None:
+			lastna = prior_index
+			interpolate_end = value
+
+			tup = (startna, lastna, interpolate_start, interpolate_end)
+
+			interpolate_tuples.append(tup)
+
+			startna = None
+			lastna = None
+			interpolate_start = np.nan
+			interpolate_end = np.nan
+
+	if np.isnan(value):
+		lastna = index
+		tup = (startna, lastna, interpolate_start, interpolate_end)
+		interpolate_tuples.append(tup)
+
+	indices = np.array([])
+	values = np.array([])
+
+	for i in range(len(interpolate_tuples)):
+
+		start, end, start_val, end_val = interpolate_tuples[i]
+
+		# The start of the chromosome is nas:
+		if np.isnan(start_val):
+
+			cur_indices = np.arange(start, end+step, step)
+			cur_values = np.repeat(end_val, len(cur_indices))
+
+		# The end of the chromosome is nas:
+		elif np.isnan(end_val):
+
+			cur_indices = np.arange(start, end+step, step)
+			cur_values = np.repeat(start_val, len(cur_indices))
+
+		# Some string of nas somewhere inside the chromosome that can be interpolated
+		else:        
+
+			cur_indices = np.arange(start, end+step, step)
+			k = len(cur_indices)
+			# Inteporlate values from the start to the end
+			# the start and end values represent values outside of the nan string
+			# so add two, then take in the inner k elements as the values we will keep
+			cur_values = np.linspace(start_val, end_val, k+2)[1:-1]
+
+			# Create a function that returns a list of integers that interpolate
+			# from a given start and end index and start and end value
+
+		indices = np.concatenate([indices, cur_indices])
+		values = np.concatenate([values, cur_values])
+	interpolated_df = pd.DataFrame({'index': indices, 
+		'value': values}).astype(int).set_index('index')
+	return interpolated_df

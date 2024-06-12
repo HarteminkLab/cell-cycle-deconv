@@ -8,6 +8,7 @@ from src.helpers import calcH_config
 from src.delta_config import load_yl_delta_config
 from src.config import read_yl_vst_data_rep
 from src.CopyNumberCorrection import normalize_total_reads, get_gene_replication_profile, copy_number_correct_H
+from src.stepwise_replication_solver import load_replication_profile
 
 
 NORMALIZE_TARGET = 7e6
@@ -20,10 +21,7 @@ class ChromatinCopyNumberCorrector:
 
 		# Load the gene expression data and geneset
 		self.genes = get_deconvolved_geneset()
-
-		repl_profile = pd.read_csv('datasets/computed_mnase/'\
-			'deconvolved_all_chr_replication_profile_delta_model.csv')
-		self.repl_profile = repl_profile.set_index(['chr', 'start'])
+		self.repl_profile = load_replication_profile()
 
 		self.config = load_yl_delta_config(1)
 		self.H, Hpos = calcH_config(self.config)
@@ -65,16 +63,12 @@ class ChromatinCopyNumberCorrector:
 
 		for orf_name, gene in genes.iterrows():
 
-			replication_profile = get_gene_replication_profile(gene.name, repl_profile, self.genes)
-			replication_idx = replication_profile.round().argmax()
+			replication_idx = get_gene_replication_profile(gene.name, repl_profile, self.genes)
 
-			if replication_idx >= 0:
-				repl_timing.loc[orf_name, 'replication_H_index'] = replication_idx
+			repl_timing.loc[orf_name, 'replication_H_index'] = replication_idx
+			repl_timing.loc[orf_name, 'replication_time'] = config.get_timepoint_for_index(replication_idx)
 
-			if replication_idx >= 0:
-				repl_timing.loc[orf_name, 'replication_time'] = config.get_timepoint_for_index(replication_idx)
-
-		self.genes_w_repl_timing = self.genes.join(repl_timing).dropna()
+		self.genes_w_repl_timing = self.genes.join(repl_timing)
 
 
 	def load_chromatin_data(self, replicate):

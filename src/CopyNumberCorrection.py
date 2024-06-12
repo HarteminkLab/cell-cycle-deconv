@@ -149,14 +149,12 @@ def get_gene_replication_profile(orf_name, repl_profile=None, geneset=None):
 	Loads the deconvolved profile for the given gene orf, from the gene's 
 	assigned bin
 	
-	Returns vector of the deconvolved profile [1 and 2's representing the copy number
-	at each timepoint]
+	Returns replication index
 	"""
 
 	if repl_profile is None:
-		repl_profile = pd.read_csv('datasets/computed_mnase/'\
-			'deconvolved_all_chr_replication_profile_delta_model.csv')
-		repl_profile = repl_profile.set_index(['chr', 'start'])
+		from src.stepwise_replicatio_solver import load_replication_profile
+		repl_profile = load_replication_profile()
 
 	if geneset is None:
 		from src.geneset import get_deconvolved_geneset
@@ -168,10 +166,9 @@ def get_gene_replication_profile(orf_name, repl_profile=None, geneset=None):
 
 	chrom_repl_profile = repl_profile.loc[chrom]
 	bin_idx, bin_start_bp = get_bin_for_position(gene.TSS, start_indices)
-	gene_repl_profil = chrom_repl_profile.loc[bin_start_bp]
-	gene_repl_profil.index = gene_repl_profil.index.astype(int)
-	
-	return gene_repl_profil
+	replication_index = chrom_repl_profile.loc[bin_start_bp].values[0]
+
+	return replication_index
 
 
 def copy_number_correct_H(H, gene, data_to_correct, repl_profiles, geneset):
