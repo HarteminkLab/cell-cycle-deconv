@@ -39,3 +39,8 @@ def run_cmd(bashCommand, stdout_file=None):
 		output, error = process.communicate()
 
 	return output, error
+
+
+def save_print_df(df, path):
+	df.to_csv(path)
+	print(f"Saved to {path}")

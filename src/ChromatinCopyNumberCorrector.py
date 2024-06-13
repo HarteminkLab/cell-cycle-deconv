@@ -15,16 +15,18 @@ NORMALIZE_TARGET = 7e6
 
 class ChromatinCopyNumberCorrector:
 
-	def __init__(self, config_type):
+	def __init__(self):
 		
 		from src.helpers import calcH_config
 
 		# Load the gene expression data and geneset
 		self.genes = get_deconvolved_geneset()
+
+
+	def load_config_type(self, config_type):
 		self.repl_profile = load_gene_replication_profile(config_type)
-
-		self.config, _ = load_configs_by_config_type(config_type)
-
+		self.config1, self.config2 = load_configs_by_config_type(config_type)
+		self.config = self.config1 if self.replicate == 1 else self.config2
 		self.H, Hpos = self.config.calcH_function(self.config.intervals_wt1, self.config.WT1_TIMEPOINTS)
 		self.config_type = config_type
 
@@ -38,13 +40,13 @@ class ChromatinCopyNumberCorrector:
 		corrected_chromatin_g_data_sum_window_df = self.normalized_chrom_sum_data.copy().loc[repl_profile.index]
 
 		for orf_name, gene in repl_profile.iterrows():
-		    data = self.normalized_chrom_sum_data.loc[orf_name]
-		    replication_index = int(repl_profile.loc[gene.name].replication_H_index)
-		    corrected_data = copy_number_correct_H_index(self.H, data, replication_index)
-		    corrected_chromatin_g_data_sum_window_df.loc[orf_name] = corrected_data
-		    
+			data = self.normalized_chrom_sum_data.loc[orf_name]
+			replication_index = int(repl_profile.loc[gene.name].replication_H_index)
+			corrected_data = copy_number_correct_H_index(self.H, data, replication_index)
+			corrected_chromatin_g_data_sum_window_df.loc[orf_name] = corrected_data
+			
 		normalized_corrected_g_data = normalize_total_reads(corrected_chromatin_g_data_sum_window_df, 
-		    NORMALIZE_TARGET)
+			NORMALIZE_TARGET)
 
 		self.corrected_chromatin_g_data_sum_window_df = corrected_chromatin_g_data_sum_window_df
 		self.normalized_corrected_g_data = normalized_corrected_g_data
@@ -53,7 +55,9 @@ class ChromatinCopyNumberCorrector:
 
 		from src.config import load_yl_rg1_vst_config
 		from src.chromatin_model import ChromatinModel
+		self.replicate = replicate
 
+		# Config appears only used for loading the raw chromatin data
 		config = load_yl_rg1_vst_config(replicate)
 		chromatin_model = ChromatinModel(config)
 		geneset = self.genes
@@ -61,14 +65,15 @@ class ChromatinCopyNumberCorrector:
 		from src.global_config import GlobalConstants
 		from src.timer import Timer
 
-		"""Load the normalized deconvolution bins for all chromatin data for the replicate"""
+		timepoints = GlobalConstants.CHROM_WT1_TIMEPOINTS if replicate == 1 \
+			else GlobalConstants.CHROM_WT2_TIMEPOINTS
 
 		i = 0
 
 		timer = Timer()
 		n = len(geneset)
 		rows, columns = GlobalConstants.IMAGE_SHAPE
-		num_timepoints = len(config.WT1_TIMEPOINTS)
+		num_timepoints = len(timepoints)
 		chromatin_g_data = np.zeros((n, num_timepoints, rows, columns))
 
 		for orf_name, gene in geneset.iterrows():
@@ -84,12 +89,26 @@ class ChromatinCopyNumberCorrector:
 
 		chromatin_g_data_sum_window = chromatin_g_data.sum(axis=2).sum(axis=2)
 		chromatin_g_data_sum_window_df = pd.DataFrame(chromatin_g_data_sum_window, 
-		    index=geneset.index, columns=config.WT1_TIMEPOINTS)
+			index=geneset.index, columns=timepoints)
 
 		self.chromatin_g_data = chromatin_g_data
 		self.chromatin_g_data_sum_window_df = chromatin_g_data_sum_window_df
 		self.normalized_chrom_sum_data = normalize_total_reads(chromatin_g_data_sum_window_df, 
-		    NORMALIZE_TARGET)
+			NORMALIZE_TARGET)
+
+
+	def save_files(self, save_dir):
+		from src.utils import save_print_df
+		scaling = self.normalized_corrected_g_data / \
+			self.chromatin_g_data_sum_window_df
+		save_print_df(self.comparison_ptr_df, 
+			f"{save_dir}/ptrs_rep{self.replicate}_{self.config_type}.csv")
+		save_print_df(scaling, 
+			f"{save_dir}/norm_corr_scaling_rep{self.replicate}_{self.config_type}.csv")
+		save_print_df(self.chromatin_g_data_sum_window_df, 
+			f"{save_dir}/raw_sums_rep{self.replicate}_{self.config_type}.csv")
+		save_print_df(self.normalized_corrected_g_data, 
+			f"{save_dir}/normalized_corrected_rep{self.replicate}_{self.config_type}.csv")
 
 
 	def compute_ptrs(self):
@@ -107,11 +126,11 @@ class ChromatinCopyNumberCorrector:
 		   0.2, 0.8), 1, self.normalized_corrected_g_data.values)
 
 		comparison_ptr_df = pd.DataFrame({
-		    "unnormalized_raw_ptr": unnormalized_ptr,
-		    "normalized_raw_ptr": chrom_ptrs,
-		    "corrected_ptr": corrected_chrom_ptrs,
-		    "normalized_corrected_ptr": normalized_corrected_chrom_ptrs,
-		    "replication_time": self.repl_profile.replication_time
+			"unnormalized_raw_ptr": unnormalized_ptr,
+			"normalized_raw_ptr": chrom_ptrs,
+			"corrected_ptr": corrected_chrom_ptrs,
+			"normalized_corrected_ptr": normalized_corrected_chrom_ptrs,
+			"replication_time": self.repl_profile.replication_time
 		}, index=genes.index)
 		self.comparison_ptr_df = comparison_ptr_df
 
@@ -121,8 +140,8 @@ class ChromatinCopyNumberCorrector:
 		plt_data = self.comparison_ptr_df
 
 		plt.scatter(plt_data.normalized_raw_ptr,
-		    plt_data.normalized_corrected_ptr, s=1, vmin=5, vmax=15,
-		            c=plt_data.replication_time, cmap='Spectral')
+			plt_data.normalized_corrected_ptr, s=1, vmin=5, vmax=15,
+					c=plt_data.replication_time, cmap='Spectral')
 		plt.colorbar()
 		plt.title("Copy number correction of chromatin data")
 		plt.plot([1])

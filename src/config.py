@@ -643,4 +643,12 @@ def load_configs_by_config_type(config_type, mode='chromatin'):
 		config1.WT1_TIMEPOINTS = data1.columns
 		config2.WT1_TIMEPOINTS = data2.columns
 
+	# todo: The timepoints are set by the expression data, this needs to be refactored
+	# We'll just use the known timepoints 
+	else:
+		from src.global_config import GlobalConstants
+
+		config1.WT1_TIMEPOINTS = GlobalConstants.CHROM_WT1_TIMEPOINTS
+		config2.WT1_TIMEPOINTS = GlobalConstants.CHROM_WT2_TIMEPOINTS
+
 	return config1, config2
