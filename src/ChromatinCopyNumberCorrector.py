@@ -25,7 +25,7 @@ class ChromatinCopyNumberCorrector:
 
 	def load_config_type(self, config_type):
 		self.repl_profile = load_gene_replication_profile(config_type)
-		self.config1, self.config2 = load_configs_by_config_type(config_type)
+		self.config1, self.config2 = load_configs_by_config_type(config_type, with_copy_correction=False)
 		self.config = self.config1 if self.replicate == 1 else self.config2
 		self.H, Hpos = self.config.calcH_function(self.config.intervals_wt1, self.config.WT1_TIMEPOINTS)
 		self.config_type = config_type
@@ -163,3 +163,10 @@ class ChromatinCopyNumberCorrector:
 		title = get_gene_title_name(orf_name)
 
 		plt.title(title, pad=10)
+
+
+def load_chromatin_copy_correction(config_type, replicate):
+    path = f'data/copy_correction/chromatin/norm_corr_scaling_rep{replicate}_{config_type}.csv'
+    correction = pd.read_csv(path).set_index('orf_name')
+    return correction
+

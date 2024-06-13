@@ -29,7 +29,7 @@ class StepReplicationChromatinDeconvolveSolver:
 		self.mnase_analysis_rep1 = mnase_analysis_rep1
 		self.mnase_analysis_rep2 = mnase_analysis_rep2
 
-		self.config1, self.config2 = load_configs_by_config_type(config_type)
+		self.config1, self.config2 = load_configs_by_config_type(config_type, with_copy_correction=False)
 		calcH_func = self.config1.calcH_function
 
 		print(f"Deconvolving with config: {config_type}, {type(self.config1)}, {calcH_func}")

@@ -42,14 +42,29 @@ class Model:
 		H1, self.Hpos = calcH_function(config.intervals_wt1, config.WT1_TIMEPOINTS)
 
 		if self.config.has_two_replicates:
+
+			# Load g2
 			g2 = self.config.wt2_df.loc[self.orf_name].values
 			self.g2 = g2
+
+			# Copy number correction for g1 and g2
+			copy_correction_vector1 = config.copy_correction[0].loc[orf_name]
+			copy_correction_vector2 = config.copy_correction[1].loc[orf_name]
+			self.g1 = self.g1 * copy_correction_vector1
+			self.g2 = self.g2 * copy_correction_vector2
+
 			self.g = np.concatenate((g1, g2))
 
 			H2, _ = calcH_function(config.intervals_wt2, config.WT2_TIMEPOINTS)
 			self.H = np.concatenate((H1, H2))
 
 		else:
+
+			# Just correct g1, g
+			copy_correction_vector = config.copy_correction.loc[orf_name]
+			self.g1 = self.g1 * copy_correction_vector
+			self.g = self.g1
+
 			self.H = H1
 
 	def deconvolve_find_optimal_gamma(self, silence=True):

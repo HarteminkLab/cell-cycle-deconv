@@ -836,6 +836,11 @@ class ChromatinModel:
 		self.exact_bins = exact_bins
 		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
 
+		# Correct the copy number of G using the copy number correction dataframe
+		copy_correction_vector = self.config.copy_correction.loc[self.orf_name]
+
+		self.G = self.G * copy_correction_vector.values.reshape((-1, 1))
+
 		if log:
 			print_fl(f"Unflattened the input data is of shape: {self.deconv_hist_unflattened.shape}")
 			print_fl(f"The size of our input data, G is: {self.G.shape}")

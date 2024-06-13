@@ -17,7 +17,8 @@ class CopyNumberCorrector:
 		self.genes = get_deconvolved_geneset()
 		self.repl_profile = load_gene_replication_profile(config_type)
 
-		self.config1, self.config2 = load_configs_by_config_type(config_type, mode='expression')
+		self.config1, self.config2 = load_configs_by_config_type(config_type, mode='expression', 
+			with_copy_correction=False)
 		self.config = self.config1 if replicate == 1 else self.config2
 
 		self.H, Hpos = self.config.calcH_function(self.config.intervals_wt1, self.config.WT1_TIMEPOINTS)
@@ -225,3 +226,8 @@ def copy_number_correct(prop_cop2, data_to_correct):
 
 	return data_corrected
 	
+
+def load_expression_copy_correction(config_type, replicate):
+	path = f'data/copy_correction/gene_expression/correction_scaling_expression_rep{replicate}_{config_type}.csv'
+	correction = pd.read_csv(path).set_index('orf_name')
+	return correction
