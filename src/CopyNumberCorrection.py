@@ -81,8 +81,8 @@ class CopyNumberCorrector:
 			self.repl_profile[['replication_time']])
 
 	def plot_ptrs(self, orfs=None):
-		fig = plt.figure(figsize=(5, 4))
-		plt.subplots_adjust(left=0.15, bottom=0.15)
+		fig = plt.figure(figsize=(5, 5))
+		plt.subplots_adjust(left=0.15, bottom=0.15, top=0.8)
 
 		dat = self.ge_comparison_ptr_df
 
@@ -91,7 +91,7 @@ class CopyNumberCorrector:
 
 		plt.scatter(dat.raw_ptr, dat.corrected_ptr, s=1,
 			c=dat.replication_time, cmap='Spectral', vmin=5, vmax=15)
-		plt.title(f"Uncorrected PTR vs Corrected PTR values,\nn={len(dat)}")
+		plt.title(f"Copy # correction,\nn={len(dat)}\n{self.config_type.title()} model, Replicate {self.replicate}")
 		plt.xlabel("Raw expression PTR")
 		plt.ylabel("Copy-number-corrected expression PTR")
 

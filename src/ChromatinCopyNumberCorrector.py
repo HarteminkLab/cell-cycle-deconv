@@ -143,7 +143,7 @@ class ChromatinCopyNumberCorrector:
 			plt_data.normalized_corrected_ptr, s=1, vmin=5, vmax=15,
 					c=plt_data.replication_time, cmap='Spectral')
 		plt.colorbar()
-		plt.title("Copy number correction of chromatin data")
+		plt.title(f"Copy # correction PTR change\n{self.config_type.title()} model, replicate {self.replicate}")
 		plt.plot([1])
 		plt.xlim(0.99, 1.5)
 		plt.ylim(0.99, 1.5)
