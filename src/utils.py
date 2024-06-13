@@ -22,7 +22,12 @@ def mkdir_safe(directory, log=True):
 	if log: print_fl("Creating directory: %s..." % directory, end='')
 
 	if not os.path.exists(directory):
-		os.makedirs(directory)
+
+		try:
+			os.makedirs(directory)
+		except FileExistsError:
+			pass
+
 	elif log:
 		print_fl("Directory exists. Skipping.", end='')
 
