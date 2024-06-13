@@ -25,16 +25,17 @@ class Model:
 		g (list of float): Measured time series population data.
 	"""
 	
-	def __init__(self, config, gene_or_orfname, gamma=0.0):
+	def __init__(self, config, gene_or_orfname, gamma=0.0, for_chromatin_deconv=False):
 
 		self.orf_name, self.gene_name = get_gene_name_orf_name(gene_or_orfname)
 		self.config = config
 		self.gamma = gamma
 
-		if self.config.wt1_df is not None:
-			g1 = self.config.wt1_df.loc[self.orf_name].values
-			self.g1 = g1
-			self.g = g1
+		if not for_chromatin_deconv:
+			if self.config.wt1_df is not None:
+				g1 = self.config.wt1_df.loc[self.orf_name].values
+				self.g1 = g1
+				self.g = g1
 
 		self.initial_phase_map, self.top_phase_map, self.bottom_phase_map = config.intervals_wt1[-1]
 
@@ -43,27 +44,33 @@ class Model:
 
 		if self.config.has_two_replicates:
 
-			# Load g2
-			g2 = self.config.wt2_df.loc[self.orf_name].values
-			self.g2 = g2
+			if not for_chromatin_deconv:
+				# Load g2
+				g2 = self.config.wt2_df.loc[self.orf_name].values
+				self.g2 = g2
 
-			# Copy number correction for g1 and g2
-			copy_correction_vector1 = config.copy_correction[0].loc[orf_name]
-			copy_correction_vector2 = config.copy_correction[1].loc[orf_name]
-			self.g1 = self.g1 * copy_correction_vector1
-			self.g2 = self.g2 * copy_correction_vector2
+				# Copy number correction for g1 and g2
+				if config.copy_correction is not None:
+					print_fl("Applying copy number correction")
+					copy_correction_vector1 = config.copy_correction[0].loc[self.orf_name]
+					copy_correction_vector2 = config.copy_correction[1].loc[self.orf_name]
+					self.g1 = self.g1 * copy_correction_vector1
+					self.g2 = self.g2 * copy_correction_vector2
 
-			self.g = np.concatenate((g1, g2))
+				self.g = np.concatenate((g1, g2))
 
 			H2, _ = calcH_function(config.intervals_wt2, config.WT2_TIMEPOINTS)
 			self.H = np.concatenate((H1, H2))
 
 		else:
 
-			# Just correct g1, g
-			copy_correction_vector = config.copy_correction.loc[orf_name]
-			self.g1 = self.g1 * copy_correction_vector
-			self.g = self.g1
+			if not for_chromatin_deconv:
+				# Just correct g1, g
+				if config.copy_correction is not None:
+					print_fl("Applying copy number correction")
+					copy_correction_vector = config.copy_correction.loc[self.orf_name]
+					self.g1 = self.g1 * copy_correction_vector
+					self.g = self.g1
 
 			self.H = H1
 

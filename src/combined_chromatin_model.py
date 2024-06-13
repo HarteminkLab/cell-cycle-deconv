@@ -21,12 +21,15 @@ class CombinedChromatinModel:
 		# the combined model name is used.
 		# Config2 will not be used for plotting
 
-		if "Delta" in config1.name:
-			config1.name = f"Combined Delta-DG1, $\\alpha$={config1.alpha},{config2.alpha}"
-			config2.name = f"Combined Delta-DG1, $\\alpha$={config1.alpha},{config2.alpha}"
-		else:
-			config1.name = f"Combined, $\\alpha$={config1.alpha},{config2.alpha}"
-			config2.name = f"Combined, $\\alpha$={config1.alpha},{config2.alpha}"
+		if config1.config_type == 'delta':
+			config1.name = f"Combined Prepend Model, $\\alpha$={config1.alpha},{config2.alpha}"
+			config2.name = f"Combined Prepend Model,, $\\alpha$={config1.alpha},{config2.alpha}"
+		elif config1.config_type == 'distinct':
+			config1.name = f"Combined Distinct, $\\alpha$={config1.alpha},{config2.alpha}"
+			config2.name = f"Combined Distinct, $\\alpha$={config1.alpha},{config2.alpha}"
+		elif config1.config_type == 'shared':
+			config1.name = f"Combined Shared, $\\alpha$={config1.alpha},{config2.alpha}"
+			config2.name = f"Combined Shared, $\\alpha$={config1.alpha},{config2.alpha}"
 
 		self.chrom1_model = ChromatinModel(config1)
 		self.chrom2_model = ChromatinModel(config2)
@@ -37,10 +40,6 @@ class CombinedChromatinModel:
 		replicate parameter anymore"""
 		self.chrom1_model.load_mnase_gene(gene_name)
 		self.chrom2_model.load_mnase_gene(gene_name)
-
-		# Then setup the deconvolution bin histogram data as G for each
-		self.chrom1_model.create_deconvolution_bins()
-		self.chrom2_model.create_deconvolution_bins()
 
 
 	def	setup_deconv_model(self, gamma=0.006, G1=None, G2=None, wavelet="Symmlet"):
@@ -71,11 +70,11 @@ class CombinedChromatinModel:
 		self.G = np.concatenate([self.G1, self.G2])
 
 		# Create the first replicates model and H
-		self.deconv1_model = Model(chrom1_model.config, chrom1_model.gene_name, chrom1_model.gamma)
+		self.deconv1_model = Model(chrom1_model.config, chrom1_model.gene_name, chrom1_model.gamma, for_chromatin_deconv=True)
 		self.H1, self.H1pos = calcH_function(chrom1_model.config.intervals_wt1, chrom1_model.timepoints)
 
 		# And the second
-		self.deconv2_model = Model(chrom2_model.config, chrom2_model.gene_name, chrom2_model.gamma)
+		self.deconv2_model = Model(chrom2_model.config, chrom2_model.gene_name, chrom2_model.gamma, for_chromatin_deconv=True)
 		self.H2, self.H2pos = calcH_function(chrom2_model.config.intervals_wt1, chrom2_model.timepoints)
 
 		# Combine the H matrices

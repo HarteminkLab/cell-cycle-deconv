@@ -3,6 +3,7 @@ import pandas as pd
 import numpy as np
 import os
 from src.calcH_single_g1 import calcH
+from src.config import read_yl_vst_data_rep
 
 
 class Config:
@@ -501,12 +502,6 @@ class Config:
 		end_of_first_lambd = g1_recovery_would_start_here+lambda_len
 
 		return mu0, first_s_start, first_s_end, end_of_first_lambd
-
-def read_yl_vst_data_rep(replicate):
-	wt_data = pd.read_csv(f'datasets/yl_cell_cycle/replicate{replicate}_deseq2_vst_counts.csv')
-	wt_data = wt_data.rename(columns={"Unnamed: 0": "orf_name"}).set_index('orf_name')
-	wt_data.columns = [int(s.replace('X', '')) for s in wt_data.columns.values]
-	return wt_data
 
 
 def load_yl_replicate1_rg1_alpha_vst_config(alpha=22):

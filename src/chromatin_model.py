@@ -113,6 +113,7 @@ class ChromatinModel:
 		timepoints = self.chr_reads['sample'].unique()
 		self.timepoints = timepoints
 		self.config.WT1_TIMEPOINTS = self.timepoints
+		self.create_deconvolution_bins()
 
 		
 	def compute_bin_counts_sample(self, sample, x_bins, y_bins):
@@ -604,7 +605,7 @@ class ChromatinModel:
 
 		return pos_max
 
-	def	setup_deconv_model(self):
+	def setup_deconv_model(self):
 		"""Set up the deconvolution model from the config, the model class was originally for gene expression
 		but has built-in functions that will be useful for chromatin deconvolution
 
@@ -620,7 +621,7 @@ class ChromatinModel:
 		refactor in the future
 		"""
 
-		self.deconv_model = Model(self.config, self.orf_name, self.gamma)
+		self.deconv_model = Model(self.config, self.orf_name, self.gamma, for_chromatin_deconv=True)
 
 		# The config for MNase and RNA-seq have a different number of timepoints, so 
 		# we need to recalculate H with the chromatin number of timepoints
@@ -837,9 +838,13 @@ class ChromatinModel:
 		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
 
 		# Correct the copy number of G using the copy number correction dataframe
-		copy_correction_vector = self.config.copy_correction.loc[self.orf_name]
+		if self.config.copy_correction is not None:
 
-		self.G = self.G * copy_correction_vector.values.reshape((-1, 1))
+			print_fl("Applying copy number correction")
+
+			copy_correction_vector = self.config.copy_correction.loc[self.orf_name]
+			self.G = self.G * copy_correction_vector.values.reshape((-1, 1))
+			print(self.G.shape, copy_correction_vector.shape)
 
 		if log:
 			print_fl(f"Unflattened the input data is of shape: {self.deconv_hist_unflattened.shape}")
