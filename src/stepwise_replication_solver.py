@@ -269,11 +269,11 @@ class StepReplicationChromatinDeconvolveSolver:
 
 			self.select_bins([bin_idx])
 
-			# try:
-			self.solve(verbose=False)
-			# except:
-			# 	print(f"Error with bin: {bin_idx}, skipping.")
-			# 	continue
+			try:
+				self.solve(verbose=False)
+			except:
+				print(f"Error with bin: {bin_idx}, skipping.")
+				continue
 
 			if bin_idx % 40 == 0:
 				timer.print_time(f"{bin_idx}/{n}")
