@@ -4,31 +4,32 @@ import numpy as np
 import matplotlib.pyplot as plt
 from src.mnase_replication_timing_analysis import get_bin_for_position
 from src.geneset import get_deconvolved_geneset
-from src.helpers import calcH_config
-from src.delta_config import load_yl_delta_config
-from src.config import read_yl_vst_data_rep
-from src.stepwise_replication_solver import load_replication_profile
+from src.config import read_yl_vst_data_rep, load_configs_by_config_type
+from src.stepwise_replication_solver import load_gene_replication_profile
 
 class CopyNumberCorrector:
 
-	def __init__(self):
+	def __init__(self, config_type, replicate):
 		
 		from src.helpers import calcH_config
 
 		# Load the gene expression data and geneset
 		self.genes = get_deconvolved_geneset()
-		self.repl_profile = load_replication_profile()
+		self.repl_profile = load_gene_replication_profile(config_type)
 
-		self.config = load_yl_delta_config(1)
-		self.H, Hpos = calcH_config(self.config)
+		self.config1, self.config2 = load_configs_by_config_type(config_type, mode='expression')
+		self.config = self.config1 if replicate == 1 else self.config2
 
-	def load_gene_expression_data(self, replicate):
-		self.normalized_reads_data = read_yl_vst_data_rep(replicate)
+		self.H, Hpos = self.config.calcH_function(self.config.intervals_wt1, self.config.WT1_TIMEPOINTS)
+		self.config_type = config_type
+		self.replicate = replicate
+
+	def load_gene_expression_data(self):
+		self.normalized_reads_data = read_yl_vst_data_rep(self.replicate)
 
 	def correct_for_copy_number(self):
 		from src.timer import Timer
 		
-		genes_w_repl_timing = self.genes_w_repl_timing
 		H = self.H
 		repl_profile = self.repl_profile
 			
@@ -37,17 +38,17 @@ class CopyNumberCorrector:
 		corrected_gene_expression = self.normalized_reads_data.copy()
 
 		# For each gene
-		for orf_name, gene in genes_w_repl_timing.iterrows():
+		for orf_name, gene in repl_profile.iterrows():
 			
 			if i % 1000 == 0:
-				timer.print_time(f"{i}/{len(genes_w_repl_timing)}")
+				timer.print_time(f"{i}/{len(repl_profile)}")
 
 			# Load the gene expression for the gene
 			gene_expression = self.normalized_reads_data.loc[gene.name]
 
 			# Correct the copy number using H and the replication profile
 			# and save into new gene expression table
-			replication_index = int(genes_w_repl_timing.loc[gene.name].replication_H_index)
+			replication_index = int(repl_profile.loc[gene.name].replication_H_index)
 			corrected_data = copy_number_correct_H_index(H, gene_expression, replication_index)
 			corrected_gene_expression.loc[orf_name] = corrected_data
 
@@ -57,27 +58,6 @@ class CopyNumberCorrector:
 		# are equalized
 		self.corrected_gene_expression = corrected_gene_expression
 		self.normalized_corrected_ge = normalize_total_reads(corrected_gene_expression)
-
-	def compute_replication_timing(self):
-		from src.timer import Timer
-
-		genes = self.genes
-		repl_profile = self.repl_profile
-		H = self.H
-		config = self.config
-			
-		repl_timing = self.genes[[]].copy()
-		repl_timing['replication_time'] = np.nan
-		repl_timing['replication_H_index'] = np.nan
-
-		for orf_name, gene in genes.iterrows():
-
-			replication_idx = get_gene_replication_profile(gene.name, repl_profile, self.genes)
-
-			repl_timing.loc[orf_name, 'replication_H_index'] = replication_idx
-			repl_timing.loc[orf_name, 'replication_time'] = config.get_timepoint_for_index(replication_idx)
-
-		self.genes_w_repl_timing = self.genes.join(repl_timing)
 
 
 	def compute_ptrs(self):
@@ -94,14 +74,15 @@ class CopyNumberCorrector:
 		}, index=self.normalized_reads_data.index)
 
 		# Select only genes in our gene set (filtered for low read count)
-		self.ge_comparison_ptr_df = ge_comparison_ptr_df.loc[self.genes_w_repl_timing.index]
+		self.ge_comparison_ptr_df = ge_comparison_ptr_df.loc[self.repl_profile.index]
 		self.ge_comparison_ptr_df['difference'] = \
 			self.ge_comparison_ptr_df.corrected_ptr - self.ge_comparison_ptr_df.raw_ptr
 		self.ge_comparison_ptr_df = self.ge_comparison_ptr_df.join(
-			self.genes_w_repl_timing[['replication_time']])
+			self.repl_profile[['replication_time']])
 
 	def plot_ptrs(self, orfs=None):
-		plt.figure(figsize=(5, 4))
+		fig = plt.figure(figsize=(5, 4))
+		plt.subplots_adjust(left=0.15, bottom=0.15)
 
 		dat = self.ge_comparison_ptr_df
 
@@ -120,6 +101,7 @@ class CopyNumberCorrector:
 
 		plt.xlim(0.99, 1.2)
 		plt.ylim(0.99, 1.2)
+		return fig
 
 	def plot_corrected_gene(self, gene_or_orfname, fig=None):
 		from src.sgd import get_gene_name_orf_name
@@ -138,6 +120,24 @@ class CopyNumberCorrector:
 
 		plt.title(title, pad=10)
 		plt.legend()
+
+
+	def save_correction(self, save_dir):
+
+		correction_scaling = self.normalized_reads_data / self.normalized_corrected_ge
+
+		save_path = f"{save_dir}/normalized_corrected_expression_rep{self.replicate}_{self.config_type}.csv"
+		self.normalized_corrected_ge.to_csv(save_path)
+		print(f"Saved to {save_path}")
+
+		save_path = f"{save_dir}/correction_scaling_expression_rep{self.replicate}_{self.config_type}.csv"
+		correction_scaling.to_csv(save_path)
+		print(f"Saved to {save_path}")
+
+		save_path = f"{save_dir}/expression_ptr_comparison_rep{self.replicate}_{self.config_type}.csv"
+		self.ge_comparison_ptr_df.to_csv(save_path)
+		print(f"Saved to {save_path}")
+
 
 def normalize_total_reads(read_data, total_counts=60000):
 	normalized_reads = read_data / \

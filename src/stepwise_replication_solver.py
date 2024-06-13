@@ -11,9 +11,6 @@ from src.utils import print_fl
 from src.global_config import GlobalConstants
 from src.geneset import get_deconvolved_geneset
 
-from src.config import load_yl_rg1_vst_config
-from src.delta_config import load_yl_delta_config
-from src.single_G1_config import load_single_g1_config
 
 from src.delta_config import Config as DeltaConfig
 from src.single_G1_config import Config as SharedConfig
@@ -32,18 +29,7 @@ class StepReplicationChromatinDeconvolveSolver:
 		self.mnase_analysis_rep1 = mnase_analysis_rep1
 		self.mnase_analysis_rep2 = mnase_analysis_rep2
 
-		if config_type == 'delta':
-			self.config1 = load_yl_delta_config(1)
-			self.config2 = load_yl_delta_config(2)
-		elif config_type == 'distinct':
-			self.config1 = load_yl_rg1_vst_config(1)
-			self.config2 = load_yl_rg1_vst_config(2)
-		elif config_type == 'shared':
-			self.config1 = load_single_g1_config(1)
-			self.config2 = load_single_g1_config(2)
-		else:
-			raise ValueError("Invalid config type")
-
+		self.config1, self.config2 = load_configs_by_config_type(config_type)
 		calcH_func = self.config1.calcH_function
 
 		print(f"Deconvolving with config: {config_type}, {type(self.config1)}, {calcH_func}")
@@ -503,13 +489,9 @@ def convert_to_replication_timing(repl_profile, chroms=range(1, 17), interpolate
 	return replication_profile
 
 
-def load_replication_profile(interpolate=True):
-	repl_profile = pd.read_csv('datasets/computed_mnase/'\
-		'deconvolved_all_chr_replication_profile_delta_model.csv')
-	repl_profile = repl_profile.set_index(['chr', 'start']).round()
-
-	replication_profile = convert_to_replication_timing(repl_profile, interpolate)
-
+def load_gene_replication_profile(config_type):
+	path = f'data/replication_timing/yl_2019/genes_replication_timing_{config_type}.csv'
+	replication_profile = pd.read_csv(path).set_index('orf_name')
 	return replication_profile
 
 

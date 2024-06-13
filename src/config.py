@@ -615,3 +615,32 @@ def plot_H(config, H=None):
 		plt.fill_between(x, prev, y, color=color, label=phase)
 		prev = y
 	plt.legend()
+
+
+def load_configs_by_config_type(config_type, mode='chromatin'):
+
+	from src.config import load_yl_rg1_vst_config
+	from src.delta_config import load_yl_delta_config
+	from src.single_G1_config import load_single_g1_config
+
+	if config_type == 'delta':
+		config1 = load_yl_delta_config(1)
+		config2 = load_yl_delta_config(2)
+	elif config_type == 'distinct':
+		config1 = load_yl_rg1_vst_config(1)
+		config2 = load_yl_rg1_vst_config(2)
+	elif config_type == 'shared':
+		config1 = load_single_g1_config(1)
+		config2 = load_single_g1_config(2)
+	else:
+		raise ValueError("Invalid config type")
+
+	# If loading by expression, update the config's timepoints
+	if mode == 'expression':
+		data1 = read_yl_vst_data_rep(1)
+		data2 = read_yl_vst_data_rep(2)
+
+		config1.WT1_TIMEPOINTS = data1.columns
+		config2.WT1_TIMEPOINTS = data2.columns
+
+	return config1, config2
