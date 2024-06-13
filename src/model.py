@@ -12,6 +12,7 @@ from src.sgd import get_gene_name_orf_name
 import cvxpy as cp
 import numpy as np
 import pandas as pd
+from src.utils import print_fl
 
 
 class Model:

@@ -21,44 +21,36 @@ def main():
 
 	Usage:
 
-		<output> <gamma_value> <gene_index>
-
-	or
-
-		<output> <gene_index>
+		<output> <gamma_value/-1> <config_type: shared/distinct/delta> <0/1 for copy number correction> <gene_index>
 
 	Will run the find optimal gamma procedure on the chromatin
 
 
-	Example script command for replicate 1, gene index 10, and gamma value of 0.006
+	Script for shared G1 config model with a fixed gamma value and copy number correction
 
-	python src/deconvolve_combined_runner.py output/deconvolve_combined_delta_2024_05_27 10
-
+	python src/deconvolve_combined_runner.py output/deconvolve_sharedg1_0066_cc 0.0066 shared 1 10
+	python src/deconvolve_combined_runner.py output/deconvolve_distinctg1_0066_cc 0.0066 distinct 1 10
 
 	"""
 
 	system_args = tuple(sys.argv)
 
 	from src.geneset import get_deconvolved_geneset
-
 	geneset = get_deconvolved_geneset()
-
-	# todo: re-running failed geneset
-	geneset = pd.read_csv('output/deconvolve_combined_delta_2024_05_27/rerun_geneset.csv').set_index('orf_name')
-	print(f"todo: Rerunning failed geneset from 6/3/2024, {len(geneset)} genes")
 
 	print_fl(f"System arguments:\t{system_args}")
 
 	# Specify output directory, gamma value and gene index
-	if len(system_args) == 4:
-		(_, out_dir, gamma, gene_index) = system_args
-		gene_index = int(gene_index)
-		gamma = float(gamma)
+	(_, out_dir, gamma, config_type, should_copy_correct, gene_index) = system_args
+	gene_index = int(gene_index)
+	gamma = float(gamma)
+	should_copy_correct = should_copy_correct == '1'
 
-	if len(system_args) == 3:
-		(_, out_dir, gene_index) = system_args
-		gene_index = int(gene_index)
-		gamma = None
+	print("Config type: ", config_type)
+	print("Will copy correct: ", should_copy_correct)
+
+	# Find optimal gamma
+	if gamma < 0: gamma = None
 
 	sys.stdout.flush()
 	gene = geneset.iloc[gene_index]
@@ -80,10 +72,12 @@ def main():
 	# ----------------------
 
 	# Load the configuration for the combined chromatin and gene expression models
+	from src.config import load_configs_by_config_type
+	from src.config import load_combined_gene_expression_by_config_type 
 
-	config1 = load_yl_delta_config(1)
-	config2 = load_yl_delta_config(2)
-	combined_ge_config = load_delta_combined_gene_expression_config()
+	config1, config2 = load_configs_by_config_type(config_type, with_copy_correction=should_copy_correct)
+	combined_ge_config = load_combined_gene_expression_by_config_type(config_type, 
+		with_copy_correction=should_copy_correct)
 
 	# ----------------------
 
@@ -91,7 +85,7 @@ def main():
 	combined_model.load_combined_mnase_gene(gene['gene'])
 
 	if gamma is not None:
-		combined_model.deconvolve(verbose=True, gamma=gamma)
+		combined_model.deconvolve(verbose=False, gamma=gamma)
 	else:
 		combined_model.deconvolve_find_optimal_gamma()
 
