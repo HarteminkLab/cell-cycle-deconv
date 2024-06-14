@@ -1,16 +1,14 @@
 #!/bin/bash
 # Script to create jobs to create locus plots for all genes across all chromosomes
 
-OUTDIR=output/deconvolve_sharedg1_0066_cc_2024_06_13
+# OUTDIR=output/deconvolve_sharedg1_0066_cc_2024_06_13
+OUTDIR=output/deconvolve_sharedg1_gopt_cc_2024_06_14
 
-
-# python src/deconvolve_combined_runner.py output/deconvolve_sharedg1_0066_cc 0.0066 shared 1 10
+#ARGS="${OUTDIR} 0.0066 shared 1"
+ARGS="${OUTDIR} -1 shared 1"
 
 # There are 5774 in total, so 5774 jobs. We will split them into 1000 batch jobs (because of a limitation on the size
 # of the array on the slurm computing cluster. Therefore we also need a batch argument in ARGS)
-
-
-ARGS="${OUTDIR} 0.0066 shared 1"
 
 # Each batch will run 1000 genes, second argument in ARGS is the batch index that will be multiplied against the
 # array index
