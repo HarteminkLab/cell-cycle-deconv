@@ -410,7 +410,7 @@ def get_quantile_values(dat, q):
 	for i in range(len(qvals)):
 		
 		qval = qvals[i]
-		cur_seg = dat[(dat > lower_val) & (dat < qval)]
+		cur_seg = dat[(dat >= lower_val) & (dat < qval)]
 		segments.append(cur_seg)
 		
 		# Update lower range
@@ -418,7 +418,7 @@ def get_quantile_values(dat, q):
 		lens.append(len(cur_seg))
 		
 	# Get last segment, > qval
-	cur_seg = dat[(dat > qval)]
+	cur_seg = dat[(dat >= qval)]
 	segments.append(cur_seg)
 	lens.append(len(cur_seg))
 		

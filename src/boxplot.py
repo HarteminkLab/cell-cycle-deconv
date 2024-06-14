@@ -23,6 +23,7 @@ class BoxPlotPlotter():
 		self.auto_xticks = True
 		self.color_prop_override = False
 		self.color = None
+		self.group_colors = []
 
 		# todo: default ylims for first box plot example
 		# set this for future boxplots
@@ -55,6 +56,10 @@ class BoxPlotPlotter():
 			color = self.color
 		else:
 			color = plt.get_cmap('plasma_r')(color_prop*0.6+0.2)
+
+		# For no categories, let's color the groups by different colors
+		if self.group_colors is not None:
+			color = self.group_colors[x_location]
 
 		# box plot width
 		width = self.width
@@ -100,7 +105,7 @@ class BoxPlotPlotter():
 		xticks = []
 		xticklabels = []
 		colors = []
-
+		
 		for category_index in range(self.num_categories):
 			dataframe = self.dfs_to_plot[category_index]
 			group_keys = sorted(dataframe[self.group_key].unique())
@@ -140,7 +145,7 @@ class BoxPlotPlotter():
 		if self.auto_xticks:
 			ax.set_xticks(xticks)
 			ax.set_xticklabels(xticklabels)
-			ax.set_xlim(xticks[0]-.5, xticks[-1]+1.5)
+			ax.set_xlim(xticks[0]-.5, xticks[-1]+.5)
 
 		if self.ylims is not None:
 			ax.set_ylim(*self.ylims)
