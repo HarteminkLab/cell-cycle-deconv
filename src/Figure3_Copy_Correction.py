@@ -5,7 +5,7 @@ import pandas as pd
 
 from src.figure_configs import FiguresConfig
 
-class Figure2CopyCorrection(object):
+class Figure3CopyCorrection(object):
 	"""Load and plot figures for the third result figure"""
 
 	def __init__(self):
