@@ -86,7 +86,7 @@ class Figure3CopyCorrection(object):
 		chrom_ptrs['log_ratio'] = log_ratio
 
 		segments, qvals, lens = get_quantile_values(chrom_ptrs.replication_time, 
-		    q=[0.25, 0.5, 0.75])
+			q=[0.25, 0.5, 0.75])
 
 		early_genes, early_mid_genes, mid_late_genes, late_genes = segments
 
@@ -104,25 +104,25 @@ class Figure3CopyCorrection(object):
 
 		box_plotter = BoxPlotPlotter()
 		box_plotter.set_data([chrom_ptrs.sort_values('replication_time'),
-		                     ], data_key='log_ratio', 
-		                     group_key='group_id',
-		                     group_name_key='group_name',
-		                    category_names=[
-		                        ''])
+							 ], data_key='log_ratio', 
+							 group_key='group_id',
+							 group_name_key='group_name',
+							category_names=[
+								''])
 		box_plotter.legend = False
-		box_plotter.group_colors = []
+		box_plotter.group_colors = rep_quantile_colors()
 		box_plotter.width = 0.25
 		for color_prop in [0, 0.33, 0.66, 1.]:
-		    prop = color_prop*0.4+0.2
-		    color = plt.get_cmap('plasma_r')(prop)
-		    box_plotter.group_colors.append(color)
+			prop = color_prop*0.94+0.03
+			color = plt.get_cmap('Spectral')(prop)
+			box_plotter.group_colors.append(color)
 
 		fig = plt.figure(figsize=FiguresConfig.FIGSIZE_SHORT)
 		box_plotter.plot_box_plot(ax=plt.gca(), title='')
 		plt.ylabel("Log2-ratio change in PTR")
 		plt.xlabel("Replication timing")
 		plt.title(f"Chromatin copy correction\nchange in PTR, n={n}", 
-		          fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=10)
+				  fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=10)
 		plt.axhline(1, c='black', lw=0.5, ls='dotted', zorder=0)
 
 		plt.ylim(-0.07, 0.07)
@@ -139,7 +139,7 @@ class Figure3CopyCorrection(object):
 		chrom_ptrs['log_ratio'] = log_ratio
 
 		segments, qvals, lens = get_quantile_values(chrom_ptrs.replication_time, 
-		    q=[0.25, 0.5, 0.75])
+			q=[0.25, 0.5, 0.75])
 
 		early_genes, early_mid_genes, mid_late_genes, late_genes = segments
 
@@ -157,26 +157,38 @@ class Figure3CopyCorrection(object):
 
 		box_plotter = BoxPlotPlotter()
 		box_plotter.set_data([chrom_ptrs.sort_values('replication_time'),
-		                     ], data_key='log_ratio', 
-		                     group_key='group_id',
-		                     group_name_key='group_name',
-		                    category_names=[
-		                        ''])
+							 ], data_key='log_ratio', 
+							 group_key='group_id',
+							 group_name_key='group_name',
+							category_names=[
+								''])
 		box_plotter.legend = False
-		box_plotter.group_colors = []
+		box_plotter.group_colors = rep_quantile_colors()
 		box_plotter.width = 0.25
-		for color_prop in [0, 0.33, 0.66, 1.]:
-		    prop = color_prop*0.4+0.2
-		    color = plt.get_cmap('plasma_r')(prop)
-		    box_plotter.group_colors.append(color)
+
 
 		fig = plt.figure(figsize=FiguresConfig.FIGSIZE_SHORT)
 		box_plotter.plot_box_plot(ax=plt.gca(), title='')
 		plt.ylabel("Log2-ratio change in PTR")
 		plt.xlabel("Replication timing")
 		plt.title(f"Gene expression copy correction\nchange in PTR, n={n}", 
-		          fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=10)
+				  fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=10)
 		plt.axhline(1, c='black', lw=0.5, ls='dotted', zorder=0)
 
 		plt.ylim(-0.07, 0.07)
 		plt.ylim(0.97, 1.05)
+
+
+from src.plot_helpers import adjust_lightness_saturation
+
+def rep_quantile_colors():
+	group_colors = []
+	for color_prop in [0, 0.33, 0.66, 1.]:
+		prop = color_prop*0.94+0.03
+		color = plt.get_cmap('Spectral')(prop)
+
+		# Increase lightness for readability
+		color = adjust_lightness_saturation(color, 1.1, 0.8)
+
+		group_colors.append(color)
+	return group_colors

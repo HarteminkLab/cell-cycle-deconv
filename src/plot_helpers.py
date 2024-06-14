@@ -146,30 +146,55 @@ def hide_spines(ax, hide_ticks=True):
 
 
 def create_sub_colormap(original_cmap_name, cmin, cmax, new_cmap_name):
-    """
-    Create a new colormap based on a subrange of an existing colormap.
-    
-    Parameters:
-    - original_cmap_name (str): Name of the original colormap.
-    - cmin (float): Minimum value of the range (0 to 1).
-    - cmax (float): Maximum value of the range (0 to 1).
-    - new_cmap_name (str): Name for the new colormap.
-    
-    Returns:
-    - new_cmap (LinearSegmentedColormap): New colormap based on the specified range.
-    """
+	"""
+	Create a new colormap based on a subrange of an existing colormap.
+	
+	Parameters:
+	- original_cmap_name (str): Name of the original colormap.
+	- cmin (float): Minimum value of the range (0 to 1).
+	- cmax (float): Maximum value of the range (0 to 1).
+	- new_cmap_name (str): Name for the new colormap.
+	
+	Returns:
+	- new_cmap (LinearSegmentedColormap): New colormap based on the specified range.
+	"""
 
-    from matplotlib.colors import LinearSegmentedColormap
+	from matplotlib.colors import LinearSegmentedColormap
 
-    
-    # Get the original colormap
-    original_cmap = plt.get_cmap(original_cmap_name)
-    
-    # Extract the colors from the original colormap within the specified range
-    n_colors = 256
-    original_colors = original_cmap(np.linspace(cmin, cmax, n_colors))
-    
-    # Create a new colormap from the extracted colors
-    new_cmap = LinearSegmentedColormap.from_list(new_cmap_name, original_colors)
-    
-    return new_cmap
+	
+	# Get the original colormap
+	original_cmap = plt.get_cmap(original_cmap_name)
+	
+	# Extract the colors from the original colormap within the specified range
+	n_colors = 256
+	original_colors = original_cmap(np.linspace(cmin, cmax, n_colors))
+	
+	# Create a new colormap from the extracted colors
+	new_cmap = LinearSegmentedColormap.from_list(new_cmap_name, original_colors)
+	
+	return new_cmap
+
+
+def adjust_lightness_saturation(rgba, lightness_factor, saturation_factor):
+	"""
+	Adjust the lightness and saturation of an RGBA color.
+
+	:param rgba: List or tuple with four elements [r, g, b, a] where r, g, b are in range [0, 1] and a is alpha.
+	:param lightness_factor: A multiplier to adjust the lightness. 1 means no change.
+	:param saturation_factor: A multiplier to adjust the saturation. 1 means no change.
+	:return: Adjusted RGBA color.
+	"""
+	import colorsys
+
+	r, g, b, a = rgba
+	# Convert RGB to HLS
+	h, l, s = colorsys.rgb_to_hls(r, g, b)
+	
+	# Adjust lightness and saturation
+	l = min(max(l * lightness_factor, 0), 1)  # Ensure the new lightness is in [0, 1]
+	s = min(max(s * saturation_factor, 0), 1)  # Ensure the new saturation is in [0, 1]
+	
+	# Convert HLS back to RGB
+	r, g, b = colorsys.hls_to_rgb(h, l, s)
+	
+	return [r, g, b, a]
