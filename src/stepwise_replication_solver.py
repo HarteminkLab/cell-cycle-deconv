@@ -14,7 +14,7 @@ from src.geneset import get_deconvolved_geneset
 
 from src.delta_config import Config as DeltaConfig
 from src.single_G1_config import Config as SharedConfig
-from src.config import Config as DistinctConfig
+from src.config import Config as DistinctConfig, load_configs_by_config_type
 
 class StepReplicationChromatinDeconvolveSolver:
 	"""
@@ -467,7 +467,7 @@ def convert_to_replication_timing(repl_profile, chroms=range(1, 17), interpolate
 
 	for chrom in chroms:
 
-		repl_prof_values = repl_profile.loc[chrom].idxmax(axis=1).astype(float)
+		repl_prof_values = repl_profile.loc[chrom].round().idxmax(axis=1).astype(float)
 
 		if interpolate:
 			interpolated_values = interpolate_values(repl_prof_values)

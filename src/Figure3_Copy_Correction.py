@@ -4,6 +4,8 @@ import numpy as np
 import pandas as pd
 
 from src.figure_configs import FiguresConfig
+from src.figure_configs import save_figure_for_paper
+
 
 class Figure3CopyCorrection(object):
 	"""Load and plot figures for the third result figure"""
@@ -19,7 +21,14 @@ class Figure3CopyCorrection(object):
 		self.mean_chrom_ptrs = (self.chrom_ptrs_rep1 + self.chrom_ptrs_rep2) / 2.
 		self.mean_chrom_ptrs['log_ratio'] = \
 			np.log2(self.mean_chrom_ptrs['normalized_corrected_ptr'] / self.mean_chrom_ptrs['normalized_raw_ptr']+1)
-		self.delta_chrom = 0.005
+		self.delta_chrom = 0.01
+
+		# Selected genes based on increase/decrease in PTR
+		# Plus control genes CLB2 and SSK22
+		self.selected_chrom_genes = ['BUB3', 'NCE101', # Increase
+									 'EXG2', 'RRP5', # Decrease
+									 'CLB2', 'SSK22' # Control genes
+		]
 
 		# Gene expression
 
@@ -30,7 +39,14 @@ class Figure3CopyCorrection(object):
 		self.mean_ge_ptrs = (self.ge_ptrs_rep1 + self.ge_ptrs_rep2) / 2.
 		self.mean_ge_ptrs['log_ratio'] = \
 			np.log2(self.mean_ge_ptrs['corrected_ptr'] / self.mean_ge_ptrs['raw_ptr']+1)
-		self.delta_ge = 0.005
+		self.delta_ge = 0.007
+
+		# Selected genes based on increase/decrease in PTR
+		# Plus control genes CLB2 and SSK22
+		self.selected_tx_genes = ['BUB3', 'NCE101', 'IFA38', # Increase in PTR
+							   'HTA2', 'DSE3', 'FKH1', # Decrease in PTR
+							   'CLB2', 'SSK22' # Control genes
+		]
 
 		def add_repl_timing_group_id(ptrs_data_df):
 			"""Add group ids for the replication timing, will be useful for box plots"""
@@ -57,27 +73,36 @@ class Figure3CopyCorrection(object):
 		add_repl_timing_group_id(self.mean_chrom_ptrs)
 
 
-	def plot_chrom_ptr_correction(self):
+	def plot_chrom_ptr_correction(self, selected_genes=None):
 		
 		plot_data = self.mean_chrom_ptrs
 		plt.figure(figsize=FiguresConfig.FIGSIZE_SQUARE_WIDE)
 		plt.scatter(plot_data.normalized_raw_ptr, 
 					plot_data.normalized_corrected_ptr,
-					facecolors='none', lw=2, edgecolor='#ccc', s=2, zorder=1)
+					facecolors='none', lw=2, edgecolor='#ddd', s=2, zorder=1)
+		cmap = ptr_cmap()
 		plt.scatter(plot_data.normalized_raw_ptr, 
 					plot_data.normalized_corrected_ptr,
 					c=plot_data.replication_time,
 					vmax=15,
-					s=1, cmap='Spectral', zorder=2)
+					s=1, cmap=cmap, zorder=2)
 		cbar = plt.colorbar()
 		cbar.ax.set_ylabel("Replication time, min", rotation=270, va='bottom')
 
 		n = len(plot_data)
 		plt.title(f"Mean Chromatin PTR,\nRaw vs Copy # Corrected n={n}", 
 			fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=10)
-		plt.plot([1, 2], [1, 2], c='black', lw=0.5, ls='dotted', zorder=0)
-		plt.xlim(1, 1.5)
-		plt.ylim(1, 1.5)
+		plt.plot([1, 2], [1, 2], c='black', lw=0.5, ls='dotted', zorder=10)
+
+		xlim, ylim = (1, 1.5), (1, 1.5)
+		plt.xlim(*xlim)
+		plt.ylim(*ylim)
+
+		if selected_genes is None:
+			selected_genes = self.selected_chrom_genes
+
+		plot_selected_genes(plot_data, selected_genes, 'normalized_raw_ptr', 'normalized_corrected_ptr',
+			xlim, ylim)
 		
 		plt.xlabel("Raw expression PTR")
 		plt.ylabel("Copy-number-corrected expression PTR")
@@ -88,28 +113,38 @@ class Figure3CopyCorrection(object):
 		plt.figure(figsize=FiguresConfig.FIGSIZE_SQUARE_WIDE)
 		plt.scatter(plot_data.raw_ptr, 
 					plot_data.corrected_ptr,
-					facecolors='none', lw=2, edgecolor='#ccc', s=2, zorder=1)
+					facecolors='none', lw=2, edgecolor='#ddd', s=2, zorder=1)
+		cmap = ptr_cmap()
 		plt.scatter(plot_data.raw_ptr, 
 					plot_data.corrected_ptr,
 					c=plot_data.replication_time,
 					vmax=15,
-					s=1, cmap='Spectral', zorder=2)
+					s=1, cmap=cmap, zorder=2)
 		cbar = plt.colorbar()
 		cbar.ax.set_ylabel("Replication time, min", rotation=270, va='bottom')
 
 		n = len(plot_data)
 		plt.title(f"Gene expression PTR,\nRaw vs Copy # Corrected n={n}", 
 			fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=10)
-		plt.plot([0, 2], [0, 2], c='black', lw=0.5, ls='dotted', zorder=0)
+		plt.plot([0, 2], [0, 2], c='black', lw=0.5, ls='dotted', zorder=10)
+
+		xlim = 0.99, 1.2
+		ylim = 0.99, 1.2
+
+		selected_genes = self.selected_tx_genes
+
+		plot_selected_genes(plot_data, selected_genes, 'raw_ptr', 'corrected_ptr',
+			xlim, ylim)
 
 		plt.xticks(np.arange(1, 1.25, 0.05))
 		plt.yticks(np.arange(1, 1.25, 0.05))
 
-		plt.xlim(0.99, 1.2)
-		plt.ylim(0.99, 1.2)
+		plt.xlim(*xlim)
+		plt.ylim(*ylim)
 		
 		plt.xlabel("Raw expression PTR")
 		plt.ylabel("Copy-number-corrected expression PTR")
+
 
 	def plot_chrom_ptr_rep_quantiles(self):
 
@@ -128,15 +163,10 @@ class Figure3CopyCorrection(object):
 		box_plotter.legend = False
 		box_plotter.group_colors = rep_quantile_colors()
 		box_plotter.width = 0.25
-		for color_prop in [0, 0.33, 0.66, 1.]:
-			prop = color_prop*0.94+0.03
-			color = plt.get_cmap('Spectral')(prop)
-			box_plotter.group_colors.append(color)
 
 		fig = plt.figure(figsize=FiguresConfig.FIGSIZE_SHORT)
 		box_plotter.plot_box_plot(ax=plt.gca(), title='')
 		plt.ylabel("Log2-ratio change in PTR")
-		plt.xlabel("Replication timing")
 		plt.title(f"Chromatin copy correction\nchange in PTR, n={n}", 
 				  fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=10)
 		plt.axhline(1, c='black', lw=0.5, ls='solid', zorder=0)
@@ -170,10 +200,10 @@ class Figure3CopyCorrection(object):
 					width=0.3)
 
 		plt.xticks(np.arange(len(group_names)), group_names)
-		yticks = np.arange(-1000, 800, 200)
+		yticks = np.arange(-1000, 800, 100)
 		ytick_labels = [str(np.abs(y)) for y in yticks]
 		plt.yticks(yticks, ytick_labels)
-		plt.ylim(-700, 300)
+		plt.ylim(-420, 100)
 		plt.xlim(-0.5, 3.5)
 		plt.axhline(0, c='black', lw=1, zorder=0)
 		plt.ylabel("# of genes w/\nincreased or decreased PTR")
@@ -203,7 +233,6 @@ class Figure3CopyCorrection(object):
 		fig = plt.figure(figsize=FiguresConfig.FIGSIZE_SHORT)
 		box_plotter.plot_box_plot(ax=plt.gca(), title='')
 		plt.ylabel("Log2-ratio change in PTR")
-		plt.xlabel("Replication timing")
 		plt.title(f"Gene expression copy correction\nchange in PTR, n={n}", 
 				  fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=10)
 		plt.axhline(1, c='black', lw=0.5, ls='solid', zorder=0)
@@ -240,7 +269,7 @@ class Figure3CopyCorrection(object):
 		yticks = np.arange(-600, 800, 100)
 		ytick_labels = [str(np.abs(y)) for y in yticks]
 		plt.yticks(yticks, ytick_labels)
-		plt.ylim(-250, 650)
+		plt.ylim(-150, 500)
 		plt.xlim(-0.5, 3.5)
 		plt.axhline(0, c='black', lw=1, zorder=0)
 		plt.ylabel("# of genes w/\nincreased or decreased PTR")
@@ -248,6 +277,51 @@ class Figure3CopyCorrection(object):
 				  f"(±{self.delta_ge}) after correction",
 				 pad=10, fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
 
+	def plot_chrom_examples(self, save_dir=None):
+		
+		def load_orf_data(path):
+			dat = pd.read_csv(path).set_index('orf_name')
+			dat.columns = dat.columns.astype(int)
+			return dat
+
+		chrom_raw_rep1 = load_orf_data('output/copy_correction/chromatin/raw_sums_rep1_shared.csv')
+		chrom_cor_rep1 = load_orf_data('output/copy_correction/chromatin/normalized_corrected_rep1_shared.csv')
+
+		chrom_raw_rep2 = load_orf_data('output/copy_correction/chromatin/raw_sums_rep1_shared.csv')
+		chrom_cor_rep2 = load_orf_data('output/copy_correction/chromatin/normalized_corrected_rep1_shared.csv')
+
+		from src.Figure3_Copy_Correction import plot_orf_correction
+		from src.sgd import get_gene_name_orf_name
+
+		for orf in self.selected_chrom_genes:
+			orf_name, gene_name = get_gene_name_orf_name(orf)
+			plot_orf_correction(orf, chrom_raw_rep1, chrom_cor_rep1, chrom_raw_rep2, chrom_cor_rep2,
+							   ylim=(0, 2500), ylabel="Chromatin window occupancy")
+			save_figure_for_paper(f'{save_dir}/Copy_Correction_Chromatin_Example_{gene_name}.png')
+
+
+	def plot_ge_examples(self, orfs=None, save_dir=None):
+		from src.config import read_yl_vst_data_rep
+
+		ge_data_rep1 = read_yl_vst_data_rep(1)
+		ge_data_rep2 = read_yl_vst_data_rep(2)
+
+		ge_cor_rep1 = pd.read_csv('output/copy_correction/gene_expression/normalized_corrected_expression_rep1_shared.csv').set_index('orf_name')
+		ge_cor_rep2 = pd.read_csv('output/copy_correction/gene_expression/normalized_corrected_expression_rep2_shared.csv').set_index('orf_name')
+		ge_cor_rep1.columns = ge_data_rep1.columns
+		ge_cor_rep2.columns = ge_data_rep2.columns
+
+		if orfs is None:
+			orfs = self.selected_tx_genes
+
+		from src.sgd import get_gene_name_orf_name
+
+		for orf in orfs:
+			plot_orf_correction(orf, ge_data_rep1, ge_cor_rep1, ge_data_rep2, ge_cor_rep2)
+
+			if save_dir is not None:
+				orf_name, gene_name = get_gene_name_orf_name(orf)
+				save_figure_for_paper(f'{save_dir}/Copy_Correction_Expression_Example_{gene_name}.png')
 
 
 from src.plot_helpers import adjust_lightness_saturation
@@ -263,3 +337,94 @@ def rep_quantile_colors():
 
 		group_colors.append(color)
 	return group_colors
+
+
+def get_color_for_rep_group(key):
+
+	colors = rep_quantile_colors()
+	mapping = {
+		'Early': colors[0],
+		'Early-Mid': colors[1],
+		'Mid-Late': colors[2],
+		'Late': colors[3]
+	}
+	return mapping[key]
+
+
+def ptr_cmap():
+	from src.plot_helpers import adjust_lightness_saturation_colormap
+
+	cmap = plt.get_cmap('Spectral')
+	cmap = adjust_lightness_saturation_colormap(cmap, 1., 0.8, 'SatSpectral')
+	return cmap
+
+def _plot_ann_text(x, y, text, fontsize=16, 
+	ha='left', va='bottom', zorder=1, 
+	textcolor='black', bordercolor='white'):
+	"""
+	Can't plot this to ax for some reason, revisit this later, check cd 
+	paper code for plotting arbitrary text
+	"""
+
+	import matplotlib.patheffects as patheffects
+
+	plt.text(x, y, text, fontsize=fontsize, weight='normal', style='italic', 
+		path_effects=[patheffects.withStroke(linewidth=2, foreground=bordercolor)],
+		color=textcolor, va=va, ha=ha, zorder=zorder)
+
+
+def plot_selected_genes(plot_data, selected_genes, keyx, keyy, xlim, ylim):
+	"""Plot annotations on scatter"""
+	from src.sgd import get_gene_name_orf_name
+	from src.sgd import get_gene_title_name
+
+	for gene_name in selected_genes:
+
+		orf_name, gene_name = get_gene_name_orf_name(gene_name)
+		gene_title = gene_name
+
+		selected_plot_data = plot_data.loc[orf_name]
+		x, y = selected_plot_data[keyx], selected_plot_data[keyy]
+
+		if y > ylim[1] or x > xlim[1]:
+			continue
+
+		_plot_ann_text(x, y+0.005, gene_title, zorder=21, fontsize=8, ha='center')
+		color = get_color_for_rep_group(selected_plot_data.group_name)
+		plt.scatter(x, y, s=30, edgecolor=color, facecolors='none', zorder=3, marker='D')
+
+
+def plot_orf_correction(gororf, gene_data_rep1, corrected_data_rep1, gene_data_rep2, corrected_data_rep2,
+	ylim=(0, 18), ylabel='Expression, VST'):
+	"""Plot time course of corrected and uncorrected genes"""
+	from src.sgd import get_gene_name_orf_name
+
+	plt.figure(figsize=FiguresConfig.FIGSIZE_SHORT_WIDE)
+
+	plt.subplot(1, 2, 1)
+
+	orf_name, gene_name = get_gene_name_orf_name(gororf)
+	color = plt.get_cmap('Spectral')(0.1)
+	raw_color = plt.get_cmap('Spectral')(0.93)
+	plt.plot(gene_data_rep1.loc[orf_name], c=raw_color, lw=3, label="Raw")
+	plt.plot(corrected_data_rep1.loc[orf_name], c=color, ls='dashed', lw=2, label="Corrected")
+	plt.ylim(*ylim)
+	
+	from src.sgd import get_gene_title_name
+	plt.suptitle(get_gene_title_name(orf_name))
+	plt.legend()
+	plt.xlabel("Time, min")
+	plt.ylabel(ylabel)
+	plt.title("Replicate 1", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+
+	plt.subplot(1, 2, 2)
+	plt.plot(gene_data_rep2.loc[orf_name], c=raw_color, lw=3, label="Raw")
+	plt.plot(corrected_data_rep2.loc[orf_name], c=color, ls='dashed', lw=2, label="Corrected")
+	plt.ylim(*ylim)
+	plt.title("Replicate 2", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+	
+	from src.sgd import get_gene_title_name
+	plt.suptitle(get_gene_title_name(orf_name), fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+	plt.legend()
+	plt.xlabel("Time, min")
+	plt.subplots_adjust(top=0.8)

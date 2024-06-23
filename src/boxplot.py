@@ -36,15 +36,16 @@ class BoxPlotPlotter():
 	def create_boxplot_data(self, arr_dat):
 		q1, median, q3 = np.percentile(arr_dat, [25, 50, 75])
 		iqr = q3 - q1
+		mean = np.mean(arr_dat)
 		lower_whisker = np.min(arr_dat[arr_dat >= q1 - 1.5 * iqr])
 		upper_whisker = np.max(arr_dat[arr_dat <= q3 + 1.5 * iqr])
 		outliers = arr_dat[(arr_dat < lower_whisker) | (arr_dat > upper_whisker)]
-		box_plot_data = q1, q3, median, lower_whisker, upper_whisker, outliers
+		box_plot_data = q1, q3, median, mean, lower_whisker, upper_whisker, outliers
 		return box_plot_data
 
 	def plot_box(self, box_plot_dat, x_location, group_index, ax):
 
-		q1, q3, median, lower_whisker, upper_whisker, outliers = box_plot_dat
+		q1, q3, median, mean, lower_whisker, upper_whisker, outliers = box_plot_dat
 
 		# If overriding color index for manually coloring
 		if self.color_prop_override:
@@ -89,6 +90,9 @@ class BoxPlotPlotter():
 
 		if self.plot_outliers:
 			plt.scatter([x_location] * len(outliers), outliers, color='#777', s=3)  # Outliers
+
+		plt.scatter([x_location], [mean], marker='D', s=9, zorder=12, facecolors=color,
+			edgecolor='black', lw=1)  # Outliers
 
 		plt.plot([x_location - width / 2, x_location + width / 2], [median, median], 
 			color='black', linestyle='-', linewidth=1, solid_capstyle='butt', zorder=11)
@@ -150,8 +154,6 @@ class BoxPlotPlotter():
 		if self.ylims is not None:
 			ax.set_ylim(*self.ylims)
 
-		ax.set_xlabel("Gene expression cutoffs, VST")
-		ax.set_ylabel("Nucleosome entropy")
 		ax.set_title(title)
 
 

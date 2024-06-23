@@ -198,3 +198,32 @@ def adjust_lightness_saturation(rgba, lightness_factor, saturation_factor):
 	r, g, b = colorsys.hls_to_rgb(h, l, s)
 	
 	return [r, g, b, a]
+
+def adjust_lightness_saturation_colormap(cmap, lightness_factor, saturation_factor, new_cmap_name, N=256):
+    """
+    Adjust the lightness and saturation of a Matplotlib colormap using the provided function.
+
+    :param cmap: Matplotlib colormap (name or Colormap instance).
+    :param lightness_factor: A multiplier to adjust the lightness. 1 means no change.
+    :param saturation_factor: A multiplier to adjust the saturation. 1 means no change.
+    :param N: Number of colors in the new colormap. Default is 256.
+    :return: Adjusted colormap.
+    """
+    import matplotlib.colors as mcolors
+    
+    if isinstance(cmap, str):
+        cmap = plt.get_cmap(cmap)
+    
+    # Create an array to store the adjusted colors
+    new_colors = []
+    
+    for i in np.linspace(0, 1, N):
+        rgba = cmap(i)
+        # Adjust the color using the provided function
+        adjusted_rgba = adjust_lightness_saturation(rgba, lightness_factor, saturation_factor)
+        new_colors.append(adjusted_rgba)
+    
+    # Create a new colormap from the adjusted colors
+    new_cmap = mcolors.ListedColormap(new_colors, name=new_cmap_name)
+    
+    return new_cmap
