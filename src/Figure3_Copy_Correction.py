@@ -24,10 +24,9 @@ class Figure3CopyCorrection(object):
 		self.delta_chrom = 0.01
 
 		# Selected genes based on increase/decrease in PTR
-		# Plus control genes CLB2 and SSK22
-		self.selected_chrom_genes = ['BUB3', 'NCE101', # Increase
-									 'EXG2', 'RRP5', # Decrease
-									 'CLB2', 'SSK22' # Control genes
+		self.selected_chrom_genes = ['CDC28', 'RPA34', # Increase
+									 'MRE11', 'AFR1', 'DUN1', # Decrease
+									 'SSK22' # Control genes
 		]
 
 		# Gene expression
@@ -43,9 +42,9 @@ class Figure3CopyCorrection(object):
 
 		# Selected genes based on increase/decrease in PTR
 		# Plus control genes CLB2 and SSK22
-		self.selected_tx_genes = ['BUB3', 'NCE101', 'IFA38', # Increase in PTR
-							   'HTA2', 'DSE3', 'FKH1', # Decrease in PTR
-							   'CLB2', 'SSK22' # Control genes
+		self.selected_tx_genes = ['CHL4', 'NCA3', 'CSM1', # Increase
+									 'HTA2', 'HTB2', 'DSE3', 'STU2', # Decrease
+									 'CLB2' # Control genes
 		]
 
 		def add_repl_timing_group_id(ptrs_data_df):
@@ -71,6 +70,64 @@ class Figure3CopyCorrection(object):
 		# Add group information for box plotting
 		add_repl_timing_group_id(self.mean_ge_ptrs)
 		add_repl_timing_group_id(self.mean_chrom_ptrs)
+
+
+	def plot_replication_profile_example(self):
+
+		from src.config import load_configs_by_config_type
+
+		# Depiction of the chromosome 10 replication timing profile computed from the MNase-seq
+
+		chrom_replication_profile = pd.read_csv(
+			'data/replication_timing/yl_2019/chrom_replication_timing_shared.csv')
+		chrom_replication_profile = chrom_replication_profile.set_index(['chr', 'start'])
+
+		# Copy number correction procedure....
+		config1, config2 = load_configs_by_config_type('shared', 1)
+
+		chrom = 10
+
+		def replication_timing_from_index(chrom_replication_profile, config1, config2):
+			repl_timing = [(config1.get_timepoint_for_index(repl_idx) +
+			 config2.get_timepoint_for_index(repl_idx))/2.
+			 for repl_idx in chrom_replication_profile]
+
+			_, cg1_1, _ = config1.get_g1_lens()
+			_, cg1_2, _ = config2.get_g1_lens()
+
+			cg1 = (cg1_1 + cg1_2)/2.
+			repl_timing = repl_timing+cg1
+			return repl_timing
+
+		repl_idx = chrom_replication_profile.loc[chrom].replication_index
+		repl_timing = replication_timing_from_index(repl_idx, config1, config2)
+
+		remade_f = np.zeros((len(repl_idx), 200))+1
+
+		pd.DataFrame(remade_f, index=repl_idx.index)
+		time_indices = np.arange(remade_f.shape[1])
+		for i in range(remade_f.shape[0]):
+			remade_f[i, time_indices > repl_idx.iloc[i]] = 2
+			
+		plt.figure(figsize=(9, 4.5))
+
+		plt.subplot(2, 1, 1)
+		plt.imshow(remade_f.T, aspect='auto', cmap='inferno')
+		plt.ylim(130, 100)
+		plt.xticks([])
+		plt.yticks([])
+		plt.ylabel("Deconvolution profile\n", fontsize=9)
+
+		from src.sgd import get_chromosome_length
+		plt.subplot(2, 1, 2)
+		plt.plot(repl_idx.index, repl_timing, c='black', lw=1)
+		plt.scatter(repl_idx.index, repl_timing, c='black', s=4)
+		plt.ylim(40, 20)
+		plt.xlim(0, repl_idx.index.max())
+		plt.ylabel("Estimated replication\ntime, min", fontsize=9)
+		plt.xlabel("Genomic position, bp")
+		plt.suptitle("Deconvolved replication profile", 
+			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
 
 
 	def plot_chrom_ptr_correction(self, selected_genes=None):
@@ -107,7 +164,7 @@ class Figure3CopyCorrection(object):
 		plt.xlabel("Raw expression PTR")
 		plt.ylabel("Copy-number-corrected expression PTR")
 
-	def plot_ge_ptr_correction(self):
+	def plot_ge_ptr_correction(self, selected_genes=None):
 		
 		plot_data = self.mean_ge_ptrs
 		plt.figure(figsize=FiguresConfig.FIGSIZE_SQUARE_WIDE)
@@ -131,7 +188,8 @@ class Figure3CopyCorrection(object):
 		xlim = 0.99, 1.2
 		ylim = 0.99, 1.2
 
-		selected_genes = self.selected_tx_genes
+		if selected_genes is None:
+			selected_genes = self.selected_tx_genes
 
 		plot_selected_genes(plot_data, selected_genes, 'raw_ptr', 'corrected_ptr',
 			xlim, ylim)
