@@ -74,10 +74,10 @@ class Figure3CopyCorrection(object):
 
 	def plot_replication_profile_example(self):
 
-		from src.origins import load_origins
 		from src.config import load_configs_by_config_type
+		from src.origins import load_origins_w_replication
 
-		origins = load_origins(full=True)
+		origins = load_origins_w_replication(full=True)
 
 		# Depiction of the chromosome 10 replication timing profile computed from the MNase-seq
 		chrom_replication_profile = pd.read_csv(
@@ -89,17 +89,7 @@ class Figure3CopyCorrection(object):
 
 		chrom = 10
 
-		def replication_timing_from_index(chrom_replication_profile, config1, config2):
-			repl_timing = [(config1.get_timepoint_for_index(repl_idx) +
-			 config2.get_timepoint_for_index(repl_idx))/2.
-			 for repl_idx in chrom_replication_profile]
-
-			_, cg1_1, _ = config1.get_g1_lens()
-			_, cg1_2, _ = config2.get_g1_lens()
-
-			cg1 = (cg1_1 + cg1_2)/2.
-			repl_timing = repl_timing+cg1
-			return repl_timing
+		from src.stepwise_replication_solver import replication_timing_from_index
 
 		repl_idx = chrom_replication_profile.loc[chrom].replication_index
 		repl_timing = replication_timing_from_index(repl_idx, config1, config2)
@@ -114,12 +104,13 @@ class Figure3CopyCorrection(object):
 		plt.figure(figsize=(9, 4.5))
 
 		# Choose efficient origins to plot
-		# 455 origins from Belsky data with crossreferenced efficiency values from McGuffee (filter out
+		# 455 origins from Belsky data with cross referenced efficiency values from McGuffee (filter out
 		# any -1 efficiency values)
-		origins = origins[origins['derived_origin_efficiency_from_mcguffee_et_al_2013'] > 0]
+		# origins = origins[origins['derived_origin_efficiency_from_mcguffee_et_al_2013'] > 0]
 		origins_chr = origins[origins.chr == chrom]
 
 		from src.global_config import GlobalConstants
+
 
 		plt.subplot(2, 1, 1)
 		plt.imshow(remade_f.T, aspect='auto', cmap='inferno',
@@ -133,16 +124,13 @@ class Figure3CopyCorrection(object):
 		from src.mnase_replication_timing_analysis import get_bin_for_position
 
 		for origin_name, origin in origins_chr.iterrows():
-
-			bin_idx, bin_start_pos = get_bin_for_position(origin.pos, repl_idx.index)
-			val = repl_idx.iloc[bin_idx]
-
-			plt.scatter(origin.pos, val, s=25, facecolors='white', lw=1.5, color='red', alpha=1, zorder=100)
+			plt.scatter(origin.pos, origin.replication_index+1, # add one to plot the first index in which copy number is 2
+			 	s=25, facecolors='white', lw=1.5, color='red', alpha=1, zorder=100)
 
 		plt.yticks([])
 		plt.xticks([])
 		plt.ylim(140, 100)
-		plt.xlim(0, repl_idx.index[-1])
+		plt.xlim(GlobalConstants.REPL_DECONV_BIN_WIDTH/2., repl_idx.index[-1]+GlobalConstants.REPL_DECONV_BIN_WIDTH/2.)
 
 		plt.subplot(2, 1, 2)
 		plt.plot(repl_idx.index+GlobalConstants.REPL_DECONV_BIN_WIDTH/2., repl_timing, c='black', lw=1)
@@ -155,11 +143,7 @@ class Figure3CopyCorrection(object):
 			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
 
 		for origin_name, origin in origins_chr.iterrows():
-
-			bin_idx, bin_start_pos = get_bin_for_position(origin.pos, repl_idx.index)
-			val = repl_timing[bin_idx]
-
-			plt.scatter(origin.pos, val, s=25, facecolors='white', lw=1.5, color='red', alpha=1, zorder=100)
+			plt.scatter(origin.pos, origin.replication_time, s=25, facecolors='white', lw=1.5, color='red', alpha=1, zorder=100)
 
 
 	def plot_chrom_ptr_correction(self, selected_genes=None):

@@ -600,3 +600,14 @@ def interpolate_values(repl_prof_values, step=2000):
 	return interpolated_df
 
 
+def replication_timing_from_index(chrom_replication_profile, config1, config2):
+	repl_timing = [(config1.get_timepoint_for_index(repl_idx) +
+	 config2.get_timepoint_for_index(repl_idx))/2.
+	 for repl_idx in chrom_replication_profile]
+
+	_, cg1_1, _ = config1.get_g1_lens()
+	_, cg1_2, _ = config2.get_g1_lens()
+
+	cg1 = (cg1_1 + cg1_2)/2.
+	repl_timing = repl_timing+cg1
+	return repl_timing
