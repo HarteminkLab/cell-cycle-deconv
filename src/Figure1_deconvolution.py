@@ -64,20 +64,37 @@ class Figure1Deconvolution(object):
 
 			annotation_y = -n-0.25
 			
+			phase_txt = phase.replace("RG1", 'Recovery G1')
+			phase_txt = phase_txt.replace("CG1", 'Shared G1')
+			phase_txt = phase_txt.replace("postG1", 'S G2/M')
+
+			annotation_tuple = (x_values, annotation_y, phase_txt, color)
+			
+			return x_values[-1], annotation_tuple
+
+		annotation_tuples = []
+		last_x, annot = plot_phase_fills(ax, 'RG1')
+		annotation_tuples.append(annot)
+
+		last_x, annot = plot_phase_fills(ax, 'CG1', last_x)
+		annotation_tuples.append(annot)
+
+		last_x, annot = plot_phase_fills(ax, 'S', last_x)
+		annotation_tuples.append(annot)
+
+		last_x, annot = plot_phase_fills(ax, 'G2/M', last_x)
+		annotation_tuples.append(annot)
+
+		last_x, annot = plot_phase_fills(ax, 'H', last_x)
+		annotation_tuples.append(annot)
+
+		for (x_values, annotation_y, phase_txt, color) in annotation_tuples:
+			
 			plt.plot([x_values[0], x_values[-1]], [annotation_y, annotation_y],
 				lw=20, c=color, solid_capstyle='butt')
-			x_mid = (x_values[-1]+x_values[0])/2
-			
-			phase_txt = phase.replace("Delta", 'D')
-			ax.text(x_mid, annotation_y-.25, phase_txt, ha='center', c='white')
-			
-			return x_values[-1]
 
-		last_x = plot_phase_fills(ax, 'RG1')
-		last_x = plot_phase_fills(ax, 'CG1', last_x)
-		# last_x = plot_phase_fills(ax, 'Delta', last_x)
-		last_x = plot_phase_fills(ax, 'postG1', last_x)
-		last_x = plot_phase_fills(ax, 'H', last_x)
+			x_mid = (x_values[-1]+x_values[0])/2
+			ax.text(x_mid, annotation_y-0.25, phase_txt, ha='center', c='white')
 
 		n, m = H.shape
 
@@ -105,7 +122,7 @@ class Figure1Deconvolution(object):
 
 		# Create custom spines for the annotations
 		bottom_y = -n+1.25
-		right_x = m+2
+		right_x = m+2.25
 		plt.plot([0, right_x], [bottom_y, bottom_y], c='black', lw=0.75)
 		plt.plot([0, 0], [1, bottom_y], c='black', lw=0.75)
 		plt.plot([0, right_x], [1, 1], c='black', lw=0.75)
