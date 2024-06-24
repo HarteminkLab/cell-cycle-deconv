@@ -4,6 +4,7 @@ import pandas as pd
 from matplotlib import pyplot as plt
 from src.chromatin_model import read_chromosome_mnase_reads
 from src.TracerPlotter import normalize_max_min
+from src.global_config import GlobalConstants
 
 
 class MNaseOriginAnalysis:
@@ -26,9 +27,8 @@ class MNaseOriginAnalysis:
 		chrom_read_counts = self.mnase_reads.groupby(['sample', 'mid']).count()
 		self.chrom_read_counts = chrom_read_counts[['start']].rename(columns={'start': 'count'})
 
-
-	def compute_sliding_window_counts_all_times(self, window_size=10000, step=2000,
-			min_count_thresh = 0.7):
+	def compute_sliding_window_counts_all_times(self, window_size=GlobalConstants.REPL_DECONV_BIN_WIDTH,
+			step=GlobalConstants.REPL_DECONV_BIN_STEP, min_count_thresh = 0.7):
 		"""Compute the sliding window counts"""
 
 		self.window_size = window_size
@@ -61,47 +61,6 @@ class MNaseOriginAnalysis:
 		# non-zero bins
 		self.meets_threshold = self.total_nonzero_bins_per_10k > min_count_thresh*self.window_size
 		self.all_window_counts = self.all_window_counts_nonzero_handled * self.meets_threshold
-
-	def plot_bin_normalization_procedure(self):
-		plt.figure(figsize=(19, 13))
-		plt.subplots_adjust(hspace=0.5)
-		plt.subplot(4, 1, 1)
-		plt.imshow(self.all_window_counts_nonzero_unhandled, aspect='auto')
-		plt.xticks([])
-		plt.yticks([])
-		plt.title("Unnormalized",
-				  fontsize=22, pad=10)
-
-		plt.subplot(4, 1, 2)
-		plt.imshow(self.all_window_counts_nonzero_handled, aspect='auto')
-		plt.xticks([])
-		plt.yticks([])
-		plt.title("Normalized by non-zero bin counts",
-				  fontsize=22, pad=10)
-
-		plt.subplot(4, 1, 3)
-		plt.imshow(self.all_window_counts, aspect='auto')
-		plt.xticks([])
-		plt.yticks([])
-		plt.title(f"Meets threshold, threshold={self.min_count_thresh}",
-				  fontsize=22, pad=10)
-
-		# Identify a cutoff in which we should zero out the count curves
-		plt.subplot(4, 1, 4)
-		xs = self.start_indices + self.window_size//2
-		plt.plot(xs, self.total_nonzero_bins_per_10k,
-			label="Non-zero bins")
-		plt.plot(xs, 
-			self.total_nonzero_bins_per_10k * self.meets_threshold,
-				label="Non-zero bins * meets threshold")
-		plt.xlim(0, self.chrom_len)
-		plt.axhline(self.min_count_thresh * self.window_size, c='black',
-				   lw=1, ls='dotted', label='threshold')
-		plt.title(f"Curves of bin counts and threshold multiplier, threshold={self.min_count_thresh}",
-				  fontsize=22, pad=10)
-		plt.legend()
-		plt.suptitle(f"Non-zero bin normalization, Replicate {self.replicate},"
-					 f" chr{self.chromosome}", fontsize=29)
 
 
 	def get_bin_for_position(self, position):

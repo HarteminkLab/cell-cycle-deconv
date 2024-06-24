@@ -33,4 +33,5 @@ class GlobalConstants:
 	SMALL_FRAG_OCC_FILEPATH = 'output/small_fragments_occupancy.csv'
 
 	# Replication timing
-	REPL_TIMING_FILEPATH = 'datasets/computed_mnase/all_repl_timing_deconvolved.csv'
+	REPL_DECONV_BIN_WIDTH = 10000
+	REPL_DECONV_BIN_STEP = 2000

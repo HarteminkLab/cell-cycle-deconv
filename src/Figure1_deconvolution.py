@@ -8,12 +8,10 @@ class Figure1Deconvolution(object):
 	def __init__(self):
 
 		# Create the H for the updated model config to include the H config
-		from src.delta_config import load_yl_delta_config
-		config1 = load_yl_delta_config(1)
-		config2 = load_yl_delta_config(2)
+		from src.config import load_configs_by_config_type
+		config1, config2 = load_configs_by_config_type('shared')
 
-		from src.helpers import calcH
-		H, Hpositions = calcH(config1.intervals_wt1, config1.WT1_TIMEPOINTS)
+		H, Hpositions = config1.calcH_function(config1.intervals_wt1, config1.WT1_TIMEPOINTS)
 		self.H = H
 		self.config1 = config1
 		self.config2 = config2
@@ -77,19 +75,19 @@ class Figure1Deconvolution(object):
 
 		last_x = plot_phase_fills(ax, 'RG1')
 		last_x = plot_phase_fills(ax, 'CG1', last_x)
-		last_x = plot_phase_fills(ax, 'Delta', last_x)
+		# last_x = plot_phase_fills(ax, 'Delta', last_x)
 		last_x = plot_phase_fills(ax, 'postG1', last_x)
 		last_x = plot_phase_fills(ax, 'H', last_x)
 
 		n, m = H.shape
 
 		yticks = np.arange(0, -n+1, -1)
-		yticks_labels = ["$u_{"+str(-yt+1)+"}$" for yt in yticks]
+		yticks_labels = ["$t_{"+str(-yt+1)+"}$" for yt in yticks]
 
 		yticks = np.concatenate([yticks[0:3], yticks[7:10], yticks[-1:]])
 		yticks_labels = np.concatenate([yticks_labels[0:3], yticks_labels[7:10], 
 			yticks_labels[-1:]])
-		yticks_labels[-1] = "$u_n$"
+		yticks_labels[-1] = "$t_n$"
 		yticks_labels[-2] = '.'
 		yticks_labels[-3] = '.'
 		yticks_labels[-4] = '.'
@@ -116,6 +114,11 @@ class Figure1Deconvolution(object):
 		# Plot the backgorund
 		from src.plot_helpers import plot_rect2
 		plot_rect2(ax, 1, 1, right_x, bottom_y, zorder=0, color='white')
+
+		from src.figure_configs import FiguresConfig
+		plt.title("Convolution Kernel, $\\bf{H}$", fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+		plt.xlabel("Single cell deconvolution time", fontsize=FiguresConfig.FIG_LABEL_FONTSIZE)
+		plt.ylabel("Experimental time", fontsize=FiguresConfig.FIG_LABEL_FONTSIZE)
 
 
 	def compute_clb2_deconvolution(self):

@@ -408,6 +408,31 @@ class StepReplicationChromatinDeconvolveSolver:
 		return bin_dat, normalized_bin_dat, copy_scaling, \
 			(first_half, second_half), (normalized_first, normalized_second)
 
+
+	def plot_raw_data(self):
+
+		from src.figure_configs import FiguresConfig
+
+		plt.figure(figsize=FiguresConfig.FIGSIZE_SHORT_WIDE)
+
+		extent = [0, self.chr_bin_curves2.index[-1], 0, 20]
+
+		plt.subplot(2, 1, 1)
+		plt.imshow(self.chr_bin_curves1.T, aspect='auto', origin='lower', vmin=0, vmax=1,
+				  extent=extent, cmap='inferno')
+		plt.xticks([])
+		plt.yticks([])
+		plt.ylabel("Replicate 1")
+
+		plt.subplot(2, 1, 2)
+		plt.imshow(self.chr_bin_curves2.T, aspect='auto', origin='lower', vmin=0, vmax=1,
+				  extent=extent, cmap='inferno')
+		plt.yticks([])
+		plt.xlabel("Genomic position, bp")
+		plt.ylabel("Replicate 2")
+		plt.suptitle(f"Chr{self.chrom} MNase-seq raw 10-kb occupancy", 
+			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+
 	def create_replication_timing_indices(self):
 		chroms = self.all_chrom_fs_df.index.get_level_values(0).unique()
 		self.all_chrs_replication_profile = convert_to_replication_timing(self.all_chrom_fs_df, 
@@ -573,4 +598,5 @@ def interpolate_values(repl_prof_values, step=2000):
 	interpolated_df = pd.DataFrame({'index': indices, 
 		'value': values}).astype(int).set_index('index')
 	return interpolated_df
+
 

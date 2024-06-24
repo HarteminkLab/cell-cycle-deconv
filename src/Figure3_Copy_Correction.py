@@ -74,10 +74,12 @@ class Figure3CopyCorrection(object):
 
 	def plot_replication_profile_example(self):
 
+		from src.origins import load_origins
 		from src.config import load_configs_by_config_type
 
-		# Depiction of the chromosome 10 replication timing profile computed from the MNase-seq
+		origins = load_origins(full=True)
 
+		# Depiction of the chromosome 10 replication timing profile computed from the MNase-seq
 		chrom_replication_profile = pd.read_csv(
 			'data/replication_timing/yl_2019/chrom_replication_timing_shared.csv')
 		chrom_replication_profile = chrom_replication_profile.set_index(['chr', 'start'])
@@ -111,23 +113,53 @@ class Figure3CopyCorrection(object):
 			
 		plt.figure(figsize=(9, 4.5))
 
+		# Choose efficient origins to plot
+		# 455 origins from Belsky data with crossreferenced efficiency values from McGuffee (filter out
+		# any -1 efficiency values)
+		origins = origins[origins['derived_origin_efficiency_from_mcguffee_et_al_2013'] > 0]
+		origins_chr = origins[origins.chr == chrom]
+
+		from src.global_config import GlobalConstants
+
 		plt.subplot(2, 1, 1)
-		plt.imshow(remade_f.T, aspect='auto', cmap='inferno')
-		plt.ylim(130, 100)
-		plt.xticks([])
-		plt.yticks([])
+		plt.imshow(remade_f.T, aspect='auto', cmap='inferno',
+			extent=[GlobalConstants.REPL_DECONV_BIN_WIDTH/2., 
+			repl_idx.index[-1]+GlobalConstants.REPL_DECONV_BIN_WIDTH/2., 
+			0, remade_f.shape[1]], vmin=1, vmax=2, origin='lower')
+
 		plt.ylabel("Deconvolution profile\n", fontsize=9)
 
 		from src.sgd import get_chromosome_length
+		from src.mnase_replication_timing_analysis import get_bin_for_position
+
+		for origin_name, origin in origins_chr.iterrows():
+
+			bin_idx, bin_start_pos = get_bin_for_position(origin.pos, repl_idx.index)
+			val = repl_idx.iloc[bin_idx]
+
+			plt.scatter(origin.pos, val, s=25, facecolors='white', lw=1.5, color='red', alpha=1, zorder=100)
+
+		plt.yticks([])
+		plt.xticks([])
+		plt.ylim(140, 100)
+		plt.xlim(0, repl_idx.index[-1])
+
 		plt.subplot(2, 1, 2)
-		plt.plot(repl_idx.index, repl_timing, c='black', lw=1)
-		plt.scatter(repl_idx.index, repl_timing, c='black', s=4)
+		plt.plot(repl_idx.index+GlobalConstants.REPL_DECONV_BIN_WIDTH/2., repl_timing, c='black', lw=1)
+		plt.scatter(repl_idx.index+GlobalConstants.REPL_DECONV_BIN_WIDTH/2., repl_timing, c='black', s=4)
 		plt.ylim(40, 20)
 		plt.xlim(0, repl_idx.index.max())
 		plt.ylabel("Estimated replication\ntime, min", fontsize=9)
 		plt.xlabel("Genomic position, bp")
 		plt.suptitle("Deconvolved replication profile", 
 			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+
+		for origin_name, origin in origins_chr.iterrows():
+
+			bin_idx, bin_start_pos = get_bin_for_position(origin.pos, repl_idx.index)
+			val = repl_timing[bin_idx]
+
+			plt.scatter(origin.pos, val, s=25, facecolors='white', lw=1.5, color='red', alpha=1, zorder=100)
 
 
 	def plot_chrom_ptr_correction(self, selected_genes=None):
