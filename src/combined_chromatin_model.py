@@ -41,11 +41,11 @@ class CombinedChromatinModel:
 		self.chrom1_model.load_mnase_gene(gene_name)
 		self.chrom2_model.load_mnase_gene(gene_name)
 
-	def load_combined_mnase_orc(self, orc_id):
+	def load_combined_mnase_orc(self, orc_or_ars):
 		"""This takes the place of load_mnase_gene, as we don't need the
 		replicate parameter anymore"""
-		self.chrom1_model.load_mnase_orc_id(orc_id)
-		self.chrom2_model.load_mnase_orc_id(orc_id)
+		self.chrom1_model.load_mnase_orc(orc_or_ars)
+		self.chrom2_model.load_mnase_orc(orc_or_ars)
 
 
 	def	setup_deconv_model(self, gamma=0.006, G1=None, G2=None, wavelet="Symmlet"):
@@ -76,11 +76,11 @@ class CombinedChromatinModel:
 		self.G = np.concatenate([self.G1, self.G2])
 
 		# Create the first replicates model and H
-		self.deconv1_model = Model(chrom1_model.config, chrom1_model.gene_name, chrom1_model.gamma, for_chromatin_deconv=True)
+		self.deconv1_model = Model(chrom1_model.config, None, chrom1_model.gamma, for_chromatin_deconv=True)
 		self.H1, self.H1pos = calcH_function(chrom1_model.config.intervals_wt1, chrom1_model.timepoints)
 
 		# And the second
-		self.deconv2_model = Model(chrom2_model.config, chrom2_model.gene_name, chrom2_model.gamma, for_chromatin_deconv=True)
+		self.deconv2_model = Model(chrom2_model.config, None, chrom2_model.gamma, for_chromatin_deconv=True)
 		self.H2, self.H2pos = calcH_function(chrom2_model.config.intervals_wt1, chrom2_model.timepoints)
 
 		# Combine the H matrices

@@ -35,7 +35,7 @@ class ChromatinModel:
 		# Padding defines the window around the TSS to retrieve MNase data
 		self.padding = 1000
 		self.geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
-		self.origins = load_origins_w_replication()
+		self.origins = load_origins_w_replication(full=True)
 
 		self.config = config
 		self.gamma = 0.006 # default gamma value
@@ -67,10 +67,16 @@ class ChromatinModel:
 		self.gene = self.geneset.loc[self.orf_name]
 
 
-	def load_mnase_orc(self, orc_id, log=True):
+	def load_mnase_orc(self, orc_id_or_ars_name, log=True):
 
-		self.origin = self.origins.loc[orc_id]
-		origin = self.origin
+		if orc_id_or_ars_name in self.origins.index:
+			origin = self.origins.loc[orc_id_or_ars_name]
+		elif orc_id_or_ars_name in self.origins.ars_name.values:
+			origin = self.origins[self.origins.ars_name == orc_id_or_ars_name].iloc[0]
+		else:
+			raise ValueError(f"Origin: {orc_id_or_ars_name} not found.")
+
+		self.origin = origin
 
 		chrom = origin.chr
 		center = origin.pos
@@ -212,6 +218,7 @@ class ChromatinModel:
 			ax.set_yticks([])
 			ax.axvline(img.shape[1]/2, c='black', lw=1, ls='dotted')
 			ax.set_ylabel(time)
+		plt.suptitle(self.origin.ars_name)
 
 	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, 
 		vmin=0, vmax=50, smooth=False, f=None, mask=None):
