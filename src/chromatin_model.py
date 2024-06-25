@@ -206,7 +206,12 @@ class ChromatinModel:
 	def plot_raw_orc_data(self):
 		downsampled_bins = self.deconv_hist_unflattened
 		n = downsampled_bins.shape[0]
-		fig, axs = plt.subplots(n//2, 2, figsize=(9, 6))
+
+		num_rows = n//2
+		if n % 2 == 1:
+			num_rows = n//2+1
+
+		fig, axs = plt.subplots(num_rows, 2, figsize=(9, 6))
 		axs = np.array(axs).T.flatten()
 
 		for i in range(n):
@@ -218,10 +223,17 @@ class ChromatinModel:
 			ax.set_yticks([])
 			ax.axvline(img.shape[1]/2, c='black', lw=1, ls='dotted')
 			ax.set_ylabel(time)
-		plt.suptitle(self.origin.ars_name)
+
+		if n % 2 == 1:
+			ax = axs[n]
+			from src.plot_helpers import hide_spines
+			hide_spines(ax)
+
+		plt.suptitle(f"{self.origin.ars_name}, {self.origin.activation_time}, "
+			f"efficiency={self.origin.derived_origin_efficiency_from_mcguffee_et_al_2013:.2f}\nReplicate {self.config.replicate}")
 
 	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, 
-		vmin=0, vmax=50, smooth=False, f=None, mask=None):
+		vmin=0, vmax=50, smooth=False, f=None, mask=None, show_dg1=False, show_origin_down_nuc=False):
 
 		if f is None:
 			f = self.deconvolved_f().copy()
@@ -241,7 +253,12 @@ class ChromatinModel:
 			if ge_model is not None:
 				num_rows = num_rows+1
 
-			fig, ax_cols = plt.subplots(num_rows, 4, figsize=(figwidth, 8))
+			if show_dg1:
+				num_cols = 4
+			else:
+				num_cols = 4
+
+			fig, ax_cols = plt.subplots(num_rows, num_cols, figsize=(figwidth, 8))
 			plt.subplots_adjust(hspace=0.5, top=0.77)
 
 		from src.model import color_for_key
@@ -269,8 +286,12 @@ class ChromatinModel:
 		plotting_index = 0
 		last_phase = None
 
-		column_titles = ["Recovery G1", "Mother G1", "Daughter G1", "Post G1"]
-		phase_keys = ['RG1', 'CG1', 'DG1', 'postG1']
+		if show_dg1:
+			column_titles = ["Recovery G1", "Mother G1", "Daughter G1", "Post G1"]
+			phase_keys = ['RG1', 'CG1', 'DG1', 'postG1']
+		else:
+			column_titles = ["Recovery G1", "Shared G1", "S", "G2/M"]
+			phase_keys = ['RG1', 'CG1', 'S', 'G2M']
 
 		# Flip
 		ax_cols = np.array(ax_cols).T
@@ -303,7 +324,7 @@ class ChromatinModel:
 				reshaped_f = f.reshape(-1, shape[0], shape[1])
 
 				self.plot_f_img_phase(ax, reshaped_f, phase, row, num_chromatin_rows, show_title=False, vmax=vmax, vmin=vmin,
-					mask=mask)
+					mask=mask, show_origin_down_nuc=show_origin_down_nuc)
 
 				if col == 0:
 					ax.set_ylabel(f"{row+1}", rotation=0, ha='right', labelpad=10, fontsize=16)
@@ -406,7 +427,7 @@ class ChromatinModel:
 
 
 	def plot_f_img_phase(self, ax, reshaped_f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0,
-		vmin=0, vmax=200, mask=None):
+		vmin=0, vmax=200, mask=None, show_origin_down_nuc=False):
 		"""Plot the f image of a phase and column for the grid of f images progressing through each phase
 		compute the proper index to plot from the num_columns parameter for the phase"""
 
@@ -422,18 +443,19 @@ class ChromatinModel:
 		if show_title:
 			ax.set_title(f"{index+1}/{len_sub_f} ({(index/(len_sub_f-1))*100:.0f}%)", fontsize=9)
 
-		self.plot_f_img(ax, img, x_padding=x_padding, y_padding=y_padding, vmin=vmin, vmax=vmax, mask=mask)
+		self.plot_f_img(ax, img, x_padding=x_padding, y_padding=y_padding, vmin=vmin, vmax=vmax, mask=mask,
+			show_origin_down_nuc=show_origin_down_nuc)
 
 
 	def plot_f_img(self, ax, img, show_title=True, x_padding=0, y_padding=0,
-		vmin=0, vmax=200, mask=None):
+		vmin=0, vmax=200, mask=None, show_origin_down_nuc=False):
 		"""Plot the f image of a phase and column for the grid of f images progressing through each phase
 		compute the proper index to plot from the num_columns parameter for the phase"""
 
 		plotting_orc = self.origin is not None
 
 		if plotting_orc:
-			is_crick = False
+			is_crick = self.origin.strand == '-'
 		else:
 			is_crick = self.gene.strand == '-'
 
@@ -462,6 +484,12 @@ class ChromatinModel:
 			center_line = self.computed_plus_one
 
 		ax.axvline(center_line, c='gray', linewidth=1.25, linestyle='solid', alpha=0.5)
+
+		if show_origin_down_nuc:
+
+			postg1_nuc = self.bin_extents[0]+self.origin_nuc_position_postg1*GlobalConstants.BIN_WIDTH-GlobalConstants.BIN_WIDTH/2
+			ax.axvline(postg1_nuc, c='black', 
+				linewidth=1, linestyle='dotted', alpha=0.5)
 
 		if is_crick:
 			# flip the xlims
@@ -1001,6 +1029,37 @@ class ChromatinModel:
 		f = self.deconvolved_f()
 		f_imgs = f.reshape((f.shape[0], *self.image_shape))
 		return f_imgs
+
+
+	def find_origin_postg1_nuc_position(self):
+	    # Identify the downstream nucleosome bin at post g1 for reference
+
+	    f_imgs = self.get_f_images()
+
+	    # Check the strand of the origin (assuming it is watson)
+	    self.origin.strand
+
+	    # So identify the downstream nucleosome, place a line on it to show the movement of this
+	    # nucleosome. Search for this nucleosome, as the peak 300 bp from the midpoint
+	    p1_span = GlobalConstants.ORC_BIN_PADDING+GlobalConstants.BIN_WIDTH/2, \
+	        GlobalConstants.ORC_BIN_PADDING+GlobalConstants.BIN_WIDTH/2+300
+	    p1_span_bins = int(p1_span[0]/GlobalConstants.BIN_WIDTH), \
+	        int(p1_span[1]/GlobalConstants.BIN_WIDTH)
+
+	    # Select the nucleosome bins
+	    from src.chromatin_metrics import len_bins
+	    _, _, nuc_bins = len_bins()
+	    nuc_bins = f_imgs[:, nuc_bins[0]:nuc_bins[1], p1_span_bins[0]:p1_span_bins[1]].sum(axis=1)
+
+	    # Select the first time in postg1 and plot a line for this position
+	    postg1_indices = self.config.get_Hpositions_for_phase('postG1')
+	    start_postg1 = postg1_indices[0]
+
+	    peak_nuc_position_postg1 = nuc_bins[start_postg1].argmax() + p1_span_bins[0]
+	    self.origin_nuc_position_postg1 = peak_nuc_position_postg1
+
+	    return peak_nuc_position_postg1
+
 
 
 	def save_deconvolved_outputs(self, out_dir, index, using_default_flag):

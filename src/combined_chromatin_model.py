@@ -196,7 +196,8 @@ class CombinedChromatinModel:
 		"""Create the deconvolution plot defined in chromatin_model.py
 		"""
 
-		fig = self.chrom1_model.create_deconvolution_plots_abbreviated_flipped(ge_model=ge_model, vmax=vmax)
+		fig = self.chrom1_model.create_deconvolution_plots_abbreviated_flipped(ge_model=ge_model, vmax=vmax,
+			show_origin_down_nuc=True)
 		return fig
 
 	def plot_raw_prediction(self, replicate, vmax=20):
