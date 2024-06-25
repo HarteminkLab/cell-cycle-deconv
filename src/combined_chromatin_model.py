@@ -41,6 +41,12 @@ class CombinedChromatinModel:
 		self.chrom1_model.load_mnase_gene(gene_name)
 		self.chrom2_model.load_mnase_gene(gene_name)
 
+	def load_combined_mnase_orc(self, orc_id):
+		"""This takes the place of load_mnase_gene, as we don't need the
+		replicate parameter anymore"""
+		self.chrom1_model.load_mnase_orc_id(orc_id)
+		self.chrom2_model.load_mnase_orc_id(orc_id)
+
 
 	def	setup_deconv_model(self, gamma=0.006, G1=None, G2=None, wavelet="Symmlet"):
 		from src.single_G1_config import Config as Config_single_G1

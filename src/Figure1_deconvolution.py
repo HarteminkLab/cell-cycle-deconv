@@ -139,8 +139,8 @@ class Figure1Deconvolution(object):
 
 
 	def compute_clb2_deconvolution(self):
-		from src.delta_config import load_delta_combined_gene_expression_config
-		combined_ge_config = load_delta_combined_gene_expression_config()
+		from src.config import load_configs_by_config_type, load_combined_gene_expression_by_config_type
+		combined_ge_config = load_combined_gene_expression_by_config_type('shared')
 
 		from src.model import Model
 		gene_name = 'CLB2'

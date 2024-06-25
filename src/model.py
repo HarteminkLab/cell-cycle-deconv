@@ -28,7 +28,12 @@ class Model:
 	
 	def __init__(self, config, gene_or_orfname, gamma=0.0, for_chromatin_deconv=False):
 
-		self.orf_name, self.gene_name = get_gene_name_orf_name(gene_or_orfname)
+		if gene_or_orfname is None:
+			self.orf_name = None
+			self.gene_name = None
+		else:
+			self.orf_name, self.gene_name = get_gene_name_orf_name(gene_or_orfname)
+
 		self.config = config
 		self.gamma = gamma
 
@@ -404,9 +409,9 @@ def color_for_key(key):
 		 "Delta": np.array([165, 197, 204])/255.,
 		 "postG1": np.array([223, 192, 158])/255.,
 
-		 "S": np.array([201, 182, 131])/255.,
-		 "G2M": np.array([153, 138, 99])/255.,
-		 "G2/M": np.array([153, 138, 99])/255.,
+		 "S": np.array([207, 145, 87])/255.,
+		 "G2M": np.array([222, 190, 64])/255.,
+		 "G2/M": np.array([222, 190, 64])/255.,
 
 		 "H": np.array([100, 100, 100])/255.
 	}

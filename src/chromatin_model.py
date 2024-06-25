@@ -7,10 +7,12 @@ from matplotlib import pyplot as plt
 
 from src.sgd import get_gene_name_orf_name
 from src.mnase_plotting import plot_mnase_density
+from src.origins import load_origins_w_replication
 
 from src.model import Model
 from src.timer import Timer
 from src.utils import print_fl
+from src.global_config import GlobalConstants
 
 
 class ChromatinModel:
@@ -30,11 +32,11 @@ class ChromatinModel:
 
 	def __init__(self, config):
 
-		from src.global_config import GlobalConstants
-
 		# Padding defines the window around the TSS to retrieve MNase data
 		self.padding = 1000
 		self.geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
+		self.origins = load_origins_w_replication()
+
 		self.config = config
 		self.gamma = 0.006 # default gamma value
 
@@ -46,10 +48,14 @@ class ChromatinModel:
 
 		self.max_y_len = GlobalConstants.MAX_Y_LEN
 
-		# For computing the image shape
+		# For computing the image shape, (Gene definitions), will override for
+		# ORC definitions
 		self.num_bins_x = GlobalConstants.NUM_BINS_X
 		self.num_bins_y = GlobalConstants.NUM_BINS_Y
 		self.image_shape = GlobalConstants.IMAGE_SHAPE
+
+		from src.global_config import load_chrom_timepoints
+		self.timepoints = load_chrom_timepoints(self.config.replicate)
 
 	def load_deconvolution_results(self, gene_name):
 		from src.sgd import get_gene_name_orf_name, get_gene
@@ -59,6 +65,61 @@ class ChromatinModel:
 		self.orf_name, self.gene_name = get_gene_name_orf_name(gene_or_orfname)
 		if self.gene_name is None: self.gene_name = self.orf_name
 		self.gene = self.geneset.loc[self.orf_name]
+
+
+	def load_mnase_orc(self, orc_id, log=True):
+
+		self.origin = self.origins.loc[orc_id]
+		origin = self.origin
+
+		chrom = origin.chr
+		center = origin.pos
+
+		padding = 1000
+		mnase_span = center-padding, center+padding+1
+
+		from src.chromatin_model import read_chromosome_mnase_reads
+
+		self.mnase_span = mnase_span
+
+		# Load the mnase reads for the origin
+		if not self.chr == chrom:
+			chr_reads = read_chromosome_mnase_reads(self.config.replicate, chrom)
+			self.chr_reads = chr_reads
+			self.chr = chrom
+		else:
+			chr_reads = self.chr_reads
+		self.locus_reads = chr_reads[(chr_reads.mid >= mnase_span[0]) & 
+										  (chr_reads.mid < mnase_span[1])]
+
+		# Create the bins for the reads
+		exact_bins = self.create_exact_bins()
+		normalized_bins = self.normalize_bins(exact_bins, log=log)
+
+		# Close to 1000, but divisible by the bin_width (24)
+		adjusted_padding = GlobalConstants.ORC_BIN_PADDING
+		new_span = int(origin.pos-adjusted_padding-GlobalConstants.BIN_WIDTH/2), \
+			int(origin.pos+adjusted_padding+GlobalConstants.BIN_WIDTH/2)
+
+		downsampled_bins = self.downsample_bins(normalized_bins, new_span)
+		self.new_span = new_span
+
+		exact_extent = [self.mnase_span[0], self.mnase_span[1],
+					0, 250]
+		orc_extent = [self.new_span[0], self.new_span[1],
+						0, 250]
+		
+		self.exact_bins = exact_bins
+		self.exact_extent = exact_extent
+		self.bin_extents = orc_extent
+		self.deconv_hist_unflattened = downsampled_bins
+		self.image_shape = self.deconv_hist_unflattened.shape[1:]
+		self.normalized_bins = normalized_bins
+		self.exact_bins = exact_bins
+		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
+
+		# todo: Override x and y bin definitions
+
 
 	def load_mnase_gene(self, gene_or_orfname, log=True):
 
@@ -85,7 +146,7 @@ class ChromatinModel:
 			if log:
 				print_fl(f"Already loaded chromosome reads for {self.chr}. Using cache.")
 
-		self.gene_reads = self.chr_reads[(self.chr_reads.mid > self.mnase_span[0]) & 
+		self.locus_reads = self.chr_reads[(self.chr_reads.mid > self.mnase_span[0]) & 
 			(self.chr_reads.mid < self.mnase_span[1])]
 
 		try:
@@ -96,20 +157,22 @@ class ChromatinModel:
 			if log:
 				print_fl(f"Error finding plus one location, possibly not enough read coverage. Setting plus one to TSS by default")
 
-		self.times = self.gene_reads['sample'].unique()
+		self.times = self.locus_reads['sample'].unique()
 
 		# Now that we have the +1 position defined, let's realign on this position
 		#
 		# TODO: Note, that we may run into some weird behavior if the read counts are very low for nucleosome fragments around
 		# the TSS, in that case, we will need a back up plan... maybe a minimum threshold for this procedure...
 		self.mnase_span = self.computed_plus_one-self.padding, self.computed_plus_one+self.padding
-		self.gene_reads = self.chr_reads[(self.chr_reads.mid > self.mnase_span[0]) & 
+		self.locus_reads = self.chr_reads[(self.chr_reads.mid > self.mnase_span[0]) & 
 			(self.chr_reads.mid < self.mnase_span[1])]
 
 		if log:
 			print_fl("Done.")
 
-		# This will work for the single replicate model
+		# todo: hacky way to get the timepoints, this needs to be refactored
+		# timepoints are predefined in the global config now for chromatin and gene expression
+		# the config should be aware of which type of config it is and load the appropriate timepoints
 		timepoints = self.chr_reads['sample'].unique()
 		self.timepoints = timepoints
 		self.config.WT1_TIMEPOINTS = self.timepoints
@@ -118,7 +181,7 @@ class ChromatinModel:
 		
 	def compute_bin_counts_sample(self, sample, x_bins, y_bins):
 
-		plotting_reads = self.gene_reads[self.gene_reads['sample'] == sample]
+		plotting_reads = self.locus_reads[self.locus_reads['sample'] == sample]
 		hist, x_edges, y_edges = np.histogram2d(plotting_reads['mid'], 
 			plotting_reads['length'], bins=[x_bins, y_bins])
 
@@ -134,6 +197,21 @@ class ChromatinModel:
 
 		return self.deconvolved_f_value
 
+	def plot_raw_orc_data(self):
+		downsampled_bins = self.deconv_hist_unflattened
+		n = downsampled_bins.shape[0]
+		fig, axs = plt.subplots(n//2, 2, figsize=(9, 6))
+		axs = np.array(axs).T.flatten()
+
+		for i in range(n):
+			time = self.timepoints[i]
+			ax = axs[i]
+			img = downsampled_bins[i]
+			ax.imshow(img, cmap='magma_r', origin='lower', aspect='auto')
+			ax.set_xticks([])
+			ax.set_yticks([])
+			ax.axvline(img.shape[1]/2, c='black', lw=1, ls='dotted')
+			ax.set_ylabel(time)
 
 	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, 
 		vmin=0, vmax=50, smooth=False, f=None, mask=None):
@@ -143,13 +221,20 @@ class ChromatinModel:
 
 		f_imgs = f.reshape((-1, self.deconv_hist_unflattened.shape[1], self.deconv_hist_unflattened.shape[2]))
 
+		plotting_orc = self.origin is not None
+
+		if plotting_orc:
+			figwidth = 18
+		else:
+			figwidth = 11
+
 		if ax_cols is None:
 
 			# We will add the first row as the deconvolved gene expression
 			if ge_model is not None:
 				num_rows = num_rows+1
 
-			fig, ax_cols = plt.subplots(num_rows, 4, figsize=(11, 8))
+			fig, ax_cols = plt.subplots(num_rows, 4, figsize=(figwidth, 8))
 			plt.subplots_adjust(hspace=0.5, top=0.77)
 
 		from src.model import color_for_key
@@ -220,12 +305,16 @@ class ChromatinModel:
 		# Add some xtick and xtick labels to the first column last row
 		first_col_last_row = ax_cols[0][-1]
 
-		xticks = self.bin_extents[0], \
-				 self.computed_plus_one, \
-				 self.bin_extents[1]
-		xtick_labels = [str(x-self.computed_plus_one) for x in xticks]
-		xtick_labels[1] = 'TSS'
-		xtick_labels[2] = '+'+xtick_labels[2]
+		if plotting_orc:
+			xticks = []
+			xtick_labels = []
+		else:
+			xticks = self.bin_extents[0], \
+					 self.computed_plus_one, \
+					 self.bin_extents[1]
+			xtick_labels = [str(x-self.computed_plus_one) for x in xticks]
+			xtick_labels[1] = 'TSS'
+			xtick_labels[2] = '+'+xtick_labels[2]
 
 		first_col_last_row.set_xticks(xticks)
 		first_col_last_row.set_xticklabels(xtick_labels)
@@ -298,8 +387,12 @@ class ChromatinModel:
 
 	def define_title(self):
 
-		gene_title = self.gene_title()
-		title = (f"{gene_title}\n" +
+		if self.origin is None:
+			site_title = self.gene_title()
+		else:
+			site_title = self.origin.ars_name
+
+		title = (f"{site_title}\n" +
 				self.config.name + ", " +
 				f"$\\gamma$={self.solver.gamma.value:.3f}\nrn={self.rn:.2f}, sn={self.sn:.2f}")
 		return title
@@ -330,7 +423,12 @@ class ChromatinModel:
 		"""Plot the f image of a phase and column for the grid of f images progressing through each phase
 		compute the proper index to plot from the num_columns parameter for the phase"""
 
-		is_crick = self.gene.strand == '-'
+		plotting_orc = self.origin is not None
+
+		if plotting_orc:
+			is_crick = False
+		else:
+			is_crick = self.gene.strand == '-'
 
 		bin_extents = self.bin_extents
 
@@ -350,7 +448,13 @@ class ChromatinModel:
 
 		im = ax.imshow(img, origin='lower', cmap='magma_r', aspect='auto', vmax=vmax,
 			extent=self.bin_extents, zorder=1)
-		ax.axvline(self.computed_plus_one, c='gray', linewidth=1.25, linestyle='solid', alpha=0.5)
+
+		center_line = (self.bin_extents[0]+self.bin_extents[1])/2.
+
+		if not plotting_orc:
+			center_line = self.computed_plus_one
+
+		ax.axvline(center_line, c='gray', linewidth=1.25, linestyle='solid', alpha=0.5)
 
 		if is_crick:
 			# flip the xlims
@@ -584,7 +688,7 @@ class ChromatinModel:
 
 		# We can get all of the  nucleosome length fragments for the gene, and stack them up by time
 
-		cur_reads = self.gene_reads.copy()
+		cur_reads = self.locus_reads.copy()
 
 		# Search around the TSS with a 200bp window
 		window = 200
@@ -621,7 +725,7 @@ class ChromatinModel:
 		refactor in the future
 		"""
 
-		self.deconv_model = Model(self.config, self.orf_name, self.gamma, for_chromatin_deconv=True)
+		self.deconv_model = Model(self.config, None, self.gamma, for_chromatin_deconv=True)
 
 		# The config for MNase and RNA-seq have a different number of timepoints, so 
 		# we need to recalculate H with the chromatin number of timepoints
@@ -706,12 +810,6 @@ class ChromatinModel:
 		print_fl(f"The fitting norm is {self.rn:.2f}, "
 			  f"the smoothing norm is: {self.sn:.2f}")
 
-
-	# --------------- Beginning of histogram refactor --------------------
-	#
-	# Many of the histogram creation functions above will need to be removed
-	#
-
 	def create_exact_bins(self):
 		xbins = np.arange(*self.mnase_span)
 		ybins = np.arange(0, 252)
@@ -772,7 +870,7 @@ class ChromatinModel:
 		return normalized_bins
 
 
-	def downsample_bins(self, bin_data):
+	def downsample_bins_gene(self, bin_data):
 		# Now downsample to the appropriate window and resolution
 
 		bin_width = self.bin_width
@@ -786,6 +884,14 @@ class ChromatinModel:
 		else:
 			new_span = self.computed_plus_one-gb_len-bin_width//2, self.computed_plus_one+prom_len+bin_width//2
 
+		self.new_span = new_span
+
+		return self.downsample_bins(bin_data, new_span)
+
+	def downsample_bins(self, bin_data, new_span):
+
+		bin_width = self.bin_width
+		bin_height = self.bin_height
 		self.new_span = new_span
 
 		# Next we will define our new bin locations
@@ -821,7 +927,7 @@ class ChromatinModel:
 		
 		exact_bins = self.create_exact_bins()
 		normalized_bins = self.normalize_bins(exact_bins, log=log)
-		downsampled_bins = self.downsample_bins(normalized_bins)
+		downsampled_bins = self.downsample_bins_gene(normalized_bins)
 		
 		exact_extent = [self.mnase_span[0], self.mnase_span[1],
 					0, 250]
