@@ -404,17 +404,20 @@ def color_for_key(key):
 		 "fit": np.array([145, 180, 98])/255.,
 		 "R": np.array([199, 148, 144])/255.,
 		 "RG1": np.array([199, 148, 144])/255.,
-		 "CG1": np.array([147, 168, 198])/255.,
+
+		 "CG1": np.array([214, 170, 129])/255.,
 		 "DG1": np.array([165, 197, 204])/255.,
+
 		 "Delta": np.array([165, 197, 204])/255.,
 		 "postG1": np.array([223, 192, 158])/255.,
 
-		 "S": np.array([207, 145, 87])/255.,
-		 "G2M": np.array([222, 190, 64])/255.,
-		 "G2/M": np.array([222, 190, 64])/255.,
+		 "G2M": np.array([147, 168, 198])/255.,
+		 "S": np.array([158, 189, 140])/255.,
 
 		 "H": np.array([100, 100, 100])/255.
 	}
+
+	color_map['G2/M'] = color_map['G2M']
 
 	return color_map[key]
 

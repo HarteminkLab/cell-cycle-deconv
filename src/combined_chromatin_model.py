@@ -192,12 +192,12 @@ class CombinedChromatinModel:
 		self.chrom2_model.compute_ptr()
 
 
-	def create_deconvolution_plots_abbreviated_flipped(self, ge_model=None, vmax=50):
+	def create_deconvolution_plots_abbreviated_flipped(self, ge_model=None, vmax=50, zoom=None):
 		"""Create the deconvolution plot defined in chromatin_model.py
 		"""
 
 		fig = self.chrom1_model.create_deconvolution_plots_abbreviated_flipped(ge_model=ge_model, vmax=vmax,
-			show_origin_down_nuc=True)
+			show_origin_down_nuc=True, zoom=zoom)
 		return fig
 
 	def plot_raw_prediction(self, replicate, vmax=20):

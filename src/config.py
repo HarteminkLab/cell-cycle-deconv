@@ -244,11 +244,19 @@ class Config:
 		dg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('b')[0][1].values
 		postg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('b')[1][1].values
 
+		s_indices = self.get_Hpositions_for_phase('S')
+		s_end = len(s_indices)
+		s_timepoints = postg1_timepoints[:s_end]
+		g2m_timepoints = postg1_timepoints[s_end:]
+
 		phase_map = {
 			'RG1': rg1_timepoints,
 			'CG1': cg1_timepoints,
 			'DG1': dg1_timepoints,
 			'postG1': postg1_timepoints,
+			'S': s_timepoints,
+			'G2M': g2m_timepoints,
+			'G2/M': g2m_timepoints,
 		}
 		return phase_map[phase]
 

@@ -248,11 +248,18 @@ class Config:
 		dg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('b')[0][1].values
 		postg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('b')[1][1].values
 
+		s_indices, g2m_indices = self.get_s_g2m_indices(postg1_tps=postg1_timepoints)
+		s_timepoints = postg1_timepoints[:len(s_indices)]
+		g2m_timepoints = postg1_timepoints[len(s_indices):]
+
 		phase_map = {
 			'RG1': rg1_timepoints,
 			'CG1': cg1_timepoints,
 			'DG1': dg1_timepoints,
 			'postG1': postg1_timepoints,
+			'S': s_timepoints,
+			'G2M': g2m_timepoints,
+			'G2/M': g2m_timepoints,
 		}
 		return phase_map[phase]
 
@@ -417,6 +424,25 @@ class Config:
 		}
 		return Hpositions_dic[branch]
 
+	# Compute the G2M and S indices by collecting the length of S
+	def get_s_g2m_indices(self, postg1_tps=None):
+		"""Calculate the S and G2M indices, reusuabel logic for getting the indices and the 
+		timepoints for S and G2M. Parameter for postg1_tps to prevent recursion issues. As
+		the indices and timepoints reference each other.
+
+		todo: a better way to do this may be to precompute these indices and timepoints beforehand
+		"""
+		postg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[1][2]
+		mu0, s_start, s_end, first_lambda = self.get_key_timepoints_in_raw()
+		s_len = s_end - s_start
+
+		if postg1_tps is None:
+			postg1_tps = self.get_phase_timepoints_for_phase('postG1')
+		s_end_idx = (postg1_tps > s_len).argmax()
+		g2m_indices = postg1_indices[s_end_idx:]
+		s_indices = postg1_indices[:s_end_idx]
+		return s_indices, g2m_indices
+
 	def get_Hpositions_for_phase(self, phase):
 		"""
 		TODO: This is strictly for the RG1 model with hard-coded locations for each phase
@@ -430,13 +456,7 @@ class Config:
 		cg1_indices = self.get_timepoints_phases_Hpositions_for_branch('t')[0][2]
 		rg1_indices = self.get_timepoints_phases_Hpositions_for_branch('i')[0][2]
 
-		# Compute the G2M and S indices by collecting the length of S
-		mu0, s_start, s_end, first_lambda = self.get_key_timepoints_in_raw()
-		s_len = s_end - s_start
-		postg1_tps = self.get_phase_timepoints_for_phase('postG1')
-		s_end_idx = (postg1_tps > s_len).argmax()
-		g2_m_indices = postg1_indices[s_end_idx:]
-		s_indices = postg1_indices[:s_end_idx]
+		s_indices, g2m_indices = self.get_s_g2m_indices()
 
 		Hpositions_dic = {
 			'DG1': dg1_indices,
@@ -444,8 +464,8 @@ class Config:
 			'CG1': cg1_indices,
 			'RG1': rg1_indices,
 			'S': s_indices,
-			'G2/M': g2_m_indices,
-			'G2M': g2_m_indices,
+			'G2/M': g2m_indices,
+			'G2M': g2m_indices,
 			'H': postg1_indices[-1:]+1
 		}
 		return Hpositions_dic[phase]

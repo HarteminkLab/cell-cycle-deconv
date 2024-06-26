@@ -56,11 +56,11 @@ class Figure1Deconvolution(object):
 					y1_values = np.array([-i, -i])
 					x_values = [x_offset, x_offset+7]
 					
-					plt.fill_between(x_values, y2_values, y1_values, 
-						color=color, lw=0.1)
-				else:
-					plt.fill_between(x_values, y2_values, y1_values, 
-						color=color, lw=0.1)
+
+				from src.plot_helpers import adjust_lightness_saturation
+				edgecolor = adjust_lightness_saturation(color, 0.6, 1.0)
+				plt.fill_between(x_values, y2_values, y1_values, 
+					facecolor=color, edgecolor=edgecolor, lw=0.5)
 
 			annotation_y = -n-0.25
 			

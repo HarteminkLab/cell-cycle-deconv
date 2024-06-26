@@ -186,7 +186,11 @@ def adjust_lightness_saturation(rgba, lightness_factor, saturation_factor):
 	"""
 	import colorsys
 
-	r, g, b, a = rgba
+	if len(rgba) == 3:
+		r, g, b = rgba
+		a = 1.
+	else:
+		r, g, b, a = rgba
 	# Convert RGB to HLS
 	h, l, s = colorsys.rgb_to_hls(r, g, b)
 	
