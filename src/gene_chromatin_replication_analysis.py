@@ -256,10 +256,10 @@ class GeneChromatinReplicationAnalysis:
 
 		# -------- Difference trace plots plots ---------------
 
-		from src.chromatin_metrics import yl_rep2_len_spans
+		from src.chromatin_metrics import fragment_lengths_definitions
 		from src.global_config import GlobalConstants
 
-		small_lens, med_lens, nuc_lens = yl_rep2_len_spans()
+		small_lens, med_lens, nuc_lens = fragment_lengths_definitions()
 		
 		small_bins = small_lens[0]//GlobalConstants.BIN_HEIGHT,  \
 			small_lens[1]//GlobalConstants.BIN_HEIGHT
@@ -369,7 +369,7 @@ class GeneChromatinReplicationAnalysis:
 
 	def compute_gene_nuc_entropy(self):
 
-		from src.chromatin_metrics import yl_rep2_len_spans
+		from src.chromatin_metrics import fragment_lengths_definitions
 		from src.global_config import GlobalConstants
 		from src.helpers import calc_entropy
 
@@ -380,7 +380,7 @@ class GeneChromatinReplicationAnalysis:
 
 		bin_width, bin_height = GlobalConstants.BIN_WIDTH, GlobalConstants.BIN_HEIGHT
 
-		small_lens, med_lens, nuc_lens = yl_rep2_len_spans()
+		small_lens, med_lens, nuc_lens = fragment_lengths_definitions()
 		nuc_bins = nuc_lens[0]//bin_height, \
 			nuc_lens[1]//bin_height
 		med_bins = med_lens[0]//bin_height, \

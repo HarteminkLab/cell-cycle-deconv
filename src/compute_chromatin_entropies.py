@@ -7,7 +7,7 @@ sys.path.append('.')
 
 import pandas as pd
 from src.timer import Timer
-from src.chromatin_metrics import ChromatinMetrics, yl_rep2_len_spans
+from src.chromatin_metrics import ChromatinMetrics, fragment_lengths_definitions
 
 
 def compute_rep2_chrom_entropies():
@@ -33,7 +33,7 @@ def compute_rep2_chrom_entropies():
 	save_filename = 'output/all_chromatin_gene_entropies_rep2.csv'
 
 	# Configure the length spans we are going to collect
-	small_frag_span, mid_frag_span, nucleosome_len_span = yl_rep2_len_spans()
+	small_frag_span, mid_frag_span, nucleosome_len_span = fragment_lengths_definitions()
 
 	# Gene counts for all time points
 	all_gene_entropies = pd.DataFrame()

@@ -31,7 +31,7 @@ def compute_rep2_chrom_occupancies):
 	save_filename = 'output/all_chromatin_gene_counts_rep2.csv'
 
 	# Configure the length spans we are going to collect
-	small_frag_span, mid_frag_span, nucleosome_len_span = yl_rep2_len_spans()
+	small_frag_span, mid_frag_span, nucleosome_len_span = fragment_lengths_definitions()
 
 	# Gene counts for all time points
 	all_gene_counts = pd.DataFrame()

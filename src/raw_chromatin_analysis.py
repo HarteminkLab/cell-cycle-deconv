@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 from src.mnase_reads import load_mnase_reads
 from src.reference_data import load_analysis_genes
-from src.chromatin_metrics import yl_rep2_len_spans
+from src.chromatin_metrics import fragment_lengths_definitions
 
 
 class ChromatinDataAnalysis:
@@ -88,7 +88,7 @@ class ChromatinDataAnalysis:
 	def load_gene_read_counts(self, gene):
 		"""Load the gene reads as a 2D histogram"""
 
-		small_span, mid_span, nuc_span = yl_rep2_len_spans()
+		small_span, mid_span, nuc_span = fragment_lengths_definitions()
 
 		from src.mnase_reads import filter_reads
 

@@ -1,4 +1,5 @@
 
+import numpy as np
 
 
 # Global configuration 
@@ -7,10 +8,16 @@
 
 class GlobalConstants:
 
+
+
 	BIN_WIDTH = 24
 	BIN_HEIGHT = 24
 
 	MAX_Y_LEN = 240
+
+	# Defined fragment length boundaries
+	Y_LEN_DEFINITIONS = np.arange(0, 
+		MAX_Y_LEN+BIN_HEIGHT, BIN_HEIGHT)
 
 	# Gene definitions
 	# Add one more bin to center the +1 on a bin

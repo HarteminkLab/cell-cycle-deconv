@@ -53,8 +53,8 @@ class ComputePlusOne:
 
 		For the currently selected gene
 		"""
-		from src.chromatin_metrics import yl_rep2_len_spans
-		small_lens, med_lens, nuc_lens = yl_rep2_len_spans()
+		from src.chromatin_metrics import fragment_lengths_definitions
+		small_lens, med_lens, nuc_lens = fragment_lengths_definitions()
 
 		# Next, we will align at the +1
 		# from the TSS, stack up all timepoints, then look up and dowstream (200 bp window) for the

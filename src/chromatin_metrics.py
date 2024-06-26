@@ -391,9 +391,10 @@ def yl_replicate_length_bins():
 	]
 
 
-def yl_rep2_len_spans():
+def fragment_lengths_definitions():
 	"""Length spans as defined from the replicate 2 dataset,
-	these should also match replicate 1, todo: rename this function"""
+	these should also match replicate 1
+	"""
 	nucleosome_len_span=(145, 195)
 	mid_frag_span=(100, 145)
 	small_frag_span=(0, 100)
@@ -401,7 +402,7 @@ def yl_rep2_len_spans():
 
 def len_bins():
 	from src.global_config import GlobalConstants
-	small_lens, med_lens, nuc_lens = yl_rep2_len_spans()
+	small_lens, med_lens, nuc_lens = fragment_lengths_definitions()
 		
 	small_bins = small_lens[0]//GlobalConstants.BIN_HEIGHT,  \
 		small_lens[1]//GlobalConstants.BIN_HEIGHT
@@ -412,10 +413,9 @@ def len_bins():
 
 	return small_bins, med_bins, nuc_bins
 
-
 def plot_len_counts(len_counts_df):
 	
-	small_frag_span, mid_frag_span, nucleosome_len_span = yl_rep2_len_spans()
+	small_frag_span, mid_frag_span, nucleosome_len_span = fragment_lengths_definitions()
 	len_counts_df = len_counts_df.copy().T
 	cmap = plt.get_cmap('viridis')
 	colors = [cmap(i/(len(len_counts_df))) for i in range(len(len_counts_df))]
@@ -467,7 +467,7 @@ def compute_scaling_matrix(tp_counts):
 def convert_scaling_matrix_to_len_bins(min_len_scaling_matrix):
 	
 	min_len_scaling_matrix = min_len_scaling_matrix.T
-	small_len, mid_len, nuc_len = yl_rep2_len_spans()
+	small_len, mid_len, nuc_len = fragment_lengths_definitions()
 	subset_scaling_mat = min_len_scaling_matrix[[]].copy()
 
 	def _add_subset_by_len(subset_scaling_mat, len_span):
