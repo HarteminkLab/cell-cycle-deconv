@@ -374,31 +374,28 @@ def compute_entropy(flat_data):
 
 	return entropy
 
+# def yl_replicate_length_bins_doubled():
+# 	"""Predifined bins for length fragments"""
 
+# 	return [
+# 		50, 100, 122, 145, 170, 195, 225
+# 	]
 
-def yl_replicate_length_bins_doubled():
-	"""Predifined bins for length fragments"""
-
-	return [
-		50, 100, 122, 145, 170, 195, 225
-	]
-
-def yl_replicate_length_bins():
-	"""Predifined bins for length fragments"""
-
-	return [
-		50, 100, 145, 195
-	]
-
+# def yl_replicate_length_bins():
+# 	"""Predifined bins for length fragments"""
+# 	return [
+# 		50, 100, 145, 195
+# 	]
 
 def fragment_lengths_definitions():
 	"""Length spans as defined from the replicate 2 dataset,
 	these should also match replicate 1
 	"""
-	nucleosome_len_span=(145, 195)
-	mid_frag_span=(100, 145)
-	small_frag_span=(0, 100)
+	nucleosome_len_span=(144, 192)
+	mid_frag_span=(96, 144)
+	small_frag_span=(0, 96)
 	return small_frag_span, mid_frag_span, nucleosome_len_span
+
 
 def len_bins():
 	from src.global_config import GlobalConstants
@@ -527,4 +524,5 @@ def create_save_deconvolution_datasets(counts_df, key, save_filename):
 	counts_df.iloc[[]].to_csv('output/times.csv', index=False)
 
 	print(f"Saved {save_filename}")
+
 

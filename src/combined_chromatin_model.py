@@ -131,6 +131,9 @@ class CombinedChromatinModel:
 						  self.rn, self.sn,
 						  self.solver.gamma.value)
 
+	def find_origin_p1_and_m1_nucleosome_position(self):
+		self.chrom1_model.find_origin_p1_and_m1_nucleosome_position()
+		self.chrom2_model.find_origin_p1_and_m1_nucleosome_position()
 
 	def deconvolve_find_optimal_gamma(self):
 		"""

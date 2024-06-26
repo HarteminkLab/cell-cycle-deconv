@@ -112,9 +112,9 @@ class ChromatinModel:
 		self.new_span = new_span
 
 		exact_extent = [self.mnase_span[0], self.mnase_span[1],
-					0, 250]
+					0, GlobalConstants.MAX_Y_LEN]
 		orc_extent = [self.new_span[0], self.new_span[1],
-						0, 250]
+						0, GlobalConstants.MAX_Y_LEN]
 		
 		self.exact_bins = exact_bins
 		self.exact_extent = exact_extent
@@ -124,9 +124,7 @@ class ChromatinModel:
 		self.normalized_bins = normalized_bins
 		self.exact_bins = exact_bins
 		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
-
-		# todo: Override x and y bin definitions
-
+		self.center_origin = self.origin.pos
 
 	def load_mnase_gene(self, gene_or_orfname, log=True):
 
@@ -993,9 +991,9 @@ class ChromatinModel:
 		downsampled_bins = self.downsample_bins_gene(normalized_bins)
 		
 		exact_extent = [self.mnase_span[0], self.mnase_span[1],
-					0, 250]
+					0, GlobalConstants.MAX_Y_LEN]
 		gene_extent = [self.new_span[0], self.new_span[1],
-						0, 250]
+						0, GlobalConstants.MAX_Y_LEN]
 		
 		self.exact_extent = exact_extent
 		self.bin_extents = gene_extent
@@ -1059,61 +1057,79 @@ class ChromatinModel:
 		return f_imgs
 
 
-	def find_origin_postg1_nuc_position(self):
+	def find_origin_p1_and_m1_nucleosome_position(self, find_p1=True):
 		"""
-		Identify the +1 nucleosome and track its position
+		Identify the +1 and -1 nucleosome and track its position
 		"""
 
-		def compute_p1_search_range_bp(chrom_model, p1_search_span_from_center=(130, 280), flip=False):
-			"""Get the nucleosome search range in base pairs"""
-			
-			def round_nearest_bin(x, bin_width=GlobalConstants.BIN_WIDTH):
-				return int(round(x/bin_width)) * bin_width
-
-			if flip:
-				p1_search_span_from_center = -p1_search_span_from_center[1],\
-					-p1_search_span_from_center[0]
-
-			p1_search_span_from_center = round_nearest_bin(p1_search_span_from_center[0]),\
-				round_nearest_bin(p1_search_span_from_center[1])
-			center_pos = int((chrom_model.bin_extents[0]+chrom_model.bin_extents[1])/2)\
-				+ GlobalConstants.BIN_WIDTH//2
-			ret_span = center_pos + p1_search_span_from_center[0], center_pos \
-				+ p1_search_span_from_center[1]
-
-			return ret_span
-
-		from src.nucleosome_tracking import NucleosomeTracking
+		from src.chrom_img_segment_selector import translate_span_for_bins
+		from src.chromatin_metric_tracking import ChromatinMetricTracking
 		from src.chromatin_metrics import fragment_lengths_definitions
 		from src.global_config import GlobalConstants
 
-		_, _, nuc_lens = fragment_lengths_definitions()
+		# Center on the middle of the window (centered on the origin site)
+		center_pos = self.origin.pos
+
+		# Search span for the +1 nucleosome is between 130 and 280 bp downstream of 
+		# the origin
+		p1_search_span = (130, 280)
+		m1_search_span = (-140, -10)
+		origin_span = (-10, 130)
 
 		img_data = self.get_f_images()
 
-		# Define the genomic positions and the fragment length boundaries
-		# of the image data
-		x_genomic_positions = np.arange(self.bin_extents[0], \
-			self.bin_extents[1], GlobalConstants.BIN_WIDTH)
-		y_len_definitions = GlobalConstants.Y_LEN_DEFINITIONS
-		p1_nuc_span = compute_p1_search_range_bp(self, flip=(self.origin.strand == '-'))
+		# Fragment lengths
+		sm_lens, med_lens, nuc_lens = fragment_lengths_definitions()
+		selected_nuc_fragments_range = np.arange(nuc_lens[0], nuc_lens[1]+GlobalConstants.BIN_HEIGHT,
+			GlobalConstants.BIN_HEIGHT)
+		origin_fragments_range = np.arange(sm_lens[0]+GlobalConstants.BIN_HEIGHT, med_lens[1]+GlobalConstants.BIN_HEIGHT,
+			GlobalConstants.BIN_HEIGHT)
 
-		# Selected genomic range and fragment lengths
-		selected_genomic_positions = np.arange(*p1_nuc_span, GlobalConstants.BIN_WIDTH)
-		selected_fragment_lengths = np.arange(*nuc_lens, GlobalConstants.BIN_HEIGHT)
+		# Genomic positions
+		def get_genomic_positions_from_span(search_span):
+			search_span_corrected_for_bin_locs = translate_span_for_bins(center_pos, search_span, 
+				flip=(self.origin.strand == '-'))
+			# Selected genomic range and fragment lengths
+			selected_genomic_positions = np.arange(*search_span_corrected_for_bin_locs, GlobalConstants.BIN_WIDTH)
+			return selected_genomic_positions
+
+		selected_p1_positions = get_genomic_positions_from_span(p1_search_span)
+		selected_m1_positions = get_genomic_positions_from_span(m1_search_span)
+		selected_origin_positions = get_genomic_positions_from_span(origin_span)
 
 		# Track the +1 nucleosome position. Tracker selects the nucleosome positions
 		# of the +1 search range
-		tracker = NucleosomeTracking(img_data, x_genomic_positions, 
-		    y_len_definitions, selected_genomic_positions, selected_fragment_lengths)
+		tracker = ChromatinMetricTracking(self)
 		self.p1_tracker = tracker
-
-		s_indices = self.config.get_Hpositions_for_phase('S')
-
-		self.nuc_bins_sum = tracker.selected_sum_data
+		tracker.select_range(selected_p1_positions, selected_nuc_fragments_range)
+		tracker.track_genomic_movement()
+		self.p1_nuc_bins_sum = tracker.selected_sum_data
 		self.origin_p1_nuc_bins = tracker.called_peak_weighted_mean
-		self.p1_nuc_x_span = p1_nuc_span
+		self.selected_p1_positions = p1_search_span
+
+		# Track the -1 nucleosome position. Tracker selects the nucleosome positions
+		# of the -1 search range
+		tracker = ChromatinMetricTracking(self)
+		self.m1_tracker = tracker
+		tracker.select_range(selected_m1_positions, selected_nuc_fragments_range)
+		tracker.track_genomic_movement()
+		self.m1_nuc_bins_sum = tracker.selected_sum_data
+		self.origin_m1_nuc_bins = tracker.called_peak_weighted_mean
+		self.selected_m1_positions = m1_search_span
+
+		# Track the subnucleosomal change
+		tracker = ChromatinMetricTracking(self)
+		self.origin_occ_tracker = tracker
+		tracker.select_range(selected_origin_positions, origin_fragments_range)
+		tracker.track_occupancy()
+		self.origin_occ_bins_sum = tracker.selected_sum_data
+		self.origin_occupancy = tracker.total_occupancy
+		self.selected_origin_positions = origin_span
+
+		# Select the +1 position at the start of S
+		s_indices = self.config.get_Hpositions_for_phase('S')
 		self.origin_nuc_position_postg1 = self.origin_p1_nuc_bins[s_indices[0]]
+
 
 	def plot_nucleosome_shift(self):
 		"""Show the +1 nucleosome shifts"""
@@ -1124,9 +1140,11 @@ class ChromatinModel:
 		t_indices = self.config.get_Hpositions_for_branch('t')
 		t_tps = self.config.get_timepoints_for_branch('t')
 
-		start_s_pos = self.origin_nuc_position_postg1
-		plus_position = self.origin_plus_one_nuc_positions
-		plus_position_movement = plus_position - start_s_pos
+		plus_position = self.origin_p1_nuc_bins
+		plus_position_movement = plus_position - self.center_origin
+
+		minus_position = self.origin_m1_nuc_bins
+		minus_position_movement = minus_position - self.center_origin
 
 		m = len(plus_position)
 
@@ -1134,26 +1152,16 @@ class ChromatinModel:
 		from src.model import color_for_key
 		plt.figure(figsize=(3, 3))
 
-		plot_per_phase = False
-
 		tp_set = []
 		for phase in phases:
 			tps = self.config.get_phase_timepoints_for_phase(phase)
-			indices = self.config.get_Hpositions_for_phase(phase)
-			movement = plus_position_movement[indices]
-
-			# Plot a different color per phase
-			if plot_per_phase:
-				plt.plot(movement, tps, lw=4, color=color_for_key(phase))
-
 			tp_set.append(tps)
 
-		# Plot all one color
-		if not plot_per_phase:
-			plt.plot(plus_position_movement[t_indices], t_tps, lw=4, color='#555')
+		plt.plot(plus_position_movement[t_indices], t_tps, lw=4, color='#555')
+		plt.plot(minus_position_movement[t_indices], t_tps, lw=4, color='#555')
 
 		# Draw annotations
-		annotations_x = -25
+		annotations_x = -160
 		last_tp = None
 		for i in range(len(tp_set)):
 			tps = tp_set[i]
@@ -1170,14 +1178,12 @@ class ChromatinModel:
 				color='white',
 				rotation=90)
 
-		#plt.xlim(-27, 7)
+		plt.xlim(-185, 230)
 		ylim = plt.ylim()
-		#plt.xticks(np.arange(-20, 20, 10))
 		plt.ylim(tp_set[-1][-1], tp_set[0][0])
 		plt.axvline(0, c='black', ls='dotted', lw=1)
-		plt.xlabel("Shift relative to start of S, bp")
 		plt.yticks([])
-		plt.title(f"{self.origin.ars_name}, nucleosome shift", pad=10)
+		plt.title(f"{self.origin.ars_name}, +1 and -1\nnucleosome shift", pad=10)
 
 
 	def save_deconvolved_outputs(self, out_dir, index, using_default_flag):
