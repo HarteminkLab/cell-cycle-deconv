@@ -57,7 +57,8 @@ class ChromatinMetricTracking(object):
 		"""Select the genomic range and fragment lengths we are interested in."""
 
 		selected_genomic_positions = get_genomic_positions_from_span(selected_genomic_span)
-		selected_fragment_lengths = np.arange(selected_fragment_span[0], selected_fragment_span[1]+GlobalConstants.BIN_HEIGHT,
+		selected_fragment_lengths = np.arange(selected_fragment_span[0], 
+			selected_fragment_span[1]+GlobalConstants.BIN_HEIGHT,
 		 GlobalConstants.BIN_HEIGHT)
 
 		self.selected_genomic_positions = selected_genomic_positions
@@ -140,7 +141,6 @@ class ChromatinMetricTracking(object):
 	def plot_selected_range_rect(self, ax):
 		x1, x2 = self.selected_genomic_positions[0], self.selected_genomic_positions[-1]
 		y1, y2 = self.selected_fragment_lengths[0], self.selected_fragment_lengths[-1]
-
 		plot_rect2(ax, x1, y1, x2, y2, edgecolor='blue', fill=None, lw=1, zorder=100)
 		plt.xticks([])
 		plt.yticks([])

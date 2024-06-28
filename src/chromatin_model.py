@@ -1079,12 +1079,6 @@ class ChromatinModel:
 		# Center on the middle of the window (centered on the origin site)
 		center_pos = self.origin.pos
 
-		# Search span for the +1 nucleosome is between 130 and 280 bp downstream of 
-		# the origin
-		p1_search_span = (130, 360)
-		m1_search_span = (-140, -10)
-		origin_span = (-10, 130)
-
 		img_data = self.get_f_images()
 
 		# Fragment lengths
@@ -1093,7 +1087,7 @@ class ChromatinModel:
 
 		# Select a largish window of fragments for origins, such that we can retrieve the entirety of what
 		# appears to be origin fragments
-		origin_frag_lens = sm_lens[0]+GlobalConstants.BIN_HEIGHT, med_lens[1]+GlobalConstants.BIN_HEIGHT
+		origin_frag_lens = sm_lens[0]+GlobalConstants.BIN_HEIGHT, sm_lens[1]+GlobalConstants.BIN_HEIGHT
 		print("Origin fragment length range: ", origin_frag_lens)
 
 		# todo: Add an additional step here, in which we expand the search range for each
@@ -1101,9 +1095,9 @@ class ChromatinModel:
 		nucleosome_movement_span = 144
 		origin_occ_span = 96
 
-		# todo: updated to wider spans for searching
+		# Wide search span that will automatically be narrowed down
 		p1_search_span = (0, 360)
-		m1_search_span = (-340, 0)
+		m1_search_span = (-360, 0)
 		origin_span = (-150, 150)
 
 		# Currently we allow the search span to be any genomic position, but the bins restrict us
@@ -1133,7 +1127,8 @@ class ChromatinModel:
 
 		self.p1_tracker = create_tracker(updated_p1_span, nuc_lens, window=192)
 		self.m1_tracker = create_tracker(updated_m1_span, nuc_lens, window=192)
-		self.origin_tracker = create_tracker(updated_origin_span, origin_frag_lens, window=192, tracker_type='occupancy')
+		self.origin_tracker = create_tracker(updated_origin_span, origin_frag_lens, 
+			window=192, tracker_type='occupancy')
 
 	def plot_nfr_origin_occ_comparision(self, t_tps=None):
 		from src.helpers import normalize_max_min
@@ -1171,6 +1166,7 @@ class ChromatinModel:
 		plt.xticks([])
 		plt.yticks([])
 		plt.ylabel("Normalized occupancy and length")
+
 
 	def plot_nucleosome_shift(self):
 		"""Show the +1 nucleosome shifts"""
@@ -1234,7 +1230,7 @@ class ChromatinModel:
 
 		ax = self.p1_tracker.plot_selected_region()
 		self.m1_tracker.plot_selected_range_rect(ax)
-		self.origin_occ_tracker.plot_selected_range_rect(ax)
+		self.origin_tracker.plot_selected_range_rect(ax)
 		plt.title(f"{self.origin.ars_name}\nOrigin nucleosome and subnucleosome tracking regions")
 
 
