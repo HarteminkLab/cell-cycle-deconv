@@ -195,12 +195,12 @@ class CombinedChromatinModel:
 		self.chrom2_model.compute_ptr()
 
 
-	def create_deconvolution_plots_abbreviated_flipped(self, ge_model=None, vmax=50, zoom=None):
+	def create_deconvolution_plots_abbreviated_flipped(self, ge_model=None, vmax=50, num_rows=4, zoom=None):
 		"""Create the deconvolution plot defined in chromatin_model.py
 		"""
 
 		fig = self.chrom1_model.create_deconvolution_plots_abbreviated_flipped(ge_model=ge_model, vmax=vmax,
-			show_origin_down_nuc=True, zoom=zoom)
+			show_origin_down_nuc=True, zoom=zoom, num_rows=num_rows)
 		return fig
 
 	def plot_raw_prediction(self, replicate, vmax=20):
@@ -214,6 +214,28 @@ class CombinedChromatinModel:
 			fig = self.chrom2_model.plot_prediction_comparison(self.pred_G2, title, vmax)
 
 		return fig
+
+	def plot_nfr_origin_occ(self):
+		# todo: get the timepoitns squared away so we can report the timing of these events...
+
+		# average the t_timepoints
+		t_tps_1 = np.array(self.chrom1_model.config.get_timepoints_for_branch('t'))
+		t_tps_2 = np.array(self.chrom2_model.config.get_timepoints_for_branch('t'))
+		t_tps_mean = (t_tps_1+t_tps_2)/2
+
+		self.chrom1_model.plot_nfr_origin_occ_comparision(t_tps=t_tps_mean)
+
+		# Replication time is average of the replicate 1 and replicate 2 times
+		# offset by g1's length
+		_, g1_1, _ = self.chrom1_model.config.get_g1_lens()
+		_, g1_2, _ = self.chrom2_model.config.get_g1_lens()
+		g1 = (g1_1 + g1_2)/2
+		replication_time = self.chrom1_model.origin.replication_time-g1
+
+		plt.axvline(replication_time, c='black', lw=1, ls='dotted', zorder=0)
+		plt.title(f"{self.chrom1_model.origin.ars_name}")
+		print("todo: resolve the timepoints plotted to be the average of rep1 and rep2")
+
 
 	def save_deconvolved_outputs(self, out_dir, index):
 

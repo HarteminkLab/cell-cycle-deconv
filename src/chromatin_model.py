@@ -8,6 +8,7 @@ from matplotlib import pyplot as plt
 from src.sgd import get_gene_name_orf_name
 from src.mnase_plotting import plot_mnase_density
 from src.origins import load_origins_w_replication
+from src.figure_configs import FiguresConfig
 
 from src.model import Model
 from src.timer import Timer
@@ -242,17 +243,18 @@ class ChromatinModel:
 
 		plotting_orc = self.origin is not None
 
-		if plotting_orc:
-			if zoom is not None: figwidth = 11
-			else: figwidth = 16
-		else:
-			figwidth = 11
-
-
 		if ge_model is None:
 			figheight = 7
 		else:
 			figheight = 8
+
+
+		if plotting_orc:
+			if zoom is not None: figwidth = 11
+			else: figwidth = 16
+			figheight = 6
+		else:
+			figwidth = 11
 
 		if ax_cols is None:
 
@@ -267,6 +269,11 @@ class ChromatinModel:
 
 			fig, ax_cols = plt.subplots(num_rows, num_cols, figsize=(figwidth, figheight))
 			plt.subplots_adjust(hspace=0.5, top=0.77)
+
+		if plotting_orc:
+			plt.subplots_adjust(hspace=0.5, top=0.71)
+
+
 
 		from src.model import color_for_key
 
@@ -509,8 +516,10 @@ class ChromatinModel:
 		ax.axvline(center_line, c='gray', linewidth=1.25, linestyle='solid', alpha=0.5)
 
 		if plotting_orc and show_origin_down_nuc:
-			ax.axvline(self.origin_nuc_position_postg1, c='blue', 
-				linewidth=0.75, linestyle='dotted', alpha=1)
+			ax.axvline(self.p1_at_s, c='blue', 
+				linewidth=1, linestyle='solid', alpha=0.5)
+			ax.axvline(self.m1_at_s, c='blue', 
+				linewidth=1, linestyle='solid', alpha=0.5)
 
 		# Zoom in to 1000 bp to see shift of nucleosome
 		if plotting_orc and zoom is not None:
@@ -1072,7 +1081,7 @@ class ChromatinModel:
 
 		# Search span for the +1 nucleosome is between 130 and 280 bp downstream of 
 		# the origin
-		p1_search_span = (130, 280)
+		p1_search_span = (130, 360)
 		m1_search_span = (-140, -10)
 		origin_span = (-10, 130)
 
@@ -1080,56 +1089,88 @@ class ChromatinModel:
 
 		# Fragment lengths
 		sm_lens, med_lens, nuc_lens = fragment_lengths_definitions()
-		selected_nuc_fragments_range = np.arange(nuc_lens[0], nuc_lens[1]+GlobalConstants.BIN_HEIGHT,
-			GlobalConstants.BIN_HEIGHT)
-		origin_fragments_range = np.arange(sm_lens[0]+GlobalConstants.BIN_HEIGHT, med_lens[1]+GlobalConstants.BIN_HEIGHT,
-			GlobalConstants.BIN_HEIGHT)
+		print("Nucleosomal fragment length range: ", nuc_lens)
 
-		# Genomic positions
-		def get_genomic_positions_from_span(search_span):
-			search_span_corrected_for_bin_locs = translate_span_for_bins(center_pos, search_span, 
-				flip=(self.origin.strand == '-'))
-			# Selected genomic range and fragment lengths
-			selected_genomic_positions = np.arange(*search_span_corrected_for_bin_locs, GlobalConstants.BIN_WIDTH)
-			return selected_genomic_positions
+		# Select a largish window of fragments for origins, such that we can retrieve the entirety of what
+		# appears to be origin fragments
+		origin_frag_lens = sm_lens[0]+GlobalConstants.BIN_HEIGHT, med_lens[1]+GlobalConstants.BIN_HEIGHT
+		print("Origin fragment length range: ", origin_frag_lens)
 
-		selected_p1_positions = get_genomic_positions_from_span(p1_search_span)
-		selected_m1_positions = get_genomic_positions_from_span(m1_search_span)
-		selected_origin_positions = get_genomic_positions_from_span(origin_span)
+		# todo: Add an additional step here, in which we expand the search range for each
+		# metric, and automate narrowing the search tighter based peak occupancy and a window around the peak
+		nucleosome_movement_span = 144
+		origin_occ_span = 96
+
+		# todo: updated to wider spans for searching
+		p1_search_span = (0, 360)
+		m1_search_span = (-340, 0)
+		origin_span = (-150, 150)
+
+		# Currently we allow the search span to be any genomic position, but the bins restrict us
+		# to the bin width (24 bp), so we need to round to the nearest 24 bp bin
+		is_crick = (self.origin.strand == '-')
+		updated_p1_span = search_span_corrected_for_bin_locs = translate_span_for_bins(center_pos, p1_search_span, 
+			flip=is_crick)
+		updated_m1_span = search_span_corrected_for_bin_locs = translate_span_for_bins(center_pos, m1_search_span, 
+			flip=is_crick)
+		updated_origin_span = search_span_corrected_for_bin_locs = translate_span_for_bins(center_pos, origin_span, 
+			flip=is_crick)
+
+		print(f"The +1 span for tracking is:", updated_p1_span, " length: ", updated_p1_span[1]-updated_p1_span[0])
+		print(f"The -1 span for tracking is:", updated_m1_span, " length: ", updated_m1_span[1]-updated_m1_span[0])
+		print(f"The span for origin occupancy is:", updated_origin_span, " length: ", updated_origin_span[1]-updated_origin_span[0])
 
 		# Track the +1 nucleosome position. Tracker selects the nucleosome positions
 		# of the +1 search range
-		tracker = ChromatinMetricTracking(self)
-		self.p1_tracker = tracker
-		tracker.select_range(selected_p1_positions, selected_nuc_fragments_range)
-		tracker.track_genomic_movement()
-		self.p1_nuc_bins_sum = tracker.selected_sum_data
-		self.origin_p1_nuc_bins = tracker.called_peak_weighted_mean
-		self.selected_p1_positions = p1_search_span
+		def create_tracker(genomic_span, frag_lens, window, tracker_type='nuc_movement'):
+			tracker = ChromatinMetricTracking(self)
+			tracker.select_range(genomic_span, frag_lens)
+			tracker.find_peak_and_update_genomic_positions(window=window)
+			if tracker_type == 'nuc_movement': tracker.track_genomic_movement()
+			elif tracker_type == 'occupancy': tracker.track_occupancy()
+			else: raise ValueError("Unknown parameter: ", tracker_type)
+			return tracker
 
-		# Track the -1 nucleosome position. Tracker selects the nucleosome positions
-		# of the -1 search range
-		tracker = ChromatinMetricTracking(self)
-		self.m1_tracker = tracker
-		tracker.select_range(selected_m1_positions, selected_nuc_fragments_range)
-		tracker.track_genomic_movement()
-		self.m1_nuc_bins_sum = tracker.selected_sum_data
-		self.origin_m1_nuc_bins = tracker.called_peak_weighted_mean
-		self.selected_m1_positions = m1_search_span
+		self.p1_tracker = create_tracker(updated_p1_span, nuc_lens, window=192)
+		self.m1_tracker = create_tracker(updated_m1_span, nuc_lens, window=192)
+		self.origin_tracker = create_tracker(updated_origin_span, origin_frag_lens, window=192, tracker_type='occupancy')
 
-		# Track the subnucleosomal change
-		tracker = ChromatinMetricTracking(self)
-		self.origin_occ_tracker = tracker
-		tracker.select_range(selected_origin_positions, origin_fragments_range)
-		tracker.track_occupancy()
-		self.origin_occ_bins_sum = tracker.selected_sum_data
-		self.origin_occupancy = tracker.total_occupancy
-		self.selected_origin_positions = origin_span
+	def plot_nfr_origin_occ_comparision(self, t_tps=None):
+		from src.helpers import normalize_max_min
 
-		# Select the +1 position at the start of S
-		s_indices = self.config.get_Hpositions_for_phase('S')
-		self.origin_nuc_position_postg1 = self.origin_p1_nuc_bins[s_indices[0]]
+		t_indices = self.config.get_Hpositions_for_branch('t')
 
+		if t_tps is None:
+			t_tps = self.config.get_timepoints_for_branch('t')
+
+		# Compute the NFR size per time
+		nfr_size = self.p1_tracker.called_peak_weighted_mean -\
+		    self.m1_tracker.called_peak_weighted_mean
+
+		# Get the top branch values for NFR length and origin occupancy
+		origin_occ = self.origin_tracker.total_occupancy[t_indices]
+		nfr_size_t = nfr_size[t_indices]
+
+		origin_occ = normalize_max_min(origin_occ.values)
+		nfr_size_t = normalize_max_min(nfr_size_t.values)
+
+		plt.figure(figsize=(4, 3))
+
+		cmap = plt.get_cmap('Spectral')
+
+		plt.plot(t_tps, origin_occ, label="Origin occupancy", color=cmap(0.9))
+		plt.plot(t_tps, nfr_size_t, label="NFR length", color=cmap(0.1))
+		plt.legend()
+
+		from src.chromatin_model import draw_phase_label_annotations
+
+		ax = plt.gca()
+		draw_phase_label_annotations(ax, self.config, flip=True, annotations_x=-0.13)
+		plt.xlim(t_tps[0], t_tps[-1])
+		plt.ylim(-0.25, 1.6)
+		plt.xticks([])
+		plt.yticks([])
+		plt.ylabel("Normalized occupancy and length")
 
 	def plot_nucleosome_shift(self):
 		"""Show the +1 nucleosome shifts"""
@@ -1138,52 +1179,63 @@ class ChromatinModel:
 		# timescale
 
 		t_indices = self.config.get_Hpositions_for_branch('t')
+		s_indices = self.config.get_Hpositions_for_phase('S')
+		start_of_s = s_indices[0]
 		t_tps = self.config.get_timepoints_for_branch('t')
 
-		plus_position = self.origin_p1_nuc_bins
+		plus_position = self.p1_tracker.called_peak_weighted_mean
 		plus_position_movement = plus_position - self.center_origin
 
-		minus_position = self.origin_m1_nuc_bins
+		minus_position = self.m1_tracker.called_peak_weighted_mean
 		minus_position_movement = minus_position - self.center_origin
 
 		m = len(plus_position)
 
-		phases = ['CG1', 'S', 'G2M']
-		from src.model import color_for_key
-		plt.figure(figsize=(3, 3))
+		plt.figure(figsize=(4, 3))
 
-		tp_set = []
-		for phase in phases:
-			tps = self.config.get_phase_timepoints_for_phase(phase)
-			tp_set.append(tps)
+		ax0 = plt.subplot(1, 3, 1)
+		draw_phase_label_annotations(ax0, self.config)
 
-		plt.plot(plus_position_movement[t_indices], t_tps, lw=4, color='#555')
-		plt.plot(minus_position_movement[t_indices], t_tps, lw=4, color='#555')
+		ax1 = plt.subplot(1, 3, 2)
+		m1_movement = minus_position_movement[t_indices]
+		m1_movement = m1_movement - minus_position_movement[start_of_s]
+		ax1.plot(m1_movement, t_tps, lw=4, color='#555')
 
-		# Draw annotations
-		annotations_x = -160
-		last_tp = None
-		for i in range(len(tp_set)):
-			tps = tp_set[i]
-			phase = phases[i]
+		ax2 = plt.subplot(1, 3, 3)
+		p1_movement = plus_position_movement[t_indices]
+		p1_movement = p1_movement - plus_position_movement[start_of_s]
+		ax2.plot(p1_movement, t_tps, lw=4, color='#555')
 
-			if last_tp is None:
-				last_tp = tps[0]
-			tp_start, tp_end = last_tp, tps[-1]
-			last_tp = tps[-1]
+		ylim = t_tps[0], t_tps[-1]
+		ax0.set_ylim(ylim)
+		ax0.set_xlim(-5, 1)
 
-			tp_mid = (tp_start + tp_end)/2
-			plt.plot([annotations_x, annotations_x], [tp_start, tp_end], c=color_for_key(phase), lw=20, solid_capstyle='butt')
-			plt.text(annotations_x, tp_mid, phase, va='center', ha='center', fontsize=10,
-				color='white',
-				rotation=90)
+		ax1.axvline(0, c='black', ls='dotted', lw=1)
+		ax1.set_xlim(-15, 15)
+		ax1.set_ylim(ylim)
 
-		plt.xlim(-185, 230)
-		ylim = plt.ylim()
-		plt.ylim(tp_set[-1][-1], tp_set[0][0])
-		plt.axvline(0, c='black', ls='dotted', lw=1)
-		plt.yticks([])
-		plt.title(f"{self.origin.ars_name}, +1 and -1\nnucleosome shift", pad=10)
+		ax2.axvline(0, c='black', ls='dotted', lw=1)
+		ax2.set_xlim(-25, 5)
+		ax2.set_ylim(ylim)
+
+		from src.plot_helpers import hide_spines
+		hide_spines(ax0)
+
+		ax0.set_yticks([])
+		ax1.set_yticks([])
+		ax2.set_yticks([])
+
+		ax1.set_title(f"-1", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+		ax2.set_title(f"+1", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+		plt.suptitle(f"{self.origin.ars_name}", fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+		plt.subplots_adjust(top=0.8)
+
+	def plot_origin_trackers(self):
+
+		ax = self.p1_tracker.plot_selected_region()
+		self.m1_tracker.plot_selected_range_rect(ax)
+		self.origin_occ_tracker.plot_selected_range_rect(ax)
+		plt.title(f"{self.origin.ars_name}\nOrigin nucleosome and subnucleosome tracking regions")
 
 
 	def save_deconvolved_outputs(self, out_dir, index, using_default_flag):
@@ -1287,3 +1339,42 @@ def read_chromosome_mnase_reads(replicate, chr):
 							 'mnase_data')
 
 	return chr_reads
+
+
+def draw_phase_label_annotations(ax, config, phases = ['CG1', 'S', 'G2M'], 
+		flip=False, annotations_x=0):
+
+	from src.model import color_for_key
+
+	tp_set = []
+	for phase in phases:
+		tps = config.get_phase_timepoints_for_phase(phase)
+		tp_set.append(tps)
+
+	last_tp = None
+	for i in range(len(tp_set)):
+		tps = tp_set[i]
+		phase = phases[i]
+
+		if last_tp is None:
+			last_tp = tps[0]
+		tp_start, tp_end = last_tp, tps[-1]
+		last_tp = tps[-1]
+
+		tp_mid = (tp_start + tp_end)/2
+
+		xs = [annotations_x, annotations_x]
+		ys = [tp_start, tp_end]
+
+		text_x = annotations_x
+		text_y = tp_mid
+		rotation = 90
+
+		if flip:
+			xs, ys = ys, xs
+			text_x, text_y = text_y, text_x
+			rotation = 0
+
+		ax.plot(xs, ys, c=color_for_key(phase), lw=20, solid_capstyle='butt')
+		ax.text(text_x, text_y, phase, va='center', ha='center', fontsize=10,
+			color='white', rotation=rotation)

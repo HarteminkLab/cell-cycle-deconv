@@ -579,3 +579,15 @@ def get_equal_partitions(vec, k):
 	for i in range(1, len(bin_edges)):
 		partition_indices.append((bin_edges[i-1], bin_edges[i]))
 	return partition_indices
+
+
+def normalize_max_min(dat, indices=None):
+	"""Normalize the input data to the min and max for comparing"""
+
+	if indices is None: indices = np.arange(len(dat))
+
+	min_v, max_v = dat[indices].min(), dat[indices].max()
+	delta = (max_v - min_v) + 1e-5 # avoid divide by zero
+	dat = dat.copy()
+	dat = (dat - min_v) / delta
+	return dat

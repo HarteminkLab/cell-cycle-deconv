@@ -26,6 +26,22 @@ class ChromatinMetricTracking(object):
 		Note it is tricky working in the numpy array bin space because values need to be scaled by the bin width
 		and height and translated from the np.array 0-index to the genomic space index, as np arrays do not have
 		named columns nor rows.
+
+
+		Procedure:
+		1. Load the image data from the chromatin model
+		2. Define the x genomic positions and fragment lengths:
+			As bp and fragment lengths, they will be spaced apart by the bin width and bin height of the deconvolution
+		3. Select the range we are interested in: such as +1, -1, nucleosomal reads or small fragments around origins or promoters
+			Genomic range to select, and the fragment lengths we are interested in (in genomic coordinate 
+			space and fragment lengths). Note that these must be divisible by the bin width and height exactly as defined in 
+			step 2.
+		4. 	For nucleosome tracking as well as origin occupancy, we don't have a perfect idea of where these genomic spans lie
+			so, we next need to perform a peak search and then, with a predefined search window narrow the genomic search
+			space for the metric calculation.
+		5. Compute the metric calculation: Currently implemented peak tracking (using a weighted mean) and occupancy changes
+			in the window
+
 		"""
 		self.chrom_model = chrom_model
 		self.img_data = chrom_model.get_f_images()
@@ -37,7 +53,12 @@ class ChromatinMetricTracking(object):
 			chrom_model.bin_extents[1], GlobalConstants.BIN_WIDTH) + GlobalConstants.BIN_WIDTH/2
 		self.y_fragment_length_names = GlobalConstants.Y_LEN_DEFINITIONS
 
-	def select_range(self, selected_genomic_positions, selected_fragment_lengths):
+	def select_range(self, selected_genomic_span, selected_fragment_span):
+		"""Select the genomic range and fragment lengths we are interested in."""
+
+		selected_genomic_positions = get_genomic_positions_from_span(selected_genomic_span)
+		selected_fragment_lengths = np.arange(selected_fragment_span[0], selected_fragment_span[1]+GlobalConstants.BIN_HEIGHT,
+		 GlobalConstants.BIN_HEIGHT)
 
 		self.selected_genomic_positions = selected_genomic_positions
 		self.selected_fragment_lengths = selected_fragment_lengths
@@ -62,6 +83,19 @@ class ChromatinMetricTracking(object):
 		# Now subset to the select genomic positions we are interested in, we have 
 		# named columns now
 		self.selected_sum_data = binned_summation_data[selected_genomic_positions]
+
+	def find_peak_and_update_genomic_positions(self, window):
+		"""Find peak the peak occupancy in the window (summed by time) and create a window around this peak
+		to narrow the span in which we are interested in computing our metrics"""
+		win_2 = window//2
+		stacked_sum_data = self.selected_sum_data.sum(axis=0)
+		peak = stacked_sum_data.idxmax()
+		updated_span = peak-win_2, peak+win_2
+
+		updated_genomic_positions = get_genomic_positions_from_span(updated_span)
+		self.selected_sum_data = self.binned_summation_data[updated_genomic_positions]
+		self.selected_genomic_positions = updated_genomic_positions
+
 
 	def track_occupancy(self):
 		"""Track the mass of the occupancy change"""
@@ -92,15 +126,41 @@ class ChromatinMetricTracking(object):
 
 		plt.imshow(img, origin='lower', cmap='magma_r', aspect='auto',
 				  extent=extent)
+		
+		center_line = (extent[0]+extent[1])/2
+		plt.axvline(center_line, c='black', lw=1, ls='dotted')
 
 		ax = plt.gca()
 
+		self.plot_selected_range_rect(ax)
+
+		return ax
+
+
+	def plot_selected_range_rect(self, ax):
 		x1, x2 = self.selected_genomic_positions[0], self.selected_genomic_positions[-1]
 		y1, y2 = self.selected_fragment_lengths[0], self.selected_fragment_lengths[-1]
 
 		plot_rect2(ax, x1, y1, x2, y2, edgecolor='blue', fill=None, lw=1, zorder=100)
 		plt.xticks([])
 		plt.yticks([])
-		
-		center_line = (extent[0]+extent[1])/2
-		plt.axvline(center_line, c='black', lw=1, ls='dotted')
+
+
+def get_genomic_positions_from_span(search_span):
+	"""Create an np array from the given span"""
+	# Selected genomic range and fragment lengths
+	selected_genomic_positions = np.arange(*search_span, GlobalConstants.BIN_WIDTH)
+	return selected_genomic_positions
+
+# todo: may convert the search span conversion to bin positions with this method
+# 
+# def find_nearest(arr, num):
+# 	"""For translating found values to nearest bins and subselecting columns"""
+# 	arr = np.array(arr)
+# 	# Filter values greater than or equal to the input number
+# 	valid_values = arr[arr >= num]
+# 	if valid_values.size == 0:
+# 		return None  # If no values are greater or equal, return None
+# 	# Find the minimum of these values
+# 	nearest_value = valid_values.min()
+# 	return nearest_value
