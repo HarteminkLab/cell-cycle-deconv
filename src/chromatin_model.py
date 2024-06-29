@@ -517,10 +517,15 @@ class ChromatinModel:
 
 		ax.axvline(center_line, c='gray', linewidth=1.25, linestyle='solid', alpha=0.5)
 
+		s_indices = self.config.get_Hpositions_for_phase('S')
+		start_of_s = s_indices[0]
+		p1_at_s = self.p1_tracker.called_peak_weighted_mean.loc[start_of_s]
+		m1_at_s = self.m1_tracker.called_peak_weighted_mean.loc[start_of_s]
+
 		if plotting_orc and show_origin_down_nuc:
-			ax.axvline(self.p1_at_s, c='blue', 
+			ax.axvline(p1_at_s, c='blue', 
 				linewidth=1, linestyle='solid', alpha=0.5)
-			ax.axvline(self.m1_at_s, c='blue', 
+			ax.axvline(m1_at_s, c='blue', 
 				linewidth=1, linestyle='solid', alpha=0.5)
 
 		# Zoom in to 1000 bp to see shift of nucleosome
