@@ -215,6 +215,14 @@ class CombinedChromatinModel:
 
 		return fig
 
+
+	def plot_raw_origin_data(self, replicate):
+		if replicate == 1:
+			return self.chrom1_model.plot_raw_orc_data()
+		else:
+			return self.chrom2_model.plot_raw_orc_data()
+
+
 	def plot_nfr_origin_occ(self):
 		# todo: get the timepoitns squared away so we can report the timing of these events...
 
@@ -236,6 +244,89 @@ class CombinedChromatinModel:
 		plt.title(f"{self.chrom1_model.origin.ars_name}")
 		print("todo: resolve the timepoints plotted to be the average of rep1 and rep2")
 
+	def save_origin_plots(self, plot_dir, origin_index):
+
+		from src.figure_configs import save_figure_for_analysis
+		origin = self.chrom1_model.origin
+
+		origin_run_name = f"{origin_index}_{origin['ars_name']}_{origin.name}"
+
+		fig = self.plot_raw_origin_data(1)
+		save_path = f"{plot_dir}/{origin_run_name}_raw_rep1.png"
+		save_figure_for_analysis(save_path)
+		plt.close(fig)
+
+		fig = self.plot_raw_origin_data(2)
+		save_path = f"{plot_dir}/{origin_run_name}_raw_rep2.png"
+		save_figure_for_analysis(save_path)
+		plt.close(fig)
+
+		fig = self.create_deconvolution_plots_abbreviated_flipped(vmax=75)
+		save_path = f"{plot_dir}/{origin_run_name}_deconvolution.png"
+		save_figure_for_analysis(save_path)
+		plt.close(fig)
+
+		fig = self.create_deconvolution_plots_abbreviated_flipped(zoom=800, vmax=75, num_rows=4)
+		save_path = f"{plot_dir}/{origin_run_name}_deconvolution_zoomed.png"
+		save_figure_for_analysis(save_path)
+		plt.close(fig)
+
+		fig = self.chrom1_model.plot_nucleosome_shift()
+		save_path = f"{plot_dir}/{origin_run_name}_shift.png"
+		save_figure_for_analysis(save_path)
+		plt.close(fig)
+
+		fig = self.chrom1_model.plot_origin_trackers()
+		save_path = f"{plot_dir}/{origin_run_name}_tracking.png"
+		save_figure_for_analysis(save_path)
+		plt.close(fig)
+
+		fig = self.plot_nfr_origin_occ()
+		save_path = f"{plot_dir}/{origin_run_name}_nfr_origin_occ.png"
+		save_figure_for_analysis(save_path)
+		plt.close(fig)
+
+	def save_deconvolved_origin_outputs(self, out_dir, index):
+
+		origin = self.chrom1_model.origin
+		f = self.deconvolved_f_value
+		tracking_df = self.chrom1_model.get_origin_tracking_df()
+
+		origin_save_name = f"{origin.name}_{origin.ars_name}"
+
+		f_save_path = f'{out_dir}/{index}_f_{origin_save_name}.npy'
+		tracking_save_path = f'{out_dir}/{index}_tracking_{origin_save_name}.csv'
+		meta_save_path = f'{out_dir}/{index}_meta_{origin_save_name}.csv'
+
+		#---------- Save to disk -------------
+
+		# Save the f to disk
+		np.save(f_save_path, f)
+
+		# Save the ptr to disk
+		tracking_df.to_csv(tracking_save_path)
+
+		# Save meta information
+		from datetime import datetime
+		run_date = datetime.now().strftime("%D")
+
+		df = pd.DataFrame({
+			'rn': self.solver.rn, 'sn': self.solver.sn, 
+				'gm': self.solver.gamma.value,
+			'config1': self.chrom1_model.config.name,
+			'config2': self.chrom2_model.config.name,
+			'model1_path': self.chrom1_model.config.model_wt1_file,
+			'model2_path': self.chrom2_model.config.model_wt1_file,
+			'run_date': run_date,
+			'replicate': "combined",
+			'image_shape': str(GlobalConstants.IMAGE_SHAPE),
+			},
+			index=[self.chrom1_model.origin.name])
+		df.to_csv(meta_save_path, float_format="%.4f")
+
+		print_fl(f"Saved to {f_save_path}...")
+		print_fl(f"Saved to {tracking_save_path}...")
+		print_fl(f"Saved to {meta_save_path}...")
 
 	def save_deconvolved_outputs(self, out_dir, index):
 

@@ -222,7 +222,7 @@ class ChromatinModel:
 				extent=self.bin_extents)
 			ax.set_xticks([])
 			ax.set_yticks([])
-			ax.axvline(img.shape[1]/2, c='black', lw=1, ls='dotted')
+			ax.axvline(self.center_origin, c='black', lw=1, ls='dotted')
 			ax.set_ylabel(time)
 
 		if n % 2 == 1:
@@ -232,6 +232,8 @@ class ChromatinModel:
 
 		plt.suptitle(f"{self.origin.ars_name}, {self.origin.activation_time.title()} activation, "
 			f"efficiency={self.origin.derived_origin_efficiency_from_mcguffee_et_al_2013:.2f}\nReplicate {self.config.replicate}")
+		return fig
+
 
 	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, 
 		vmin=0, vmax=50, smooth=False, f=None, mask=None, show_dg1=False, show_origin_down_nuc=False, zoom=None):
@@ -1140,7 +1142,7 @@ class ChromatinModel:
 
 		# Compute the NFR size per time
 		nfr_size = self.p1_tracker.called_peak_weighted_mean -\
-		    self.m1_tracker.called_peak_weighted_mean
+			self.m1_tracker.called_peak_weighted_mean
 
 		# Get the top branch values for NFR length and origin occupancy
 		origin_occ = self.origin_tracker.total_occupancy[t_indices]
@@ -1149,7 +1151,7 @@ class ChromatinModel:
 		origin_occ = normalize_max_min(origin_occ.values)
 		nfr_size_t = normalize_max_min(nfr_size_t.values)
 
-		plt.figure(figsize=(4, 3))
+		fig = plt.figure(figsize=(4, 3))
 
 		cmap = plt.get_cmap('Spectral')
 
@@ -1166,6 +1168,7 @@ class ChromatinModel:
 		plt.xticks([])
 		plt.yticks([])
 		plt.ylabel("Normalized occupancy and length")
+		return fig
 
 
 	def plot_nucleosome_shift(self):
@@ -1187,7 +1190,7 @@ class ChromatinModel:
 
 		m = len(plus_position)
 
-		plt.figure(figsize=(4, 3))
+		fig = plt.figure(figsize=(4, 3))
 
 		ax0 = plt.subplot(1, 3, 1)
 		draw_phase_label_annotations(ax0, self.config)
@@ -1225,13 +1228,26 @@ class ChromatinModel:
 		ax2.set_title(f"+1", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
 		plt.suptitle(f"{self.origin.ars_name}", fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
 		plt.subplots_adjust(top=0.8)
+		return fig
 
 	def plot_origin_trackers(self):
 
-		ax = self.p1_tracker.plot_selected_region()
+		fig, ax = self.p1_tracker.plot_selected_region()
 		self.m1_tracker.plot_selected_range_rect(ax)
 		self.origin_tracker.plot_selected_range_rect(ax)
 		plt.title(f"{self.origin.ars_name}\nOrigin nucleosome and subnucleosome tracking regions")
+		return fig
+
+
+	def get_origin_tracking_df(self):
+		p1 = self.p1_tracker.called_peak_weighted_mean
+		m1 = self.m1_tracker.called_peak_weighted_mean
+		origin_occupancy = self.origin_tracker.total_occupancy
+
+		df = pd.DataFrame({
+			'+1': p1, '-1': m1, 'origin_occupancy': origin_occupancy
+		})
+		return df
 
 
 	def save_deconvolved_outputs(self, out_dir, index, using_default_flag):

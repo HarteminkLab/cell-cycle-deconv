@@ -135,7 +135,7 @@ class ChromatinMetricTracking(object):
 
 		self.plot_selected_range_rect(ax)
 
-		return ax
+		return fig, ax
 
 
 	def plot_selected_range_rect(self, ax):
