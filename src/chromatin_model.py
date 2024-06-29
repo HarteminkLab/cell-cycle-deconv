@@ -1153,26 +1153,36 @@ class ChromatinModel:
 		origin_occ = self.origin_tracker.total_occupancy[t_indices]
 		nfr_size_t = nfr_size[t_indices]
 
-		origin_occ = normalize_max_min(origin_occ.values)
-		nfr_size_t = normalize_max_min(nfr_size_t.values)
+		normalized_origin_occ_t = normalize_max_min(origin_occ.values)
+		normalized_nfr_size_t = normalize_max_min(nfr_size_t.values)
 
-		fig = plt.figure(figsize=(4, 3))
+		fig = plt.figure(figsize=(12, 3))
 
-		cmap = plt.get_cmap('Spectral')
+		def plot_comparison(origin_occ, nfr_size_t):
+			cmap = plt.get_cmap('Spectral')
+			plt.plot(t_tps, origin_occ, label="Origin occupancy", color=cmap(0.9))
+			plt.plot(t_tps, nfr_size_t, label="NFR length", color=cmap(0.1))
+			plt.legend()
 
-		plt.plot(t_tps, origin_occ, label="Origin occupancy", color=cmap(0.9))
-		plt.plot(t_tps, nfr_size_t, label="NFR length", color=cmap(0.1))
-		plt.legend()
+			from src.chromatin_model import draw_phase_label_annotations
 
-		from src.chromatin_model import draw_phase_label_annotations
+			ax = plt.gca()
+			draw_phase_label_annotations(ax, self.config, flip=True, annotations_x=-0.13)
+			plt.xlim(t_tps[0], t_tps[-1])
+			plt.xticks([])
+			plt.yticks([])
 
-		ax = plt.gca()
-		draw_phase_label_annotations(ax, self.config, flip=True, annotations_x=-0.13)
-		plt.xlim(t_tps[0], t_tps[-1])
-		plt.ylim(-0.25, 1.6)
-		plt.xticks([])
-		plt.yticks([])
+		plt.subplot(1, 2, 1)
+		plot_comparison(origin_occ.values-origin_occ.values.min() + 20, 
+			nfr_size_t.values - nfr_size_t.values.min() + 20)
+		plt.ylabel("Occupancy and length")
+		plt.ylim(-15, 200)
+
+		plt.subplot(1, 2, 2)
+		plot_comparison(normalized_origin_occ_t, normalized_nfr_size_t)
 		plt.ylabel("Normalized occupancy and length")
+		plt.ylim(-0.25, 1.6)
+
 		return fig
 
 

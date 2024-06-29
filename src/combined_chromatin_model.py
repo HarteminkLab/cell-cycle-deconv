@@ -241,7 +241,7 @@ class CombinedChromatinModel:
 		replication_time = self.chrom1_model.origin.replication_time-g1
 
 		plt.axvline(replication_time, c='black', lw=1, ls='dotted', zorder=0)
-		plt.title(f"{self.chrom1_model.origin.ars_name}")
+		plt.suptitle(f"{self.chrom1_model.origin.ars_name}")
 		print("todo: resolve the timepoints plotted to be the average of rep1 and rep2")
 
 	def save_origin_plots(self, plot_dir, origin_index):
