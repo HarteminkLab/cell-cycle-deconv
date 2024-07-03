@@ -120,7 +120,7 @@ class ChromatinMetricTracking(object):
 	def plot_selected_region(self):
 		# Plot where the self is selecting from the image data
 		fig = plt.figure(figsize=(6, 1))
-		img = self.img_data[5]
+		img = self.img_data[100]
 
 		extent = [self.x_genomic_positions[0], self.x_genomic_positions[-1],
 			self.y_fragment_length_names[0], self.y_fragment_length_names[-1]]
@@ -144,6 +144,12 @@ class ChromatinMetricTracking(object):
 		plot_rect2(ax, x1, y1, x2, y2, edgecolor='blue', fill=None, lw=1, zorder=100)
 		plt.xticks([])
 		plt.yticks([])
+
+
+	def get_center_selected_bp(self):
+		gp = self.selected_genomic_positions
+		gp_center = (gp[0] + gp[-1])/2.
+		return gp_center
 
 
 def get_genomic_positions_from_span(search_span):

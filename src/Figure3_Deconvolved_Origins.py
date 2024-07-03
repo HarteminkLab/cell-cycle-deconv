@@ -102,6 +102,80 @@ class Figure4DeconvolvedOrigins(object):
 		plt.subplots_adjust(top=0.8)
 		# todo: label x axis with cell cycle phases
 
+	def deconvolve_origins(self, save_dir):
+
+		ars_names = [
+
+			'ARS1623', # Early replicating, origin occupancy persists to G2/M
+
+			'ARS913', # Early replication
+			'ARS1212.5', # Late replication origin
+
+			'ARS1330', # Early replicating origin 
+			'ARS1630' # Late replicating origin
+			]
+
+		from src.combined_chromatin_model import load_combined_model
+		from src.figure_configs import save_figure_for_paper
+
+		origin_models = {}
+
+		for ars_name in ars_names:
+			print(ars_name)
+			combined_model = load_combined_model()
+			origin_models[ars_name] = combined_model
+			combined_model.load_combined_mnase_orc(ars_name)
+			combined_model.deconvolve()
+			combined_model.find_origin_p1_and_m1_nucleosome_position()
+			print("--------------------")
+
+			chrom_model = combined_model.chrom1_model
+
+			# Chromatin deconvolution plot
+			fig = combined_model.create_deconvolution_plots_abbreviated_flipped(zoom=1000, 
+				show_rg1=False)
+			save_figure_for_paper(f"{save_dir}/{ars_name}_chromatin.png")
+			plt.close(fig)
+
+			fig = chrom_model.plot_nfr_shift_origin_occupancy()
+			save_figure_for_paper(f"{save_dir}/{ars_name}_tracking.png")
+			plt.close(fig)
+
+			del combined_model
+
+
+	def plot_heatmap_examples_of_early_late(self):
+		chrom_model = list(self.origin_models.values())[0].chrom1_model
+		t_indices = chrom_model.config.get_Hpositions_for_branch('t')
+		early_origins = chrom_model.origins[chrom_model.origins.footprint_class == 'g1_and_g2_footprint'].sort_values('replication_time').head(100).index.values
+		late_origins = chrom_model.origins[chrom_model.origins.footprint_class == 'g1_and_g2_footprint'].sort_values('replication_time').tail(100).index.values
+
+		# Filter the NFRs such that S < G1
+		# Then filter by origin occupancy
+		nfrs = self.all_nfrs_df.loc[late_origins][t_indices]
+		nfrs = nfrs - nfrs.mean(axis=1).values.reshape((-1, 1))
+
+		nfrs_filtered = nfrs[nfrs[150] < nfrs[90]]
+		origin_occs = self.all_origins_occupancy_df.loc[
+			late_origins][t_indices].loc[nfrs_filtered.index]
+		origins_filtered = origin_occs[origin_occs[150] < origin_occs[80]]
+
+		n = len(origins_filtered.index)
+
+		plt.figure(figsize=(6, 6))
+		plt.subplot(1, 2, 1)
+
+		plt.imshow(nfrs.loc[origins_filtered.index], aspect='auto', extent=[t_indices[0], t_indices[-1], 0, n])
+		plt.yticks(np.arange(len(origins_filtered))+0.5,
+				   self.origins_w_replication.loc[origins_filtered.index, 'ars_name'])
+		plt.title("NFR")
+
+		plt.subplot(1, 2, 2)
+		plt.imshow(origins_filtered, aspect='auto', extent=[t_indices[0], t_indices[-1], 0, n])
+		plt.title("Origin occupancy")
+		plt.yticks([])
+
+
 def normalize_z_score_by_row(df, norm_sd=False):
 	"""Normalize such that each origin is centered on the mean and scaled to std 1"""
 	mean, sd = df.mean(axis=1), df.std(axis=1)

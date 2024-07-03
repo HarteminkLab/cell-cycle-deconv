@@ -195,12 +195,13 @@ class CombinedChromatinModel:
 		self.chrom2_model.compute_ptr()
 
 
-	def create_deconvolution_plots_abbreviated_flipped(self, ge_model=None, vmax=50, num_rows=4, zoom=None):
+	def create_deconvolution_plots_abbreviated_flipped(self, ge_model=None, vmax=50, num_rows=4, zoom=None,
+		show_rg1=True):
 		"""Create the deconvolution plot defined in chromatin_model.py
 		"""
 
 		fig = self.chrom1_model.create_deconvolution_plots_abbreviated_flipped(ge_model=ge_model, vmax=vmax,
-			show_origin_down_nuc=True, zoom=zoom, num_rows=num_rows)
+			show_origin_down_nuc=True, zoom=zoom, num_rows=num_rows, show_rg1=show_rg1)
 		return fig
 
 	def plot_raw_prediction(self, replicate, vmax=20):
@@ -423,3 +424,12 @@ def load_chromatin_model_from_disk(gene_name, chromatin_dir, f_only=False):
 	chromatin_model.solver.gamma.value = meta_data.gm
 
 	return chromatin_model
+
+
+def load_combined_model(config_type='shared'):
+	from src.config import load_configs_by_config_type
+	chrom_config1, chrom_config2 = load_configs_by_config_type(config_type,
+	    with_copy_correction=True)
+	from src.combined_chromatin_model import CombinedChromatinModel
+	combined_model = CombinedChromatinModel(chrom_config1, chrom_config2)
+	return combined_model

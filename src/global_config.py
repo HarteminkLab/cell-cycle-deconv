@@ -13,7 +13,7 @@ class GlobalConstants:
 	BIN_WIDTH = 24
 	BIN_HEIGHT = 24
 
-	MAX_Y_LEN = 240
+	MAX_Y_LEN = 264
 
 	# Defined fragment length boundaries
 	Y_LEN_DEFINITIONS = np.arange(0, 

@@ -224,6 +224,7 @@ class ChromatinModel:
 			ax.set_yticks([])
 			ax.axvline(self.center_origin, c='black', lw=1, ls='dotted')
 			ax.set_ylabel(time)
+			ax.set_ylim(0, 240)
 
 		if n % 2 == 1:
 			ax = axs[n]
@@ -236,7 +237,8 @@ class ChromatinModel:
 
 
 	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, 
-		vmin=0, vmax=50, smooth=False, f=None, mask=None, show_dg1=False, show_origin_down_nuc=False, zoom=None):
+		vmin=0, vmax=50, smooth=False, f=None, mask=None, show_dg1=False, show_rg1=True,
+		show_origin_down_nuc=False, zoom=None):
 
 		if f is None:
 			f = self.deconvolved_f().copy()
@@ -258,24 +260,30 @@ class ChromatinModel:
 		else:
 			figwidth = 11
 
+		if show_dg1:
+			column_titles = ["Recovery G1", "Mother G1", "Daughter G1", "Post G1"]
+			phase_keys = ['RG1', 'CG1', 'DG1', 'postG1']
+		else:
+			column_titles = ["Recovery G1", "Shared G1", "S", "G2/M"]
+			phase_keys = ['RG1', 'CG1', 'S', 'G2M']
+
+		if not show_rg1:
+			column_titles = column_titles[1:]
+			phase_keys = phase_keys[1:]
+
 		if ax_cols is None:
 
 			# We will add the first row as the deconvolved gene expression
 			if ge_model is not None:
 				num_rows = num_rows+1
 
-			if show_dg1:
-				num_cols = 4
-			else:
-				num_cols = 4
+			num_cols = len(column_titles)
 
 			fig, ax_cols = plt.subplots(num_rows, num_cols, figsize=(figwidth, figheight))
 			plt.subplots_adjust(hspace=0.5, top=0.77)
 
 		if plotting_orc:
 			plt.subplots_adjust(hspace=0.5, top=0.71)
-
-
 
 		from src.model import color_for_key
 
@@ -301,13 +309,6 @@ class ChromatinModel:
 
 		plotting_index = 0
 		last_phase = None
-
-		if show_dg1:
-			column_titles = ["Recovery G1", "Mother G1", "Daughter G1", "Post G1"]
-			phase_keys = ['RG1', 'CG1', 'DG1', 'postG1']
-		else:
-			column_titles = ["Recovery G1", "Shared G1", "S", "G2/M"]
-			phase_keys = ['RG1', 'CG1', 'S', 'G2M']
 
 		# Flip
 		ax_cols = np.array(ax_cols).T
@@ -516,6 +517,10 @@ class ChromatinModel:
 			center_line = self.computed_plus_one
 
 		ax.axvline(center_line, c='gray', linewidth=1.25, linestyle='solid', alpha=0.5)
+
+		# there are no reads above 250, so setting the ylim to 240
+		# will remove the empty row
+		ax.set_ylim(0, 240)
 
 		s_indices = self.config.get_Hpositions_for_phase('S')
 		start_of_s = s_indices[0]
@@ -975,7 +980,7 @@ class ChromatinModel:
 		x_bins = np.arange(new_span[0], new_span[1], bin_width)
 
 		# And for y lengths
-		y_bins = np.arange(0, self.max_y_len, bin_height)
+		y_bins = np.arange(0, self.max_y_len+bin_height, bin_height)
 
 		# Now we will loop through each x and y bin to aggregate the counts to 
 		# create our new downsampled histogram
@@ -1105,7 +1110,12 @@ class ChromatinModel:
 		# Wide search span that will automatically be narrowed down
 		p1_search_span = (0, 360)
 		m1_search_span = (-360, 0)
-		origin_span = (-150, 150)
+		origin_span = (-120, 120)
+
+		# Override to refine search window for selected origins
+		if self.origin.ars_name == 'ARS423':
+			p1_search_span = (0, 240)
+			m1_search_span = (-240, 0)
 
 		# Currently we allow the search span to be any genomic position, but the bins restrict us
 		# to the bin width (24 bp), so we need to round to the nearest 24 bp bin
@@ -1183,10 +1193,15 @@ class ChromatinModel:
 		plt.ylabel("Normalized occupancy and length")
 		plt.ylim(-0.25, 1.6)
 
+		if self.origin.strand == '-':
+			# flip the xlims
+			xlim = plt.xlims()
+			plt.xlim(xlim[1], xlim[0])
+
 		return fig
 
 
-	def plot_nucleosome_shift(self):
+	def plot_nfr_shift_origin_occupancy(self):
 		"""Show the +1 nucleosome shifts"""
 
 		# Show that we can track the +1 nucleosome shift per each phase on a high resolution 
@@ -1205,44 +1220,67 @@ class ChromatinModel:
 
 		m = len(plus_position)
 
-		fig = plt.figure(figsize=(4, 3))
+		fig = plt.figure(figsize=(5, 3))
 
-		ax0 = plt.subplot(1, 3, 1)
-		draw_phase_label_annotations(ax0, self.config)
+		ax = plt.gca()
 
-		ax1 = plt.subplot(1, 3, 2)
 		m1_movement = minus_position_movement[t_indices]
-		m1_movement = m1_movement - minus_position_movement[start_of_s]
-		ax1.plot(m1_movement, t_tps, lw=4, color='#555')
+		ax.plot(m1_movement, t_tps, lw=4, color='#555')
 
-		ax2 = plt.subplot(1, 3, 3)
 		p1_movement = plus_position_movement[t_indices]
-		p1_movement = p1_movement - plus_position_movement[start_of_s]
-		ax2.plot(p1_movement, t_tps, lw=4, color='#555')
+		ax.plot(p1_movement, t_tps, lw=4, color='#555')
 
 		ylim = t_tps[0], t_tps[-1]
-		ax0.set_ylim(ylim)
-		ax0.set_xlim(-5, 1)
+		ax.set_ylim(ylim)
 
-		ax1.axvline(0, c='black', ls='dotted', lw=1)
-		ax1.set_xlim(-15, 15)
-		ax1.set_ylim(ylim)
-
-		ax2.axvline(0, c='black', ls='dotted', lw=1)
-		ax2.set_xlim(-25, 5)
-		ax2.set_ylim(ylim)
+		# Specific xlims for selected genes
+		if self.origin.ars_name == 'ARS1212.5':
+			translation = -50
+			draw_phase_label_annotations(ax, self.config, annotations_x=-120+translation)
+			ax.set_xlim(-133+translation, 250+translation)
+		else:
+			draw_phase_label_annotations(ax, self.config, annotations_x=-120)
+			ax.set_xlim(-133, 250)
 
 		from src.plot_helpers import hide_spines
-		hide_spines(ax0)
 
-		ax0.set_yticks([])
-		ax1.set_yticks([])
-		ax2.set_yticks([])
+		# Convert H index to t indices for plotting replication location
+		def get_t_tp_from_H_index(config, H_index):
+			t_indices = config.get_Hpositions_for_branch('t')
+			t_tps = config.get_timepoints_for_branch('t')
+			index_t = np.where(t_indices == H_index)[0][0]
+			tp = t_tps[index_t]
+			return tp
 
-		ax1.set_title(f"-1", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
-		ax2.set_title(f"+1", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+		# Plot the replication time
+		repl_tp = get_t_tp_from_H_index(self.config, self.origin.replication_index)
+		plt.axhline(repl_tp, c='black', ls='dotted', lw=0.5, zorder=0)
+
+
+		# Plot the boundaries of S
+		s_start_tp = get_t_tp_from_H_index(self.config, s_indices[0])
+		plt.axhline(s_start_tp, c='black', ls='solid', lw=0.5, zorder=0)
+		s_end_tp = get_t_tp_from_H_index(self.config, s_indices[-1])
+		plt.axhline(s_end_tp, c='black', ls='solid', lw=0.5, zorder=0)
+
+		ax.set_yticks([])
 		plt.suptitle(f"{self.origin.ars_name}", fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
 		plt.subplots_adjust(top=0.8)
+
+		origin_occupancy = self.origin_tracker.total_occupancy
+
+		color_values = origin_occupancy[t_indices].values
+
+		# Plot the origin occupancy as a colormap scatter plot on the 
+		# center of the tracked origin location
+		x = self.origin_tracker.get_center_selected_bp()
+		origin_pos = x - self.center_origin
+		origin_pos_extent = origin_pos-10, origin_pos+10
+		plt.imshow(color_values.reshape((-1, 1)), extent=[origin_pos_extent[0], origin_pos_extent[1], 
+			t_tps[0], t_tps[-1]], cmap='Oranges', aspect='auto', origin='lower', interpolation='none')
+		plt.axvline(origin_pos_extent[0], c='#666', lw=0.75,)
+		plt.axvline(origin_pos_extent[1], c='#666', lw=0.75,)
+
 		return fig
 
 	def plot_origin_trackers(self):
