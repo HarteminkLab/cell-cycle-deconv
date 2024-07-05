@@ -481,7 +481,7 @@ class ChromatinModel:
 
 
 	def plot_f_img(self, ax, img, show_title=True, x_padding=0, y_padding=0,
-		vmin=0, vmax=200, mask=None, show_origin_down_nuc=False, zoom=None):
+		vmin=0, vmax=200, mask=None, show_origin_down_nuc=False, zoom=None, extent=None):
 		"""Plot the f image of a phase and column for the grid of f images progressing through each phase
 		compute the proper index to plot from the num_columns parameter for the phase"""
 
@@ -508,10 +508,13 @@ class ChromatinModel:
 		if mask is not None:
 			img = img * mask
 
-		im = ax.imshow(img, origin='lower', cmap='magma_r', aspect='auto', vmax=vmax,
-			extent=self.bin_extents, zorder=1)
+		if extent is None:
+			extent = self.bin_extents
 
-		center_line = (self.bin_extents[0]+self.bin_extents[1])/2.
+		im = ax.imshow(img, origin='lower', cmap='magma_r', aspect='auto', vmax=vmax,
+			extent=extent, zorder=1)
+
+		center_line = (extent[0]+extent[1])/2.
 
 		if not plotting_orc:
 			center_line = self.computed_plus_one
@@ -522,12 +525,14 @@ class ChromatinModel:
 		# will remove the empty row
 		ax.set_ylim(0, 240)
 
-		s_indices = self.config.get_Hpositions_for_phase('S')
-		start_of_s = s_indices[0]
-		p1_at_s = self.p1_tracker.called_peak_weighted_mean.loc[start_of_s]
-		m1_at_s = self.m1_tracker.called_peak_weighted_mean.loc[start_of_s]
-
+		# Origin specific plotting
 		if plotting_orc and show_origin_down_nuc:
+
+			s_indices = self.config.get_Hpositions_for_phase('S')
+			start_of_s = s_indices[0]
+			p1_at_s = self.p1_tracker.called_peak_weighted_mean.loc[start_of_s]
+			m1_at_s = self.m1_tracker.called_peak_weighted_mean.loc[start_of_s]
+
 			ax.axvline(p1_at_s, c='blue', 
 				linewidth=1, linestyle='solid', alpha=0.5)
 			ax.axvline(m1_at_s, c='blue', 

@@ -1,6 +1,8 @@
 
 import matplotlib.pyplot as plt
 import numpy as np
+from src.figure_configs import FiguresConfig
+
 
 class Figure1Deconvolution(object):
 	"""Load and plot figures for the first result figure"""
@@ -132,7 +134,6 @@ class Figure1Deconvolution(object):
 		from src.plot_helpers import plot_rect2
 		plot_rect2(ax, 1, 1, right_x, bottom_y, zorder=0, color='white')
 
-		from src.figure_configs import FiguresConfig
 		plt.title("Convolution Kernel, $\\bf{H}$", fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
 		plt.xlabel("Single cell deconvolution time", fontsize=FiguresConfig.FIG_LABEL_FONTSIZE)
 		plt.ylabel("Experimental time", fontsize=FiguresConfig.FIG_LABEL_FONTSIZE)
@@ -168,26 +169,104 @@ class Figure1Deconvolution(object):
 
 		self.combined_model.chrom1_model.deconv_hist_unflattened.shape
 
-		imgs = self.combined_model.chrom1_model.deconv_hist_unflattened
-		plt_imgs = imgs[[0, 1, 2, 3, 4, -1]]
+		img_indices = [0, 1, 2, 3, -2, -1]
+		n = len(img_indices)
 
-		fig, axs = plt.subplots(5, 1, figsize=(3, 6))
-		n = len(axs)
+		fig, axs = plt.subplots(n, 2, figsize=(6, 6))
+		axs = np.array(axs).T
+
+		def plot_column_imgs(axs_col, chrom_model, title, show_labels=True):
+			imgs = chrom_model.deconv_hist_unflattened
+			plt_imgs = imgs[img_indices]
+
+			for i in range(n):
+				ax = axs_col[i]
+				
+				if i == n-3:
+					hide_spines(ax)
+					ax.set_xlim(0, 1)
+					ax.set_ylim(0, 1)
+					ax.scatter([0.5, 0.5, 0.5], [0.3, 0.5, 0.7], c='black', s=5)
+				else:
+
+					if i == 0:
+						ax.set_title(title, fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=11)
+
+					chrom_model.plot_f_img(ax, plt_imgs[i], vmax=50)
+
+					if i == n-1:
+						ylabel = '$t_n$'
+					elif i == n-2:
+						ylabel = '$t_{n-1}$'
+					else:
+						ylabel = f'$t_{i+1}$'
+
+					if show_labels:
+						ax.set_ylabel(ylabel, rotation=0, ha='right', labelpad=8, fontsize=13)
+
+		plot_column_imgs(axs[0], self.combined_model.chrom1_model, title="Replicate 1")
+		plot_column_imgs(axs[1], self.combined_model.chrom2_model, show_labels=False, title="Replicate 2")
+
+
+	def plot_deconvolved_clb2_phase_annotated(self):
+
+		from src.plot_helpers import plot_rect2
+		from src.plot_helpers import hide_spines
+
+		# Plot the deconvolved data as a stack for the diagram of the deconvolution
+		chrom_model = self.combined_model.chrom1_model
+		config = chrom_model.config
+		rg1_i = config.get_Hpositions_for_phase('RG1')
+		cg1_i = config.get_Hpositions_for_phase('CG1')
+		s_i = config.get_Hpositions_for_phase('S')
+		pg1_i = config.get_Hpositions_for_phase('postG1')
+
+		imgs = chrom_model.get_f_images()
+
+
+		i = 0
+
+		fig = plt.figure(figsize=(4, 5))
+		ax = plt.gca()
+
+		w, h = 1, 0.5
+		x, y = 0, 0
+		padding = 0.75
+
+		phases = ['RG1', 'CG1', 'S', 'G2/M']
+		img_indices = [rg1_i[0], cg1_i[0], s_i[0], pg1_i[0]]
+		plt_imgs = imgs[img_indices]
+		n = len(img_indices)
+
+		# Flip the vertical indices such that we are plotting top to bottom
+		img_indices = list(reversed(img_indices))
+		phases = list(reversed(phases))
+
+		from src.model import color_for_key
 
 		for i in range(n):
-			ax = axs[i]
-			
-			if i == n-2:
-				hide_spines(ax)
-				ax.set_xlim(0, 1)
-				ax.set_ylim(0, 1)
-				ax.scatter([0.5, 0.5, 0.5], [0.3, 0.5, 0.7], c='black', s=5)
-			else:
-				self.combined_model.chrom1_model.plot_f_img(ax, plt_imgs[i], vmax=50)
+			x1, x2, y1, y2 = x, x+w, y+i*(h+padding), y+h+i*(h+padding)
+			chrom_model.plot_f_img(ax, plt_imgs[i], vmax=50, extent=[x1, x2, y1, y2])
+			plt.plot([x1+0.36, x1+0.36], [y1, y2], c='black', lw=1, alpha=0.25)
+			plot_rect2(ax, x1, y1, x2, y2, edgecolor='black', fill=None, lw=0.5, zorder=100)
+			phase = phases[i]
 
-				if i == n-1:
-					ylabel = '$t_n$'
-				else:
-					ylabel = f'$t_{i+1}$'
-				ax.set_ylabel(ylabel, rotation=0, ha='right', labelpad=8, fontsize=13)
+			# Stack offset underneath for the appearance of a set of stacked images
+			stack_offset = 0.05
+			num_stack = 4
+			for j in range(num_stack, 0, -1):
+				plot_rect2(ax, x1+j*stack_offset, y1+j*stack_offset, 
+							   x2+j*stack_offset, y2+j*stack_offset, 
+						   edgecolor='black', color='#AB9B7F',
+						   lw=0.5, zorder=0)
+				
+				from matplotlib.patches import Rectangle, FancyBboxPatch
+				rounded_rect = FancyBboxPatch((x1-0.5, y1-0.2), 1.8, 1.1,
+					boxstyle='Round, pad=0, rounding_size=0.1', color=color_for_key(phase),
+							 alpha = 1., zorder=-1)
+				rounded_patch = ax.add_patch(rounded_rect)
+				ax.text(x1-0.27, (y1+y2)/2, phase, ha='center', color='white')
 
+		plt.xlim(-1, 1.75)
+		plt.ylim(-0.5, 5.)
+		hide_spines(ax)

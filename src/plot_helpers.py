@@ -110,6 +110,7 @@ def plot_rect2(ax, x1, y1, x2, y2, color=None, facecolor=None,
 	"""
 
 	import matplotlib.patches as patches
+	from matplotlib.patches import Rectangle, FancyBboxPatch
 
 	if edgecolor is None: edgecolor = color
 	if facecolor is None: facecolor = color
@@ -130,8 +131,9 @@ def plot_rect2(ax, x1, y1, x2, y2, color=None, facecolor=None,
 						ls=ls,
 						fill=fill,
 						alpha=fill_alpha,
-						zorder=zorder
+						zorder=zorder,
 					))
+	
 
 def hide_spines(ax, hide_ticks=True):
 	ax.spines['top'].set_visible(False)
