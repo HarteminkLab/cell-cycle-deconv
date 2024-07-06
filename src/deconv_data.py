@@ -4,6 +4,35 @@ import numpy as np
 import pandas as pd
 import glob
 
+def load_gene_expression_fs(gene_expression_dir, geneset=None):
+
+	file_paths = glob.glob(f'{gene_expression_dir}/*_f_*.npy')
+	
+	if geneset is None:
+		geneset = get_deconvolved_geneset()
+
+	gene_expression_f = None
+
+	# For each deconvolved gene, load the ptr values and place them into the PTRs dataframe
+	for path in file_paths:
+		filename = path.split('/')[-1]
+		orf_name = filename.split('_')[2].replace('.npy', '')
+
+		# Skip genes not in our analysis set
+		# for runs in which we haven't filtered for low coverage genes yet
+		if not orf_name in geneset.index.values: continue
+
+		loaded_f = np.load(path)
+
+		if gene_expression_f is None:
+			m = len(loaded_f)
+			gene_expression_f = pd.DataFrame(index=geneset.index, columns=np.arange(m))
+
+		gene_expression_f.loc[orf_name] = loaded_f
+
+	return gene_expression_f
+
+
 def load_f_files(chromatin_dir, geneset=None):
 	"""Load all of the gene F results into a dataframe, flatten the F images for the dataframe."""
 
