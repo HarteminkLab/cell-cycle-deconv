@@ -8,22 +8,24 @@ import numpy as np
 
 class GlobalConstants:
 
-
-
 	BIN_WIDTH = 24
 	BIN_HEIGHT = 24
-
 	MAX_Y_LEN = 264
 
 	# Defined fragment length boundaries
-	Y_LEN_DEFINITIONS = np.arange(0, 
-		MAX_Y_LEN+BIN_HEIGHT, BIN_HEIGHT)
+	Y_LEN_DEFINITIONS = np.arange(0, MAX_Y_LEN+BIN_HEIGHT, BIN_HEIGHT)
 
 	# Gene definitions
 	# Add one more bin to center the +1 on a bin
 	PROM_LEN = 288
 	GB_LEN = 504
 	NUM_BINS_X = (PROM_LEN + GB_LEN + BIN_WIDTH) // BIN_WIDTH
+	
+	# Define the promoter and gene body regions relative to a +1
+	# at the zero position (oriented left to right)
+	PROM_REGION = (-PROM_LEN-BIN_WIDTH/2), BIN_WIDTH/2
+	GB_REGION = -BIN_WIDTH/2, GB_LEN+BIN_WIDTH/2
+
 	NUM_BINS_Y = (MAX_Y_LEN) // BIN_HEIGHT
 	IMAGE_SHAPE = (NUM_BINS_Y, NUM_BINS_X)
 	BIN_EXTENTS = [-PROM_LEN-BIN_WIDTH/2, GB_LEN+BIN_WIDTH/2, 0, MAX_Y_LEN]

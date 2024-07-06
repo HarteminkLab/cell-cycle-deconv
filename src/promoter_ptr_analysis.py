@@ -38,37 +38,9 @@ class PromoterPTRAnalysis:
 
 		chromatin_dir = self.chromatin_dir
 
-		f_filepaths = glob.glob(f'{chromatin_dir}/*_f_*.npy')
+		from src.deconv_data import load_f_files
 
-		# Load the F images for each deconvolved gene
-		current_f = np.load(f_filepaths[0])
-		print("Shape of the loaded F:", current_f.shape)
-
-		m_times, u_vals = current_f.shape
-		all_gene_fs_df = pd.DataFrame(index=self.geneset.index, 
-		   columns=np.arange(m_times*u_vals))
-
-		from src.timer import Timer
-
-		timer = Timer()
-		i = 0
-
-		# For each deconvolved gene, load the ptr values and place them into the PTRs dataframe
-		for path in f_filepaths:
-			filename = path.split('/')[-1]
-			orf_name = filename.split('_')[2]
-
-			# Skip genes not in our analysis set
-			# for runs in which we haven't filtered for low coverage genes yet
-			if not orf_name in self.geneset.index.values: continue
-
-			current_f = np.load(path)
-			all_gene_fs_df.loc[orf_name] = current_f.flatten()
-			
-			if i % 1000 == 0:
-				timer.print_time(f"{i+1}/{len(f_filepaths)}")
-			i += 1
-		self.all_gene_fs_df = all_gene_fs_df
+		self.all_gene_fs_df = load_f_files(chromatin_dir, self.genes)
 		self.geneset['gene_idx'] = np.arange(len(all_gene_fs_df))
 
 

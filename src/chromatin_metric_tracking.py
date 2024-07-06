@@ -9,7 +9,7 @@ class ChromatinMetricTracking(object):
 	"""General purpose code to track a nucleosomes position based on read counts in a bin
 	windows"""
 
-	def __init__(self, chrom_model):
+	def __init__(self, chrom_model=None, img_data=None, x_genomic_positions=None, y_fragment_length_names=None):
 		"""
 		Given image data (np 3d array): (time/index x rows x columns)
 
@@ -43,15 +43,27 @@ class ChromatinMetricTracking(object):
 			in the window
 
 		"""
-		self.chrom_model = chrom_model
-		self.img_data = chrom_model.get_f_images()
 
-		# Define the genomic positions and the fragment length boundaries
-		# of the image data
-		# Add half a bin-width to indicate that the positions are centered on the middle of the bin
-		self.x_genomic_positions = np.arange(chrom_model.bin_extents[0], \
-			chrom_model.bin_extents[1], GlobalConstants.BIN_WIDTH) + GlobalConstants.BIN_WIDTH/2
-		self.y_fragment_length_names = GlobalConstants.Y_LEN_DEFINITIONS
+		# Default parameters
+		self.img_data = img_data.astype(float)
+		self.x_genomic_positions = x_genomic_positions
+		self.y_fragment_length_names = y_fragment_length_names
+
+		# Override with chrom model if it is provided
+		if chrom_model is not None:
+			self.chrom_model = chrom_model
+			self.img_data = chrom_model.get_f_images()
+
+			# Define the genomic positions and the fragment length boundaries
+			# of the image data
+			# Add half a bin-width to indicate that the positions are centered on the middle of the bin
+			self.x_genomic_positions = np.arange(chrom_model.bin_extents[0], \
+				chrom_model.bin_extents[1], GlobalConstants.BIN_WIDTH) + GlobalConstants.BIN_WIDTH/2
+
+		# Use default y fragment lengths if none provided
+		# note: used currently as we are refactoring the y fragment lengths
+		if y_fragment_length_names is None:
+			self.y_fragment_length_names = GlobalConstants.Y_LEN_DEFINITIONS
 
 	def select_range(self, selected_genomic_span, selected_fragment_span):
 		"""Select the genomic range and fragment lengths we are interested in."""
@@ -100,8 +112,14 @@ class ChromatinMetricTracking(object):
 
 	def track_occupancy(self):
 		"""Track the mass of the occupancy change"""
-
 		self.total_occupancy = self.selected_sum_data.sum(axis=1)
+
+	def track_entropy(self):
+		"""Track the mass of the occupancy change"""
+		from src.helpers import calc_entropy
+		entropy_values = np.apply_along_axis(lambda row: calc_entropy(row.astype(float)), 1, 
+		    self.selected_sum_data)
+		self.entropy_values = pd.Series(entropy_values, self.selected_sum_data.index)
 
 	def track_genomic_movement(self):
 		"""Track the mass of the occupancy movement along the genomic positions"""
