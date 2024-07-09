@@ -406,9 +406,9 @@ class ChromatinModel:
 
 				from src.plot_helpers import adjust_lightness_saturation
 				color = color_for_key(phase)
-				edgecolor = adjust_lightness_saturation(color, 0.6, 1.0)
+				# edgecolor = adjust_lightness_saturation(color, 0.6, 1.0)
 
-				ax.fill_between(x, -1, y, facecolor=color, edgecolor=edgecolor, lw=1)
+				ax.fill_between(x, -1, y, facecolor=color, edgecolor=color, lw=1)
 				ax.set_xlim(x.min(), x.max())
 
 				ax.set_ylim(*ylim)

@@ -92,6 +92,8 @@ class Model:
 		f_t = self.config.get_Hpositions_for_branch('t')
 
 		f_it = np.concatenate([f_i, f_t])
+		f_it = create_mirror(f_it)
+
 		W = get_wavelet_kernel(len(f_it))
 
 		# Convex optimization

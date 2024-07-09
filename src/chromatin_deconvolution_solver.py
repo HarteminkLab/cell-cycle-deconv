@@ -30,6 +30,7 @@ class ChromatinDeconvolveSolver:
 		f_i = self.config.get_Hpositions_for_branch('i')
 		f_t = self.config.get_Hpositions_for_branch('t')
 		f_it = np.concatenate([f_i, f_t])
+		f_it = create_mirror(f_it)
 
 		self.W = get_wavelet_kernel(len(f_it), type=self.wavelet)
 

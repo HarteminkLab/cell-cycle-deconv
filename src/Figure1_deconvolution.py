@@ -60,9 +60,9 @@ class Figure1Deconvolution(object):
 					
 
 				from src.plot_helpers import adjust_lightness_saturation
-				edgecolor = adjust_lightness_saturation(color, 0.6, 1.0)
+				# edgecolor = adjust_lightness_saturation(color, 0.6, 1.0)
 				plt.fill_between(x_values, y2_values, y1_values, 
-					facecolor=color, edgecolor=edgecolor, lw=0.5)
+					facecolor=color, edgecolor=color, lw=0.5)
 
 			annotation_y = -n-0.25
 			
