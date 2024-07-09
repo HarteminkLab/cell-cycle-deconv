@@ -90,21 +90,9 @@ class Model:
 
 		f_i = self.config.get_Hpositions_for_branch('i')
 		f_t = self.config.get_Hpositions_for_branch('t')
-		f_b = self.config.get_Hpositions_for_branch('b')
 
-		# The bottom and top branches need to enforce the start
-		# of G1 is smooth from the end of postG1, so concatenate those
-		# Then mirror the ends to handle edge effects
-		f_b_doubled = np.concatenate([f_b, f_b])
-		f_t_doubled = np.concatenate([f_t, f_t])
-
-		f_b_mirror = create_mirror(f_b_doubled)
-		f_i_mirror = create_mirror(f_i)
-		f_t_mirror = create_mirror(f_t_doubled)
-
-		W1 = get_wavelet_kernel(len(f_i_mirror))
-		W2 = get_wavelet_kernel(len(f_t_mirror))
-		W3 = get_wavelet_kernel(len(f_b_mirror))
+		f_it = np.concatenate([f_i, f_t])
+		W = get_wavelet_kernel(len(f_it))
 
 		# Convex optimization
 		n, m = self.H.shape
@@ -113,21 +101,15 @@ class Model:
 		# There are twice as many t and b indices compared to i
 		# Factor based on time in recovery compared to t and b
 		# so multiply i's smoothing term by 2
-		factor_i = 2
 
-		smooth_f_i_result = W1@f[f_i_mirror]
-		smooth_f_t_result = W2@f[f_t_mirror]
-		smooth_f_b_result = W3@f[f_b_mirror]
-
+		smooth_f_it_result = W@f[f_it]
 		objective = cp.Minimize(
 
 			# Fitting norm
 			cp.square(cp.pos(cp.norm(self.H@f/self.g - 1))) + 
 
 			# Smoothing norm
-			+ self.gamma * (factor_i*cp.sum(cp.abs(smooth_f_i_result)) +
-							cp.sum(cp.abs(smooth_f_t_result)) + 
-							cp.sum(cp.abs(smooth_f_b_result)))/self.g.mean()  
+			+ self.gamma * cp.sum(cp.abs(smooth_f_it_result))/self.g.mean()  
 		)
 
 		# To debug suboptimal fits, some genes need a non-negative solution.
@@ -146,9 +128,7 @@ class Model:
 		# predicted g
 		self.pred_g = np.matmul(self.H, f)
 
-		sn = (np.linalg.norm(np.matmul(W1, f[f_i_mirror]), 1)
-			  + np.linalg.norm(np.matmul(W2, f[f_t_mirror]), 1)
-			  + np.linalg.norm(np.matmul(W3, f[f_b_mirror]), 1)) / np.mean(self.g)
+		sn = (np.linalg.norm(np.matmul(W, f[f_it]), 1)) / np.mean(self.g)
 		rn = np.square(np.clip(np.linalg.norm(np.matmul(self.H, f) / (self.g) - 1), 0, None))
 
 		self.sn = sn

@@ -238,7 +238,7 @@ class ChromatinModel:
 
 	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, 
 		vmin=0, vmax=50, smooth=False, f=None, mask=None, show_dg1=False, show_rg1=True,
-		show_origin_down_nuc=False, zoom=None):
+		show_origin_down_nuc=False, zoom=None, figsize=None):
 
 		if f is None:
 			f = self.deconvolved_f().copy()
@@ -259,6 +259,9 @@ class ChromatinModel:
 			figheight = 6
 		else:
 			figwidth = 11
+
+		if figsize is not None:
+			figwidth, figheight = figsize
 
 		if show_dg1:
 			column_titles = ["Recovery G1", "Mother G1", "Daughter G1", "Post G1"]

@@ -16,7 +16,7 @@ class DensityScatterPlotter:
         self.cmap = 'viridis'
         self.s = 10
         self.alpha = 1.
-
+        self.logz = False
 
     def set_data(self, x, y):
         self.x = x
@@ -38,6 +38,9 @@ class DensityScatterPlotter:
 
         sorted_idx = np.argsort(z)
         x, y, z = x[sorted_idx], y[sorted_idx], z[sorted_idx]
+
+        if self.logz:
+            z = np.log2(z+1.)
 
         scatter = ax.scatter(x, y, c=z, lw=0, edgecolor=None, s=s, cmap=cmap,
             alpha=self.alpha, rasterized=True, zorder=zorder+1, vmax=vmax)

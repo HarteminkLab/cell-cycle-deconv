@@ -94,17 +94,44 @@ class Figure3ChromatinMetrics(object):
 		t_indices = self.config1.get_Hpositions_for_branch('t')
 		ys = np.arange(len(t_indices))
 		plt.figure(figsize=(4, 3))
-		plt.plot(self.tracking_df['+1'][t_indices], ys)
+		plt.scatter(self.tracking_df['+1'][t_indices], ys, color='#666', s=10)
 		plt.xlim(self.promoter_span[0], self.gb_span[1])
 		plt.title(f"{self.gene.gene}")
 
 		prom_occ = self.tracking_df['promoter_occupancy'][t_indices].values
 		prom_occ = prom_occ.reshape((-1, 1))
 		plt.imshow(prom_occ, extent=[-200, -100, 0, len(t_indices)], aspect='auto', 
-		    origin='lower', cmap='Oranges', vmin=0, vmax=100)
+		    origin='lower', cmap='Oranges', vmin=0, vmax=120)
 
 		gb_entropy = self.tracking_df['gene_body_entropy'][t_indices].values
 		gb_entropy = gb_entropy.reshape((-1, 1))
 
 		plt.imshow(gb_entropy, extent=[150, 400, 0, len(t_indices)], aspect='auto', 
-		    origin='lower', cmap='Purples', vmin=3.2, vmax=3.8)
+		    origin='lower', cmap='Purples', vmin=3.2, vmax=3.5)
+
+	def deconvolve_pry1(self):
+		self.deconvolve_gene("PRY1")
+
+	def deconvolve_hxt4(self):
+		self.deconvolve_gene("HXT4")
+
+	def deconvolve_gene(self, gene_name):
+		from src.config import load_configs_by_config_type, load_combined_gene_expression_by_config_type
+		combined_ge_config = load_combined_gene_expression_by_config_type('shared')
+
+		from src.model import Model
+		combined_ge_model = Model(combined_ge_config, gene_name)
+		combined_ge_model.deconvolve_find_optimal_gamma()
+		from src.combined_chromatin_model import CombinedChromatinModel
+		combined_model = CombinedChromatinModel(self.config1, self.config2)
+		combined_model.load_combined_mnase_gene(gene_name)
+		combined_model.gamma = 0.007
+		combined_model.deconvolve()
+
+		self.combined_model = combined_model
+		self.combined_ge_model = combined_ge_model
+
+	def plot_deconvolved_gene(self):
+
+		fig = self.combined_model.create_deconvolution_plots_abbreviated_flipped(
+			ge_model=self.combined_ge_model, vmax=50, num_rows=3, figsize=(11, 7))
