@@ -247,7 +247,7 @@ class Figure1Deconvolution(object):
 		for i in range(n):
 			x1, x2, y1, y2 = x, x+w, y+i*(h+padding), y+h+i*(h+padding)
 			chrom_model.plot_f_img(ax, plt_imgs[i], vmax=50, extent=[x1, x2, y1, y2])
-			plt.plot([x1+0.257, x1+0.257], [y1, y2], c='black', lw=1, alpha=0.25)
+			plt.plot([x1+w/2., x1+w/2.], [y1, y2], c='black', lw=1, alpha=0.25)
 			plot_rect2(ax, x1, y1, x2, y2, edgecolor='black', fill=None, lw=0.5, zorder=100)
 			phase = phases[i]
 
@@ -319,7 +319,7 @@ class Figure1Deconvolution(object):
 		ax  = plt.gca()
 		chrom_model.exact_bins.shape
 		plt.imshow(chrom_model.deconv_hist_unflattened[index], origin='lower', cmap='magma_r',
-		          aspect='auto', extent=chrom_model.bin_extents, vmax=50)
+				  aspect='auto', extent=chrom_model.bin_extents, vmax=50)
 		ax.set_xticks(xticks)
 		ax.set_xticklabels(xtick_labels)
 		ax.set_yticks(np.arange(50, 300, 100))
@@ -330,3 +330,46 @@ class Figure1Deconvolution(object):
 		plt.title("2D Histogram", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=9)
 
 		plt.subplots_adjust(hspace=0.5)
+
+
+	def print_posteriors(self):
+		"""Print posteriors for supplemental table of CLOCCS fits"""
+		from src.create_models import ModelCreation
+
+		posteriors1 = 'data/2019_cloccs_fits/yl_2019_replicate1/posteriors.txt'
+		posteriors2 = 'data/2019_cloccs_fits/yl_2019_replicate2/posteriors.txt'
+
+		def load_posterior_mapping(posteriors1):
+			with open(posteriors1, 'r') as p_file:
+				lines = p_file.readlines()
+
+			parameters = ['mu0', 'delta', 'sigma0', 'sigmav', 'lambda',
+				'gamma1', 'gamma2', 'mua1', 'sigmaa1', 'mua2', 'sigmaa2', 
+						  'mut', 'sigmat', 'halted']
+
+			posterior_mapping = []
+			for l in lines:
+
+				line_tokens = l.strip().split(' ')
+				line_tokens = [x for x in line_tokens if x != '']
+
+				param_name = line_tokens[0]
+				if param_name in parameters:
+					_, mean, q025, q975, _ = tuple(line_tokens)
+					mean, q025, q975 = float(mean), float(q025), float(q975)
+
+					posterior_mapping.append((param_name, mean, q025, q975))
+			return posterior_mapping
+				
+
+		mapping1 = load_posterior_mapping(posteriors1)
+		mapping2 = load_posterior_mapping(posteriors2)
+		mapping1
+
+		for i in range(len(mapping1)):
+
+			param_name, mean_1, q025_1, q975_1 = mapping1[i]
+			_, mean_2, q025_2, q975_2 = mapping2[i]
+
+			print(f"{param_name}\t&\t{mean_1:.3f}\t&\t({q025_1:.3f}," +
+				  f"{q975_1:.3f})\t&&\t{mean_2:.3f}\t&\t({q025_2:.3f},{q975_2:.3f}) \\\\")
