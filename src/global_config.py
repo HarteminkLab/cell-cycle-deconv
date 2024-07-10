@@ -17,7 +17,7 @@ class GlobalConstants:
 
 	# Gene definitions
 	# Add one more bin to center the +1 on a bin
-	PROM_LEN = 288
+	PROM_LEN = 504
 	GB_LEN = 504
 	NUM_BINS_X = (PROM_LEN + GB_LEN + BIN_WIDTH) // BIN_WIDTH
 	

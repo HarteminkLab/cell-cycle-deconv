@@ -275,3 +275,58 @@ class Figure1Deconvolution(object):
 		plt.xlim(-0.25, 1.5)
 		plt.ylim(-0.25, 1.5)
 		hide_spines(ax)
+
+	def plot_mnase_reads_histogram(self):
+		from src.DensityScatterPlotter import DensityScatterPlotter
+
+		chrom_model = self.combined_model.chrom1_model
+		reads = chrom_model.locus_reads
+		reads = reads[reads['sample'] == 0]
+		index = 0
+
+		plt.figure(figsize=(5, 4.5))
+		plt.subplot(2, 1, 1)
+
+		ax = plt.gca()
+		dsc_plotter = DensityScatterPlotter()
+		x, y = reads.mid, reads['length']
+
+		plt.scatter(x, y, s=9, edgecolors='#afafaf', facecolor='none')
+
+		dsc_plotter.set_data(x.values, y.values)
+		dsc_plotter.bw = (5, 10)
+		dsc_plotter.cmap = 'magma_r'
+		dsc_plotter.plot_ax(ax)
+		dsc_plotter.s = 7
+		ax.set_yticks(np.arange(50, 300, 100))
+		plt.ylim(0, 250)
+
+		xlims = chrom_model.bin_extents[0], chrom_model.bin_extents[1]
+
+		p1 = chrom_model.computed_plus_one
+		xticks = np.arange(p1-1000, p1+1000, 250)
+
+		xtick_labels = [f'+{x-p1}' if x>p1 else str(x-p1) for x in xticks]
+		xtick_labels = ['+1' if x == '0' else x for x in xtick_labels]
+		ax.set_xticks([])
+		plt.xlim(*xlims)
+
+		plt.ylabel("Fragment length, nt")
+		ax.axvline(p1, c='gray', lw=2, alpha=0.5)
+		plt.title("MNase-seq reads", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=9)
+
+		plt.subplot(2, 1, 2)
+		ax  = plt.gca()
+		chrom_model.exact_bins.shape
+		plt.imshow(chrom_model.deconv_hist_unflattened[index], origin='lower', cmap='magma_r',
+		          aspect='auto', extent=chrom_model.bin_extents, vmax=50)
+		ax.set_xticks(xticks)
+		ax.set_xticklabels(xtick_labels)
+		ax.set_yticks(np.arange(50, 300, 100))
+		ax.set_xlim(*xlims)
+		ax.axvline(p1, c='gray', lw=2, alpha=0.5)
+		plt.xlabel("Genomic position, nt")
+		plt.ylabel("Fragment length, nt")
+		plt.title("2D Histogram", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=9)
+
+		plt.subplots_adjust(hspace=0.5)
