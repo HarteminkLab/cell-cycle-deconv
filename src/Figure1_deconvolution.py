@@ -226,12 +226,12 @@ class Figure1Deconvolution(object):
 
 		i = 0
 
-		fig = plt.figure(figsize=(4, 5))
+		fig = plt.figure(figsize=(5, 5))
 		ax = plt.gca()
 
-		w, h = 1, 0.5
-		x, y = 0, 0
-		padding = 0.75
+		w, h = 0.7, 0.2
+		x, y = 0.5, -0.125
+		padding = 0.2
 
 		phases = ['RG1', 'CG1', 'S', 'G2/M']
 		img_indices = [rg1_i[0], cg1_i[0], s_i[0], pg1_i[0]]
@@ -247,12 +247,12 @@ class Figure1Deconvolution(object):
 		for i in range(n):
 			x1, x2, y1, y2 = x, x+w, y+i*(h+padding), y+h+i*(h+padding)
 			chrom_model.plot_f_img(ax, plt_imgs[i], vmax=50, extent=[x1, x2, y1, y2])
-			plt.plot([x1+0.36, x1+0.36], [y1, y2], c='black', lw=1, alpha=0.25)
+			plt.plot([x1+0.257, x1+0.257], [y1, y2], c='black', lw=1, alpha=0.25)
 			plot_rect2(ax, x1, y1, x2, y2, edgecolor='black', fill=None, lw=0.5, zorder=100)
 			phase = phases[i]
 
 			# Stack offset underneath for the appearance of a set of stacked images
-			stack_offset = 0.05
+			stack_offset = 0.02
 			num_stack = 4
 			for j in range(num_stack, 0, -1):
 				plot_rect2(ax, x1+j*stack_offset, y1+j*stack_offset, 
@@ -261,12 +261,17 @@ class Figure1Deconvolution(object):
 						   lw=0.5, zorder=0)
 				
 				from matplotlib.patches import Rectangle, FancyBboxPatch
-				rounded_rect = FancyBboxPatch((x1-0.5, y1-0.2), 1.8, 1.1,
-					boxstyle='Round, pad=0, rounding_size=0.1', color=color_for_key(phase),
-							 alpha = 1., zorder=-1)
-				rounded_patch = ax.add_patch(rounded_rect)
-				ax.text(x1-0.27, (y1+y2)/2, phase, ha='center', color='white')
 
-		plt.xlim(-1, 1.75)
-		plt.ylim(-0.5, 5.)
+
+				rounded_rect = FancyBboxPatch((x1-0.3, y1-0.04), 1.13, 0.37,
+					boxstyle='Round, pad=0, rounding_size=0.05', color=color_for_key(phase),
+							 alpha = 1., zorder=-1)
+				
+				rounded_patch = ax.add_patch(rounded_rect)
+
+				phase_name = phase.replace('CG1', 'SG1')
+				ax.text(x1-0.15, (y1+y2)/2+0.02, phase_name, ha='center', color='white')
+
+		plt.xlim(-0.25, 1.5)
+		plt.ylim(-0.25, 1.5)
 		hide_spines(ax)
