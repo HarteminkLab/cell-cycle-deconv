@@ -364,12 +364,15 @@ class Figure1Deconvolution(object):
 
 		mapping1 = load_posterior_mapping(posteriors1)
 		mapping2 = load_posterior_mapping(posteriors2)
-		mapping1
+
+		parameter_latex_names = ["$\\mu0$", "$\\delta$", "$\\sigma_0$", "$\\sigma_v$", "$\\lambda$", "$\\gamma_1$", "$\\gamma_2$", "$\\mu_{\\alpha1}$", "$\\sigma_{\\alpha1}$", "$\\mu_{\\alpha2}$", "$\\sigma_{\\alpha2}$", "$\\mu_t$", "$\\sigma_t$", "halted"]
 
 		for i in range(len(mapping1)):
 
-			param_name, mean_1, q025_1, q975_1 = mapping1[i]
+			_, mean_1, q025_1, q975_1 = mapping1[i]
 			_, mean_2, q025_2, q975_2 = mapping2[i]
+
+			param_name = parameter_latex_names[i]
 
 			print(f"{param_name}\t&\t{mean_1:.3f}\t&\t({q025_1:.3f}," +
 				  f"{q975_1:.3f})\t&&\t{mean_2:.3f}\t&\t({q025_2:.3f},{q975_2:.3f}) \\\\")
