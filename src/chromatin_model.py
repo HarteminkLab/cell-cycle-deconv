@@ -984,10 +984,9 @@ class ChromatinModel:
 		bin_height = self.bin_height
 		self.new_span = new_span
 
-		# Next we will define our new bin locations
-		x_bins = np.arange(new_span[0], new_span[1], bin_width)
-
-		# And for y lengths
+		# Define the bin positions and the fragment lengths, these will define
+		# the lower bound of the bin (the last bin will be truncated)
+		x_bins = np.arange(new_span[0], new_span[1]+bin_width, bin_width)
 		y_bins = np.arange(0, self.max_y_len+bin_height, bin_height)
 
 		# Now we will loop through each x and y bin to aggregate the counts to 
