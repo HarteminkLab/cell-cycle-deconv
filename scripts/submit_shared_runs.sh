@@ -1,11 +1,9 @@
 #!/bin/bash
 # Script to create jobs to create locus plots for all genes across all chromosomes
 
-# OUTDIR=output/deconvolve_sharedg1_0066_cc_2024_06_13
-OUTDIR=output/deconvolve_sharedg1_gopt_nocc_2024_06_25
+OUTDIR=output/deconvolve_sharedg1_g066_eprom_2024_07_10
 
-#ARGS="${OUTDIR} 0.0066 shared 1"
-ARGS="${OUTDIR} -1 shared 0"
+ARGS="${OUTDIR} 0.0066 shared 1"
 
 # There are 5774 in total, so 5774 jobs. We will split them into 1000 batch jobs (because of a limitation on the size
 # of the array on the slurm computing cluster. Therefore we also need a batch argument in ARGS)
@@ -18,3 +16,4 @@ sbatch -a 0-999%6 -D ./slurm-logs/ --job-name="shar_3" -p compsci --export="PYFI
 sbatch -a 0-999%6 -D ./slurm-logs/ --job-name="shar_4" -p compsci --export="PYFILE=src/deconvolve_combined_runner.py,ARGS=$ARGS,BATCH=3" scripts/cpu_genearray_job.sh
 sbatch -a 0-999%6 -D ./slurm-logs/ --job-name="shar_5" -p compsci --export="PYFILE=src/deconvolve_combined_runner.py,ARGS=$ARGS,BATCH=4" scripts/cpu_genearray_job.sh
 sbatch -a 0-773%6 -D ./slurm-logs/ --job-name="shar_6" -p compsci --export="PYFILE=src/deconvolve_combined_runner.py,ARGS=$ARGS,BATCH=5" scripts/cpu_genearray_job.sh
+
