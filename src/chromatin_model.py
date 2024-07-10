@@ -1010,6 +1010,9 @@ class ChromatinModel:
 					bin_counts = bin_data[t_index][y_start:y_end, x_start:x_end].sum()
 					downscaled_bins[t_index][y_ind-1][x_ind-1] = bin_counts
 
+		# Bins are filled up until the last one row and column, so subset
+		downscaled_bins = downscaled_bins[:, :-1, :-1]
+
 		return downscaled_bins
 
 
