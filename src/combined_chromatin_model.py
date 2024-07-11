@@ -331,8 +331,8 @@ class CombinedChromatinModel:
 
 	def save_deconvolved_outputs(self, out_dir, index):
 
-		orf_name = self.deconv_model.orf_name
-		gene_name = self.deconv_model.gene_name
+		orf_name = self.chrom1_model.gene.name
+		gene_name = self.chrom1_model.gene['gene']
 		f = self.deconvolved_f_value
 		G1 = self.G1
 		G2 = self.G2
@@ -372,7 +372,7 @@ class CombinedChromatinModel:
 			'rep1_+1': self.chrom1_model.computed_plus_one,
 			'rep1_+2': self.chrom2_model.computed_plus_one
 			},
-			index=[self.deconv_model.orf_name])
+			index=[orf_name])
 		df.to_csv(meta_save_path, float_format="%.4f")
 
 		print_fl(f"Saved to {g1_save_path}...")

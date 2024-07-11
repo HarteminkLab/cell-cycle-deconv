@@ -360,7 +360,6 @@ class Figure1Deconvolution(object):
 
 					posterior_mapping.append((param_name, mean, q025, q975))
 			return posterior_mapping
-				
 
 		mapping1 = load_posterior_mapping(posteriors1)
 		mapping2 = load_posterior_mapping(posteriors2)

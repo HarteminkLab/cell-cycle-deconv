@@ -1315,10 +1315,10 @@ class ChromatinModel:
 
 	def save_deconvolved_outputs(self, out_dir, index, using_default_flag):
 
-		orf_name = self.deconv_model.orf_name
-		gene_name = self.deconv_model.gene_name
-		f = self.deconvolved_f()
+		orf_name = self.gene.name
+		gene_name = self.gene['gene']
 
+		f = self.deconvolved_f()
 		g_save_path = f'{out_dir}/{index}_g_{orf_name}_{gene_name}.npy'
 		f_save_path = f'{out_dir}/{index}_f_{orf_name}_{gene_name}.npy'
 		ptr_save_path = f'{out_dir}/{index}_ptr_{orf_name}_{gene_name}.npy'
@@ -1352,7 +1352,7 @@ class ChromatinModel:
 			'run_date': run_date,
 			'replicate': self.config.replicate
 			},
-			index=[self.deconv_model.orf_name])
+			index=[orf_name])
 		df.to_csv(meta_save_path, float_format="%.4f")
 
 		print_fl(f"Saved to {g_save_path}...")
