@@ -418,19 +418,19 @@ class StepReplicationChromatinDeconvolveSolver:
 		extent = [0, self.chr_bin_curves2.index[-1], 0, 20]
 
 		plt.subplot(2, 1, 1)
-		plt.imshow(self.chr_bin_curves1.T, aspect='auto', origin='lower', vmin=0, vmax=1,
-				  extent=extent, cmap='inferno')
+		plt.imshow(self.chr_bin_curves1.T, aspect='auto', origin='upper', vmin=0, vmax=1,
+				  extent=extent, cmap='Blues')
 		plt.xticks([])
 		plt.yticks([])
 		plt.ylabel("Replicate 1")
 
 		plt.subplot(2, 1, 2)
-		plt.imshow(self.chr_bin_curves2.T, aspect='auto', origin='lower', vmin=0, vmax=1,
-				  extent=extent, cmap='inferno')
+		plt.imshow(self.chr_bin_curves2.T, aspect='auto', origin='upper', vmin=0, vmax=1,
+				  extent=extent, cmap='Blues')
 		plt.yticks([])
-		plt.xlabel("Genomic position, bp")
+		plt.xlabel("Genomic position, nt")
 		plt.ylabel("Replicate 2")
-		plt.suptitle(f"Chr{self.chrom} MNase-seq raw 10-kb occupancy", 
+		plt.suptitle(f"Original 10 kb occupancy, chr{self.chrom}", 
 			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
 
 	def create_replication_timing_indices(self):

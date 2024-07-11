@@ -72,12 +72,93 @@ class Figure3CopyCorrection(object):
 		add_repl_timing_group_id(self.mean_chrom_ptrs)
 
 
+	def plot_S_diagram(self):
+		"""Create a diagram that depicts the distribution of origin of replications to convey
+		the variability in genomic replication timing through S phase"""
+
+		from src.config import load_configs_by_config_type
+		from src.origins import load_origins_w_replication
+
+		# Copy number correction procedure....
+		config1, config2 = load_configs_by_config_type('shared', 1)
+
+		chrom_replication_profile = pd.read_csv(
+			'data/replication_timing/yl_2019/chrom_replication_timing_shared.csv')
+		chrom_replication_profile = chrom_replication_profile.set_index(['chr', 'start'])
+
+		t = config1.get_timepoints_for_branch('t')
+		t_indices = config1.get_Hpositions_for_branch('t')
+		s_indices = config1.get_Hpositions_for_phase('S')
+		cg1_indices = config1.get_Hpositions_for_phase('CG1')
+		t_tps = (config1.get_timepoints_for_branch('t')+config2.get_timepoints_for_branch('t'))/2
+		s_tps = t_tps[len(cg1_indices):(len(cg1_indices)+len(s_indices))]
+
+		origins = load_origins_w_replication(full=True)
+		origins = origins[origins.footprint_class == 'g1_and_g2_footprint']
+		g1 = (config1.get_g1_lens('CG1') + config2.get_g1_lens('CG1'))/2
+
+		t_index_tp_mapping = {}
+		for i in range(len(t_indices)):
+			t_index_tp_mapping[t_indices[i]] = t_tps[i]
+
+		from scipy.stats.distributions import norm
+
+		# replication_indices = chrom_replication_profile.values.flatten()
+		replication_tps = []
+
+		eff_key = 'derived_origin_efficiency_from_mcguffee_et_al_2013'
+
+		for origin_name, origin in origins.iterrows():
+			# add one to plot the first index in which copy number is 2
+			rep_tp = t_index_tp_mapping[origin.replication_index+1]+g1
+			replication_tps.append(rep_tp)
+
+		replication_tps = np.array(replication_tps) +\
+			norm.rvs(loc=0, scale=0.25, size=len(replication_tps))
+
+		from src.chromatin_model import draw_phase_label_annotations
+		from src.config import load_configs_by_config_type
+		config1, config2 = load_configs_by_config_type('shared')
+
+		plt.figure(figsize=(4, 2))
+		ax = plt.gca()
+		draw_phase_label_annotations(ax, config1, flip=True, offset=True, annotations_x=-0.5)
+
+		plt.yticks([])
+
+		ys = np.repeat(1.0, len(replication_tps))
+
+		alphas = origins[eff_key].values
+		alphas[alphas > 1.] = 1
+		alphas[alphas < 0] = 0
+		plt.axhline(1, c='black', lw=1.5)
+		for i in range(len(ys)):
+			tp = replication_tps[i]
+			y = ys[i]
+			alpha = alphas[i]*1#0.5
+			plt.plot([tp, tp], [y-0.3, y+0.3], alpha=alpha, lw=0.5, 
+				color=plt.get_cmap('Reds')(0.6))
+		plt.xlim(16, 45)
+		plt.ylim(-1, 10)
+
+		from src.plot_helpers import hide_spines
+		xs = np.arange(0, 100, 0.25)
+		ys = norm.pdf(xs, loc=30, scale=3)*50.
+		plt.fill_between(xs, 1, ys+1, color='#dddddd', zorder=0)
+
+
+
+
+		hide_spines(plt.gca())
+
+
 	def plot_replication_profile_example(self):
 
 		from src.config import load_configs_by_config_type
 		from src.origins import load_origins_w_replication
 
 		origins = load_origins_w_replication(full=True)
+		origins = origins[origins.footprint_class == 'g1_and_g2_footprint']
 
 		# Depiction of the chromosome 10 replication timing profile computed from the MNase-seq
 		chrom_replication_profile = pd.read_csv(
@@ -94,7 +175,20 @@ class Figure3CopyCorrection(object):
 		repl_idx = chrom_replication_profile.loc[chrom].replication_index
 		repl_timing = replication_timing_from_index(repl_idx, config1, config2)
 
-		remade_f = np.zeros((len(repl_idx), 200))+1
+		t = config1.get_timepoints_for_branch('t')
+		t_indices = config1.get_Hpositions_for_branch('t')
+		s_indices = config1.get_Hpositions_for_phase('S')
+		cg1_indices = config1.get_Hpositions_for_phase('CG1')
+		t_tps = (config1.get_timepoints_for_branch('t')+config2.get_timepoints_for_branch('t'))/2
+		s_tps = t_tps[len(cg1_indices):(len(cg1_indices)+len(s_indices))]
+
+		t_index_tp_mapping = {}
+		for i in range(len(t_indices)):
+			t_index_tp_mapping[t_indices[i]] = t_tps[i]
+
+		g1 = (config1.get_g1_lens('CG1') + config2.get_g1_lens('CG1'))/2
+
+		remade_f = np.zeros((len(repl_idx), len(t_indices)))+1
 
 		pd.DataFrame(remade_f, index=repl_idx.index)
 		time_indices = np.arange(remade_f.shape[1])
@@ -110,13 +204,23 @@ class Figure3CopyCorrection(object):
 
 		from src.global_config import GlobalConstants
 
-		plt.subplot(2, 1, 1)
-		plt.imshow(remade_f.T, aspect='auto', cmap='inferno',
-			extent=[GlobalConstants.REPL_DECONV_BIN_WIDTH/2., 
-			repl_idx.index[-1]+GlobalConstants.REPL_DECONV_BIN_WIDTH/2., 
-			0, remade_f.shape[1]], vmin=1, vmax=2, origin='lower')
+		replication_img_in_S = remade_f.T[s_indices]
 
-		plt.ylabel("Deconvolution profile\n", fontsize=9)
+		extents = [0, repl_idx.index[-1], 
+			s_tps[0]+g1, s_tps[-1]+g1]
+		plt.subplot(2, 1, 1)
+		plt.imshow(replication_img_in_S, aspect='auto', cmap='Blues',
+			extent=extents, vmin=1, vmax=2, origin='lower')
+		plt.text(extents[1]*1/20., extents[2]+3.5, '1 Copy')
+		plt.text(extents[1]*1/20., extents[3]+2, '2 Copies', color='white')
+		plt.ylabel("Replication time, min", fontsize=11)
+		plt.xlabel("Genomic position, nt", fontsize=11, labelpad=7)
+
+		# Add padding to the replication profile for display purposes
+		updated_extents = extents[0], extents[1], extents[2], extents[3]+5
+		plt.ylim(updated_extents[3], updated_extents[2])
+		plt.imshow(np.array([[2]]), aspect='auto', cmap='Blues',
+			extent=updated_extents, vmin=1, vmax=2, origin='lower', zorder=-1)
 
 		from src.sgd import get_chromosome_length
 		from src.mnase_replication_timing_analysis import get_bin_for_position
@@ -126,26 +230,21 @@ class Figure3CopyCorrection(object):
 		origins_chr.loc[origins_chr['alpha'] < 0.2, 'alpha'] = 0.2 # Span values from 0.2-1.0, original values are from 0-0.75 (with -1's as not found)
 
 		for origin_name, origin in origins_chr.iterrows():
-			plt.scatter(origin.pos, origin.replication_index+1, # add one to plot the first index in which copy number is 2
+			# add one to plot the first index in which copy number is 2
+			rep_tp = t_index_tp_mapping[origin.replication_index+1]+g1
+			plt.scatter(origin.pos-GlobalConstants.REPL_DECONV_BIN_WIDTH/2., rep_tp,
 			 	s=25, facecolors='white', lw=1.5, color='red', alpha=origin.alpha, zorder=100)
 
-		plt.xticks([])
-		plt.ylim(140, 100)
-		plt.xlim(GlobalConstants.REPL_DECONV_BIN_WIDTH/2., repl_idx.index[-1]+GlobalConstants.REPL_DECONV_BIN_WIDTH/2.)
+		xlims = extents[0], extents[1]
+		xticks = np.arange(0, xlims[1], 100000)
+		xticklabels = [f"{x}" for x in xticks]
+		plt.xticks(xticks, xticklabels)
+		xticks = np.arange(0, xlims[1], 50000)
+		plt.xticks(xticks, minor=True)
+		plt.xlim(0, xlims[1])
 
-		plt.subplot(2, 1, 2)
-		plt.plot(repl_idx.index+GlobalConstants.REPL_DECONV_BIN_WIDTH/2., repl_timing, c='black', lw=1)
-		plt.scatter(repl_idx.index+GlobalConstants.REPL_DECONV_BIN_WIDTH/2., repl_timing, c='black', s=4)
-		plt.ylim(40, 20)
-		plt.xlim(0, repl_idx.index.max())
-		plt.ylabel("Estimated replication\ntime, min", fontsize=9)
-		plt.xlabel("Genomic position, bp")
-		plt.suptitle("Deconvolved replication profile", 
-			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
-
-		for origin_name, origin in origins_chr.iterrows():
-			plt.scatter(origin.pos, origin.replication_time, s=25, facecolors='white', lw=1.5, color='red', 
-				alpha=origin.alpha, zorder=100)
+		plt.title(f"Deconvolved replication profile, chr{chrom}", 
+			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE, pad=9)
 
 	def plot_chrom_ptr_correction(self, selected_genes=None):
 		
@@ -429,8 +528,8 @@ def get_color_for_rep_group(key):
 def ptr_cmap():
 	from src.plot_helpers import adjust_lightness_saturation_colormap
 
-	cmap = plt.get_cmap('Spectral')
-	cmap = adjust_lightness_saturation_colormap(cmap, 1., 0.8, 'SatSpectral')
+	cmap = plt.get_cmap('RdBu')
+	#cmap = adjust_lightness_saturation_colormap(cmap, 1., 0.8, 'SatSpectral')
 	return cmap
 
 def _plot_ann_text(x, y, text, fontsize=16, 

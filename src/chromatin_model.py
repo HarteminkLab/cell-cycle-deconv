@@ -1416,8 +1416,8 @@ def read_chromosome_mnase_reads(replicate, chr):
 	return chr_reads
 
 
-def draw_phase_label_annotations(ax, config, phases = ['CG1', 'S', 'G2M'], 
-		flip=False, annotations_x=0):
+def draw_phase_label_annotations(ax, config=None, phases = ['CG1', 'S', 'G2M'], 
+		flip=False, annotations_x=0, offset=False):
 
 	from src.model import color_for_key
 
@@ -1426,9 +1426,15 @@ def draw_phase_label_annotations(ax, config, phases = ['CG1', 'S', 'G2M'],
 		tps = config.get_phase_timepoints_for_phase(phase)
 		tp_set.append(tps)
 
+	if offset:
+		offset_by = -tp_set[0][0]
+
 	last_tp = None
 	for i in range(len(tp_set)):
 		tps = tp_set[i]
+
+		if offset: tps = tps + offset_by
+
 		phase = phases[i]
 
 		if last_tp is None:

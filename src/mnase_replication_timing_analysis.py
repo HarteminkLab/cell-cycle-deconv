@@ -284,14 +284,14 @@ class MNaseOriginAnalysis:
 		replication_timepoints = timepoints[replication_timing_idx]
 		return replication_timepoints
 
-	def compute_bin_curves(self):
+	def compute_bin_curves(self, chroms=np.arange(1, 17)):
 
 		from src.timer import Timer
 
 		timer = Timer()
 		self.chr_bin_curves = pd.DataFrame()
 
-		for chrom in np.arange(1, 17):
+		for chrom in chroms:
 			print(f"{chrom}", end=", ")
 
 			self.load_mnase_data(self.replicate, chrom)

@@ -61,7 +61,7 @@ class Config:
 
 		self.create_helper_structures()
 
-	def get_g1_lens(self):
+	def get_g1_lens(self, which=None):
 		
 		mu0 = self.parameters.loc['mu0'].value
 		lambda_val = self.parameters.loc['lambda'].value
@@ -74,7 +74,12 @@ class Config:
 		dg1_len = alpha + lambda_val*gamma1 + delta
 		rg1_len = mu0
 
-		return rg1_len, cg1_len, dg1_len
+		if which is None:
+			return rg1_len, cg1_len, dg1_len
+		elif which == "CG1":
+			return cg1_length
+		else:
+			raise ValueError("Parameter unimplemented: ", which)
 
 
 	def all_orfs(self):
