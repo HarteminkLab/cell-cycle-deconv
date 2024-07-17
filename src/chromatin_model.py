@@ -203,7 +203,7 @@ class ChromatinModel:
 
 		return self.deconvolved_f_value
 
-	def plot_raw_orc_data(self):
+	def plot_raw_orc_data(self, vmax=100):
 		downsampled_bins = self.deconv_hist_unflattened
 		n = downsampled_bins.shape[0]
 
@@ -219,7 +219,7 @@ class ChromatinModel:
 			ax = axs[i]
 			img = downsampled_bins[i]
 			ax.imshow(img, cmap='magma_r', origin='lower', aspect='auto',
-				extent=self.bin_extents)
+				extent=self.bin_extents, vmax=vmax)
 			ax.set_xticks([])
 			ax.set_yticks([])
 			ax.axvline(self.center_origin, c='black', lw=1, ls='dotted')
@@ -537,9 +537,9 @@ class ChromatinModel:
 			m1_at_s = self.m1_tracker.called_peak_weighted_mean.loc[start_of_s]
 
 			ax.axvline(p1_at_s, c='blue', 
-				linewidth=1, linestyle='solid', alpha=0.5)
+				linewidth=1, linestyle='solid', alpha=0.125)
 			ax.axvline(m1_at_s, c='blue', 
-				linewidth=1, linestyle='solid', alpha=0.5)
+				linewidth=1, linestyle='solid', alpha=0.125)
 
 		# Zoom in to 1000 bp to see shift of nucleosome
 		if plotting_orc and zoom is not None:
@@ -1144,7 +1144,7 @@ class ChromatinModel:
 		# Track the +1 nucleosome position. Tracker selects the nucleosome positions
 		# of the +1 search range
 		def create_tracker(genomic_span, frag_lens, window, tracker_type='nuc_movement'):
-			tracker = ChromatinMetricTracking(self)
+			tracker = ChromatinMetricTracking(chrom_model=self)
 			tracker.select_range(genomic_span, frag_lens)
 			tracker.find_peak_and_update_genomic_positions(window=window)
 			if tracker_type == 'nuc_movement': tracker.track_genomic_movement()

@@ -8,8 +8,8 @@ import numpy as np
 
 class GlobalConstants:
 
-	BIN_WIDTH = 24
-	BIN_HEIGHT = 24
+	BIN_WIDTH = 12
+	BIN_HEIGHT = 12
 	MAX_Y_LEN = 264
 
 	# Defined fragment length boundaries

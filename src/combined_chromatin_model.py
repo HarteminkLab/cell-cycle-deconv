@@ -217,11 +217,11 @@ class CombinedChromatinModel:
 		return fig
 
 
-	def plot_raw_origin_data(self, replicate):
+	def plot_raw_origin_data(self, replicate, vmax=100):
 		if replicate == 1:
-			return self.chrom1_model.plot_raw_orc_data()
+			return self.chrom1_model.plot_raw_orc_data(vmax=vmax)
 		else:
-			return self.chrom2_model.plot_raw_orc_data()
+			return self.chrom2_model.plot_raw_orc_data(vmax=vmax)
 
 
 	def plot_nfr_origin_occ(self):
