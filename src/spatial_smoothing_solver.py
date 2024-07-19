@@ -79,7 +79,7 @@ class ChromatinDeconvolveSolver:
 		return self.deconvolved_f_value
 
 
-	def define_deconvolution_problem(self, G):
+	def define_deconvolution_problem(self, G, image_shape):
 
 		solver = self.solver
 
@@ -102,6 +102,7 @@ class ChromatinDeconvolveSolver:
 		f = cvxpy.Variable((H.shape[1], G.shape[1]))
 
 		self.gamma = cvxpy.Parameter(nonneg=True, name='gamma')
+		self.gamma_prime = cvxpy.Parameter(nonneg=True, name='gamma_prime')
 
 		# with the updated alpha, the i t and b are approximately all the same length
 		# this was previously 2, when i was half the length of the other two branches
@@ -118,6 +119,22 @@ class ChromatinDeconvolveSolver:
 
 		constraints = [f >= 0]
 
+		# Testing image shape size
+		self.image_shape = image_shape
+		print("todo: Temporary shape", self.image_shape)
+		self.wavelet = pywt.Wavelet('bior2.2')
+		decomp_kron_mats, reconst_mats = create_kron_wavelet2d_convolution_matrices(self.wavelet, 
+			self.image_shape)
+
+		# Decompose the f matrix of flattened images using the kronecker version of the wavelet transformation
+		# matrices. Retrieve the wavelet coefficients and compute an L1 norm on these coefficients.
+		(LL, HL, LH, HH) = decompose_flattened_kron_coeffs(f, decomp_kron_mats)
+		l1_norm_on_coeffs = cvxpy.sum(cvxpy.abs(HL) 
+			+ cvxpy.abs(LH) + cvxpy.abs(HH)) / m / u
+
+		# omit cvxpy.abs(LL) (approximation coefficient)
+		# i.e. threshold only the detail coefficients (standard for compression)
+
 		# -------------------------------------------------
 
 		objective = cvxpy.Minimize(
@@ -126,6 +143,8 @@ class ChromatinDeconvolveSolver:
 
 			# Smoothing along time
 			+ self.gamma * cvxpy.sum(cvxpy.abs(smooth_f_it_result))/g_mean  
+
+			+ self.gamma_prime*l1_norm_on_coeffs
 		)
 
 		# -------- End definition of the optimization ------------
@@ -134,9 +153,10 @@ class ChromatinDeconvolveSolver:
 		self.prob = cvxpy.Problem(objective, constraints)
 		self.f = f
 
-	def solve(self, gamma_value, verbose=False):
+	def solve(self, gamma_value, gamma_prime=0, verbose=False):
 
 		self.gamma.value = gamma_value
+		self.gamma_prime.value = gamma_prime
 		self.verbose = verbose
 
 		# The epsilon value affects the precision of the solver
@@ -179,8 +199,16 @@ class ChromatinDeconvolveSolver:
 		eps = 1e-5
 		sn = (self.factor_i * np.sum(np.abs(f_it_matmul_res))) / (g_mean+eps) / m
 
-		l1_norm_on_coeffs = 0
+		decomp_kron_mats, reconst_mats = create_kron_wavelet2d_convolution_matrices(self.wavelet, 
+			self.image_shape)
+
+		# Decompose the f matrix of flattened images using the kronecker version of the wavelet transformation
+		# matrices. Retrieve the wavelet coefficients and compute an L1 norm on these coefficients.
+		(LL, HL, LH, HH) = decompose_flattened_kron_coeffs(f, decomp_kron_mats)
+		l1_norm_on_coeffs = np.sum(np.abs(LL) + np.abs(HL) + np.abs(LH) + np.abs(HH)) / m / u
 		self.rn, self.sn, self.l1_norm_on_coeffs = rn, sn, l1_norm_on_coeffs
+
+		print("Shape of the coefficients", LL.shape)
 
 		return f, rn, sn, l1_norm_on_coeffs
 
