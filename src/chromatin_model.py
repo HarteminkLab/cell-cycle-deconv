@@ -104,7 +104,8 @@ class ChromatinModel:
 		exact_bins = self.create_exact_bins()
 		normalized_bins = self.normalize_bins(exact_bins, log=log)
 
-		# Close to 1000, but divisible by the bin_width (24)
+		# todo: insert copy number correction for Origins
+
 		adjusted_padding = GlobalConstants.ORC_BIN_PADDING
 		new_span = int(origin.pos-adjusted_padding-GlobalConstants.BIN_WIDTH/2), \
 			int(origin.pos+adjusted_padding+GlobalConstants.BIN_WIDTH/2)
@@ -203,7 +204,7 @@ class ChromatinModel:
 
 		return self.deconvolved_f_value
 
-	def plot_raw_orc_data(self):
+	def plot_raw_orc_data(self, vmax=100):
 		downsampled_bins = self.deconv_hist_unflattened
 		n = downsampled_bins.shape[0]
 
@@ -219,7 +220,7 @@ class ChromatinModel:
 			ax = axs[i]
 			img = downsampled_bins[i]
 			ax.imshow(img, cmap='magma_r', origin='lower', aspect='auto',
-				extent=self.bin_extents)
+				extent=self.bin_extents, vmax=vmax)
 			ax.set_xticks([])
 			ax.set_yticks([])
 			ax.axvline(self.center_origin, c='black', lw=1, ls='dotted')
@@ -238,7 +239,7 @@ class ChromatinModel:
 
 	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, 
 		vmin=0, vmax=50, smooth=False, f=None, mask=None, show_dg1=False, show_rg1=True,
-		show_origin_down_nuc=False, zoom=None, figsize=None):
+		show_origin_down_nuc=False, zoom=None, figsize=None, should_smooth_data=False):
 
 		if f is None:
 			f = self.deconvolved_f().copy()
@@ -251,7 +252,6 @@ class ChromatinModel:
 			figheight = 7
 		else:
 			figheight = 8
-
 
 		if plotting_orc:
 			if zoom is not None: figwidth = 11
@@ -344,7 +344,7 @@ class ChromatinModel:
 				reshaped_f = f.reshape(-1, shape[0], shape[1])
 
 				self.plot_f_img_phase(ax, reshaped_f, phase, row, num_chromatin_rows, show_title=False, vmax=vmax, vmin=vmin,
-					mask=mask, show_origin_down_nuc=show_origin_down_nuc, zoom=zoom)
+					mask=mask, show_origin_down_nuc=show_origin_down_nuc, zoom=zoom, should_smooth_data=should_smooth_data)
 
 				if col == 0:
 					ax.set_ylabel(f"{row+1}", rotation=0, ha='right', labelpad=10, fontsize=16)
@@ -463,7 +463,7 @@ class ChromatinModel:
 
 
 	def plot_f_img_phase(self, ax, reshaped_f, phase, column, num_columns, show_title=True, x_padding=0, y_padding=0,
-		vmin=0, vmax=200, mask=None, show_origin_down_nuc=False, zoom=None):
+		vmin=0, vmax=200, mask=None, show_origin_down_nuc=False, zoom=None, should_smooth_data=False):
 		"""Plot the f image of a phase and column for the grid of f images progressing through each phase
 		compute the proper index to plot from the num_columns parameter for the phase"""
 
@@ -480,11 +480,12 @@ class ChromatinModel:
 			ax.set_title(f"{index+1}/{len_sub_f} ({(index/(len_sub_f-1))*100:.0f}%)", fontsize=9)
 
 		self.plot_f_img(ax, img, x_padding=x_padding, y_padding=y_padding, vmin=vmin, vmax=vmax, mask=mask,
-			show_origin_down_nuc=show_origin_down_nuc, zoom=zoom)
+			show_origin_down_nuc=show_origin_down_nuc, zoom=zoom, should_smooth_data=should_smooth_data)
 
 
 	def plot_f_img(self, ax, img, show_title=True, x_padding=0, y_padding=0,
-		vmin=0, vmax=200, mask=None, show_origin_down_nuc=False, zoom=None, extent=None):
+		vmin=0, vmax=200, mask=None, show_origin_down_nuc=False, zoom=None, extent=None,
+		should_smooth_data=False):
 		"""Plot the f image of a phase and column for the grid of f images progressing through each phase
 		compute the proper index to plot from the num_columns parameter for the phase"""
 
@@ -514,6 +515,13 @@ class ChromatinModel:
 		if extent is None:
 			extent = self.bin_extents
 
+		# # Create a 100x100 matrix with random values
+		# matrix = np.random.random((100, 100))
+
+		if should_smooth_data:
+			from src.helpers import smooth_data
+			img = smooth_data(img, size=5, sigma=0.5)
+
 		im = ax.imshow(img, origin='lower', cmap='magma_r', aspect='auto', vmax=vmax,
 			extent=extent, zorder=1)
 
@@ -537,9 +545,9 @@ class ChromatinModel:
 			m1_at_s = self.m1_tracker.called_peak_weighted_mean.loc[start_of_s]
 
 			ax.axvline(p1_at_s, c='blue', 
-				linewidth=1, linestyle='solid', alpha=0.5)
+				linewidth=1, linestyle='solid', alpha=0.125)
 			ax.axvline(m1_at_s, c='blue', 
-				linewidth=1, linestyle='solid', alpha=0.5)
+				linewidth=1, linestyle='solid', alpha=0.125)
 
 		# Zoom in to 1000 bp to see shift of nucleosome
 		if plotting_orc and zoom is not None:
@@ -950,13 +958,6 @@ class ChromatinModel:
 			cur_normalized_bins = (scaling_mat[time].values.reshape((-1, 1)) * exact_bins[i])
 			normalized_bins[i] = cur_normalized_bins
 
-		# Normalization that keeps the copy number for all timepoints equal
-		# The chromatin window sum should be the same for all genes
-		# if log: print_fl("Applying a normalization for copy number, all timepoints will have equal sum")
-		# sums_per_time = normalized_bins.sum(axis=1).sum(axis=1)
-		# for i in range(normalized_bins.shape[0]):
-		# 	normalized_bins[i] *= 1./sums_per_time[i] * 5000.
-
 		return normalized_bins
 
 
@@ -1114,37 +1115,42 @@ class ChromatinModel:
 
 		# todo: Add an additional step here, in which we expand the search range for each
 		# metric, and automate narrowing the search tighter based peak occupancy and a window around the peak
-		nucleosome_movement_span = 144
-		origin_occ_span = 96
+		nucleosome_movement_span = 143
+		origin_occ_span = 99
 
 		# Wide search span that will automatically be narrowed down
-		p1_search_span = (0, 360)
-		m1_search_span = (-360, 0)
-		origin_span = (-120, 120)
+		p1_search_span = (0, 352)
+		m1_search_span = (-352, 0)
+		origin_span = (-121, 121)
 
 		# Override to refine search window for selected origins
 		if self.origin.ars_name == 'ARS423':
-			p1_search_span = (0, 240)
-			m1_search_span = (-240, 0)
+			p1_search_span = (0, 242)
+			m1_search_span = (-242, 0)
+		elif self.origin.ars_name == 'ARS1623':
+			p1_search_span = (0, 242)
+			m1_search_span = (-142, 0)
+			print(m1_search_span)
 
 		# Currently we allow the search span to be any genomic position, but the bins restrict us
 		# to the bin width (24 bp), so we need to round to the nearest 24 bp bin
 		is_crick = (self.origin.strand == '-')
-		updated_p1_span = search_span_corrected_for_bin_locs = translate_span_for_bins(center_pos, p1_search_span, 
+		updated_p1_span = translate_span_for_bins(center_pos, p1_search_span, 
 			flip=is_crick)
-		updated_m1_span = search_span_corrected_for_bin_locs = translate_span_for_bins(center_pos, m1_search_span, 
+		updated_m1_span = translate_span_for_bins(center_pos, m1_search_span, 
 			flip=is_crick)
-		updated_origin_span = search_span_corrected_for_bin_locs = translate_span_for_bins(center_pos, origin_span, 
+		updated_origin_span = translate_span_for_bins(center_pos, origin_span, 
 			flip=is_crick)
 
 		print(f"The +1 span for tracking is:", updated_p1_span, " length: ", updated_p1_span[1]-updated_p1_span[0])
 		print(f"The -1 span for tracking is:", updated_m1_span, " length: ", updated_m1_span[1]-updated_m1_span[0])
-		print(f"The span for origin occupancy is:", updated_origin_span, " length: ", updated_origin_span[1]-updated_origin_span[0])
+		print(f"The span for origin occupancy is:", updated_origin_span, " length: ", 
+			updated_origin_span[1]-updated_origin_span[0])
 
 		# Track the +1 nucleosome position. Tracker selects the nucleosome positions
 		# of the +1 search range
 		def create_tracker(genomic_span, frag_lens, window, tracker_type='nuc_movement'):
-			tracker = ChromatinMetricTracking(self)
+			tracker = ChromatinMetricTracking(chrom_model=self)
 			tracker.select_range(genomic_span, frag_lens)
 			tracker.find_peak_and_update_genomic_positions(window=window)
 			if tracker_type == 'nuc_movement': tracker.track_genomic_movement()
@@ -1152,10 +1158,10 @@ class ChromatinModel:
 			else: raise ValueError("Unknown parameter: ", tracker_type)
 			return tracker
 
-		self.p1_tracker = create_tracker(updated_p1_span, nuc_lens, window=192)
-		self.m1_tracker = create_tracker(updated_m1_span, nuc_lens, window=192)
+		self.p1_tracker = create_tracker(updated_p1_span, nuc_lens, window=198)
+		self.m1_tracker = create_tracker(updated_m1_span, nuc_lens, window=198)
 		self.origin_tracker = create_tracker(updated_origin_span, origin_frag_lens, 
-			window=192, tracker_type='occupancy')
+			window=198, tracker_type='occupancy')
 
 	def plot_nfr_origin_occ_comparision(self, t_tps=None):
 		from src.helpers import normalize_max_min

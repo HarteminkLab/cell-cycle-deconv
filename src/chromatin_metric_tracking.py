@@ -44,11 +44,6 @@ class ChromatinMetricTracking(object):
 
 		"""
 
-		# Default parameters
-		self.img_data = img_data.astype(float)
-		self.x_genomic_positions = x_genomic_positions
-		self.y_fragment_length_names = y_fragment_length_names
-
 		# Override with chrom model if it is provided
 		if chrom_model is not None:
 			self.chrom_model = chrom_model
@@ -58,7 +53,12 @@ class ChromatinMetricTracking(object):
 			# of the image data
 			# Add half a bin-width to indicate that the positions are centered on the middle of the bin
 			self.x_genomic_positions = np.arange(chrom_model.bin_extents[0], \
-				chrom_model.bin_extents[1], GlobalConstants.BIN_WIDTH) + GlobalConstants.BIN_WIDTH/2
+				chrom_model.bin_extents[1], GlobalConstants.BIN_WIDTH) + round(GlobalConstants.BIN_WIDTH/2)
+		else:
+			# Default parameters
+			self.img_data = img_data.astype(float)
+			self.x_genomic_positions = x_genomic_positions
+			self.y_fragment_length_names = y_fragment_length_names
 
 		# Use default y fragment lengths if none provided
 		# note: used currently as we are refactoring the y fragment lengths
@@ -100,7 +100,7 @@ class ChromatinMetricTracking(object):
 	def find_peak_and_update_genomic_positions(self, window):
 		"""Find peak the peak occupancy in the window (summed by time) and create a window around this peak
 		to narrow the span in which we are interested in computing our metrics"""
-		win_2 = window//2
+		win_2 = window/2
 		stacked_sum_data = self.selected_sum_data.sum(axis=0)
 		peak = stacked_sum_data.idxmax()
 		updated_span = peak-win_2, peak+win_2

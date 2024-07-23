@@ -24,9 +24,10 @@ class Figure3CopyCorrection(object):
 		self.delta_chrom = 0.01
 
 		# Selected genes based on increase/decrease in PTR
-		self.selected_chrom_genes = ['CDC28', 'RPA34', # Increase
-									 'MRE11', 'AFR1', 'DUN1', # Decrease
-									 'SSK22' # Control genes
+		self.selected_chrom_genes = ['RPA34', # Increase
+									 'DUN1', # Decrease, Late
+									 'APA1', # Decrease, Early
+									 'SSK22' # Control gene
 		]
 
 		# Gene expression
@@ -246,6 +247,25 @@ class Figure3CopyCorrection(object):
 		plt.title(f"Deconvolved replication profile, chr{chrom}", 
 			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE, pad=9)
 
+	def plot_raw_replication_chr10(self):
+		from src.stepwise_replication_solver import StepReplicationChromatinDeconvolveSolver
+		from src.mnase_replication_timing_analysis import MNaseOriginAnalysis
+
+		mnase_analysis_rep1 = MNaseOriginAnalysis(replicate=1)
+		mnase_analysis_rep1.compute_bin_curves(chroms=[10])
+
+		mnase_analysis_rep2 = MNaseOriginAnalysis(replicate=2)
+		mnase_analysis_rep2.compute_bin_curves(chroms=[10])
+
+		mnase_analysis_rep1.normalize_and_compute_raw_replication_timing()
+		mnase_analysis_rep2.normalize_and_compute_raw_replication_timing()
+
+		solver = StepReplicationChromatinDeconvolveSolver(mnase_analysis_rep1,
+		                                                  mnase_analysis_rep2,
+		                                                 config_type='shared')
+		solver.set_chrom(10)
+		solver.plot_raw_data()
+
 	def plot_chrom_ptr_correction(self, selected_genes=None):
 		
 		plot_data = self.mean_chrom_ptrs
@@ -277,8 +297,8 @@ class Figure3CopyCorrection(object):
 		plot_selected_genes(plot_data, selected_genes, 'normalized_raw_ptr', 'normalized_corrected_ptr',
 			xlim, ylim)
 		
-		plt.xlabel("Raw expression PTR")
-		plt.ylabel("Copy-number-corrected expression PTR")
+		plt.xlabel("Raw chromatin occupancy PTR")
+		plt.ylabel("Copy-number-corrected chromatin occupancy PTR")
 
 	def plot_ge_ptr_correction(self, selected_genes=None):
 		
@@ -563,8 +583,33 @@ def plot_selected_genes(plot_data, selected_genes, keyx, keyy, xlim, ylim):
 		if y > ylim[1] or x > xlim[1]:
 			continue
 
-		_plot_ann_text(x, y+0.005, gene_title, zorder=21, fontsize=8, ha='center')
+		x_text = x
+		if x <= y:
+			va = 'bottom'
+			y_text = y+0.005
+			ha='right'
+		else:
+			va = 'top'
+			y_text = y-0.005
+			ha='left'
+
+		custom_gene_positioning = {
+			'APA1': {
+				'va':'center',
+				'ha':'left',
+				'y': y
+			}
+		}
+
+		if gene_name in custom_gene_positioning.keys():
+			ha = custom_gene_positioning[gene_name]['ha']
+			va = custom_gene_positioning[gene_name]['va']
+			y_text = custom_gene_positioning[gene_name]['y']
+			x_text = x + 0.007
+
 		color = get_color_for_rep_group(selected_plot_data.group_name)
+		_plot_ann_text(x_text, y_text, gene_title, zorder=21, fontsize=11, ha=ha, va=va,
+			bordercolor='white')
 		plt.scatter(x, y, s=30, edgecolor=color, facecolors='none', zorder=3, marker='D')
 
 

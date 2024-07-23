@@ -1,6 +1,8 @@
+
 import numpy as np
-from scipy.stats import norm
+import scipy.ndimage
 from math import comb
+from scipy.stats import norm
 
 # The initial population mass, used in the Qr and Mgr calculations
 START = 1000
@@ -591,3 +593,30 @@ def normalize_max_min(dat, indices=None):
 	dat = dat.copy()
 	dat = (dat - min_v) / delta
 	return dat
+
+
+def create_gaussian_kernel(size, sigma):
+	"""Create a 2d kernel for smoothing"""
+	x = np.linspace(- (size // 2), size // 2, size)
+	y = np.linspace(- (size // 2), size // 2, size)
+	x, y = np.meshgrid(x, y)
+	kernel = np.exp(-0.5 * (x**2 + y**2) / sigma**2)
+	kernel /= np.sum(kernel)
+	return kernel
+
+
+def smooth_matrix(matrix, kernel):
+	"""Smooth an input 2d matrix with a 2d kernel"""
+	smoothed_matrix = scipy.ndimage.convolve(matrix, kernel, mode='reflect')
+	return smoothed_matrix
+
+
+def smooth_data(img, size=5, sigma=0.75):
+
+	# Create a 2D Gaussian kernel
+	gaussian_kernel = create_gaussian_kernel(size, sigma)
+
+	# Apply Gaussian smoothing to the matrix
+	img = smooth_matrix(img, gaussian_kernel)
+
+	return img

@@ -106,16 +106,18 @@ def wave2d_reconstruction(coeffs, recon_mats):
 
 # ------------- Kronecker flattened images transformations -----------------
 
-# The following functions define the matrix transformations to allow us to decompose and reconstruct a flattened
+# The following functions define the matrix transformations to allow us to decompose and 
+# reconstruct a flattened
 # set of images. 
 #
-# Motivation is that in cvxpy, we can only operate on 2D matrices. Thus, we use the first dimension for our stack
-# of images, and the second as our flattened width and height image.
+# Motivation is that in cvxpy, we can only operate on 2D matrices. Thus, we use the first dimension 
+# for our stack of images, and the second as our flattened width and height image.
 #
 # The trick here is using the Kronecker matrix transformation and transpose permutation matrix.
 #
-# These matrices allow us to operate on the flattened images and perform matrix multiplication operations as if
-# the image was unflattened. In this way we can perform the decomposition and reconstruction operations on the input
+# These matrices allow us to operate on the flattened images and perform matrix 
+# multiplication operations as if the image was unflattened. In this way we can perform the 
+# decomposition and reconstruction operations on the input
 # image without the need to loop or reshape the input image stack.
 #
 
@@ -143,14 +145,15 @@ def create_flattened_transpose_permutation_matrix(shape):
 			
 	return P
 
-def create_kron_wavelet2d_convolution_matrices(wavelet, input_shape):
+def create_kron_wavelet2d_convolution_matrices(wavelet, input_shape, preprocessing_mat=None):
 	"""Create the wavelet transformation matrices for decomposition and reconstruction.
 
-	After loading the standard wavelet transformation matrices, convert them into kronecker transformation
+	After loading the standard wavelet transformation matrices, convert them 
+	into kronecker transformation
 	matrices.
 
-	Then, we have operations in which we need the input on the far left side, so use the transpose permutation
-	matrices to enforce this rule.
+	Then, we have operations in which we need the input on the far left side, 
+	so use the transpose permutation matrices to enforce this rule.
 	"""
 
 	(decomps_mats, reconst_mats) = create_wavelet2d_convolution_matrices(wavelet, input_shape)
