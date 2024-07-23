@@ -139,12 +139,11 @@ class Figure1Deconvolution(object):
 		plt.ylabel("Experimental time", fontsize=FiguresConfig.FIG_LABEL_FONTSIZE)
 
 
-	def compute_clb2_deconvolution(self):
+	def compute_deconvolution(self, gene_name):
 		from src.config import load_configs_by_config_type, load_combined_gene_expression_by_config_type
 		combined_ge_config = load_combined_gene_expression_by_config_type('shared')
 
 		from src.model import Model
-		gene_name = 'CLB2'
 		combined_ge_model = Model(combined_ge_config, gene_name)
 		combined_ge_model.deconvolve_find_optimal_gamma()
 		from src.combined_chromatin_model import CombinedChromatinModel
@@ -157,12 +156,11 @@ class Figure1Deconvolution(object):
 		self.combined_ge_model = combined_ge_model
 
 
-	def plot_clb2_deconvolution(self):
-
+	def plot_deconvolution(self):
 		fig = self.combined_model.create_deconvolution_plots_abbreviated_flipped(
-			ge_model=self.combined_ge_model, vmax=50)
+			ge_model=self.combined_ge_model, vmax=10, should_smooth_data=True)
 
-	def plot_raw_clb2(self):
+	def plot_raw_example(self):
 
 		# Let's plot the Raw data for figure 1, as timepoints 1, 2, 3 .. n
 		from src.plot_helpers import hide_spines
@@ -192,7 +190,7 @@ class Figure1Deconvolution(object):
 					if i == 0:
 						ax.set_title(title, fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=11)
 
-					chrom_model.plot_f_img(ax, plt_imgs[i], vmax=50)
+					chrom_model.plot_f_img(ax, plt_imgs[i], vmax=25)
 
 					if i == n-1:
 						ylabel = '$t_n$'
@@ -208,7 +206,7 @@ class Figure1Deconvolution(object):
 		plot_column_imgs(axs[1], self.combined_model.chrom2_model, show_labels=False, title="Replicate 2")
 
 
-	def plot_deconvolved_clb2_phase_annotated(self):
+	def plot_deconvolved_phase_annotated(self):
 
 		from src.plot_helpers import plot_rect2
 		from src.plot_helpers import hide_spines
@@ -235,18 +233,21 @@ class Figure1Deconvolution(object):
 
 		phases = ['RG1', 'CG1', 'S', 'G2/M']
 		img_indices = [rg1_i[0], cg1_i[0], s_i[0], pg1_i[0]]
-		plt_imgs = imgs[img_indices]
+		img_indices = list(reversed(img_indices))
+
+		plt_imgs =  imgs[img_indices]
 		n = len(img_indices)
 
 		# Flip the vertical indices such that we are plotting top to bottom
-		img_indices = list(reversed(img_indices))
 		phases = list(reversed(phases))
 
 		from src.model import color_for_key
 
 		for i in range(n):
 			x1, x2, y1, y2 = x, x+w, y+i*(h+padding), y+h+i*(h+padding)
-			chrom_model.plot_f_img(ax, plt_imgs[i], vmax=50, extent=[x1, x2, y1, y2])
+			img_data = np.flip(plt_imgs[i], axis=1)
+			chrom_model.plot_f_img(ax, img_data, vmax=10, extent=[x1, x2, y1, y2], 
+				should_smooth_data=True)
 			plt.plot([x1+w/2., x1+w/2.], [y1, y2], c='black', lw=1, alpha=0.25)
 			plot_rect2(ax, x1, y1, x2, y2, edgecolor='black', fill=None, lw=0.5, zorder=100)
 			phase = phases[i]
@@ -281,8 +282,8 @@ class Figure1Deconvolution(object):
 
 		chrom_model = self.combined_model.chrom1_model
 		reads = chrom_model.locus_reads
-		reads = reads[reads['sample'] == 0]
-		index = 0
+		reads = reads[reads['sample'] == 150]
+		index = 14
 
 		plt.figure(figsize=(5, 4.5))
 		plt.subplot(2, 1, 1)
@@ -318,8 +319,10 @@ class Figure1Deconvolution(object):
 		plt.subplot(2, 1, 2)
 		ax  = plt.gca()
 		chrom_model.exact_bins.shape
+
+		img = chrom_model.deconv_hist_unflattened[index]
 		plt.imshow(chrom_model.deconv_hist_unflattened[index], origin='lower', cmap='magma_r',
-				  aspect='auto', extent=chrom_model.bin_extents, vmax=50)
+				  aspect='auto', extent=chrom_model.bin_extents, vmax=25)
 		ax.set_xticks(xticks)
 		ax.set_xticklabels(xtick_labels)
 		ax.set_yticks(np.arange(50, 300, 100))
