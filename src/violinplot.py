@@ -128,7 +128,7 @@ class ViolinPlotPlotter():
 		xticks = []
 		xticklabels = []
 		colors = []
-		
+
 		for category_index in range(self.num_categories):
 			dataframe = self.dfs_to_plot[category_index]
 			group_keys = sorted(dataframe[self.group_key].unique())
@@ -141,7 +141,8 @@ class ViolinPlotPlotter():
 				current_data_values = group_data[self.data_key]
 				current_data_values = current_data_values.dropna().values
 				box_plot_dat = self.create_box_plot_data(current_data_values)
-				color = self.plot_box(box_plot_dat, current_data_values, group_index, category_index, ax)
+				color = self.plot_box(box_plot_dat, current_data_values, x_location=group_index, 
+					group_index=category_index, ax=ax)
 
 				group_name = group_data.iloc[0][self.group_name_key]
 
@@ -174,6 +175,7 @@ class ViolinPlotPlotter():
 			ax.set_ylim(*self.ylims)
 
 		ax.set_title(title)
+		self.x_locations = xticks
 
 
 # Reduce the columns to plot fewer violins

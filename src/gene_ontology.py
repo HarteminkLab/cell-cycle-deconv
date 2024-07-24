@@ -6,6 +6,7 @@ from goatools.godag_plot import plot_gos, plot_results, plot_goid2goobj
 from goatools.go_enrichment import GOEnrichmentStudy
 import pandas
 from src.sgd import read_sgd_w_go
+from src.geneset import get_deconvolved_geneset
 from src.utils import print_fl
 
 
@@ -19,7 +20,8 @@ class GeneOntology:
 		orfs_with_go = read_sgd_w_go()
 
 		# only use canonical orfs dataset
-		self.orfs_with_go = orfs_with_go
+		paper_geneset = get_deconvolved_geneset()
+		self.orfs_with_go = orfs_with_go.loc[paper_geneset.index]
 
 		# create mapping of gene names to set of GO annotaitons
 		assoc = defaultdict(set)
@@ -91,6 +93,7 @@ def print_terms(obodag, terms):
 		p = obodag.query_term(gpar)
 		print_fl(gpar + " - " + p.name.title())
 
+
 def get_term_names(obodag, terms):
 	"""Print gene ontology terms from ontology ids and graph"""
 	names = []
@@ -112,12 +115,3 @@ def genes_for_go(go_genes, go_terms):
 
 	return go_genes[go_mask], go_mask
 
-
-def cyto_ribo_genes(obodag):
-	# get cytosolic ribosomal genes
-	rib = obodag.query_term('GO:0044391')
-	cytosolic = obodag.query_term('GO:0044445')
-	rib_chil = rib.get_all_children()
-	cyto_chil = cytosolic.get_all_children()
-	rib_cyto_ids = rib_chil.intersection(cyto_chil)
-	return rib_cyto_ids

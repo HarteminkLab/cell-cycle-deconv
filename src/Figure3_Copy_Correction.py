@@ -299,7 +299,7 @@ class Figure3CopyCorrection():
 		plt.xlabel("Raw chromatin occupancy PTR")
 		plt.ylabel("Copy-number-corrected chromatin occupancy PTR")
 
-	def plot_violin_ptr_11(self):
+	def plot_violin_ptr_11(self, selected_genes=[]):
 		"""Compute the distance of each ptr adjustment from the 1:1 line. Then create a violin plot
 		of the distribution of these values for each replication timing window."""
 
@@ -337,12 +337,14 @@ class Figure3CopyCorrection():
 		ax = plt.gca()
 		title = "Copy correction, Distance from 1:1"
 
+		from src.plot_helpers import adjust_lightness_saturation
+
 		violin_plotter.legend = False
 		violin_plotter.group_colors = [
-			plt.get_cmap('plasma_r')(0.2),
-			plt.get_cmap('plasma_r')(0.35),
-			plt.get_cmap('plasma_r')(0.45),
-			plt.get_cmap('plasma_r')(0.6)
+			adjust_lightness_saturation(plt.get_cmap('RdBu')(0.), 1.7, 1.0),
+			plt.get_cmap('RdBu')(0.25),
+			plt.get_cmap('RdBu')(0.75),
+			adjust_lightness_saturation(plt.get_cmap('RdBu')(1.), 1.7, 1.0),
 		]
 		violin_plotter.plot_box_plot(ax=ax, title='')
 		ax.set_ylim(-0.05, 0.05)
@@ -350,6 +352,7 @@ class Figure3CopyCorrection():
 		ax.set_ylabel("PTR adjustment change, distance from 1:1")
 		ax.set_title(title, fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
 		self.mean_chrom_ptrs_w_distances_11 = ptr_distances_11
+		self.violin_plotter = violin_plotter
 
 
 	def plot_ge_ptr_correction(self, selected_genes=None):
