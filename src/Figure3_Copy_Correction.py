@@ -5,6 +5,7 @@ import pandas as pd
 
 from src.figure_configs import FiguresConfig
 from src.figure_configs import save_figure_for_paper
+from src.plot_helpers import adjust_lightness_saturation
 
 
 class Figure3CopyCorrection():
@@ -128,14 +129,14 @@ class Figure3CopyCorrection():
 
 		ys = np.repeat(1.0, len(replication_tps))
 
-		alphas = origins[eff_key].values
-		alphas[alphas > 1.] = 1
-		alphas[alphas < 0] = 0
+		alphas = 1.#origins[eff_key].values
+		#alphas[alphas > 1.] = 1
+		#alphas[alphas < 0] = 0
 		plt.axhline(1, c='black', lw=1.5)
 		for i in range(len(ys)):
 			tp = replication_tps[i]
 			y = ys[i]
-			alpha = alphas[i]*1#0.5
+			alpha = alphas[i]#*1#0.5
 			plt.plot([tp, tp], [y-0.3, y+0.3], alpha=alpha, lw=0.5, 
 				color=plt.get_cmap('Reds')(0.6))
 		plt.xlim(16, 45)
@@ -226,8 +227,8 @@ class Figure3CopyCorrection():
 		from src.mnase_replication_timing_analysis import get_bin_for_position
 
 		eff_key = 'derived_origin_efficiency_from_mcguffee_et_al_2013'
-		origins_chr['alpha'] = origins_chr[eff_key] + 0.2
-		origins_chr.loc[origins_chr['alpha'] < 0.2, 'alpha'] = 0.2 # Span values from 0.2-1.0, original values are from 0-0.75 (with -1's as not found)
+		origins_chr['alpha'] = 1.0#origins_chr[eff_key] + 0.2
+		#origins_chr.loc[origins_chr['alpha'] < 0.2, 'alpha'] = 0.2 # Span values from 0.2-1.0, original values are from 0-0.75 (with -1's as not found)
 
 		for origin_name, origin in origins_chr.iterrows():
 			# add one to plot the first index in which copy number is 2
@@ -573,7 +574,82 @@ class Figure3CopyCorrection():
 				save_figure_for_paper(f'{save_dir}/Copy_Correction_Expression_Example_{gene_name}.png')
 
 
-from src.plot_helpers import adjust_lightness_saturation
+	def compute_gene_expression_ptrs(self):
+		from src.gene_expression_deconv_analysis import GeneExpressionAnalysis
+
+		# Let's examine the PTRs for the gene expression to get an idea of the
+		# cell cycle regulated gene terms
+		gene_expression_dir = 'output/deconvolve_sharedg1_0066_cc_2024_06_13/gene_expression/'
+		gene_expression_a = GeneExpressionAnalysis(gene_expression_dir)
+		gene_expression_a.compute_ptrs()
+		plt.figure(figsize=(4, 3))
+		plt.hist(gene_expression_a.gene_ptrs_df['ptr'], bins=100)
+		plt.ylim(0, 200)
+		thresh = 1.15
+		plt.axvline(thresh, c='red', alpha=0.5)
+		plt.title("Distribution of deconvolved gene expression PTRs")
+		self.expression_ptr_threshold = thresh
+		self.gene_expression_analysis = gene_expression_a
+
+	def perform_gene_expression_go(self):
+		from src.gene_ontology import GeneOntology
+		gene_ontology = GeneOntology()
+		sgd_rows = gene_ontology.orfs_with_go
+		highest_cycling_expression = self.gene_expression_analysis.gene_ptrs_df[\
+			self.gene_expression_analysis.gene_ptrs_df.ptr > self.expression_ptr_threshold]
+		selected_genes = highest_cycling_expression
+		selected_genes = selected_genes.join(sgd_rows[['name']])
+		selected_orfs = selected_genes['name'].values
+		gene_ontology.run_go(selected_orfs)
+		self.gene_ontology = gene_ontology
+
+	def plot_gene_ontology_violins(self, directory):
+
+		from src.gene_ontology import genes_for_go
+
+		for _, go_row in self.gene_ontology.results_sig_df.iterrows():
+			go_term = go_row['name']
+			go_id = go_row['id']
+
+			# Get the example gene orfs for plotting
+			example_genes, _ = genes_for_go(self.gene_ontology.orfs_with_go, go_id)
+			example_orfs = example_genes.index
+
+			from scipy.stats.distributions import norm
+
+			self.plot_violin_ptr_11(example_orfs)
+
+			# --------
+
+			vp = self.violin_plotter
+			selected_df = vp.dfs_to_plot[0].loc[example_orfs]
+
+			x, y = selected_df.group_id, selected_df.distance_11
+
+			x = x + norm.rvs(loc=0, scale=0.01, size=len(x))
+			plt.scatter(x, y, s=20, zorder=100, edgecolor='white', facecolor='green')
+			
+			go_term_title = f"{go_id} - {go_term}, n={len(example_orfs)}"
+				
+			plt.title(go_term_title)
+
+			go_save_title = go_term.replace(' ', '_')[0:13]
+			save_path = f'{directory}/copy_chrom_go_{go_save_title}.png'
+			save_figure_for_paper(save_path)
+			plt.close()
+			print("Wrote to " + save_path)
+
+	def plot_gene_expression_ptr_vs_diff_11(self):
+		ge_distance_data = self.mean_chrom_ptrs_w_distances_11.join(self.gene_expression_analysis.gene_ptrs_df)
+		ge_distance_data = ge_distance_data.join(self.mean_chrom_ptrs['replication_time'])
+
+		plt.scatter(ge_distance_data.ptr, ge_distance_data.distance_11, s=1,
+		           c=ge_distance_data.replication_time, cmap='RdBu_r',
+		           vmin=6, vmax=15)
+		plt.colorbar()
+		plt.axhline(0, c='black', ls='dotted', lw=1)
+		plt.title("Gene expression PTR compared to copy correction change")
+
 
 def rep_quantile_colors():
 	group_colors = []
