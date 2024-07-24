@@ -370,7 +370,7 @@ class ChromatinModel:
 					 self.computed_plus_one, \
 					 self.bin_extents[1]
 			xtick_labels = [str(x-self.computed_plus_one) for x in xticks]
-			xtick_labels[1] = 'TSS'
+			xtick_labels[1] = '+1 Nuc.'
 			xtick_labels[2] = '+'+xtick_labels[2]
 
 		xlims = first_col_last_row.get_xlim()

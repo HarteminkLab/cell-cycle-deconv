@@ -242,10 +242,16 @@ class Figure1Deconvolution(object):
 		phases = list(reversed(phases))
 
 		from src.model import color_for_key
+		flip = chrom_model.gene.strand == '-'
 
 		for i in range(n):
 			x1, x2, y1, y2 = x, x+w, y+i*(h+padding), y+h+i*(h+padding)
-			img_data = np.flip(plt_imgs[i], axis=1)
+
+			if flip:
+				img_data = np.flip(plt_imgs[i], axis=1)
+			else:
+				img_data = plt_imgs[i]
+
 			chrom_model.plot_f_img(ax, img_data, vmax=10, extent=[x1, x2, y1, y2], 
 				should_smooth_data=True)
 			plt.plot([x1+w/2., x1+w/2.], [y1, y2], c='black', lw=1, alpha=0.25)

@@ -7,13 +7,12 @@ from src.figure_configs import FiguresConfig
 from src.figure_configs import save_figure_for_paper
 
 
-class Figure3CopyCorrection(object):
+class Figure3CopyCorrection():
 	"""Load and plot figures for the third result figure"""
 
-	def __init__(self):
+	def __init__(self, shuffle=False):
 
 		# Chromatin
-
 		self.chrom_ptrs_rep1 = pd.read_csv('output/copy_correction/chromatin/ptrs_rep1_shared.csv')\
 			.set_index('orf_name')
 		self.chrom_ptrs_rep2 = pd.read_csv('output/copy_correction/chromatin/ptrs_rep2_shared.csv')\
@@ -234,7 +233,7 @@ class Figure3CopyCorrection(object):
 			# add one to plot the first index in which copy number is 2
 			rep_tp = t_index_tp_mapping[origin.replication_index+1]+g1
 			plt.scatter(origin.pos-GlobalConstants.REPL_DECONV_BIN_WIDTH/2., rep_tp,
-			 	s=25, facecolors='white', lw=1.5, color='red', alpha=origin.alpha, zorder=100)
+				s=25, facecolors='white', lw=1.5, color='red', alpha=origin.alpha, zorder=100)
 
 		xlims = extents[0], extents[1]
 		xticks = np.arange(0, xlims[1], 100000)
@@ -261,8 +260,8 @@ class Figure3CopyCorrection(object):
 		mnase_analysis_rep2.normalize_and_compute_raw_replication_timing()
 
 		solver = StepReplicationChromatinDeconvolveSolver(mnase_analysis_rep1,
-		                                                  mnase_analysis_rep2,
-		                                                 config_type='shared')
+														  mnase_analysis_rep2,
+														 config_type='shared')
 		solver.set_chrom(10)
 		solver.plot_raw_data()
 
@@ -299,6 +298,59 @@ class Figure3CopyCorrection(object):
 		
 		plt.xlabel("Raw chromatin occupancy PTR")
 		plt.ylabel("Copy-number-corrected chromatin occupancy PTR")
+
+	def plot_violin_ptr_11(self):
+		"""Compute the distance of each ptr adjustment from the 1:1 line. Then create a violin plot
+		of the distribution of these values for each replication timing window."""
+
+
+		def distance_to_line(point, a=1, b=-1, c=0):
+			"""Compute the distance of a point to a line as defined by: ax + by = c.
+			Positive/negative distance correspond to point's relationship to the line. In
+			the 1:1 case, positive values indicate x > y and thus below the line.
+			"""
+			
+			x, y = point
+			numerator = a*x + b*y + c
+			denominator = a**2 + b**2
+			
+			distance = numerator / np.sqrt(denominator)
+			
+			return distance
+
+		# Compute a difference from the 1:1 curve for each gene to designate
+		# how the copy correction affected the gene's cyclicity as a single value.
+		ptrs = self.mean_chrom_ptrs
+
+		ptr_distances_11 = ptrs[['normalized_raw_ptr', 'normalized_corrected_ptr',
+								 'group_id', 'group_name', 'log_ratio']].copy()
+		ptr_values = ptrs[['normalized_raw_ptr', 'normalized_corrected_ptr']].values
+		distances = np.apply_along_axis(distance_to_line, axis=1, arr=ptr_values)
+		# Negative values will associate with, a decrease in PTR following correction
+		ptr_distances_11['distance_11'] = -distances 
+		from src.violinplot import ViolinPlotPlotter
+
+		dat = ptr_distances_11
+		violin_plotter = ViolinPlotPlotter()
+		violin_plotter.set_data([dat], data_key='distance_11', group_key='group_id',
+						   group_name_key='group_name', category_names=[''])
+		ax = plt.gca()
+		title = "Copy correction, Distance from 1:1"
+
+		violin_plotter.legend = False
+		violin_plotter.group_colors = [
+			plt.get_cmap('plasma_r')(0.2),
+			plt.get_cmap('plasma_r')(0.35),
+			plt.get_cmap('plasma_r')(0.45),
+			plt.get_cmap('plasma_r')(0.6)
+		]
+		violin_plotter.plot_box_plot(ax=ax, title='')
+		ax.set_ylim(-0.05, 0.05)
+		ax.axhline(0, c='black', lw=0.75, zorder=-1, ls='dotted')
+		ax.set_ylabel("PTR adjustment change, distance from 1:1")
+		ax.set_title(title, fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+		self.mean_chrom_ptrs_w_distances_11 = ptr_distances_11
+
 
 	def plot_ge_ptr_correction(self, selected_genes=None):
 		

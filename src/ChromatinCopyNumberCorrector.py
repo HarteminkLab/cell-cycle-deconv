@@ -31,12 +31,23 @@ class ChromatinCopyNumberCorrector:
 		self.config_type = config_type
 
 
-	def correct_for_copy_number(self):
+	def correct_for_copy_number(self, shuffle=False):
 		from src.timer import Timer
 		from src.CopyNumberCorrection import copy_number_correct_H_index
 		
 		H = self.H
-		repl_profile = self.repl_profile
+		repl_profile = self.repl_profile.copy()
+
+		# Option to shuffle the replication profile
+		# this helps us validate that the copy correction is indeed correcting
+		# for the occupancy reads following replication
+		if shuffle:
+			shuffled_index = repl_profile.index.values
+			np.random.shuffle(shuffled_index)
+			shuffled_profile = repl_profile.copy()
+			shuffled_profile.index = shuffled_index
+			repl_profile = shuffled_profile
+
 		corrected_chromatin_g_data_sum_window_df = self.normalized_chrom_sum_data.copy().loc[repl_profile.index]
 
 		for orf_name, gene in repl_profile.iterrows():
@@ -59,6 +70,7 @@ class ChromatinCopyNumberCorrector:
 
 		# Config appears only used for loading the raw chromatin data
 		config = load_yl_rg1_vst_config(replicate)
+		config.copy_correction = None
 		chromatin_model = ChromatinModel(config)
 		geneset = self.genes
 

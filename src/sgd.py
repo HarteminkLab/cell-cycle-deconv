@@ -24,7 +24,7 @@ def extract_desc_val(data, key):
 	return vals
 
 
-def read_sgd_genes(filename='data/reference_data/sgd_R64-1-1_20110208.gff'):
+def read_sgd_file(filename='data/reference_data/sgd_R64-1-1_20110208.gff'):
 	"""Read sgd orf/genes file as tsv file from gff file with fasta data removed."""
 
 	data = pd.read_csv(filename, sep='\t', skiprows=19, 
@@ -32,6 +32,12 @@ def read_sgd_genes(filename='data/reference_data/sgd_R64-1-1_20110208.gff'):
 								  "strand", "", "desc"])
 	data = data[data.columns[[0, 2, 3, 4, 6, 8]]]
 	data.columns = ["chr", "cat", "start", "stop", "strand", "desc"]
+	return data
+
+def read_sgd_genes(filename='data/reference_data/sgd_R64-1-1_20110208.gff'):
+	"""Read sgd orf/genes file as tsv file from gff file with fasta data removed."""
+
+	data = read_sgd_file(filename)
 	data = data[data['cat'] == 'gene']
 
 	gene_names = extract_desc_val(data, 'gene') 
@@ -47,6 +53,7 @@ def read_sgd_genes(filename='data/reference_data/sgd_R64-1-1_20110208.gff'):
 	data['length'] = data['stop'] - data['start']
 
 	return data.set_index('orf_name')
+
 
 def get_gene(genename_or_orfname, genes=read_sgd_genes()):
 	found_genes = genes[(genes['gene'] == genename_or_orfname) | (genes.index == genename_or_orfname)]
@@ -150,3 +157,37 @@ def get_chromosome_length(chrom):
 def read_nondubious_genes_dataset():
 	genes_nondub = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
 	return genes_nondub
+
+
+def read_sgd_w_go():
+
+	from pandas import Series
+
+	data = read_sgd_file()
+	orfs = data[data['cat'] == 'gene'].copy()
+	orfs['orf_name'] = None
+	orfs['orf_class'] = None
+
+	# chromosomal orfs
+	chroms = orfs.chr.str.replace('chr', '').apply(_fromRoman)
+	orfs.chr = chroms
+	orfs = orfs[orfs.chr > 0]
+
+	orf_names = extract_desc_val(orfs, 'ID') 
+	orf_classes = extract_desc_val(orfs, 'orf_classification')
+	names = extract_desc_val(orfs, 'gene') 
+	ontology = extract_desc_val(orfs, 'Ontology_term') 
+
+	orfs['orf_name'] = orf_names
+	orfs['orf_class'] = orf_classes
+
+	# set name if it exists, or orf_name by default
+	orfs['name'] = names
+	orfs.loc[orfs.name.isna(), 'name'] = orfs[orfs.name.isna()]['orf_name']
+	orfs['ontology'] = ontology
+
+	orfs['length'] = orfs['stop'] - orfs['start'] + 1
+	orfs = orfs.set_index('orf_name')[[
+		'name','chr','start','stop','length','strand','orf_class', 'ontology']]
+
+	return orfs

@@ -23,7 +23,7 @@ class BoxPlotPlotter():
 		self.auto_xticks = True
 		self.color_prop_override = False
 		self.color = None
-		self.group_colors = []
+		self.group_colors = None
 
 		# todo: default ylims for first box plot example
 		# set this for future boxplots

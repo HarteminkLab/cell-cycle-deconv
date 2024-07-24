@@ -12,6 +12,7 @@ dependencies:
   - pytables
   - pip
   - pip:
+    - goatools==1.4.12
     - cvxpy
     - pysam
     - PyWavelets
