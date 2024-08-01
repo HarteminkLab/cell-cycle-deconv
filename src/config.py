@@ -507,6 +507,25 @@ class Config:
 
 		return mu0, first_s_start, first_s_end, end_of_first_lambd
 
+
+	def get_raw_s_tps(self):
+		"""Get the start and end timepoints for S phase"""
+		mu0, first_s_start, first_s_end, end_lambd = self.get_key_timepoints_in_raw()
+		intervals = self.intervals_wt1[0]
+		mu0, lambda_len, gamma1, gamma2, alpha = intervals[0], intervals[1], \
+			intervals[7], intervals[8], intervals[5]
+		first_s_start = mu0
+		lambda_len = lambda_len
+		s_start = alpha+(lambda_len*gamma1)
+		s_end = alpha+(lambda_len*gamma2)
+		s_length = s_end-s_start
+		first_s_end = mu0+s_length
+
+		second_s_start = end_lambd + s_start
+		second_s_end = end_lambd + s_end
+		return (s_start, s_end), (second_s_start, second_s_end)
+
+
 def read_yl_vst_data_rep(replicate, drop_rep2_70=True):
 	wt_data = pd.read_csv(f'datasets/yl_cell_cycle/replicate{replicate}_deseq2_vst_counts.csv')
 	wt_data = wt_data.rename(columns={"Unnamed: 0": "orf_name"}).set_index('orf_name')

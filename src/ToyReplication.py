@@ -14,7 +14,7 @@ class ToyReplication:
 		self.origins = origins
 		self.timepoints = timepoints
 		self.m = len(self.timepoints)
-		self.std = 2.5
+		self.std = 1
 
 		# Replication speed
 		self.rep_speed = 1 # 10kb / min
@@ -37,21 +37,26 @@ class ToyReplication:
 			row = self.replication_matrix[i, :]
 			updated_row = row.copy()
 
-			for j in range(1, self.n-1):
+			for j in range(0, self.n):
 				
 				# Assume replication speed of 10kb / min
-				prev_copy = row[j-1]
+
+				if j > 0:
+					prev_copy = row[j-1]
+
 				cur_copy = row[j]
-				next_copy = row[j+1]
+
+				if j < self.n-1:
+					next_copy = row[j+1]
 				
 				# Found a left end of the replication fork
-				if prev_copy == 1 and cur_copy == 2:
+				if j > 0 and prev_copy == 1 and cur_copy == 2:
 					left_ind = j-self.rep_growth_per_min
 					left_ind = max(left_ind, 0)
 					updated_row[left_ind:j] = 2
-				
+
 				# Found a right end of the replication fork
-				if next_copy == 1 and cur_copy == 2:
+				if j < self.n-1 and next_copy == 1 and cur_copy == 2:
 					right_ind = j+1+self.rep_growth_per_min
 					right_ind = max(right_ind, 0)
 					updated_row[j:right_ind] = 2
@@ -77,19 +82,21 @@ class ToyReplication:
 	def copy_number_correction(self):
 		from src.CopyNumberCorrection import copy_number_correct
 
-		def normalize_read_counts(read_counts, norm_scale=5000., axis=1):
+		def normalize_read_counts(read_counts, norm_scale=3., axis=1):
 			"""Normalize reads across columns"""
 			normalized_reads = (read_counts / \
 				read_counts.sum(axis=axis).reshape((-1, 1))) * norm_scale
 			return normalized_reads
 
-		self.copy_num_2_props = create_copy_number_2_prop_mat(self.tps, self.replication_times, std=self.std)
+		#self.copy_num_2_props = create_copy_number_2_prop_mat(self.tps, self.replication_times, self.std)
 
 		# Generate reads as constant vector of ones, and normalize
 		self.normalized_reads = normalize_read_counts(self.reads)
 
+		self.corrected_copy_num_reads = self.normalized_reads / self.copy_num_2_props
+
 		# Copy number correct and normalize the corrected reads
-		self.corrected_copy_num_reads = copy_number_correct(self.copy_num_2_props, self.normalized_reads)
+		# self.corrected_copy_num_reads = copy_number_correct(self.copy_num_2_props, self.normalized_reads)
 		self.normalized_corrected_reads = normalize_read_counts(self.corrected_copy_num_reads, axis=1)
 
 
@@ -99,30 +106,38 @@ class ToyReplication:
 		plt.figure(figsize=(13, 2))
 
 		plt.subplot(1, 4, 1)
-		plt.imshow(self.copy_num_2_props+1, origin='lower', aspect='auto', vmax=2.,
+		plt.imshow(self.copy_num_2_props+1, origin='lower', aspect='auto', vmin=0, vmax=2.,
 			extent=extent)
 		plt.colorbar()
 		plt.title("Copies of DNA")
 		plt.ylabel("Time, min")
 		plt.xlabel("Genomic position")
+		plt.xticks([])
+		plt.yticks([])
 
 		plt.subplot(1, 4, 2)
 		plt.imshow(self.normalized_reads, aspect='auto', origin='lower',
-		          cmap='RdBu_r', vmin=70, vmax=130, extent=extent)
+		          cmap='viridis', vmin=0, vmax=2, extent=extent)
 		plt.colorbar()
 		plt.title("Uncorrected reads")
+		plt.xticks([])
+		plt.yticks([])
 
 		plt.subplot(1, 4, 3)
 		plt.imshow(self.corrected_copy_num_reads, aspect='auto', origin='lower',
-		          cmap='RdBu_r', vmin=70, vmax=130, extent=extent)
+		          cmap='RdBu_r', vmin=0, vmax=3, extent=extent)
 		plt.colorbar()
 		plt.title("Corrected reads")
+		plt.xticks([])
+		plt.yticks([])
 
 		plt.subplot(1, 4, 4)
 		plt.imshow(self.normalized_corrected_reads, aspect='auto', origin='lower', 
-		    cmap='RdBu_r', vmin=70, vmax=130, extent=extent)
+		    cmap='RdBu_r', vmin=0, vmax=3, extent=extent)
 		plt.colorbar()
 		plt.title("Normalized+Corrected\nfor copy number")
+		plt.xticks([])
+		plt.yticks([])
 
 
 	def plot_replication(self):

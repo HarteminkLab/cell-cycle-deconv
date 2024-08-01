@@ -361,7 +361,8 @@ def compute_sliding_window(data, window_size, step):
 
 
 def normalize_first_cc_bin_curves(dat, lambda_val):
-	"""Normalize the data such that within the first cell cycle"""
+	"""Normalize the data such that within the first cell cycle values range
+	between 0 and 1."""
 	x = dat.index
 	first_cc_indices = x < lambda_val
 	normalized_dat = normalize_max_min(dat, first_cc_indices)

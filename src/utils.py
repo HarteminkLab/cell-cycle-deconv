@@ -49,3 +49,10 @@ def run_cmd(bashCommand, stdout_file=None):
 def save_print_df(df, path):
 	df.to_csv(path)
 	print(f"Saved to {path}")
+
+
+def load_orf_data(path):
+	import pandas as pd
+	dat = pd.read_csv(path).set_index('orf_name')
+	dat.columns = dat.columns.astype(int)
+	return dat

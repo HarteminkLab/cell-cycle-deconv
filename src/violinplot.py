@@ -90,7 +90,8 @@ class ViolinPlotPlotter():
 
 		# Plot outliers
 		if self.plot_outliers:
-			plt.scatter([x_location] * len(outliers), outliers, color='#777', s=3)  # Outliers
+			plt.scatter([x_location] * len(outliers), outliers, color='#bbb', s=3,
+			zorder=2)  # Outliers
 
 		# Plot mean
 		plt.scatter([x_location], [mean], marker='D', s=9, zorder=12, facecolors=color,

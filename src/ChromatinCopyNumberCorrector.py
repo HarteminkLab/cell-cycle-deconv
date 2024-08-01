@@ -121,6 +121,8 @@ class ChromatinCopyNumberCorrector:
 			f"{save_dir}/raw_sums_rep{self.replicate}_{self.config_type}.csv")
 		save_print_df(self.normalized_corrected_g_data, 
 			f"{save_dir}/normalized_corrected_rep{self.replicate}_{self.config_type}.csv")
+		save_print_df(self.normalized_chrom_sum_data, 
+			f"{save_dir}/normalized_raw_rep{self.replicate}_{self.config_type}.csv")
 
 
 	def compute_ptrs(self):

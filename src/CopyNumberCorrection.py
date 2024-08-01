@@ -8,6 +8,13 @@ from src.config import read_yl_vst_data_rep, load_configs_by_config_type
 from src.stepwise_replication_solver import load_gene_replication_profile
 
 class CopyNumberCorrector:
+	"""
+	Copy number correction based on old logic.
+
+	todo: May be deprecating this class soon as a newer simpler methodology is being
+	created that strictly uses a copy number matrix. Addressing normalization and scaling 
+	at the moment.
+	"""
 
 	def __init__(self, config_type, replicate):
 		

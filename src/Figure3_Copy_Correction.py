@@ -227,8 +227,9 @@ class Figure3CopyCorrection():
 		from src.mnase_replication_timing_analysis import get_bin_for_position
 
 		eff_key = 'derived_origin_efficiency_from_mcguffee_et_al_2013'
-		origins_chr['alpha'] = 1.0#origins_chr[eff_key] + 0.2
-		#origins_chr.loc[origins_chr['alpha'] < 0.2, 'alpha'] = 0.2 # Span values from 0.2-1.0, original values are from 0-0.75 (with -1's as not found)
+		origins_chr['alpha'] = 1.0 # origins_chr[eff_key] + 0.2
+		# origins_chr.loc[origins_chr['alpha'] < 0.2, 'alpha'] = 0.2 # Span values from 0.2-1.0,
+		# original values are from 0-0.75 (with -1's as not found)
 
 		for origin_name, origin in origins_chr.iterrows():
 			# add one to plot the first index in which copy number is 2
@@ -266,9 +267,21 @@ class Figure3CopyCorrection():
 		solver.set_chrom(10)
 		solver.plot_raw_data()
 
-	def plot_chrom_ptr_correction(self, selected_genes=None):
+	def plot_chrom_ptr_correction(self, selected_genes=None, shuffled=False):
 		
-		plot_data = self.mean_chrom_ptrs
+		if shuffled:
+
+			# Chromatin
+			chrom_ptrs_rep1 = pd.read_csv('output/copy_correction_shuffled/chromatin/ptrs_rep1_shared.csv')\
+				.set_index('orf_name')
+			chrom_ptrs_rep2 = pd.read_csv('output/copy_correction_shuffled/chromatin/ptrs_rep2_shared.csv')\
+				.set_index('orf_name')
+			mean_chrom_ptrs = (chrom_ptrs_rep1 + chrom_ptrs_rep2) / 2.
+
+			plot_data = mean_chrom_ptrs 
+		else:
+			plot_data = self.mean_chrom_ptrs
+
 		plt.figure(figsize=FiguresConfig.FIGSIZE_SQUARE_WIDE)
 		plt.scatter(plot_data.normalized_raw_ptr, 
 					plot_data.normalized_corrected_ptr,
@@ -283,8 +296,12 @@ class Figure3CopyCorrection():
 		cbar.ax.set_ylabel("Replication time, min", rotation=270, va='bottom')
 
 		n = len(plot_data)
-		plt.title(f"Mean Chromatin PTR,\nRaw vs Copy # Corrected n={n}", 
-			fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=10)
+		if shuffled:
+			title = f"Mean Chromatin PTR (shuffled replication timing),\nRaw vs Copy # Corrected n={n}"
+		else:
+			title = f"Mean Chromatin PTR,\nRaw vs Copy # Corrected n={n}"
+
+		plt.title(title, fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=10)
 		plt.plot([1, 2], [1, 2], c='black', lw=0.5, ls='dotted', zorder=10)
 
 		xlim, ylim = (1, 1.5), (1, 1.5)
@@ -300,7 +317,7 @@ class Figure3CopyCorrection():
 		plt.xlabel("Raw chromatin occupancy PTR")
 		plt.ylabel("Copy-number-corrected chromatin occupancy PTR")
 
-	def plot_violin_ptr_11(self, selected_genes=[]):
+	def plot_violin_ptr_11(self, gene_groups=None):
 		"""Compute the distance of each ptr adjustment from the 1:1 line. Then create a violin plot
 		of the distribution of these values for each replication timing window."""
 
@@ -528,26 +545,81 @@ class Figure3CopyCorrection():
 				 pad=10, fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
 
 	def plot_chrom_examples(self, save_dir=None):
-		
-		def load_orf_data(path):
-			dat = pd.read_csv(path).set_index('orf_name')
-			dat.columns = dat.columns.astype(int)
-			return dat
 
-		chrom_raw_rep1 = load_orf_data('output/copy_correction/chromatin/raw_sums_rep1_shared.csv')
+		from src.utils import load_orf_data
+		
+		chrom_normalized_raw_rep1 = load_orf_data('output/copy_correction/chromatin/normalized_raw_rep1_shared.csv')
 		chrom_cor_rep1 = load_orf_data('output/copy_correction/chromatin/normalized_corrected_rep1_shared.csv')
 
-		chrom_raw_rep2 = load_orf_data('output/copy_correction/chromatin/raw_sums_rep1_shared.csv')
-		chrom_cor_rep2 = load_orf_data('output/copy_correction/chromatin/normalized_corrected_rep1_shared.csv')
+		chrom_normalized_raw_rep2 = load_orf_data('output/copy_correction/chromatin/normalized_raw_rep2_shared.csv')
+		chrom_cor_rep2 = load_orf_data('output/copy_correction/chromatin/normalized_corrected_rep2_shared.csv')
 
 		from src.Figure3_Copy_Correction import plot_orf_correction
 		from src.sgd import get_gene_name_orf_name
 
 		for orf in self.selected_chrom_genes:
 			orf_name, gene_name = get_gene_name_orf_name(orf)
-			plot_orf_correction(orf, chrom_raw_rep1, chrom_cor_rep1, chrom_raw_rep2, chrom_cor_rep2,
+			plot_orf_correction(orf, 
+				chrom_normalized_raw_rep1, chrom_cor_rep1, 
+				chrom_normalized_raw_rep2, chrom_cor_rep2,
 							   ylim=(0, 2500), ylabel="Chromatin window occupancy")
 			save_figure_for_paper(f'{save_dir}/Copy_Correction_Chromatin_Example_{gene_name}.png')
+
+	def plot_selected_chrom_examples_ptr_decrease(self):
+		from src.sgd import get_gene_name_orf_name
+		from src.figure_configs import FiguresConfig
+		from src.utils import load_orf_data
+
+		def plot_gene_examples(genes, colors, titles, suptitle):
+			
+			def plot_genes_corrections(replicate):
+				chrom_normalized_raw = load_orf_data(f'output/copy_correction/chromatin/normalized_raw_rep{replicate}_shared.csv')
+				chrom_cor = load_orf_data(f'output/copy_correction/chromatin/normalized_corrected_rep{replicate}_shared.csv')
+
+				def plot_gene_correction(gene_name, color, title):
+					orf_name, gene_name = get_gene_name_orf_name(gene_name)
+					raw = chrom_normalized_raw.loc[orf_name]
+					corrected = chrom_cor.loc[orf_name]
+
+					plt.plot(raw, color=color, lw=2, label=f"{gene_name}, {title}")
+					plt.plot(corrected, color=color, ls='dashed', lw=1)
+
+				for i in range(len(genes)):
+					plot_gene_correction(genes[i], colors[i], titles[i])
+
+				from src.config import load_configs_by_config_type
+				config1, config2 = load_configs_by_config_type('shared')
+				config = config1 if replicate == 1  else config2
+				(s_start, s_end), (second_s_start, second_s_end) = config.get_raw_s_tps()
+				plt.axvline(s_start, c='black', lw=1, ls='dotted')
+				plt.axvline(s_end, c='black', lw=1, ls='dotted')
+				plt.axvline(second_s_start, c='black', lw=1, ls='dotted')
+				plt.axvline(second_s_end, c='black', lw=1, ls='dotted')
+
+				plt.legend()
+				plt.ylim(0, 2300)
+
+			plt.figure(figsize=FiguresConfig.FIGSIZE_SHORT_WIDE)
+			plt.subplot(1, 2, 1)
+			plot_genes_corrections(1)
+			plt.title("Replicate 1", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+			plt.xlabel("Time, min")
+			plt.ylabel("Chromatin occupancy")
+
+			plt.subplot(1, 2, 2)
+			plot_genes_corrections(2)
+			plt.title("Replicate 2", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+			plt.xlabel("Time, min")
+
+			plt.suptitle(suptitle, 
+						 fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+			plt.subplots_adjust(top=0.84)
+
+		suptitle = "Decreased PTR following correction"
+		genes = ['HSP60', 'CLB3']
+		colors = [plt.get_cmap('RdBu_r')(0.9), plt.get_cmap('RdBu_r')(0.1)]
+		titles = ['Early', 'Late']
+		plot_gene_examples(genes, colors, titles, suptitle)
 
 
 	def plot_ge_examples(self, orfs=None, save_dir=None):
@@ -617,7 +689,7 @@ class Figure3CopyCorrection():
 
 			from scipy.stats.distributions import norm
 
-			self.plot_violin_ptr_11(example_orfs)
+			self.plot_violin_ptr_11()
 
 			# --------
 
@@ -629,8 +701,9 @@ class Figure3CopyCorrection():
 			x = x + norm.rvs(loc=0, scale=0.01, size=len(x))
 			plt.scatter(x, y, s=20, zorder=100, edgecolor='white', facecolor='green')
 			
-			go_term_title = f"{go_id} - {go_term}, n={len(example_orfs)}"
-				
+			go_name = go_term.title().replace("Dna", "DNA")
+			go_term_title = (f"{go_id}, n={len(example_orfs)}\n{go_name}")
+
 			plt.title(go_term_title)
 
 			go_save_title = go_term.replace(' ', '_')[0:13]
@@ -639,17 +712,164 @@ class Figure3CopyCorrection():
 			plt.close()
 			print("Wrote to " + save_path)
 
+	def plot_violin_plot_selected_GO_terms(self):
+
+		from src.gene_ontology import genes_for_go
+		from scipy.stats.distributions import norm
+
+		go_terms = ['GO:0000079',
+					'GO:0003697']
+		go_names = [
+			'Regulation of Cyclin dependent S/T kinase activity',
+			'Single stranded DNA binding'
+		]
+
+		selected_genes = self.selected_chrom_genes
+
+		colors = ['green', 'purple']
+		x_offset = [-0.05, 0.05]
+
+		self.plot_violin_ptr_11()
+
+		vp = self.violin_plotter
+		dfs_to_plot = vp.dfs_to_plot[0].copy()
+		x, y = dfs_to_plot.group_id, dfs_to_plot.distance_11
+
+		np.random.seed(123)
+
+		dfs_to_plot['x'] = x = x + \
+			norm.rvs(loc=0, scale=0.01, size=len(x))
+
+		import matplotlib.patheffects as path_effects
+
+		for i in range(len(go_terms)):
+			
+			go_term = go_terms[i]
+			selected_go_orfs = genes_for_go(self.gene_ontology.orfs_with_go, 
+				go_term)[0].index
+			color = colors[i]
+
+			selected_df = dfs_to_plot.loc[selected_go_orfs]
+			x, y = selected_df['x'] + x_offset[i], selected_df.distance_11
+
+			label = f"{go_names[i]}, n={len(x)}"
+			
+			plt.scatter(x, y, 
+				s=20, zorder=50, edgecolor='white', facecolor=color,
+					   label=label, lw=1, marker='o')
+
+			for gene in selected_genes:
+				from src.sgd import get_gene_name_orf_name
+				orf_name, gene_name = get_gene_name_orf_name(gene)
+				if orf_name in selected_go_orfs:
+					row = selected_df.loc[orf_name]
+
+					ha = 'left'
+					x = row.x + x_offset[i]*2.
+
+					if x_offset[i] < 0: ha = 'right'
+					else: ha = 'left'
+
+					text = plt.text(x, row.distance_11, gene_name, 
+						ha=ha, zorder=100)
+					text.set_path_effects([path_effects.Stroke(linewidth=3., 
+						foreground='white'), path_effects.Normal()])
+
+		plt.yticks(np.arange(-0.04, 0.05, 0.02))
+		plt.ylim(-0.05, 0.04)
+		plt.legend(loc='lower right')
+
+		plt.title("Copy correction PTR adjustment")
+
+
 	def plot_gene_expression_ptr_vs_diff_11(self):
 		ge_distance_data = self.mean_chrom_ptrs_w_distances_11.join(self.gene_expression_analysis.gene_ptrs_df)
 		ge_distance_data = ge_distance_data.join(self.mean_chrom_ptrs['replication_time'])
 
 		plt.scatter(ge_distance_data.ptr, ge_distance_data.distance_11, s=1,
-		           c=ge_distance_data.replication_time, cmap='RdBu_r',
-		           vmin=6, vmax=15)
+				   c=ge_distance_data.replication_time, cmap='RdBu_r',
+				   vmin=6, vmax=15)
 		plt.colorbar()
 		plt.axhline(0, c='black', ls='dotted', lw=1)
 		plt.title("Gene expression PTR compared to copy correction change")
 
+
+	def plot_heatmap_raw_corrected_mnase(self, replicate):
+		"""Plot the heatmap of the raw and corrected MNase occupancy data"""
+
+		from src.utils import load_orf_data
+
+		normalized_raw = load_orf_data(f'output/copy_correction/chromatin/normalized_raw_rep{replicate}_shared.csv')
+		chrom_cor = load_orf_data(f'output/copy_correction/chromatin/normalized_corrected_rep{replicate}_shared.csv')
+		
+		#normalized_raw = chrom_raw / chrom_raw.sum(axis=0).values.reshape((1, -1))
+		#normalized_raw *= chrom_cor.sum(axis=0).iloc[0]
+
+		if replicate == 1:
+			orfs_sorted = self.ge_ptrs_rep1.sort_values('replication_time').index
+		else:
+			orfs_sorted = self.ge_ptrs_rep2.sort_values('replication_time').index
+		raw = normalized_raw.loc[orfs_sorted]
+		corrected = chrom_cor.loc[orfs_sorted]
+		difference = corrected-raw
+
+		from src.global_config import GlobalConstants
+		from src.config import load_configs_by_config_type
+
+		config1, config2 = load_configs_by_config_type('shared')
+		if replicate == 1: config = config1
+		else: config = config2
+		(s_start, s_end), (second_s_start, second_s_end) = config.get_raw_s_tps()
+
+		def plot_im(dat, vmin=0, vmax=4000, cmap='viridis'):
+			# plt.imshow(dat, aspect='auto', interpolation='none',
+			# 	extent=[-5, GlobalConstants.CHROM_WT1_TIMEPOINTS[-1]+5, 
+			# 			0, 100],
+			# 		  vmin=vmin, vmax=vmax, cmap=cmap)
+
+			# print(dat.shape)
+			# first_col = dat.values[:, 0]
+			# logfold_dat = np.log2(dat / (first_col.reshape((-1, 1))))
+
+			plt.imshow(dat, aspect='auto', interpolation='none',
+				extent=[-5, GlobalConstants.CHROM_WT1_TIMEPOINTS[-1]+5, 
+						0, 100],
+					  vmin=1000, vmax=2500, cmap='viridis')
+
+			plt.yticks([])
+			plt.colorbar()
+
+		plt.figure(figsize=FiguresConfig.FIGSIZE_WIDE)
+		plt.subplot(1, 3, 1)
+		plot_im(raw)
+		# plt.ylabel("Genes sorted by replication time")
+		# plt.xlabel("Time, min")
+
+		plt.title("Raw", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=9)
+
+		plt.subplot(1, 3, 2)
+		plot_im(corrected)
+		plt.title("Copy corrected", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=9)
+
+		# plt.subplot(1, 3, 3)
+		# plot_im(difference, vmin=-100, vmax=100, cmap='RdBu_r')
+		# plt.title("Difference", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=9)
+
+		# plt.suptitle(f"Gene 1kb MNase-seq occupancy, replicate {replicate}", 
+		# 	fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+		# plt.subplots_adjust(top=0.87, wspace=0.2)
+
+
+	def select_genes_for_go_repl(self, go_id, timing_group=None, diff_cutoffs=[-1, 1]):
+		from src.gene_ontology import genes_for_go
+		selected_orf_ids, _ = genes_for_go(self.gene_ontology.orfs_with_go, go_id)
+		genes = self.gene_ontology.orfs_with_go
+		ptrs_w_dist = self.mean_chrom_ptrs_w_distances_11.loc[selected_orf_ids.index]
+		selected = ptrs_w_dist[(ptrs_w_dist.distance_11 > diff_cutoffs[0]) & 
+						(ptrs_w_dist.distance_11 < diff_cutoffs[1])].join(genes[['name']])
+		if timing_group is not None:
+			selected = selected[(selected.group_name == timing_group)]
+		return selected
 
 def rep_quantile_colors():
 	group_colors = []
@@ -679,7 +899,7 @@ def get_color_for_rep_group(key):
 def ptr_cmap():
 	from src.plot_helpers import adjust_lightness_saturation_colormap
 
-	cmap = plt.get_cmap('RdBu')
+	cmap = plt.get_cmap('inferno')
 	#cmap = adjust_lightness_saturation_colormap(cmap, 1., 0.8, 'SatSpectral')
 	return cmap
 
@@ -747,11 +967,16 @@ def plot_selected_genes(plot_data, selected_genes, keyx, keyy, xlim, ylim):
 def plot_orf_correction(gororf, gene_data_rep1, corrected_data_rep1, gene_data_rep2, corrected_data_rep2,
 	ylim=(0, 18), ylabel='Expression, VST'):
 	"""Plot time course of corrected and uncorrected genes"""
+
 	from src.sgd import get_gene_name_orf_name
+	from src.config import load_configs_by_config_type
+
+	config1, config2 = load_configs_by_config_type('shared')
 
 	plt.figure(figsize=FiguresConfig.FIGSIZE_SHORT_WIDE)
 
 	plt.subplot(1, 2, 1)
+	(s_start, s_end), (second_s_start, second_s_end) = config1.get_raw_s_tps()
 
 	orf_name, gene_name = get_gene_name_orf_name(gororf)
 	color = plt.get_cmap('Spectral')(0.1)
@@ -766,8 +991,16 @@ def plot_orf_correction(gororf, gene_data_rep1, corrected_data_rep1, gene_data_r
 	plt.xlabel("Time, min")
 	plt.ylabel(ylabel)
 	plt.title("Replicate 1", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+	plt.axvline(s_start, c='black', ls='dotted', lw=1)
+	plt.axvline(s_end, c='black', ls='dotted', lw=1)
+
+	plt.axvline(second_s_start, c='black', ls='dotted', lw=1)
+	plt.axvline(second_s_end, c='black', ls='dotted', lw=1)
+
 
 	plt.subplot(1, 2, 2)
+
+	(s_start, s_end), (second_s_start, second_s_end) = config2.get_raw_s_tps()
 	plt.plot(gene_data_rep2.loc[orf_name], c=raw_color, lw=3, label="Raw")
 	plt.plot(corrected_data_rep2.loc[orf_name], c=color, ls='dashed', lw=2, label="Corrected")
 	plt.ylim(*ylim)
@@ -778,3 +1011,10 @@ def plot_orf_correction(gororf, gene_data_rep1, corrected_data_rep1, gene_data_r
 	plt.legend()
 	plt.xlabel("Time, min")
 	plt.subplots_adjust(top=0.8)
+
+	plt.axvline(s_start, c='black', ls='dotted', lw=1)
+	plt.axvline(s_end, c='black', ls='dotted', lw=1)
+
+	plt.axvline(second_s_start, c='black', ls='dotted', lw=1)
+	plt.axvline(second_s_end, c='black', ls='dotted', lw=1)
+

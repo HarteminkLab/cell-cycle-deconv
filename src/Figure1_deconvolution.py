@@ -156,9 +156,9 @@ class Figure1Deconvolution(object):
 		self.combined_ge_model = combined_ge_model
 
 
-	def plot_deconvolution(self):
+	def plot_deconvolution(self, should_smooth_data=True):
 		fig = self.combined_model.create_deconvolution_plots_abbreviated_flipped(
-			ge_model=self.combined_ge_model, vmax=10, should_smooth_data=True)
+			ge_model=self.combined_ge_model, vmax=10, should_smooth_data=should_smooth_data)
 
 	def plot_raw_example(self):
 
