@@ -1,5 +1,7 @@
 
 import numpy as np
+import pandas as pd
+from matplotlib import pyplot as plt
 
 
 class CopyCorrectionAnalysis:
@@ -52,41 +54,183 @@ class CopyCorrectionAnalysis:
 		self.H1, Hpos = config1.calcH_function(config1.intervals_wt1, config1.WT1_TIMEPOINTS)
 		self.H2, Hpos = config2.calcH_function(config2.intervals_wt1, config2.WT1_TIMEPOINTS)
 
+		from src.geneset import get_deconvolved_geneset
+		self.genes = get_deconvolved_geneset()
 
+	def compute_gene_10k_counts(self, replicate):
+
+		self.replicate = replicate
+
+		from src.CopyNumberCorrection import get_bin_for_position
+
+		genes = self.genes
+		gene_positions = genes[[]].copy()
+		gene_chr_counts = genes[[]].copy()
+
+		if replicate == 1:
+			chr_bin_curves = self.mnase_occupancies_1.normalized_bin_curves
+		else:
+			chr_bin_curves = self.mnase_occupancies_2.normalized_bin_curves
+
+		for chrom in range(1, 17):
+
+			chr_genes = genes[genes.chr == chrom]
+			start_indices = chr_bin_curves.loc[chrom].index
+
+			gene_positions['chr'] = chrom
+
+			for orf_name, gene in chr_genes.iterrows():
+				bin_idx, bin_start_bp = get_bin_for_position(gene.TSS, start_indices)
+				gene_positions.loc[orf_name, 'bin_start'] = bin_start_bp
+				values = chr_bin_curves.loc[chrom].loc[bin_start_bp].values
+				gene_chr_counts.loc[orf_name, np.arange(len(values))] = values
+
+		gene_positions.bin_start = gene_positions.bin_start.astype(int)
+
+		genes_repl_profile = pd.read_csv('data/replication_timing/yl_2019/genes_replication_timing_shared.csv')
+		genes_repl_profile = genes_repl_profile.set_index('orf_name')
+		genes_repl_profile = genes_repl_profile.sort_values('replication_time')
+
+		# Sort the gene counts by the sorted replication time
+		gene_chr_counts = gene_chr_counts.loc[genes_repl_profile.index]
+
+		self.gene_positions = gene_positions
+		self.gene_10k_counts = gene_chr_counts
+		self.genes_repl_profile = genes_repl_profile
+
+
+	def compute_correction_matrix(self):
+		from src.copy_correction_reanalysis import correct_replication_indices
+
+		replication_indices = self.genes_repl_profile.replication_H_index.values.astype(int)
+		from src.copy_correction_reanalysis import create_copy_number_H, correct_replication_indices
+
+		H = self.H1 if self.replicate == 1 else self.H2
+
+		(H_combined_copy_num, 
+		 H_expected_copy_per_gene, 
+		 H_normalized_copy_per_gene) = correct_replication_indices(H, replication_indices)
+
+		self.H_combined_copy_num = H_combined_copy_num 
+		self.H_expected_copy_per_gene = H_expected_copy_per_gene 
+		self.H_normalized_copy_per_gene = H_normalized_copy_per_gene
+		self.H_expected_copy_number_sum = self.H_expected_copy_per_gene.sum(axis=2)
+
+		# scale is an approximation based on copy number curves from H
+		# due to halted cells
+		scale = 0.7
+		self.corrected_counts = (self.gene_10k_counts*scale+1) / self.H_expected_copy_number_sum
+
+	def plot_heatmap_correction(self):
+		from src.global_config import GlobalConstants
+
+		gene_chr_counts = self.gene_10k_counts
+
+		# scale is an approximation based on copy number curves from H
+		# due to halted cells
+		scale = 0.7
+
+		plt.figure(figsize=(13, 6))
+		plt.subplot(1, 4, 1)
+		plt.imshow(self.H_expected_copy_number_sum, aspect='auto', cmap='RdBu_r', vmin=1, vmax=2.,
+		           interpolation='none', extent=[0, GlobalConstants.CHROM_WT1_TIMEPOINTS[-1], 
+		                                         0, len(gene_chr_counts)])
+		plt.colorbar()
+		plt.yticks([])
+		plt.ylabel("Genes sorted by replication")
+		plt.xlabel("Time, min")
+		plt.title("Est. Copy #")
+
+		plt.subplot(1, 4, 2)
+		plt.imshow((gene_chr_counts*scale+1), aspect='auto', 
+		          vmin=1, vmax=2, interpolation='none',
+		          extent=[0, GlobalConstants.CHROM_WT1_TIMEPOINTS[-1], 0,
+		                  len(gene_chr_counts)], cmap='RdBu_r')
+		plt.colorbar()
+		plt.yticks([])
+		plt.xlabel("Time, min")
+		plt.title("10k occupancy")
+
+		plt.subplot(1, 4, 3)
+		normalized_corrected_counts = self.corrected_counts / \
+		    self.corrected_counts.sum(axis=0).values.reshape((1, -1))
+		plt.imshow(self.corrected_counts, aspect='auto', 
+		          vmin=0, vmax=2, interpolation='none',
+		          extent=[0, GlobalConstants.CHROM_WT1_TIMEPOINTS[-1], 0,
+		                  len(gene_chr_counts)], cmap='RdBu_r')
+		plt.colorbar()
+		plt.yticks([])
+		plt.xlabel("Time, min")
+		plt.title("Corrected occupancy")
+
+	def compute_ptr(self):
+		from src.peak_to_trough import compute_quantile_ptr_2d
+
+		self.raw_ptrs = compute_quantile_ptr_2d(self.gene_10k_counts)
+		self.corrected_ptrs = compute_quantile_ptr_2d(self.corrected_counts)
+
+
+	def plot_ptr(self):
+		plt.figure(figsize=(4, 4))
+		plt.scatter(self.raw_ptrs, self.corrected_ptrs, s=1)
+		plt.plot([0, 10], [0, 10], lw=1, ls='dotted', zorder=0, color='black')
+		plt.xlim(0.95, 2)
+		plt.ylim(0.95, 2)
+
+
+	def plot_copy_correction_curves(self):
+
+		replication_indices = self.genes_repl_profile.replication_H_index.values.astype(int)
+
+		plt.figure(figsize=(13, 3))
+		plt.subplot(1, 3, 1)
+		plt.imshow(self.H_combined_copy_num, vmax=0.05, aspect='auto', interpolation='none')
+		plt.colorbar()
+		plt.title("H w/ expected copy number")
+
+		n = len(replication_indices)
+		plt.subplot(1, 3, 2)
+
+		plt.plot(self.H_expected_copy_number_sum.T[:, 0:n:100], c='red', alpha=0.5)
+		plt.title("Expected copy number")
+
+		plt.subplot(1, 3, 3)
+		plt.plot(self.H_normalized_copy_per_gene[:, 0:n:100], c='red', alpha=0.5)
+		plt.title("Copy number per gene, normalized\nby overal genome replication timing")
+
+		
 def create_copy_number_H(H, replication_idx):
-    """Create a copy number matrix from H, converting indices from the replication index
-    onward to two copies.
-    
-    The resulting matrix is a modification of the original proportion matrix that represents
-    the overall expected copy number per timepoint when the columns are collapsed
-    """
-    c1_indices = np.concatenate([np.arange(replication_idx), np.array([H.shape[1]-1])])
-    c2_indices = np.arange(replication_idx, H.shape[1]-1)
+	"""Create a copy number matrix from H, converting indices from the replication index
+	onward to two copies.
+	
+	The resulting matrix is a modification of the original proportion matrix that represents
+	the overall expected copy number per timepoint when the columns are collapsed
+	"""
+	c1_indices = np.concatenate([np.arange(replication_idx), np.array([H.shape[1]-1])])
+	c2_indices = np.arange(replication_idx, H.shape[1]-1)
 
-    # Combine the two for the expected copy number for the gene
-    H_expected_copy_num = H.copy()
-    H_expected_copy_num[:, c2_indices] = H[:, c2_indices]*2
-    return H_expected_copy_num
+	# Combine the two for the expected copy number for the gene
+	H_expected_copy_num = H.copy()
+	H_expected_copy_num[:, c2_indices] = H[:, c2_indices]*2
+	return H_expected_copy_num
 
 
 def correct_replication_indices(H, replication_indices):
-    """Create a combined H matrix that includes each of the copy number 
-    corrected H matrices.
-    
-    Then create a normalized copy number matrix per gene. A matrix that represents
-    the copy correction including the normalizing effect of varying replication times
-    per genome segment.
-    """
-    num_genes = len(replication_indices)
-    H_expected_copy_per_gene = np.zeros((num_genes, *H.shape))
+	"""Create a combined H matrix that includes each of the copy number 
+	corrected H matrices.
+	
+	Then create a normalized copy number matrix per gene. A matrix that represents
+	the copy correction including the normalizing effect of varying replication times
+	per genome segment.
+	"""
+	num_genes = len(replication_indices)
+	H_expected_copy_per_gene = np.zeros((num_genes, *H.shape))
 
-    for i in range(num_genes):
-         H_expected_copy_per_gene[i] = create_copy_number_H(H, replication_indices[i])
+	for i in range(num_genes):
+		 H_expected_copy_per_gene[i] = create_copy_number_H(H, replication_indices[i])
 
-    H_combined_copy_num = np.sum(H_expected_copy_per_gene, axis=0) / num_genes
-    overall_sum = H_combined_copy_num.sum(axis=1)
-    H_normalized_copy_per_gene = H_expected_copy_per_gene.sum(axis=2).T / \
-        overall_sum.reshape((-1, 1))
-    return H_combined_copy_num, H_expected_copy_per_gene, H_normalized_copy_per_gene
-
-
+	H_combined_copy_num = np.sum(H_expected_copy_per_gene, axis=0) / num_genes
+	overall_sum = H_combined_copy_num.sum(axis=1)
+	H_normalized_copy_per_gene = H_expected_copy_per_gene.sum(axis=2).T / \
+		overall_sum.reshape((-1, 1))
+	return H_combined_copy_num, H_expected_copy_per_gene, H_normalized_copy_per_gene

@@ -10,6 +10,11 @@ def combine_ptr_score(c, d, weight):
 	return score
 
 
+def compute_quantile_ptr_2d(arr2d, axis=1):
+	ptr_mat = np.apply_along_axis(compute_quantile_ptr, axis, arr2d)
+	return ptr_mat
+
+
 def compute_quantile_ptr(data_f, lo=0.2, hi=0.8, eps=1, return_indices=False):
 	"""
 	Compute the 80/20 PTR of the data, ensuring no division by 0 by adding a small pseudo count.
