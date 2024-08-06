@@ -2,6 +2,7 @@
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
+from src.figure_configs import FiguresConfig
 
 
 class CopyCorrectionAnalysis:
@@ -111,7 +112,7 @@ class CopyCorrectionAnalysis:
 		 H_expected_copy_per_gene, 
 		 H_normalized_copy_per_gene) = correct_replication_indices(H, replication_indices)
 
-		self.H_combined_copy_num = H_combined_copy_num 
+		self.H_combined_copy_num = H_combined_copy_num
 		self.H_expected_copy_per_gene = H_expected_copy_per_gene 
 		self.H_normalized_copy_per_gene = H_normalized_copy_per_gene
 		self.H_expected_copy_number_sum = self.H_expected_copy_per_gene.sum(axis=2)
@@ -128,30 +129,31 @@ class CopyCorrectionAnalysis:
 
 		# scale is an approximation based on copy number curves from H
 		# due to halted cells
-		scale = 0.7
+		scale = .7
+		offset = 1
 
-		plt.figure(figsize=(13, 6))
-		plt.subplot(1, 4, 1)
-		plt.imshow(self.H_expected_copy_number_sum, aspect='auto', cmap='RdBu_r', vmin=1, vmax=2.,
-		           interpolation='none', extent=[0, GlobalConstants.CHROM_WT1_TIMEPOINTS[-1], 
-		                                         0, len(gene_chr_counts)])
-		plt.colorbar()
-		plt.yticks([])
-		plt.ylabel("Genes sorted by replication")
-		plt.xlabel("Time, min")
-		plt.title("Est. Copy #")
+		plt.figure(figsize=(6, 6))
+		# plt.subplot(1, 2, 1)
+		# plt.imshow(self.H_expected_copy_number_sum, aspect='auto', cmap='RdBu_r', vmin=1, vmax=2.,
+		#            interpolation='none', extent=[0, GlobalConstants.CHROM_WT1_TIMEPOINTS[-1], 
+		#                                          0, len(gene_chr_counts)])
+		# plt.colorbar()
+		# plt.yticks([])
+		# plt.ylabel("Genes sorted by replication")
+		# plt.xlabel("Time, min")
+		# plt.title("Est. Copy #", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
 
-		plt.subplot(1, 4, 2)
-		plt.imshow((gene_chr_counts*scale+1), aspect='auto', 
-		          vmin=1, vmax=2, interpolation='none',
+		plt.subplot(1, 2, 1)
+		plt.imshow((gene_chr_counts*scale+offset), aspect='auto', 
+		          vmin=0, vmax=2, interpolation='none',
 		          extent=[0, GlobalConstants.CHROM_WT1_TIMEPOINTS[-1], 0,
 		                  len(gene_chr_counts)], cmap='RdBu_r')
 		plt.colorbar()
 		plt.yticks([])
 		plt.xlabel("Time, min")
-		plt.title("10k occupancy")
+		plt.title("Raw occupancy", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
 
-		plt.subplot(1, 4, 3)
+		plt.subplot(1, 2, 2)
 		normalized_corrected_counts = self.corrected_counts / \
 		    self.corrected_counts.sum(axis=0).values.reshape((1, -1))
 		plt.imshow(self.corrected_counts, aspect='auto', 
@@ -161,21 +163,43 @@ class CopyCorrectionAnalysis:
 		plt.colorbar()
 		plt.yticks([])
 		plt.xlabel("Time, min")
-		plt.title("Corrected occupancy")
+		plt.title("Corrected occupancy", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+		plt.suptitle(f"Copy number correction, gene 10 kb occupancy, n={len(normalized_corrected_counts)}",
+			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
 
 	def compute_ptr(self):
 		from src.peak_to_trough import compute_quantile_ptr_2d
 
-		self.raw_ptrs = compute_quantile_ptr_2d(self.gene_10k_counts)
-		self.corrected_ptrs = compute_quantile_ptr_2d(self.corrected_counts)
+		# For replicate 1, start with the third timepoint forwards to handle the recovery
+		# G1 timepoints
+		cols = self.gene_10k_counts.columns[3:]
+		self.raw_ptrs = compute_quantile_ptr_2d(self.gene_10k_counts[cols])
+		self.corrected_ptrs = compute_quantile_ptr_2d(self.corrected_counts[cols])
 
 
 	def plot_ptr(self):
-		plt.figure(figsize=(4, 4))
-		plt.scatter(self.raw_ptrs, self.corrected_ptrs, s=1)
+		from src.figure_configs import FiguresConfig
+
+		plot_data = self.genes_repl_profile.copy()
+		plot_data['raw_ptr'] = self.raw_ptrs
+		plot_data['corrected_ptr'] = self.corrected_ptrs
+		plot_data = plot_data.loc[self.genes.index] # Plot by genomic index
+		self.ptr_df = plot_data
+
+		plt.figure(figsize=(6, 5))
+		plt.scatter(plot_data.raw_ptr, plot_data.corrected_ptr, s=3,
+			c=plot_data.replication_time, cmap='inferno_r',
+			vmin=5, vmax=16)
 		plt.plot([0, 10], [0, 10], lw=1, ls='dotted', zorder=0, color='black')
+		cbar = plt.colorbar()
+		cbar.ax.set_ylabel("Replication time", rotation=270, va='bottom')
+
 		plt.xlim(0.95, 2)
 		plt.ylim(0.95, 2)
+		plt.title("PTR correction, gene 10 kb windows", 
+			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE, pad=9)
+		plt.xlabel("Uncorrected PTR")
+		plt.ylabel("Corrected PTR")
 
 
 	def plot_copy_correction_curves(self):
@@ -187,6 +211,10 @@ class CopyCorrectionAnalysis:
 		plt.imshow(self.H_combined_copy_num, vmax=0.05, aspect='auto', interpolation='none')
 		plt.colorbar()
 		plt.title("H w/ expected copy number")
+		
+		num_curves = 100
+		indices = np.linspace(0, n-1, num_curves).astype(int)
+		colors = [plt.get_cmap('RdBu_r')(float(i)/n) for i in indices]
 
 		n = len(replication_indices)
 		plt.subplot(1, 3, 2)
@@ -196,7 +224,7 @@ class CopyCorrectionAnalysis:
 
 		plt.subplot(1, 3, 3)
 		plt.plot(self.H_normalized_copy_per_gene[:, 0:n:100], c='red', alpha=0.5)
-		plt.title("Copy number per gene, normalized\nby overal genome replication timing")
+		plt.title("Copy number per gene, normalized")
 
 		
 def create_copy_number_H(H, replication_idx):

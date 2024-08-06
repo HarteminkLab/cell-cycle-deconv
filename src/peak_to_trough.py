@@ -50,6 +50,14 @@ def compute_ptr_f(config, f, quantiles=[0.2, 0.8]):
 	return f_ptrs
 
 
+def compute_ptr_f_top(config, f, quantiles=[0.2, 0.8]):
+	f_ptrs = np.zeros(f.shape[1])
+	for i in range(f.shape[1]):
+		cptr, dpt, ptr = compute_ptr(config, f[:, i], quantiles[0], quantiles[1])
+		f_ptrs[i] = ptr
+	return f_ptrs
+
+
 def compute_max_min_locations(config, gene_f, ret_all=False):
 	"""Once we have 80/20 ptr, we are interested in where the absolute max and min locations
 	are for plotting
@@ -156,7 +164,20 @@ def compute_max_min_locations(config, gene_f, ret_all=False):
 	return ret
 
 
-def compute_ptr(config, gene_f, lo=0.2, hi=0.8, return_indices=False):
+def compute_ptr(config, gene_f, lo=0.2, hi=0.8):
+
+	c_indices = config.get_Hpositions_for_branch('t')
+	cg1_f = gene_f[c_indices]
+
+	c_timepoints = config.get_timepoints_for_branch('t')
+	_, scaled_cg1_f, mapping_cg1 = rescale_with_mapping(c_timepoints, cg1_f)
+
+	cptr = compute_quantile_ptr(scaled_cg1_f, lo, hi)
+
+	return cptr
+
+
+def compute_ptr_distinct_cg1_dg1(config, gene_f, lo=0.2, hi=0.8, return_indices=False):
 
 	c_indices = config.get_Hpositions_for_branch('t')
 	d_indices = config.get_Hpositions_for_branch('b')

@@ -48,6 +48,7 @@ def load_f_files(chromatin_dir, geneset=None):
 	print("Shape of the loaded F:", current_f.shape)
 	# Using the old y fragment length definitions
 	# Adjust to 11 x 34
+	print(current_f.shape)
 	if current_f.shape[1] == 340:
 		current_f = pad_10_34_f_img(current_f)
 		current_f = current_f.reshape((old_shape[0], -1)) # Then flatten rows and columns
@@ -92,7 +93,7 @@ def pad_10_34_f_img(current_f):
 	to make analysis easier"""
 	from src.global_config import GlobalConstants
 
-	f_rshp = current_f.reshape((-1, GlobalConstants.IMAGE_SHAPE[0]-1, GlobalConstants.IMAGE_SHAPE[1]))
+	f_rshp = current_f.reshape((-1, 10, 34))
 	shape = f_rshp.shape
 
 	# Concatenate the original array with the zero array along the second dimension

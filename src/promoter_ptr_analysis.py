@@ -40,8 +40,8 @@ class PromoterPTRAnalysis:
 
 		from src.deconv_data import load_f_files
 
-		self.all_gene_fs_df = load_f_files(chromatin_dir, self.genes)
-		self.geneset['gene_idx'] = np.arange(len(all_gene_fs_df))
+		self.all_gene_fs_df = load_f_files(chromatin_dir, self.geneset)
+		self.geneset['gene_idx'] = np.arange(len(self.all_gene_fs_df))
 
 
 	def correct_f_images_by_strand(self):
