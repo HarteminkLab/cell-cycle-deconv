@@ -84,6 +84,7 @@ def load_f_files(chromatin_dir, geneset=None):
 		if i % 1000 == 0:
 			timer.print_time(f"{i+1}/{len(f_filepaths)}")
 		i += 1
+		break
 
 	return all_gene_fs_df
 
