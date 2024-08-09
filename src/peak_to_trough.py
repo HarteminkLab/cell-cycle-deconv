@@ -45,7 +45,7 @@ def compute_quantile_ptr(data_f, lo=0.2, hi=0.8, eps=1, return_indices=False):
 def compute_ptr_f(config, f, quantiles=[0.2, 0.8]):
 	f_ptrs = np.zeros(f.shape[1])
 	for i in range(f.shape[1]):
-		cptr, dpt, ptr = compute_ptr(config, f[:, i], quantiles[0], quantiles[1])
+		ptr = compute_ptr(config, f[:, i], quantiles[0], quantiles[1])
 		f_ptrs[i] = ptr
 	return f_ptrs
 
@@ -53,7 +53,7 @@ def compute_ptr_f(config, f, quantiles=[0.2, 0.8]):
 def compute_ptr_f_top(config, f, quantiles=[0.2, 0.8]):
 	f_ptrs = np.zeros(f.shape[1])
 	for i in range(f.shape[1]):
-		cptr, dpt, ptr = compute_ptr(config, f[:, i], quantiles[0], quantiles[1])
+		ptr = compute_ptr(config, f[:, i], quantiles[0], quantiles[1])
 		f_ptrs[i] = ptr
 	return f_ptrs
 

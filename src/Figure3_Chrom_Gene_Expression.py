@@ -38,11 +38,11 @@ class Figure3_Chrom_GeneExpression:
 		max_g2m_exp = g2m_exp.max(axis=1)
 
 		g1_genes = gene_expression.loc[(max_g1_exp > max_s_exp) & 
-		                               (max_g1_exp > max_g2m_exp)].index
+									   (max_g1_exp > max_g2m_exp)].index
 		g2m_genes = gene_expression.loc[(max_g2m_exp > max_s_exp) & 
-		                                (max_g2m_exp > max_g1_exp)].index
+										(max_g2m_exp > max_g1_exp)].index
 		s_genes = gene_expression.loc[(max_s_exp > max_g2m_exp) & 
-		                              (max_s_exp > max_g1_exp)].index
+									  (max_s_exp > max_g1_exp)].index
 
 		self.g1_genes = g1_genes
 		self.s_genes = s_genes
@@ -76,13 +76,21 @@ class Figure3_Chrom_GeneExpression:
 		gene_expression = self.gene_expression_a.gene_expression_f
 
 		# G1, for the highest express G1 genes, what does the PTR chromatin look like?
-		self.top_k_g1_genes = gene_expression.loc[self.g1_genes][self.g1_indices].median(axis=1).sort_values(ascending=False).head(k).index
-		self.top_k_s_genes = gene_expression.loc[self.s_genes][self.s_indices].median(axis=1).sort_values(ascending=False).head(k).index
-		self.top_k_g2m_genes = gene_expression.loc[self.g2m_genes][self.g2m_indices].median(axis=1).sort_values(ascending=False).head(k).index
 
-		self.bottom_k_g1_genes = gene_expression.loc[self.g1_genes][self.g1_indices].median(axis=1).sort_values(ascending=False).tail(k).index
-		self.bottom_k_s_genes = gene_expression.loc[self.s_genes][self.s_indices].median(axis=1).sort_values(ascending=False).tail(k).index
-		self.bottom_k_g2m_genes = gene_expression.loc[self.g2m_genes][self.g2m_indices].median(axis=1).sort_values(ascending=False).tail(k).index
+		self.top_k_g1_expression = gene_expression.loc[self.g1_genes][self.g1_indices].median(axis=1).sort_values(ascending=False).head(k)
+		self.top_k_s_expression = gene_expression.loc[self.s_genes][self.s_indices].median(axis=1).sort_values(ascending=False).head(k)
+		self.top_k_g2m_expression = gene_expression.loc[self.g2m_genes][self.g2m_indices].median(axis=1).sort_values(ascending=False).head(k)
+		self.bottom_k_g1_expression = gene_expression.loc[self.g1_genes][self.g1_indices].median(axis=1).sort_values(ascending=False).tail(k)
+		self.bottom_k_s_expression = gene_expression.loc[self.s_genes][self.s_indices].median(axis=1).sort_values(ascending=False).tail(k)
+		self.bottom_k_g2m_expression = gene_expression.loc[self.g2m_genes][self.g2m_indices].median(axis=1).sort_values(ascending=False).tail(k)
+
+		self.top_k_g1_genes = self.top_k_g1_expression.index
+		self.top_k_s_genes = self.top_k_s_expression.index
+		self.top_k_g2m_genes = self.top_k_g2m_expression.index
+
+		self.bottom_k_g1_genes = self.bottom_k_g1_expression.index
+		self.bottom_k_s_genes = self.bottom_k_s_expression.index
+		self.bottom_k_g2m_genes = self.bottom_k_g2m_expression.index
 
 		self.top_g1_gene_indices = self.genes.loc[self.top_k_g1_genes].gene_index.values
 		self.top_s_gene_indices = self.genes.loc[self.top_k_s_genes].gene_index.values
@@ -92,47 +100,49 @@ class Figure3_Chrom_GeneExpression:
 		self.bottom_s_gene_indices = self.genes.loc[self.bottom_k_s_genes].gene_index.values
 		self.bottom_g2m_gene_indices = self.genes.loc[self.bottom_k_g2m_genes].gene_index.values
 
-	def plot_gene_ptrs_phase(self):
+	def plot_gene_ptrs_phase(self, top=True):
 
 		k = self.k
 
-		plot_ptr_phases(self.ptr_imgs_strand_corrected, self.top_g1_gene_indices, self.top_s_gene_indices, 
-                self.top_g2m_gene_indices,
-               f"PTR {k} highest expressed genes")
+		if top:
+			plot_ptr_phases(self.ptr_imgs_strand_corrected, self.top_g1_gene_indices, self.top_s_gene_indices, 
+					self.top_g2m_gene_indices,
+				   f"PTR {k} highest expressed genes")
 
-		plot_ptr_phases(self.ptr_imgs_strand_corrected, self.bottom_g1_gene_indices, self.bottom_s_gene_indices, 
-                self.bottom_g2m_gene_indices,
-               f"PTR {k} lowest expressed genes")
+		else:
+			plot_ptr_phases(self.ptr_imgs_strand_corrected, self.bottom_g1_gene_indices, self.bottom_s_gene_indices, 
+					self.bottom_g2m_gene_indices,
+				   f"PTR {k} lowest expressed genes")
 
 
 def plot_ptr_phases(ptr_imgs, top_g1_gene_indices, 
-                    top_s_gene_indices, top_g2m_gene_indices,
-                   title):
-    
-    def plot_img(img, title):
-        
-        extent = [-GlobalConstants.PROM_LEN, GlobalConstants.GB_LEN,
-            0, GlobalConstants.MAX_Y_LEN]
-        plt.imshow(img, origin='lower', 
-                              cmap='Spectral_r', vmin=1, vmax=3,
-                  extent=extent, aspect='auto', interpolation='none')
-        plt.title(title, fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
-        plt.xticks([])
-        plt.yticks([])
-        plt.axvline(0, c='white', ls='solid', lw=0.75, alpha=0.5)
-        
-        plt.xticks(np.arange(-400, 600, 200))
-    
-    plt.figure(figsize=(13, 1.5))
-    plt.subplot(1, 3, 1)
-    plot_img(ptr_imgs[top_g1_gene_indices].mean(axis=0), "G1")
+					top_s_gene_indices, top_g2m_gene_indices,
+				   title):
+	
+	def plot_img(img, title):
+		
+		extent = [-GlobalConstants.PROM_LEN, GlobalConstants.GB_LEN,
+			0, GlobalConstants.MAX_Y_LEN]
+		plt.imshow(img, origin='lower', 
+							  cmap='Spectral_r', vmin=1, vmax=3,
+				  extent=extent, aspect='auto', interpolation='none')
+		plt.title(title, fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+		plt.xticks([])
+		plt.yticks([])
+		plt.axvline(0, c='white', ls='solid', lw=0.75, alpha=0.5)
+		
+		plt.xticks(np.arange(-400, 600, 200))
+	
+	plt.figure(figsize=(13, 2))
+	plt.subplot(1, 3, 1)
+	plot_img(ptr_imgs[top_g1_gene_indices].mean(axis=0), "G1")
 
-    plt.subplot(1, 3, 2)
-    plot_img(ptr_imgs[top_s_gene_indices].mean(axis=0), "S")
-    
-    plt.subplot(1, 3, 3)
-    plot_img(ptr_imgs[top_g2m_gene_indices].mean(axis=0), "G2/M")
-    plt.colorbar()
-    
-    plt.suptitle(title, fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
-    plt.subplots_adjust(top=0.6)
+	plt.subplot(1, 3, 2)
+	plot_img(ptr_imgs[top_s_gene_indices].mean(axis=0), "S")
+	
+	plt.subplot(1, 3, 3)
+	plot_img(ptr_imgs[top_g2m_gene_indices].mean(axis=0), "G2/M")
+	plt.colorbar()
+	
+	plt.suptitle(title, fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+	plt.subplots_adjust(top=0.65, bottom=0.125)

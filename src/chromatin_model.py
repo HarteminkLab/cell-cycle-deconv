@@ -867,7 +867,7 @@ class ChromatinModel:
 		# -------- Compute the PTR ---------
 
 		f = self.deconvolved_f()
-		from src.peak_to_trough import compute_ptr, compute_ptr_f
+		from src.peak_to_trough import compute_ptr_f
 
 		f_ptrs = compute_ptr_f(self.config, f)
 		self.f_ptrs = f_ptrs

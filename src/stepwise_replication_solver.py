@@ -70,6 +70,9 @@ class StepReplicationChromatinDeconvolveSolver:
 		#       As they should reflect the actual copy number of the sample
 		#       including the halted cells proportion, meaning
 		#       the max will never actually get to 2.0 in the experiment.
+		# 
+		# - It appears this scaling is good enough for a replication approximation
+		#
 		copy_min, copy_max = copy_num_rep.min().scale, copy_num_rep.max().scale
 		scale_g = (copy_max-copy_min)
 		bins_normalized = bins * scale_g + copy_min

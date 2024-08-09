@@ -288,8 +288,8 @@ class Figure1Deconvolution(object):
 
 		chrom_model = self.combined_model.chrom1_model
 		reads = chrom_model.locus_reads
-		reads = reads[reads['sample'] == 150]
-		index = 14
+		reads = reads[reads['sample'] == 50]
+		index = 5
 
 		plt.figure(figsize=(5, 4.5))
 		plt.subplot(2, 1, 1)
@@ -297,6 +297,8 @@ class Figure1Deconvolution(object):
 		ax = plt.gca()
 		dsc_plotter = DensityScatterPlotter()
 		x, y = reads.mid, reads['length']
+
+		flip = chrom_model.gene.strand == '-'
 
 		plt.scatter(x, y, s=9, edgecolors='#afafaf', facecolor='none')
 
@@ -316,7 +318,11 @@ class Figure1Deconvolution(object):
 		xtick_labels = [f'+{x-p1}' if x>p1 else str(x-p1) for x in xticks]
 		xtick_labels = ['+1' if x == '0' else x for x in xtick_labels]
 		ax.set_xticks([])
-		plt.xlim(*xlims)
+
+		if flip:
+			plt.xlim(xlims[1], xlims[0])
+		else:
+			plt.xlim(*xlims)
 
 		plt.ylabel("Fragment length, nt")
 		ax.axvline(p1, c='gray', lw=2, alpha=0.5)
@@ -327,7 +333,11 @@ class Figure1Deconvolution(object):
 		chrom_model.exact_bins.shape
 
 		img = chrom_model.deconv_hist_unflattened[index]
-		plt.imshow(chrom_model.deconv_hist_unflattened[index], origin='lower', cmap='magma_r',
+
+		if flip:
+			img = np.flip(img, axis=1)
+
+		plt.imshow(img, origin='lower', cmap='magma_r',
 				  aspect='auto', extent=chrom_model.bin_extents, vmax=25)
 		ax.set_xticks(xticks)
 		ax.set_xticklabels(xtick_labels)

@@ -55,12 +55,24 @@ class CopyCorrectionAnalysis:
 		self.H1, Hpos = config1.calcH_function(config1.intervals_wt1, config1.WT1_TIMEPOINTS)
 		self.H2, Hpos = config2.calcH_function(config2.intervals_wt1, config2.WT1_TIMEPOINTS)
 
+		self.config1 = config1
+		self.config2 = config2
+
 		from src.geneset import get_deconvolved_geneset
 		self.genes = get_deconvolved_geneset()
 
 	def compute_gene_10k_counts(self, replicate):
 
 		self.replicate = replicate
+
+		if replicate == 1:
+			self.H = self.H1
+			self.config = self.config1
+			self.tps = GlobalConstants.CHROM_WT1_TIMEPOINTS
+		else:
+			self.H = self.H2
+			self.config = self.config2
+			self.tps = GlobalConstants.CHROM_WT2_TIMEPOINTS
 
 		from src.CopyNumberCorrection import get_bin_for_position
 
@@ -100,165 +112,202 @@ class CopyCorrectionAnalysis:
 		self.genes_repl_profile = genes_repl_profile
 
 
-	def compute_correction_matrix(self):
-		from src.copy_correction_reanalysis import correct_replication_indices
 
-		replication_indices = self.genes_repl_profile.replication_H_index.values.astype(int)
-		from src.copy_correction_reanalysis import create_copy_number_H, correct_replication_indices
+	def scale_occupancy_curves(self):
 
-		H = self.H1 if self.replicate == 1 else self.H2
+		n = len(self.genes_repl_profile)
+		mixture_curves = self.gene_10k_counts.copy()
 
-		(H_combined_copy_num, 
-		 H_expected_copy_per_gene, 
-		 H_normalized_copy_per_gene) = correct_replication_indices(H, replication_indices)
+		# The 10k occupancy scaled to match the expected H curves,
+		# Early and late replicating genes have different max values
+		data_scaled_10k = self.gene_10k_counts.copy() 
+		for i in range(n):
+			mixture_curve, occ_curve_scaled = self.scale_occupancy_curves_index(i)
+			mixture_curves.iloc[i] = mixture_curve
+			data_scaled_10k.iloc[i] = occ_curve_scaled
 
-		self.H_combined_copy_num = H_combined_copy_num
-		self.H_expected_copy_per_gene = H_expected_copy_per_gene 
-		self.H_normalized_copy_per_gene = H_normalized_copy_per_gene
-		self.H_expected_copy_number_sum = self.H_expected_copy_per_gene.sum(axis=2)
+		self.data_scaled_10k = data_scaled_10k
+		self.mixture_curves = mixture_curves
 
-		# scale is an approximation based on copy number curves from H
-		# due to halted cells
-		scale = 0.7
-		self.corrected_counts = (self.gene_10k_counts*scale+1) / self.H_expected_copy_number_sum
 
-	def plot_heatmap_correction(self):
-		from src.global_config import GlobalConstants
+	def scale_occupancy_curves_index(self, gene_idx):
+		"""Scale the occupancy curves to match the mixture curves, this will
+		ensure the estimated copy number curve and observed 10k window are
+		in the same scale range. Early vs late replicationg windows
+		have slightly different max values.
+		"""
 
-		gene_chr_counts = self.gene_10k_counts
+		repl_idx = self.genes_repl_profile.iloc[gene_idx]\
+			.replication_H_index.astype(int)
 
-		# scale is an approximation based on copy number curves from H
-		# due to halted cells
-		scale = .7
-		offset = 1
+		repl_curve = np.ones(self.H.shape[1])
+		repl_curve[repl_idx:-1] = 2
 
-		plt.figure(figsize=(6, 6))
-		# plt.subplot(1, 2, 1)
-		# plt.imshow(self.H_expected_copy_number_sum, aspect='auto', cmap='RdBu_r', vmin=1, vmax=2.,
-		#            interpolation='none', extent=[0, GlobalConstants.CHROM_WT1_TIMEPOINTS[-1], 
-		#                                          0, len(gene_chr_counts)])
-		# plt.colorbar()
-		# plt.yticks([])
-		# plt.ylabel("Genes sorted by replication")
-		# plt.xlabel("Time, min")
-		# plt.title("Est. Copy #", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+		occ_curve = self.gene_10k_counts.iloc[gene_idx]
+		mixture_curve = self.H @ repl_curve
+		value_range = mixture_curve.max()-mixture_curve.min()
 
+		non_repl = np.ones_like(repl_curve)
+		non_repl_curve = self.H @ non_repl
+
+		# Scaled occupancy curves will be values from 1-(max of the copy mixture sum)
+		occ_curve_scaled = occ_curve*value_range+1.
+		
+		return mixture_curve, occ_curve_scaled
+
+
+	def perform_correction(self):
+
+		def normalize_cols(df):
+			df = df / df.sum(axis=0).values.reshape((1 ,-1))
+			return df
+
+		mixture_curves = self.mixture_curves
+		data_scaled_10k = self.data_scaled_10k
+
+		self.normalized_mixture_curves = normalize_cols(mixture_curves) * len(mixture_curves)
+		self.normalized_data_10k = normalize_cols(data_scaled_10k) * len(mixture_curves)
+		self.norm_corrected = (self.normalized_data_10k-1) * (self.normalized_mixture_curves-1)+1
+
+
+	def plot_normalization_example_curves(self):
+
+		early_idx = 25
+		late_idx = -25
+
+		color_early = plt.get_cmap('inferno_r')(0.2)
+		color_late = plt.get_cmap('inferno_r')(0.8)
+
+		mixture_ls=(0, (5, 2))
+		raw_ls='solid'
+		corrected_ls=(0, (1, 1))
+
+		def create_legend(include_corrected=False):
+			from matplotlib.lines import Line2D
+			import matplotlib.patches as mpatches
+			handles, labels = plt.gca().get_legend_handles_labels()
+
+			# create manual symbols for legend
+			line_early = Line2D([0], [0], lw=2, label='Early', color=color_early)
+			line_late = Line2D([0], [0], lw=2, label='Late', color=color_late)
+			line_mix = Line2D([0], [0], lw=1, ls=mixture_ls, label='Est. Mixture', color='black')
+			line_raw = Line2D([0], [0], lw=1, ls=raw_ls, label='Raw', color='black')
+			line_corrected = Line2D([0], [0], lw=1, ls=corrected_ls, label='Corrected', color='black')
+
+			# add manual symbols to auto legend
+			if include_corrected:
+				handles.extend([line_mix, line_raw, line_corrected, line_early, line_late])
+			else:
+				handles.extend([line_mix, line_raw, line_early, line_late])
+			
+			plt.legend(handles=handles, ncol=2, loc='lower left')
+
+		def plot_mix_data(mix, dat, corrected=None, color=None):
+			plt.plot(self.tps, mix, label="_Copy number mixture", color=color,
+					lw=1, ls=mixture_ls)
+			plt.plot(self.tps, dat, label="_10k Occupancy", color=color,
+					ls=raw_ls, lw=1)
+			if corrected is not None:
+				plt.plot(self.tps, corrected,
+					 label="_Corrected occupancy", color=color, ls=corrected_ls, lw=1)
+			plt.xlabel("Time, min")
+			plt.ylim(0.4, 1.7)
+			plt.axhline(1, c='#ddd', ls='solid', zorder=0, lw=0.5)
+
+		plt.figure(figsize=(10, 4))
+
+		mixture_curves = self.mixture_curves
+		data_scaled_10k = self.data_scaled_10k
+		normalized_mixture_curves = self.normalized_mixture_curves
+		normalized_data_10k = self.normalized_data_10k
+		norm_corrected = self.norm_corrected
+			
 		plt.subplot(1, 2, 1)
-		plt.imshow((gene_chr_counts*scale+offset), aspect='auto', 
-		          vmin=0, vmax=2, interpolation='none',
-		          extent=[0, GlobalConstants.CHROM_WT1_TIMEPOINTS[-1], 0,
-		                  len(gene_chr_counts)], cmap='RdBu_r')
-		plt.colorbar()
-		plt.yticks([])
-		plt.xlabel("Time, min")
-		plt.title("Raw occupancy", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+		plot_mix_data(mixture_curves.iloc[early_idx], data_scaled_10k.iloc[early_idx],
+					  color=color_early)
+		plot_mix_data(mixture_curves.iloc[late_idx], data_scaled_10k.iloc[late_idx],
+					  color=color_late)
+		plt.title("Unnormalized")
+		plt.ylabel("Copy #")
+		create_legend(False)
 
 		plt.subplot(1, 2, 2)
-		normalized_corrected_counts = self.corrected_counts / \
-		    self.corrected_counts.sum(axis=0).values.reshape((1, -1))
-		plt.imshow(self.corrected_counts, aspect='auto', 
-		          vmin=0, vmax=2, interpolation='none',
-		          extent=[0, GlobalConstants.CHROM_WT1_TIMEPOINTS[-1], 0,
-		                  len(gene_chr_counts)], cmap='RdBu_r')
-		plt.colorbar()
-		plt.yticks([])
-		plt.xlabel("Time, min")
-		plt.title("Corrected occupancy", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
-		plt.suptitle(f"Copy number correction, gene 10 kb occupancy, n={len(normalized_corrected_counts)}",
-			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+		plot_mix_data(normalized_mixture_curves.iloc[early_idx],
+					  normalized_data_10k.iloc[early_idx], 
+					  norm_corrected.iloc[early_idx],
+					  color=color_early)
+		plot_mix_data(normalized_mixture_curves.iloc[late_idx], 
+					  normalized_data_10k.iloc[late_idx],
+					  norm_corrected.iloc[late_idx],
+					  color=color_late)
+		plt.title("Equal sample normalization")
+		plt.ylabel("Normalized copy #")
 
-	def compute_ptr(self):
-		from src.peak_to_trough import compute_quantile_ptr_2d
-
-		# For replicate 1, start with the third timepoint forwards to handle the recovery
-		# G1 timepoints
-		cols = self.gene_10k_counts.columns[3:]
-		self.raw_ptrs = compute_quantile_ptr_2d(self.gene_10k_counts[cols])
-		self.corrected_ptrs = compute_quantile_ptr_2d(self.corrected_counts[cols])
+		plt.ylabel("Normalized copy #")
+		plt.title("Correction")
+		create_legend(True)
 
 
-	def plot_ptr(self):
-		from src.figure_configs import FiguresConfig
-
-		plot_data = self.genes_repl_profile.copy()
-		plot_data['raw_ptr'] = self.raw_ptrs
-		plot_data['corrected_ptr'] = self.corrected_ptrs
-		plot_data = plot_data.loc[self.genes.index] # Plot by genomic index
-		self.ptr_df = plot_data
-
-		plt.figure(figsize=(6, 5))
-		plt.scatter(plot_data.raw_ptr, plot_data.corrected_ptr, s=3,
-			c=plot_data.replication_time, cmap='inferno_r',
-			vmin=5, vmax=16)
-		plt.plot([0, 10], [0, 10], lw=1, ls='dotted', zorder=0, color='black')
-		cbar = plt.colorbar()
-		cbar.ax.set_ylabel("Replication time", rotation=270, va='bottom')
-
-		plt.xlim(0.95, 2)
-		plt.ylim(0.95, 2)
-		plt.title("PTR correction, gene 10 kb windows", 
-			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE, pad=9)
-		plt.xlabel("Uncorrected PTR")
-		plt.ylabel("Corrected PTR")
-
-
-	def plot_copy_correction_curves(self):
-
-		replication_indices = self.genes_repl_profile.replication_H_index.values.astype(int)
-
-		plt.figure(figsize=(13, 3))
+	def plot_heatmap_correction(self):
+		plt.figure(figsize=(13, 6))
 		plt.subplot(1, 3, 1)
-		plt.imshow(self.H_combined_copy_num, vmax=0.05, aspect='auto', interpolation='none')
+
+		norm_mix = self.normalized_mixture_curves
+		norm_raw = self.normalized_data_10k
+		norm_corrected = self.norm_corrected
+
+		plt.imshow(norm_mix, aspect='auto', cmap='RdBu_r', 
+					interpolation='none', vmin=.5, vmax=1.5)
+		plt.yticks([])
 		plt.colorbar()
-		plt.title("H w/ expected copy number")
-		
-		num_curves = 100
-		indices = np.linspace(0, n-1, num_curves).astype(int)
-		colors = [plt.get_cmap('RdBu_r')(float(i)/n) for i in indices]
+		plt.title("Est. copy change")
 
-		n = len(replication_indices)
 		plt.subplot(1, 3, 2)
-
-		plt.plot(self.H_expected_copy_number_sum.T[:, 0:n:100], c='red', alpha=0.5)
-		plt.title("Expected copy number")
+		plt.imshow(norm_raw, aspect='auto', cmap='RdBu_r', 
+					interpolation='none', vmin=.5, vmax=1.5)
+		plt.yticks([])
+		plt.colorbar()
+		plt.title("Raw")
 
 		plt.subplot(1, 3, 3)
-		plt.plot(self.H_normalized_copy_per_gene[:, 0:n:100], c='red', alpha=0.5)
-		plt.title("Copy number per gene, normalized")
-
-		
-def create_copy_number_H(H, replication_idx):
-	"""Create a copy number matrix from H, converting indices from the replication index
-	onward to two copies.
-	
-	The resulting matrix is a modification of the original proportion matrix that represents
-	the overall expected copy number per timepoint when the columns are collapsed
-	"""
-	c1_indices = np.concatenate([np.arange(replication_idx), np.array([H.shape[1]-1])])
-	c2_indices = np.arange(replication_idx, H.shape[1]-1)
-
-	# Combine the two for the expected copy number for the gene
-	H_expected_copy_num = H.copy()
-	H_expected_copy_num[:, c2_indices] = H[:, c2_indices]*2
-	return H_expected_copy_num
+		plt.imshow(norm_corrected, 
+				   aspect='auto', cmap='RdBu_r', 
+				   interpolation='none', vmin=0.5, vmax=1.5)
+		plt.colorbar()
+		plt.yticks([])
+		plt.title("Corrected")
 
 
-def correct_replication_indices(H, replication_indices):
-	"""Create a combined H matrix that includes each of the copy number 
-	corrected H matrices.
-	
-	Then create a normalized copy number matrix per gene. A matrix that represents
-	the copy correction including the normalizing effect of varying replication times
-	per genome segment.
-	"""
-	num_genes = len(replication_indices)
-	H_expected_copy_per_gene = np.zeros((num_genes, *H.shape))
+	def compute_ptr_correction(self):
+		from src.peak_to_trough import compute_quantile_ptr_2d
 
-	for i in range(num_genes):
-		 H_expected_copy_per_gene[i] = create_copy_number_H(H, replication_indices[i])
+		raw_ptr = compute_quantile_ptr_2d(self.normalized_data_10k)
+		corrected_ptr = compute_quantile_ptr_2d((self.norm_corrected))
 
-	H_combined_copy_num = np.sum(H_expected_copy_per_gene, axis=0) / num_genes
-	overall_sum = H_combined_copy_num.sum(axis=1)
-	H_normalized_copy_per_gene = H_expected_copy_per_gene.sum(axis=2).T / \
-		overall_sum.reshape((-1, 1))
-	return H_combined_copy_num, H_expected_copy_per_gene, H_normalized_copy_per_gene
+		ptr_df = pd.DataFrame({
+			'raw': raw_ptr, 'corrected': corrected_ptr, 
+			'replication_time': self.genes_repl_profile.replication_time
+		})
+
+		# Sort by genome
+		self.ptr_df = ptr_df.loc[self.genes.index]
+
+
+	def plot_ptr_scatter(self):
+		ptr_df = self.ptr_df
+
+		plt.figure(figsize=(6, 4.75))
+		plt.scatter(ptr_df.raw, ptr_df.corrected, s=3, 
+					facecolors='none', edgecolor='#aaa', zorder=0)
+					
+		plt.scatter(ptr_df.raw, ptr_df.corrected, s=1, 
+		c=ptr_df.replication_time, cmap='inferno_r', 
+					vmin=6, vmax=16, zorder=1)
+		cbar = plt.colorbar()
+		cbar.ax.set_ylabel("Replication time, min", rotation=270, va='bottom')
+		plt.plot([0, 2], [0, 2], zorder=0, c='black', ls='dotted', lw=1)
+		plt.xlim(0.995, 1.2)
+		plt.ylim(0.995, 1.02)
+		plt.xlabel("PTR, raw")
+		plt.ylabel("PTR, corrected")
+		plt.title("Raw vs Corrected PTR")
