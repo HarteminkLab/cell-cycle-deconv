@@ -3,6 +3,7 @@ import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
 from src.figure_configs import FiguresConfig
+from src.global_config import GlobalConstants
 
 
 class CopyCorrectionAnalysis:
@@ -61,7 +62,26 @@ class CopyCorrectionAnalysis:
 		from src.geneset import get_deconvolved_geneset
 		self.genes = get_deconvolved_geneset()
 
-	def compute_gene_10k_counts(self, replicate):
+
+	def compute_gene_origin_lookup(self):
+		"""todo: compute the lookup for the gene and origin positions"""
+
+		#	for chrom in range(1, 17):
+
+			#	chr_genes = genes[genes.chr == chrom]
+			#	start_indices = chr_bin_curves.loc[chrom].index
+
+			#	gene_positions['chr'] = chrom
+
+			#	for orf_name, gene in chr_genes.iterrows():
+			#		bin_idx, bin_start_bp = get_bin_for_position(gene.TSS, start_indices)
+			#		gene_positions.loc[orf_name, 'bin_start'] = bin_start_bp
+			#		values = chr_bin_curves.loc[chrom].loc[bin_start_bp].values
+			#		gene_chr_counts.loc[orf_name, np.arange(len(values))] = values
+		pass
+
+
+	def set_replicate(self, replicate):
 
 		self.replicate = replicate
 
@@ -85,43 +105,25 @@ class CopyCorrectionAnalysis:
 		else:
 			chr_bin_curves = self.mnase_occupancies_2.normalized_bin_curves
 
-		for chrom in range(1, 17):
+		self.chrom_replication_profile = pd.read_csv('output/replication_profiles/chrom_replication_timing_shared.csv').set_index(['chr', 'start'])
+		self.chrom_bin_curves = chr_bin_curves
 
-			chr_genes = genes[genes.chr == chrom]
-			start_indices = chr_bin_curves.loc[chrom].index
-
-			gene_positions['chr'] = chrom
-
-			for orf_name, gene in chr_genes.iterrows():
-				bin_idx, bin_start_bp = get_bin_for_position(gene.TSS, start_indices)
-				gene_positions.loc[orf_name, 'bin_start'] = bin_start_bp
-				values = chr_bin_curves.loc[chrom].loc[bin_start_bp].values
-				gene_chr_counts.loc[orf_name, np.arange(len(values))] = values
-
-		gene_positions.bin_start = gene_positions.bin_start.astype(int)
-
-		genes_repl_profile = pd.read_csv(
-			'data/replication_timing/yl_2019/genes_replication_timing_shared.csv')
-		genes_repl_profile = genes_repl_profile.set_index('orf_name')
-		genes_repl_profile = genes_repl_profile.sort_values('replication_time')
-
-		# Sort the gene counts by the sorted replication time
-		gene_chr_counts = gene_chr_counts.loc[genes_repl_profile.index]
-
-		self.gene_positions = gene_positions
-		self.gene_10k_counts = gene_chr_counts
-		self.genes_repl_profile = genes_repl_profile
-
+		# Add replication timing
+		idx_tp_mapping = self.config.index_tp_mapping_df()
+		repl_tp = [idx_tp_mapping.loc[repl_index].timepoint for repl_index in self.chrom_replication_profile.replication_index.values]
+		repl_profile = self.chrom_replication_profile
+		repl_profile['replication_time'] = repl_tp
+		self.chrom_replication_profile = repl_profile
 
 
 	def scale_occupancy_curves(self):
 
-		n = len(self.genes_repl_profile)
-		mixture_curves = self.gene_10k_counts.copy()
+		n = len(self.chrom_bin_curves)
+		mixture_curves = self.chrom_bin_curves.copy()
 
 		# The 10k occupancy scaled to match the expected H curves,
 		# Early and late replicating genes have different max values
-		data_scaled_10k = self.gene_10k_counts.copy() 
+		data_scaled_10k = self.chrom_bin_curves.copy() 
 		for i in range(n):
 			mixture_curve, occ_curve_scaled = self.scale_occupancy_curves_index(i)
 			mixture_curves.iloc[i] = mixture_curve
@@ -131,20 +133,19 @@ class CopyCorrectionAnalysis:
 		self.mixture_curves = mixture_curves
 
 
-	def scale_occupancy_curves_index(self, gene_idx):
+	def scale_occupancy_curves_index(self, idx):
 		"""Scale the occupancy curves to match the mixture curves, this will
 		ensure the estimated copy number curve and observed 10k window are
 		in the same scale range. Early vs late replicationg windows
 		have slightly different max values.
 		"""
 
-		repl_idx = self.genes_repl_profile.iloc[gene_idx]\
-			.replication_H_index.astype(int)
+		repl_idx = self.chrom_replication_profile.iloc[idx].replication_index.astype(int)
 
 		repl_curve = np.ones(self.H.shape[1])
 		repl_curve[repl_idx:-1] = 2
 
-		occ_curve = self.gene_10k_counts.iloc[gene_idx]
+		occ_curve = self.chrom_bin_curves.iloc[idx]
 		mixture_curve = self.H @ repl_curve
 		value_range = mixture_curve.max()-mixture_curve.min()
 
@@ -225,12 +226,14 @@ class CopyCorrectionAnalysis:
 
 		plt.figure(figsize=(10, 4))
 
-		mixture_curves = self.mixture_curves
-		data_scaled_10k = self.data_scaled_10k
-		normalized_mixture_curves = self.normalized_mixture_curves
-		normalized_data_10k = self.normalized_data_10k
-		norm_corrected = self.norm_corrected
-		norm_norm_corrected = self.norm_norm_corrected
+		sorted_idx = self.chrom_replication_profile.sort_values('replication_index').index
+
+		mixture_curves = self.mixture_curves.loc[sorted_idx]
+		data_scaled_10k = self.data_scaled_10k.loc[sorted_idx]
+		normalized_mixture_curves = self.normalized_mixture_curves.loc[sorted_idx]
+		normalized_data_10k = self.normalized_data_10k.loc[sorted_idx]
+		norm_corrected = self.norm_corrected.loc[sorted_idx]
+		norm_norm_corrected = self.norm_norm_corrected.loc[sorted_idx]
 			
 		plt.subplot(1, 2, 1)
 		plot_mix_data(mixture_curves.iloc[early_idx], data_scaled_10k.iloc[early_idx],
@@ -262,9 +265,11 @@ class CopyCorrectionAnalysis:
 		plt.figure(figsize=(13, 6))
 		plt.subplot(1, 3, 1)
 
-		norm_mix = self.normalized_mixture_curves
-		norm_raw = self.normalized_data_10k
-		norm_corrected = self.norm_corrected
+		sorted_idx = self.chrom_replication_profile.sort_values('replication_index').index
+
+		norm_mix = self.normalized_mixture_curves.loc[sorted_idx]
+		norm_raw = self.normalized_data_10k.loc[sorted_idx]
+		norm_corrected = self.norm_corrected.loc[sorted_idx]
 
 		extent = [0, self.tps[-1], 0, len(norm_mix)]
 
@@ -301,16 +306,15 @@ class CopyCorrectionAnalysis:
 
 		ptr_df = pd.DataFrame({
 			'raw': raw_ptr, 'corrected': corrected_ptr, 
-			'replication_time': self.genes_repl_profile.replication_time
+			'replication_time': self.chrom_replication_profile.replication_time
 		})
 
 		# Sort by genome
-		self.ptr_df = ptr_df.loc[self.genes.index]
+		self.ptr_df = ptr_df
 
-		vals_30 = self.normalized_data_10k[3]
+		vals_30 = self.normalized_data_10k[30]
 		vals_0 = self.normalized_data_10k[0]
-
-		corrected_30 = self.norm_corrected[3]
+		corrected_30 = self.norm_corrected[30]
 		corrected_0 = self.norm_corrected[0]
 
 		def compute_ratio_gt_over_lt(vals_30, vals_0):
@@ -322,11 +326,10 @@ class CopyCorrectionAnalysis:
 		ratio_vals = compute_ratio_gt_over_lt(vals_30, vals_0)
 		ratio_corrected = compute_ratio_gt_over_lt(corrected_30, corrected_0)
 
-		ratios_30_0_df = self.genes_repl_profile.copy()
+		ratios_30_0_df = self.ptr_df.copy()
 		ratios_30_0_df['ratio_raw'] = ratio_vals
 		ratios_30_0_df['ratio_corrected'] = ratio_corrected
-		# sort by genome
-		self.ratios_30_0_df = ratios_30_0_df.loc[self.genes.index]
+		self.ratios_30_0_df = ratios_30_0_df
 
 
 	def plot_ptr_scatter(self):

@@ -163,6 +163,11 @@ class Config:
 			raise ValueError(f'Wrong parameter {segments[0]} in line {line}')
 		return value
 
+	def index_tp_mapping_df(self):
+		H_tp_table = pd.concat([self.phase_branch_tp_df.loc['RG1'].loc['i'].iloc[:-1],
+	           self.phase_branch_tp_df.loc['CG1'].loc['t'].iloc[:-1],
+	           self.phase_branch_tp_df.loc['postG1'].loc['t']])[['timepoint']].reset_index(drop=True)
+		return H_tp_table
 
 	def create_helper_structures(self):
 		"""
@@ -268,9 +273,11 @@ class Config:
 		}
 		return phase_map[phase]
 
+
 	def get_timepoint_for_index(self, h_index):
 		"""Get the timepoint for an index"""
 		return self.H_map_df.loc[h_index].timepoint
+
 
 	def get_H_dataframe_mapping(self):
 		rg1_indices = self.get_timepoints_phases_Hpositions_for_branch('i')[0][2]
