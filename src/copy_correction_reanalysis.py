@@ -100,7 +100,8 @@ class CopyCorrectionAnalysis:
 
 		gene_positions.bin_start = gene_positions.bin_start.astype(int)
 
-		genes_repl_profile = pd.read_csv('data/replication_timing/yl_2019/genes_replication_timing_shared.csv')
+		genes_repl_profile = pd.read_csv(
+			'data/replication_timing/yl_2019/genes_replication_timing_shared.csv')
 		genes_repl_profile = genes_repl_profile.set_index('orf_name')
 		genes_repl_profile = genes_repl_profile.sort_values('replication_time')
 
@@ -167,7 +168,12 @@ class CopyCorrectionAnalysis:
 
 		self.normalized_mixture_curves = normalize_cols(mixture_curves) * len(mixture_curves)
 		self.normalized_data_10k = normalize_cols(data_scaled_10k) * len(mixture_curves)
-		self.norm_corrected = (self.normalized_data_10k-1) * (self.normalized_mixture_curves-1)+1
+
+
+		self.norm_corrected = (self.normalized_data_10k-1) * \
+			(self.normalized_mixture_curves-1)+1
+
+		self.norm_norm_corrected = normalize_cols(self.norm_corrected)*len(mixture_curves)
 
 
 	def plot_normalization_example_curves(self):
@@ -190,13 +196,16 @@ class CopyCorrectionAnalysis:
 			# create manual symbols for legend
 			line_early = Line2D([0], [0], lw=2, label='Early', color=color_early)
 			line_late = Line2D([0], [0], lw=2, label='Late', color=color_late)
-			line_mix = Line2D([0], [0], lw=1, ls=mixture_ls, label='Est. Mixture', color='black')
+			line_mix = Line2D([0], [0], lw=1, ls=mixture_ls, 
+				label='Est. Mixture', color='black')
 			line_raw = Line2D([0], [0], lw=1, ls=raw_ls, label='Raw', color='black')
-			line_corrected = Line2D([0], [0], lw=1, ls=corrected_ls, label='Corrected', color='black')
+			line_corrected = Line2D([0], [0], lw=1, ls=corrected_ls, 
+				label='Corrected', color='black')
 
 			# add manual symbols to auto legend
 			if include_corrected:
-				handles.extend([line_mix, line_raw, line_corrected, line_early, line_late])
+				handles.extend([line_mix, line_raw, line_corrected, 
+					line_early, line_late])
 			else:
 				handles.extend([line_mix, line_raw, line_early, line_late])
 			
@@ -221,6 +230,7 @@ class CopyCorrectionAnalysis:
 		normalized_mixture_curves = self.normalized_mixture_curves
 		normalized_data_10k = self.normalized_data_10k
 		norm_corrected = self.norm_corrected
+		norm_norm_corrected = self.norm_norm_corrected
 			
 		plt.subplot(1, 2, 1)
 		plot_mix_data(mixture_curves.iloc[early_idx], data_scaled_10k.iloc[early_idx],
@@ -234,17 +244,17 @@ class CopyCorrectionAnalysis:
 		plt.subplot(1, 2, 2)
 		plot_mix_data(normalized_mixture_curves.iloc[early_idx],
 					  normalized_data_10k.iloc[early_idx], 
-					  norm_corrected.iloc[early_idx],
+					  norm_norm_corrected.iloc[early_idx],
 					  color=color_early)
 		plot_mix_data(normalized_mixture_curves.iloc[late_idx], 
 					  normalized_data_10k.iloc[late_idx],
-					  norm_corrected.iloc[late_idx],
+					  norm_norm_corrected.iloc[late_idx],
 					  color=color_late)
 		plt.title("Equal sample normalization")
 		plt.ylabel("Normalized copy #")
 
 		plt.ylabel("Normalized copy #")
-		plt.title("Correction")
+		plt.title("Normalization+Correction")
 		create_legend(True)
 
 
@@ -256,15 +266,19 @@ class CopyCorrectionAnalysis:
 		norm_raw = self.normalized_data_10k
 		norm_corrected = self.norm_corrected
 
+		extent = [0, self.tps[-1], 0, len(norm_mix)]
+
 		plt.imshow(norm_mix, aspect='auto', cmap='RdBu_r', 
-					interpolation='none', vmin=.5, vmax=1.5)
+					interpolation='none', vmin=.5, vmax=1.5, 
+					extent=extent)
 		plt.yticks([])
 		plt.colorbar()
 		plt.title("Est. copy change")
 
 		plt.subplot(1, 3, 2)
 		plt.imshow(norm_raw, aspect='auto', cmap='RdBu_r', 
-					interpolation='none', vmin=.5, vmax=1.5)
+					interpolation='none', vmin=.5, vmax=1.5, 
+					extent=extent)
 		plt.yticks([])
 		plt.colorbar()
 		plt.title("Raw")
@@ -272,7 +286,8 @@ class CopyCorrectionAnalysis:
 		plt.subplot(1, 3, 3)
 		plt.imshow(norm_corrected, 
 				   aspect='auto', cmap='RdBu_r', 
-				   interpolation='none', vmin=0.5, vmax=1.5)
+				   interpolation='none', vmin=0.5, vmax=1.5, 
+				   extent=extent)
 		plt.colorbar()
 		plt.yticks([])
 		plt.title("Corrected")
@@ -292,11 +307,49 @@ class CopyCorrectionAnalysis:
 		# Sort by genome
 		self.ptr_df = ptr_df.loc[self.genes.index]
 
+		vals_30 = self.normalized_data_10k[3]
+		vals_0 = self.normalized_data_10k[0]
+
+		corrected_30 = self.norm_corrected[3]
+		corrected_0 = self.norm_corrected[0]
+
+		def compute_ratio_gt_over_lt(vals_30, vals_0):
+			ratio_vals = vals_0.copy()
+			ratio_vals[vals_0.values > vals_30.values] = vals_0/vals_30
+			ratio_vals[vals_0.values <= vals_30.values] = vals_30/vals_0
+			return ratio_vals
+
+		ratio_vals = compute_ratio_gt_over_lt(vals_30, vals_0)
+		ratio_corrected = compute_ratio_gt_over_lt(corrected_30, corrected_0)
+
+		ratios_30_0_df = self.genes_repl_profile.copy()
+		ratios_30_0_df['ratio_raw'] = ratio_vals
+		ratios_30_0_df['ratio_corrected'] = ratio_corrected
+		# sort by genome
+		self.ratios_30_0_df = ratios_30_0_df.loc[self.genes.index]
+
 
 	def plot_ptr_scatter(self):
 		ptr_df = self.ptr_df
+		ratios_30_0_df = self.ratios_30_0_df
 
-		plt.figure(figsize=(6, 4.75))
+		plt.figure(figsize=(14, 4.75))
+
+		plt.subplot(1, 2, 1)
+		plt.scatter(ratios_30_0_df.ratio_raw, ratios_30_0_df.ratio_corrected, edgecolor='#aaa',
+					facecolors='none', s=3)
+		plt.scatter(ratios_30_0_df.ratio_raw, ratios_30_0_df.ratio_corrected, 
+					c=ratios_30_0_df.replication_time, cmap='inferno_r', s=1, vmin=6, vmax=16)
+		plt.xlim(0.995, 1.6)
+		plt.ylim(0.995, 1.05)
+		plt.plot([0, 2], [0, 2], lw=1, c='gray', zorder=0, ls=(1, (1, 1)))
+		plt.colorbar()
+		plt.title("Raw vs Corrected, Ratio of 30' & 0'")
+		plt.xlabel("Ratio max[30', 0'] / min[30', 0'], raw")
+		plt.ylabel("Ratio max[30', 0'] / min[30', 0'], corrected")
+
+
+		plt.subplot(1, 2, 2)
 		plt.scatter(ptr_df.raw, ptr_df.corrected, s=3, 
 					facecolors='none', edgecolor='#aaa', zorder=0)
 					
