@@ -361,16 +361,57 @@ class CopyCorrectionAnalysis:
 		plt.title("Raw vs Corrected PTR")
 
 
+	def compute_scaling_term(self, save=True):
+		"""The scaling will be based on the unnormalized bins (not normalized by the overall copy
+		number curve). However, we will be normalizing the bins of the chromatin by length
+		distribution, which means we want all the samples to be of equal size. So
+		scale the bins such that each timepoint sums to the same value. Then
+		compute the scaling term for the gene and origin deconvolutions
+		"""
+
+		if self.replicate == 1:
+			unnormalized_bins = self.mnase_occupancies_1.unnormalized_chr_bin_curves
+		else:
+			unnormalized_bins = self.mnase_occupancies_2.unnormalized_chr_bin_curves
+
+		equal_scaled_bins = unnormalized_bins / unnormalized_bins.sum(axis=0).values.reshape((1, -1)) * len(unnormalized_bins)
+
+		scaling_term = equal_scaled_bins / self.norm_norm_corrected
+		self.scaling_term = scaling_term
+
+		if save:
+			save_path = f'data/copy_correction/chromatin/copy_correction_replicate{self.replicate}.csv'
+			scaling_term.reset_index().to_csv(save_path, index=False)
+			print("Saved to: ", save_path)
+
+
 def load_chromatin_copy_correction(config_type, replicate):
-	path = f'data/copy_correction/chromatin/normalization_replicate{replicate}.csv'
+	path = f'data/copy_correction/chromatin/copy_correction_replicate{replicate}.csv'
 	correction = pd.read_csv(path).set_index(['chr', 'start'])
 	return correction
+
+
+
+def lookup_origin_copy_correction(copy_correction, origin):
+	"""Look up the copy correction vector for an origin from the
+	genomic copy correction table"""
+	
+	from src.CopyNumberCorrection import get_bin_for_position
+
+	chrom = origin.chr
+	pos = gene.pos
+
+	start_indices = copy_correction.loc[chrom].index
+	bin_idx, bin_start_bp = get_bin_for_position(pos, start_indices)
+
+	vector = copy_correction.loc[chrom].loc[bin_start_bp]
+	return vector
 
 
 def lookup_gene_copy_correction(copy_correction, gene):
 	"""Look up the copy correction vector for the gene from the
 	genomic copy correction table"""
-	
+
 	from src.CopyNumberCorrection import get_bin_for_position
 
 	chrom = gene.chr

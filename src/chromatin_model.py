@@ -104,8 +104,6 @@ class ChromatinModel:
 		exact_bins = self.create_exact_bins()
 		normalized_bins = self.normalize_bins(exact_bins, log=log)
 
-		# todo: insert copy number correction for Origins
-
 		adjusted_padding = GlobalConstants.ORC_BIN_PADDING
 		new_span = int(origin.pos-adjusted_padding-GlobalConstants.BIN_WIDTH/2), \
 			int(origin.pos+adjusted_padding+GlobalConstants.BIN_WIDTH/2)
@@ -126,7 +124,15 @@ class ChromatinModel:
 		self.normalized_bins = normalized_bins
 		self.exact_bins = exact_bins
 		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
+
+		if self.config.copy_correction is not None:
+			print("Applying copy correction to origin reads")
+			copy_correction_vector = lookup_origin_copy_correction
+			self.uncorrected_G = self.G
+			self.G = self.G * copy_correction_vector.values.reshape((-1, 1))
+
 		self.center_origin = self.origin.pos
+
 
 	def load_mnase_gene(self, gene_or_orfname, log=True):
 

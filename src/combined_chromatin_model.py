@@ -341,10 +341,26 @@ class CombinedChromatinModel:
 		f_save_path = f'{out_dir}/{index}_f_{orf_name}_{gene_name}.npy'
 		g1_save_path = f'{out_dir}/{index}_g1_{orf_name}_{gene_name}.npy'
 		g2_save_path = f'{out_dir}/{index}_g2_{orf_name}_{gene_name}.npy'
+
+		g1_correction_save_path = f'{out_dir}/{index}_g1_correction_{orf_name}_{gene_name}.csv'
+		g2_correction_save_path = f'{out_dir}/{index}_g2_correction_{orf_name}_{gene_name}.csv'
+
 		ptr_save_path = f'{out_dir}/{index}_ptr_{orf_name}_{gene_name}.npy'
 		meta_save_path = f'{out_dir}/{index}_meta_{orf_name}_{gene_name}.csv'
 
 		#---------- Save to disk -------------
+
+		def create_df(chrom_model):
+			correction2_df = pd.DataFrame({
+				'uncorrected': chrom_model.uncorrected_G.sum(axis=1),
+				'corrected': chrom_model.G.sum(axis=1),
+			}, index=chrom_model.config.WT1_TIMEPOINTS)
+			return correction2_df
+
+		g1_cor_df = create_df(self.chrom1_model)
+		g2_cor_df = create_df(self.chrom2_model)
+		g1_cor_df.to_csv(g1_correction_save_path)
+		g2_cor_df.to_csv(g2_correction_save_path)
 
 		# Save the f to disk
 		np.save(g1_save_path, G1)
@@ -378,6 +394,8 @@ class CombinedChromatinModel:
 
 		print_fl(f"Saved to {g1_save_path}...")
 		print_fl(f"Saved to {g2_save_path}...")
+		print_fl(f"Saved to {g1_correction_save_path}...")
+		print_fl(f"Saved to {g2_correction_save_path}...")
 		print_fl(f"Saved to {f_save_path}...")
 		print_fl(f"Saved to {ptr_save_path}...")
 		print_fl(f"Saved to {meta_save_path}...")
@@ -430,7 +448,7 @@ def load_chromatin_model_from_disk(gene_name, chromatin_dir, f_only=False):
 def load_combined_model(config_type='shared'):
 	from src.config import load_configs_by_config_type
 	chrom_config1, chrom_config2 = load_configs_by_config_type(config_type,
-	    with_copy_correction=True)
+		with_copy_correction=True)
 	from src.combined_chromatin_model import CombinedChromatinModel
 	combined_model = CombinedChromatinModel(chrom_config1, chrom_config2)
 	return combined_model
