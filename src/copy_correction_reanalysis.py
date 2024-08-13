@@ -52,7 +52,7 @@ class CopyCorrectionAnalysis:
 
 		# Compute H for replicate 1 and 2
 		from src.config import load_configs_by_config_type
-		config1, config2 = load_configs_by_config_type('shared')
+		config1, config2 = load_configs_by_config_type('shared', with_copy_correction=False)
 		self.H1, Hpos = config1.calcH_function(config1.intervals_wt1, config1.WT1_TIMEPOINTS)
 		self.H2, Hpos = config2.calcH_function(config2.intervals_wt1, config2.WT1_TIMEPOINTS)
 
@@ -63,25 +63,7 @@ class CopyCorrectionAnalysis:
 		self.genes = get_deconvolved_geneset()
 
 
-	def compute_gene_origin_lookup(self):
-		"""todo: compute the lookup for the gene and origin positions"""
-
-		#	for chrom in range(1, 17):
-
-			#	chr_genes = genes[genes.chr == chrom]
-			#	start_indices = chr_bin_curves.loc[chrom].index
-
-			#	gene_positions['chr'] = chrom
-
-			#	for orf_name, gene in chr_genes.iterrows():
-			#		bin_idx, bin_start_bp = get_bin_for_position(gene.TSS, start_indices)
-			#		gene_positions.loc[orf_name, 'bin_start'] = bin_start_bp
-			#		values = chr_bin_curves.loc[chrom].loc[bin_start_bp].values
-			#		gene_chr_counts.loc[orf_name, np.arange(len(values))] = values
-		pass
-
-
-	def set_replicate(self, replicate):
+	def set_replicate(self, replicate, shuffle=False):
 
 		self.replicate = replicate
 
@@ -105,7 +87,17 @@ class CopyCorrectionAnalysis:
 		else:
 			chr_bin_curves = self.mnase_occupancies_2.normalized_bin_curves
 
-		self.chrom_replication_profile = pd.read_csv('output/replication_profiles/chrom_replication_timing_shared.csv').set_index(['chr', 'start'])
+		self.chrom_replication_profile = pd.read_csv('output/replication_profiles/chrom_replication_timing_shared.csv'
+			).set_index(['chr', 'start'])
+
+		# Shuffle the replication profile for a proof of concept, that the correction is non-trivial
+		if shuffle:
+			print("Shuffling the replication index and times.")
+			np.random.seed(123)
+			shuffled_index = self.chrom_replication_profile.index.values.copy()
+			np.random.shuffle(shuffled_index)
+			self.chrom_replication_profile.replication_index = self.chrom_replication_profile.loc[shuffled_index].replication_index.values
+
 		self.chrom_bin_curves = chr_bin_curves
 
 		# Add replication timing
@@ -367,3 +359,25 @@ class CopyCorrectionAnalysis:
 		plt.xlabel("PTR, raw")
 		plt.ylabel("PTR, corrected")
 		plt.title("Raw vs Corrected PTR")
+
+
+def load_chromatin_copy_correction(config_type, replicate):
+	path = f'data/copy_correction/chromatin/normalization_replicate{replicate}.csv'
+	correction = pd.read_csv(path).set_index(['chr', 'start'])
+	return correction
+
+
+def lookup_gene_copy_correction(copy_correction, gene):
+	"""Look up the copy correction vector for the gene from the
+	genomic copy correction table"""
+	
+	from src.CopyNumberCorrection import get_bin_for_position
+
+	chrom = gene.chr
+	pos = gene.TSS
+
+	start_indices = copy_correction.loc[chrom].index
+	bin_idx, bin_start_bp = get_bin_for_position(gene.TSS, start_indices)
+
+	vector = copy_correction.loc[chrom].loc[bin_start_bp]
+	return vector

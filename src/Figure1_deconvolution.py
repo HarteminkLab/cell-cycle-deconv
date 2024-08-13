@@ -146,13 +146,15 @@ class Figure1Deconvolution(object):
 		from src.model import Model
 		combined_ge_model = Model(combined_ge_config, gene_name)
 		combined_ge_model.deconvolve_find_optimal_gamma()
+
 		from src.combined_chromatin_model import CombinedChromatinModel
 		combined_model = CombinedChromatinModel(self.config1, self.config2)
+		self.combined_model = combined_model
+
 		combined_model.load_combined_mnase_gene(gene_name)
 		combined_model.gamma = 0.007
 		combined_model.deconvolve()
 
-		self.combined_model = combined_model
 		self.combined_ge_model = combined_ge_model
 
 

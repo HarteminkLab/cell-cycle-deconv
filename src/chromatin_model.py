@@ -1039,11 +1039,16 @@ class ChromatinModel:
 		# Correct the copy number of G using the copy number correction dataframe
 		if self.config.copy_correction is not None:
 
-			print_fl("Applying copy number correction")
+			from src.copy_correction_reanalysis import lookup_gene_copy_correction
 
-			copy_correction_vector = self.config.copy_correction.loc[self.orf_name]
+			print_fl("Applying chromatin copy number correction")
+
+			copy_correction_vector = lookup_gene_copy_correction(self.config.copy_correction, self.gene)
+
+			self.uncorrected_G = self.G
+			self.copy_correction_vector = copy_correction_vector
+
 			self.G = self.G * copy_correction_vector.values.reshape((-1, 1))
-			print(self.G.shape, copy_correction_vector.shape)
 
 		if log:
 			print_fl(f"Unflattened the input data is of shape: {self.deconv_hist_unflattened.shape}")

@@ -99,6 +99,7 @@ class MNaseOriginAnalysis:
 		counts_normalized_by_copy = self.all_window_counts.copy()
 		counts_normalized_equal = self.all_window_counts.copy()
 
+		# Scaling of the DNA copy number overall (non-genome specific)
 		norm_scale_vals = pd.read_csv(f'datasets/computed_mnase/dna_copy_scaling_rep{self.replicate}.csv')
 		norm_scale_vals = norm_scale_vals['scale'].values
 
@@ -290,6 +291,7 @@ class MNaseOriginAnalysis:
 
 		timer = Timer()
 		self.chr_bin_curves = pd.DataFrame()
+		self.unnormalized_chr_bin_curves = pd.DataFrame()
 
 		for chrom in chroms:
 			print(f"{chrom}", end=", ")
@@ -298,14 +300,25 @@ class MNaseOriginAnalysis:
 			self.compute_sliding_window_counts_all_times()
 			self.normalize_samples()
 
-			bin_counts = (self.counts_normalized_by_copy)
+			# Normalized counts, normalized by the expected number of copies
+			# at each time point (overall count based on the growth curves from H
+			bin_counts = self.counts_normalized_by_copy
 			bin_counts_df = pd.DataFrame(bin_counts.T, columns=self.timepoints,
-			            index=self.start_indices)
+						index=self.start_indices)
 			bin_counts_df['chr'] = chrom
 			bin_counts_df = bin_counts_df.reset_index().rename(columns={'index': 'start'})\
 			   .set_index(['chr', 'start'])
 
+			# Keep track of the raw counts with no normalization, we will need these
+			# for computing the scaling term for copy correction
+			unnormalized_counts_df = pd.DataFrame(self.all_window_counts.T, columns=self.timepoints,
+						index=self.start_indices)
+			unnormalized_counts_df['chr'] = chrom
+			unnormalized_counts_df = unnormalized_counts_df.reset_index().rename(columns={'index': 'start'})\
+			   .set_index(['chr', 'start'])
 
+			self.unnormalized_chr_bin_curves = pd.concat([self.unnormalized_chr_bin_curves, 
+				unnormalized_counts_df])
 			self.chr_bin_curves = pd.concat([self.chr_bin_curves, bin_counts_df])
 
 		timer.print_time()

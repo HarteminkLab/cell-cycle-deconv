@@ -654,8 +654,7 @@ def load_configs_by_config_type(config_type, mode='chromatin', with_copy_correct
 	from src.config import load_yl_rg1_vst_config
 	from src.delta_config import load_yl_delta_config
 	from src.single_G1_config import load_single_g1_config
-	from src.CopyNumberCorrection import load_expression_copy_correction
-	from src.ChromatinCopyNumberCorrector import load_chromatin_copy_correction
+	from src.copy_correction_reanalysis import load_chromatin_copy_correction
 
 	if config_type == 'delta':
 		config1 = load_yl_delta_config(1)
@@ -677,20 +676,10 @@ def load_configs_by_config_type(config_type, mode='chromatin', with_copy_correct
 		config1.WT1_TIMEPOINTS = data1.columns
 		config2.WT1_TIMEPOINTS = data2.columns
 
-		if with_copy_correction:
-			# Set the config's copy number correction
-			copy_correction1 = load_expression_copy_correction(config_type, 1)
-			copy_correction2 = load_expression_copy_correction(config_type, 2)
-			config1.copy_correction = copy_correction1
-			config2.copy_correction = copy_correction2
-		else:
-			config1.copy_correction = None
-			config2.copy_correction = None
+		# todo new copy correction procedure from genomic correction
+		config1.copy_correction = None
+		config2.copy_correction = None
 
-	# todo: The timepoints are set by the expression data, this needs to be refactored
-	# We'll just use the known timepoints 
-	#
-	# chromatin
 	else:
 		from src.global_config import GlobalConstants
 		config1.WT1_TIMEPOINTS = GlobalConstants.CHROM_WT1_TIMEPOINTS
@@ -715,7 +704,6 @@ def load_configs_by_config_type(config_type, mode='chromatin', with_copy_correct
 def load_combined_gene_expression_by_config_type(config_type, with_copy_correction=True):
 
 	from src.single_G1_config import load_combined_single_g1_gene_expression_config
-	from src.CopyNumberCorrection import load_expression_copy_correction
 	from src.delta_config import load_delta_combined_gene_expression_config
 
 	if config_type == 'delta':
@@ -734,9 +722,7 @@ def load_combined_gene_expression_by_config_type(config_type, with_copy_correcti
 
 	# The shared gene expression config contains both corrections
 	if with_copy_correction:
-		copy_correction1 = load_expression_copy_correction(config_type, 1)
-		copy_correction2 = load_expression_copy_correction(config_type, 2)
-		config.copy_correction = [copy_correction1, copy_correction2]
+		config.copy_correction = None
 	else:
 		config.copy_correction = None
 
