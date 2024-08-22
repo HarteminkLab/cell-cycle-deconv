@@ -1,0 +1,152 @@
+Supplementary Table 1. Summary of 49 S. cerevisiae proteins and 149 SIL peptides ,,,,,,,,,,,,,,,,,,
+,,,,,,,,,,,,,,,,,,
+Common Name,Standard Name,Cell-Cycle Function,Protein Size (# amino acids),Asynch. concentration (molecules/cell)[36],Asynch. concentration (molecules/cell)[38],"Asynch. concentration (fluorescence, AU)[39]",Asynch. concentration in glucose (mean TMT)[41],Half Life (minutes)[85],Half Life (minutes)[86],Previously reported protein dynamics (wild-type cells),SIL Peptide Sequence,Peptide Start (# amino acids from N terminus),Analysis Alias,Peptide Precursor Charge,WT rep1 transitions picked (97 peptides),WT rep2 transitions picked (103 peptides),clb1-6 rep1 transitions picked (82 peptides),clb1-6 rep2 transitions picked (82 peptides)
+ACE2,YLR131C,transcription factor,770,538,48,40,1189.9,3,203.4,,SPFLVGTDK,400,ACE2_1,2,"y7,y8++","y7,y5,y8++","y5,y8++","y5,y4,y8++"
+,,,,,,,,,,,YAAGTFTPR,414,ACE2_2,2,"y8,y6","y8,y7,y6","y7,y6","y7,y6"
+,,,,,,,,,,,VLEEQEEVAQK,227,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+ASE1,YOR058C,canonical APC target ,885,556,6,NA,NA,3,4291.2,,LSAENGIEQDILNNILER,149,ASE1_1,NA,not_tested,not_tested,NA,NA
+,,,,,,,,,,,LEEADGLFDQPFLFK,588,ASE1_2,NA,not_tested,not_tested,NA,NA
+,,,,,,,,,,,VPIGLNLNDANITYK,658,ASE1_3,2,not_tested,not_tested,"y6,y3","y8,y6,y3"
+ASH1,YKL185W,transcription factor,588,1800,39,NA,1412.7,2,58.9,,DTNYQDYVK,202,ASH1_1,NA,NA,not_tested,not_tested,not_tested
+,,,,,,,,,,,LIPSILEAK,262,ASH1_2,2,"y6,y7++","y6,y5,y7++","y7,y7++","y7,y7++"
+,,,,,,,,,,,HLQLLPSPLLQENAAR,166,ASH1_3,NA,not_tested,NA,not_tested,not_tested
+BCK2,YER167W,transcriptional co-factor,851,NA,11,NA,1074.8,NA,141.9,Ball et al. 2011 [35],SSLSLNSDLSTPHFAK,312,BCK2_1,NA,NA,not_tested,not_tested,not_tested
+,,,,,,,,,,,YTLVNTGLGLSDANLDHFIR,672,BCK2_2,2,"y14,y10","y12,y10,y4","y12,y10,y4","y12,y10,y8,y4"
+,,,,,,,,,,,SQESGLYHSTESFNFK,288,BCK2_3,3,not_tested,"y9,y8","y9,y8,y9++","y9,y8,y10++,y9++"
+CDC20,YGL116W,APC activating subunit,610,NA,NA,NA,NA,NA,NA,Ball et al. 2011 [35],IGSLSWLDTLIATGSR,345,CDC20_1,2,"y12,y11","y12,y11","y11,y6,y5","y11,y8"
+,,,,,,,,,,,VAEVVHAHEAR,515,CDC20_2,NA,NA,not_tested,not_tested,not_tested
+,,,,,,,,,,,EVDEQFTVAADR,132,CDC20_3,NA,not_tested,NA,not_tested,not_tested
+CDC28,YBR160W,Cyclin-dependent kinase (CDK),298,6670,2627,395,7113.4,300 (stable),622.4,"Jackson et al. 2006 [101], Chee and Haase 2010 [96], Simmons Kovacs et al. 2012 [70], many others (loading control)",LESEDEGVPSTAIR,42,CDC28_1,2,"y12,y10,y8,y6","y12,y10,y8,y6","y10,y8,y6","y10,y8,y6"
+,,,,,,,,,,,LYDIVHSDAHK,71,CDC28_2,2,"y9,y7,y6,y5","y9,y7,y6,y5","y9,y7,y6","y9,y7,y6"
+,,,,,,,,,,,KPIFSGDSEIDQIFK,207,CDC28_3,3,not_tested,not_tested,"y6,y5,y2","y6,y5,y2"
+CDH1,YGL003C,APC activating subunit,566,NA,11,NA,328.1,NA,NA,,DTVGSESSIDR,116,CDH1_1,2,"y9,y7","y9,y7,y6,y5","y8,y6,y5","y9,y7"
+,,,,,,,,,,,LASGGNDNVVHVYEGTSK,398,CDH1_2,NA,NA,not_tested,not_tested,not_tested
+,,,,,,,,,,,SPILTFDEHK,416,CDH1_3,3,not_tested,NA,"y6,y5,y2","y7,y6,y2"
+,,,,,,,,,,,NTNELVTSHGYSK,480,CDH1_4,3,not_tested,not_tested,"y4,y2",NA
+,,,,,,,,,,,NELFGEMLSK,106,CDH1_5,2,not_tested,not_tested,"y8,y7,y3","y8,y7"
+CIC1,YHR052W,"constitutive control, nuclear localized",376,45900,6824,573,5768.2,199,555.2,,DLQLIVVNNK,75,CIC1_1,2,"y7,y5,y4","y5,y4,y3",not_tested,not_tested
+,,,,,,,,,,,GLMEIANPSELGSIFSK,330,CIC1_2,2,"y12,y11,y10","y12,y11,y10",not_tested,not_tested
+,,,,,,,,,,,EFSLTTLTNNIK,214,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+CIN8,YEL061C,canonical APC target,1000,238,81,NA,299.5,25,79.0,"Hildebrandt et al. 2001 [95], Chee and Haase 2010 [96]",EAGSINQSLLTLGR,400,CIN8_1,2,"y5,y4","y9,y7,y5,y4","y9,y7,y4","y9,y7,y5"
+,,,,,,,,,,,STVDTSSNSMNESISVMK,845,CIN8_2,NA,NA,not_tested,not_tested,not_tested
+,,,,,,,,,,,LYNGELSDAAGIIPR,142,CIN8_3,NA,not_tested,NA,not_tested,not_tested
+CLB2,YPR119W,cyclin (B-type),491,339,99,NA,NA,22,31.0,"Hildebrandt et al. 2001 [95], Ghaemmaghami et al. 2003 [36], Ball et al. 2011 [35], Bristow et al. 2014 (PMID: 25200947), Mark et al. 2014 [111], Sajman et al. 2015 [107]",ENQDPSSQQFGALTSIK,99,CLB2_1,NA,NA,not_tested,not_tested,not_tested
+,,,,,,,,,,,GVGSSTEVVHNSVENEK,144,CLB2_2,3,"y9,y8,y15++","y9,y8,y7,y15++",not_tested,not_tested
+,,,,,,,,,,,FLLEISLVDFR,382,CLB2_3,NA,not_tested,NA,not_tested,not_tested
+,,,,,,,,,,,RPISTIVEQELPK,183,CLB2_4,NA,not_tested,not_tested,not_tested,not_tested
+,,,,,,,,,,,AELPANISLQESSSAK,119,CLB2_5,NA,not_tested,not_tested,not_tested,not_tested
+CLB5,YPR120C,cyclin (S-phase),435,521,NA,NA,230.8,44,NA,Jackson et al. 2006 [101],ALTDVPVNNNPLSQNK,56,CLB5_1,2,"y11,y6,y11++","y11,y9,y6,y11++",y11,"y11,y9,y11++"
+,,,,,,,,,,,LAEYAYITDGAASK,260,CLB5_2,NA,NA,NA,not_tested,not_tested
+,,,,,,,,,,,TILVDWLVEVHEK,197,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+CLB6,YGR109C,cyclin (S-phase),380,NA,NA,NA,NA,NA,NA,Jackson et al. 2006 [101],VLSEVNSNK,46,CLB6_1,2,"y3,y2","y3,y2",not_tested,not_tested
+,,,,,,,,,,,QLSNDSTDPIEPK,79,CLB6_2,2,NA,y3,not_tested,not_tested
+,,,,,,,,,,,ALLIDWLVEVHEK,155,CLB6_3,NA,not_tested,not_tested,not_tested,not_tested
+,,,,,,,,,,,ITNFAYVTDGAATVEGIR,218,CLB6_4,NA,not_tested,not_tested,not_tested,not_tested
+,,,,,,,,,,,ENAFHTIPR,22,CLB6_5,NA,not_tested,not_tested,not_tested,not_tested
+CLN2,YPL256C,cyclin (G1),545,1270,NA,NA,NA,5,NA,"Ball et al. 2011 [35], Simmons Kovacs et al. 2012 [70]",TVNGVLPFINQVK,341,CLN2_1,2,"y7,y8","y7,y8","y5,y4",y4
+,,,,,,,,,,,ENQNPATAHYLNGGPPK,489,CLN2_2,3,y13++,"y9,y13++","y8,y13++","y9,y3,y13++"
+,,,,,,,,,,,FLIDVSAWQYDLLR,268,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+CLN3,YAL040C,cyclin (G1),580,NA,NA,NA,NA,NA,NA,,SSSSQGPSLNINEIK,256,CLN3_1,NA,NA,not_tested,not_tested,not_tested
+,,,,,,,,,,,SLIALGAINLIK,293,CLN3_2,2,y7,y7,"y8,y7",y7
+,,,,,,,,,,,LALLNNAAGTAINK,242,CLN3_3,2,not_tested,"y10,y9",not_tested,not_tested
+ELM1,YKL048C,kinase,640,149,74,49,1287.4,42,407.3,,DIKPSNILLDEEEK,257,ELM1_1,2,y11,y11,NA,NA
+,,,,,,,,,,,AYINSEDSDIR,610,ELM1_2,2,"y9,y7,y2","y9,y7,y2","y9,y7,y2","y9,y7,y2"
+FHL1,YPR104C,transcription factor,936,639,308,75,9095.3,40,272.1,,LELPDNLDNADFSK,90,FHL1_1,2,"y11,y10,y12++,y11++","y11,y10,y6,y11++","y11,y10,y11++","y11,y11++"
+,,,,,,,,,,,SPENADIAESEINTR,391,FHL1_2,2,"y10,y9,y6,y8","y10,y9,y6,y8","y10,y8,y7","y10,y8,y7"
+,,,,,,,,,,,NGAFVDDIFVEK,346,FHL1_3,2,not_tested,"y9,y4","y8,y7,y4","y9,y7,y4"
+FKH1,YIL131C,transcription factor,484,1720,521,NA,981.7,31,244.0,,FNLESGSWELQIFGR,116,FKH1_1,2,"y12,y11,y10,y8","y12,y11,y10,y8","y12,y11,y10,y6","y12,y11,y10"
+,,,,,,,,,,,FGEIPAPESSSIDPR,414,FKH1_2,2,"y11,y9,y2",NA,NA,NA
+,,,,,,,,,,,LLSTYGTNGNNNPLLR,187,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+FKH2,YNL068C,transcription factor,862,656,251,57,4515.0,26,367.3,,NTDPLNSALQENSDGVK,86,FKH2_1,2,"y14,y12,y9,y14++","y12,y9,y8,y14++","y12,y9","y12,y9,y3"
+,,,,,,,,,,,IINNISDSADK,604,FKH2_2,2,"y7,y6,y4","y8,y7,y6,y4","y9,y7,y6,y4","y9,y7,y6,y4"
+,,,,,,,,,,,QTGLVLDSNVLK,734,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+GAT1,YFL021W,transcription factor,510,1180,208,472,3919.4,21,170.3,,INNNITPPPSSSLNPGAAGK,362,GAT1_1,2,"y15,y13,y6,y14++","y15,y13,y6,y14++","y15,y13,y12,y14++","y15,y13,y12"
+,,,,,,,,,,,NSLNIVAPLK,396,GAT1_2,2,"y7,y3","y8,y7,y6,y3",not_tested,not_tested
+,,,,,,,,,,,SQDIPIPK,406,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+HCM1,YCR065W,transcription factor,564,358,17,NA,360.1,15,NA,"Pramila et al. 2006 [7], Landry et al. 2014 [66]",SNVGAGSLLDPLPYSPLK,371,HCM1_1,2,"y6,y4","y10,y6,y4","y9,y6,y4","y13,y9,y6"
+,,,,,,,,,,,SSAPDVLTSATNSK,498,HCM1_2,2,"y11,y8,y7,y11++","y11,y8,y7,y11++","y8,y7,y11++","y8,y7,y11++"
+,,,,,,,,,,,FPSIEIQLNSSPILR,244,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+INO4,YOL108C,transcription factor,151,521,364,NA,124.5,42,230.6,,AIFDELVAVVPDLQPQESR,61,INO4_1,3,"y9,y5,y9++","y9,y7,y5,y9++","y9,y5,y9++","y9,y7,y5,y9++"
+,,,,,,,,,,,TGSSSSSDPVQEQNGNIR,114,INO4_2,2,"y10,y7",NA,not_tested,not_tested
+,,,,,,,,,,,EIQTIQPGLSEIK,5,INO4_3,2,not_tested,"y10,y7","y10,y7","y10,y7"
+IXR1,YKL032C,transcription factor,597,NA,219,NA,4787.6,10,390.6,,NELLQQFPEAK,375,IXR1_1,NA,NA,NA,not_tested,not_tested
+,,,,,,,,,,,GLIEITK,458,IXR1_2,2,"y5,y4,y3,y2","y5,y4,y3,y2","y3,y2","y3,y2"
+,,,,,,,,,,,AMNMNLNMDTK,513,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+MBP1,YDL056W,transcription factor,833,521,180,53,2180.6,20,466.4,,STTPSAVYYLDVVLSK,475,MBP1_1,2,"y9,y8","y10,y9,y8,y3","y9,y8,y3","y9,y8"
+,,,,,,,,,,,LIEDETQATTNNTVEK,726,MBP1_2,2,"y11,y9,y8","y11,y10,y9,y8","y11,y10,y9,y8","y9,y8"
+,,,,,,,,,,,DDWVNATHILK,29,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+MCM1,YMR043W,transcription factor,286,8970,NA,142,NA,300 (stable),NA,Ball et al. 2011 [35],FEPIVTQQEGR,75,MCM1_1,2,"y7,y6,y9++","y8,y7,y6,y5","y7,y9++","y7,y9++"
+MET32,YDR253C,transcription factor,191,NA,12,NA,473.4,NA,NA,,LLTAGGEGINELLK,155,MET32_1,2,"y12,y10","y12,y10,y7","y12,y11,y10","y11,y10,y7"
+MSN2,YMR037C,transcription factor,704,125,149,114,648.0,2,384.3,,ASLPIIDDSLSYDLVNK,448,MSN2_1,2,"y11,y12,y14++","y12,y11,y10,y14++","y12,y11","y12,y11,y14++"
+,,,,,,,,,,,SSVVIESTK,630,MSN2_2,2,"y6,y4,y3","y7,y4,y3","y6,y5","y6,y5"
+,,,,,,,,,,,NSISHSLDLWNHPK,301,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+MSN4,YKL062W,transcription factor,630,NA,114,NA,475.1,NA,113.0,,NSNNAQFVNDGEK,107,MSN4_1,NA,NA,not_tested,not_tested,not_tested
+,,,,,,,,,,,LATSGVDNITPTPAFQR,468,MSN4_2,2,"y11,y8,y7,y5","y11,y8,y7,y5","y11,y8,y7","y11,y8,y7,y5"
+,,,,,,,,,,,IYSSVATPQALNDELK,134,MSN4_3,2,not_tested,"y14,y9,y6","y11,y10,y9","y11,y10,y9"
+NDD1,YOR372C,transcription factor,554,799,30,NA,NA,6,NA,Sajman et al. 2015 [107],ALISSNSALVDFQK,280,NDD1_1,2,y11,"y11,y3","y11,y10",y11
+,,,,,,,,,,,TPQDTINSTSTLTK,330,NDD1_2,2,"y11,y8","y11,y10,y8,y13++","y9,y8","y8,y2,y13++"
+,,,,,,,,,,,QPSTDNNADTNFLK,21,NDD1_3,NA,not_tested,NA,not_tested,not_tested
+NRM1,YNR009W,transcriptional co-factor,249,2880,116,NA,NA,19,NA,"de Bruin et al. 2006 [55], Ostapenko and Solomon 2011 [109]",LAIANIADASEPR,19,NRM1_1,2,"y9,y5","y10,y9,y5","y9,y7,y5","y9,y7,y5"
+,,,,,,,,,,,TPSSICSHDNTSSFTSFR,169,NRM1_2,3,"y10,y7,y16++,y13++","y10,y7,y6,y16++","y9,y16++,y13++","y9,y4,y16++,y13++"
+,,,,,,,,,,,SLMVSPEVYENTK,48,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+PCL1,YNL289W,cyclin (Pho85),279,606,NA,NA,NA,3,NA,,VVPSSNYPTPPGSPGEK,29,PCL1_1,2,"y10,y8","y10,y8,y4","y10,y8,y4,y15++","y10,y8,y4,y15++"
+,,,,,,,,,,,DVTNIANNTVANTNYVR,236,PCL1_2,2,y2,NA,"y8,y7","y10,y7"
+,,,,,,,,,,,VNTEDLILDLQPLLEPIK,151,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+PCL2,YDL127W,cyclin (Pho85),308,NA,NA,NA,NA,NA,NA,,EMVQYLASTTASIIK,16,PCL2_1,NA,NA,NA,not_tested,not_tested
+,,,,,,,,,,,TNSMIDIALPAPPLTK,34,PCL2_2,2,"y7,y5","y11,y9,y7,y5","y7,y5","y7,y5"
+,,,,,,,,,,,HWAEYTDGLLILR,114,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+PDS1,YDR113C,"securin, canonical APC target",373,NA,88,NA,434.5,NA,NA,Cohen-Fix et al. 1996 [110],VDLLPLEQIDEEGEK,306,PDS1_1,NA,NA,NA,not_tested,not_tested
+,,,,,,,,,,,NQEEGAALPLLSK,329,PDS1_2,2,"y9,y5","y9,y5","y9,y7,y6,y5","y9,y7,y6,y5"
+,,,,,,,,,,,TDDYDIEIAPQR,252,PDS1_3,2,not_tested,"y10,y6,y5","y4,y3","y4,y3"
+PHD1,YKL043W,transcription factor,366,1420,14,NA,NA,14,314.7,,SIAAASPTVTATTR,158,PHD1_1,2,"y12,y10,y9,y8","y12,y11,y9,y8","y10,y9,y8","y12,y9,y8"
+,,,,,,,,,,,INHIDTEAQTSR,347,PHD1_2,NA,NA,not_tested,not_tested,not_tested
+,,,,,,,,,,,EQILDHLYPLFVK,269,PHD1_3,NA,not_tested,NA,not_tested,not_tested
+PLM2,YDR501W,transcription factor,521,NA,2,NA,NA,NA,NA,,LVAEEPLTSQNTK,169,PLM2_1,2,y8,"y8,y6","y11,y8","y11,y8,y6"
+,,,,,,,,,,,TSLNIIPEISR,390,PLM2_2,2,y6,"y8,y6,y5","y8,y6,y5","y8,y6,y5"
+,,,,,,,,,,,VLAGPIEIELDASDPSR,83,PLM2_3,NA,not_tested,NA,not_tested,not_tested
+RIM11,YMR139W,"constitutive control, cytoplasmic localization",370,6990,2330,87,4992.6,21,664.8,,MLSHINIIDLK,84,RIM11_1,NA,NA,not_tested,not_tested,not_tested
+,,,,,,,,,,,EDDQTVEFLADVLK,289,RIM11_2,2,"y10,y9,y6","y10,y9,y5",not_tested,not_tested
+,,,,,,,,,,,YYMFQLFK,140,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+SFG1,YOR315W,transcription factor,346,NA,NA,NA,NA,26,NA,Mark et al. 2014 [111],LPAISSIWEK,252,SFG1_1,2,NA,"y8,y6",not_tested,not_tested
+,,,,,,,,,,,LTIPVNSSIK,262,SFG1_2,2,"y7,y7++","y8,y7,y7++",NA,NA
+,,,,,,,,,,,EALELHR,152,SFG1_3,NA,not_tested,NA,not_tested,not_tested
+SIC1,YLR079W,CDK inhibitor,284,768,387,54,3360.8,33,36.5,"Ghaemmaghami et al. 2003 [36], Ball et al. 2011 [35]",TPQKPSQNLVPVTPSTTK,31,SIC1_1,3,"y8,y6,y5,y8++","y8,y6,y8++","y9,y8,y8++","y9,y8,y8++"
+,,,,,,,,,,,NPFASDELVTQEIR,215,SIC1_2,2,"y9,y5","y9,y13++","y11,y10,y5","y9,y8,y5"
+,,,,,,,,,,,TLFQFESHDNGTVR,88,SIC1_3,NA,not_tested,NA,not_tested,not_tested
+STB1,YNL309W,transcriptional co-factor,420,319,47,NA,1018.6,69,303.4,,SGEDAEDVDEDHK,51,STB1_1,2,"y8,y7,y5,y2","y8,y7,y5,y2",not_tested,not_tested
+,,,,,,,,,,,TPNFNMGDYLHNLFSPSPR,325,STB1_2,3,"y8,y5","y9,y7,y5","y8,y7,y6","y8,y7,y6"
+,,,,,,,,,,,IGEGESIDDK,406,STB1_3,2,y9,"y9,y5",y9,y9
+SWE1,YJL187C,"kinase, CDK inhibitor",819,NA,NA,NA,NA,88,NA,,LSANPDSHLFEK,430,SWE1_1,2,NA,"y8,y8++","y7,y6",y8
+,,,,,,,,,,,NAGAIIQEDDFGPKPK,799,SWE1_2,3,y2,NA,not_tested,not_tested
+SWI4,YER111C,transcription factor,1093,589,195,58,4883.8,141,343.9,,FQGTWIPLDSAK,106,SWI4_1,2,"y10,y8,y6","y10,y8,y6","y8,y6,y3",y6
+,,,,,,,,,,,SSDVDQALLATLYPAPK,491,SWI4_2,2,"y9,y8","y9,y8,y7","y9,y5","y9,y5"
+,,,,,,,,,,,ENAFDEIISILK,568,SWI4_3,2,"y9,y8,y7","y9,y7,y6,y5","y9,y8,y7","y9,y8,y7"
+SWI5,YDR146C,transcription factor,709,688,18,NA,235.5,NA,26.8,,VSLSSSYIDQYTPR,405,SWI5_1,2,"y11,y10,y8,y6","y11,y10,y9,y6","y10,y9,y6,y3","y9,y8,y6"
+,,,,,,,,,,,EGVFNDLDPNVLTK,452,SWI5_2,NA,NA,not_tested,not_tested,not_tested
+,,,,,,,,,,,FVISETPSPVLK,483,SWI5_3,2,"y9,y6,y4","y9,y7,y6,y4","y10,y6,y4","y10,y6,y4"
+SWI6,YLR182W,transcriptional co-factor,803,3340,654,63,7569.7,17,486.5,,YLGPHNEIPLTLTR,7,SWI6_1,3,"y6,y5,y4,y6++","y6,y5,y4","y6,y5,y4,y6++","y6,y5,y4"
+,,,,,,,,,,,IDTSVIDAESDSTPNTAR,165,SWI6_2,2,"y13,y12,y9","y12,y9,y7","y12,y11,y9","y12,y11,y9"
+,,,,,,,,,,,ALPSPVVNDNEQK,233,SWI6_3,2,not_tested,"y9,y7,y9++","y9,y7,y6,y9++","y9,y7,y9++"
+TAF12,YDR145W,"constitutive control, nuclear localization",539,930,1467,122,10767.1,48,511.5,,FLQESTQQQR,236,TAF12_1,2,"y8,y7,y6","y8,y7,y6",not_tested,not_tested
+,,,,,,,,,,,VTNVNATASMLNNISSSK,332,TAF12_2,2,"y11,y10,y4",not_tested,not_tested,not_tested
+,,,,,,,,,,,GNVNTSQTEQSK,318,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+TOS4,YLR183C,transcription factor,489,284,9,NA,NA,17,NA,Landry et al. 2014 [66],TASESIGNFGK,36,TOS4_1,2,"y9,y7,y3","y9,y7,y3","y9,y7,y3","y9,y7,y5,y3"
+,,,,,,,,,,,ISIGSDSGVAER,293,TOS4_2,2,"y11,y10,y9","y11,y10,y9","y11,y10,y9","y11,y10,y9"
+,,,,,,,,,,,GDYPTPFPSSSIGR,47,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+UME6,YDR207C,transcription factor,836,217,109,69,1572.0,NA,612.7,,TTYDENPLLSIMK,77,UME6_1,2,y10,"y11,y10,y7,y4","y4,y3,y2","y11,y8,y5,y4"
+,,,,,,,,,,,TGSDLPLIITSANK,247,UME6_2,2,"y9,y6,y9++","y9,y6,y9++","y9,y7,y6,y9++","y9,y7,y5"
+,,,,,,,,,,,NSPFHTNEQYIPPPPPK,472,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+VPS9,YML097C,"constitutive control, cytoplasmic localization",451,4280,1375,126,4613.7,85,561.8,,YLVSNVNYIER,266,VPS9_1,2,"y9,y7,y6","y9,y8,y7",not_tested,not_tested
+,,,,,,,,,,,FNELFSPIGEPTQEEALK,368,VPS9_2,2,"y13,y12,y8","y13,y12,y8",not_tested,not_tested
+,,,,,,,,,,,EFDPFSQLEQANGNPDK,10,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+WHI5,YOR083W,transcriptional co-factor,295,1440,24,120,1175.4,71,NA,Ball et al. 2011 [35],SEVFLSPSPR,147,WHI5_1,2,"y7,y6,y5,y4","y7,y6,y5,y4","y7,y6,y5,y4","y7,y6,y5"
+,,,,,,,,,,,TLPELETELAPAVQTPPR,199,WHI5_2,3,NA,NA,"y8,y3","y8,y6,y3"
+,,,,,,,,,,,YDGHVSMPLLPPTTPK,128,not_tested,NA,not_tested,not_tested,not_tested,not_tested
+YHP1,YDR451C,transcription factor,353,NA,NA,NA,NA,3,1293.4,"Ostapenko and Solomon 2011 [109], Landry et al. 2014 [66]",SPQAVDFLSQR,71,YHP1_1,3,y4,NA,not_tested,not_tested
+,,,,,,,,,,,TLSNTGHSEIIK,311,YHP1_2,3,y10++,y10++,y8,y8
+,,,,,,,,,,,LSSHSPFTPTVR,95,YHP1_3,3,not_tested,not_tested,"y4,y3","y4,y3"
+,,,,,,,,,,,VNILTPLSAAK,123,YHP1_4,2,not_tested,not_tested,"y8,y7,y6","y8,y7,y6"
+,,,,,,,,,,,EAITAELLK,267,YHP1_5,2,not_tested,not_tested,"y6,y4,y3","y6,y4,y3"
+YOX1,YML027W,transcription factor,385,861,1402,NA,NA,3,NA,"Pramila et al. 2002 [49], Landry et al. 2014 [66]",TSSQELSILQAEFEK,181,YOX1_1,2,"y9,y7","y10,y9,y7","y10,y9,y7","y10,y9,y7"
+,,,,,,,,,,,LINSIDHSPSK,335,YOX1_2,2,y9,"y9,y3,y9++",y9,y9
+,,,,,,,,,,,NDILTPLSAAK,126,YOX1_3,2,not_tested,"y7,y6",not_tested,not_tested

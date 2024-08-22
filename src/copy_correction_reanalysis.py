@@ -145,7 +145,7 @@ class CopyCorrectionAnalysis:
 		non_repl_curve = self.H @ non_repl
 
 		# Scaled occupancy curves will be values from 1-(max of the copy mixture sum)
-		occ_curve_scaled = occ_curve*value_range+1.
+		occ_curve_scaled = occ_curve*value_range+mixture_curve.min()
 		
 		return mixture_curve, occ_curve_scaled
 
@@ -171,9 +171,6 @@ class CopyCorrectionAnalysis:
 
 	def plot_normalization_example_curves(self):
 
-		early_idx = 25
-		late_idx = -25
-
 		color_early = plt.get_cmap('inferno_r')(0.2)
 		color_late = plt.get_cmap('inferno_r')(0.8)
 
@@ -187,8 +184,8 @@ class CopyCorrectionAnalysis:
 			handles, labels = plt.gca().get_legend_handles_labels()
 
 			# create manual symbols for legend
-			line_early = Line2D([0], [0], lw=2, label='Early', color=color_early)
-			line_late = Line2D([0], [0], lw=2, label='Late', color=color_late)
+			line_early = Line2D([0], [0], lw=2, label=f'Early, chr{early_idx[0]}-{early_idx[1]}', color=color_early)
+			line_late = Line2D([0], [0], lw=2, label=f'Late, chr{late_idx[0]}-{late_idx[1]}', color=color_late)
 			line_mix = Line2D([0], [0], lw=1, ls=mixture_ls, 
 				label='Est. Mixture', color='black')
 			line_raw = Line2D([0], [0], lw=1, ls=raw_ls, label='Raw', color='black')
@@ -203,7 +200,7 @@ class CopyCorrectionAnalysis:
 				handles.extend([line_mix, line_raw, line_early, line_late])
 			
 			plt.legend(handles=handles, ncol=2, loc='lower left')
-
+			
 		def plot_mix_data(mix, dat, corrected=None, color=None):
 			plt.plot(self.tps, mix, label="_Copy number mixture", color=color,
 					lw=1, ls=mixture_ls)
@@ -219,6 +216,8 @@ class CopyCorrectionAnalysis:
 		plt.figure(figsize=(10, 4))
 
 		sorted_idx = self.chrom_replication_profile.sort_values('replication_index').index
+		early_idx = sorted_idx.values[25]
+		late_idx = sorted_idx.values[-25]
 
 		mixture_curves = self.mixture_curves.loc[sorted_idx]
 		data_scaled_10k = self.data_scaled_10k.loc[sorted_idx]
@@ -226,78 +225,79 @@ class CopyCorrectionAnalysis:
 		normalized_data_10k = self.normalized_data_10k.loc[sorted_idx]
 		norm_corrected = self.norm_corrected.loc[sorted_idx]
 		norm_norm_corrected = self.norm_norm_corrected.loc[sorted_idx]
-			
+
 		plt.subplot(1, 2, 1)
-		plot_mix_data(mixture_curves.iloc[early_idx], data_scaled_10k.iloc[early_idx],
+		plot_mix_data(mixture_curves.loc[early_idx], data_scaled_10k.loc[early_idx],
 					  color=color_early)
-		plot_mix_data(mixture_curves.iloc[late_idx], data_scaled_10k.iloc[late_idx],
+		plot_mix_data(mixture_curves.loc[late_idx], data_scaled_10k.loc[late_idx],
 					  color=color_late)
 		plt.title("Unnormalized")
 		plt.ylabel("Copy #")
 		create_legend(False)
 
 		plt.subplot(1, 2, 2)
-		plot_mix_data(normalized_mixture_curves.iloc[early_idx],
-					  normalized_data_10k.iloc[early_idx], 
-					  norm_norm_corrected.iloc[early_idx],
+		plot_mix_data(normalized_mixture_curves.loc[early_idx],
+					  normalized_data_10k.loc[early_idx], 
+					  norm_norm_corrected.loc[early_idx],
 					  color=color_early)
-		plot_mix_data(normalized_mixture_curves.iloc[late_idx], 
-					  normalized_data_10k.iloc[late_idx],
-					  norm_norm_corrected.iloc[late_idx],
+		plot_mix_data(normalized_mixture_curves.loc[late_idx], 
+					  normalized_data_10k.loc[late_idx],
+					  norm_norm_corrected.loc[late_idx],
 					  color=color_late)
 		plt.title("Equal sample normalization")
 		plt.ylabel("Normalized copy #")
 
 		plt.ylabel("Normalized copy #")
-		plt.title("Normalization+Correction")
+		plt.title("Normalization+Correction", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+		plt.suptitle(f"Replicate {self.replicate}", fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+		plt.subplots_adjust(top=0.85)
+
 		create_legend(True)
 
 
 	def plot_heatmap_correction(self):
-		plt.figure(figsize=(13, 6))
-		plt.subplot(1, 3, 1)
+		plt.figure(figsize=(7, 6))
+		plt.subplot(1, 2, 1)
 
 		sorted_idx = self.chrom_replication_profile.sort_values('replication_index').index
 
+		sorted_10K_occ = self.data_scaled_10k.loc[sorted_idx]
 		norm_mix = self.normalized_mixture_curves.loc[sorted_idx]
 		norm_raw = self.normalized_data_10k.loc[sorted_idx]
 		norm_corrected = self.norm_corrected.loc[sorted_idx]
 
 		extent = [0, self.tps[-1], 0, len(norm_mix)]
 
-		plt.imshow(norm_mix, aspect='auto', cmap='RdBu_r', 
-					interpolation='none', vmin=.5, vmax=1.5, 
+		plt.imshow(sorted_10K_occ, aspect='auto', cmap='RdBu_r', 
+					interpolation='none', vmin=0, vmax=2., 
 					extent=extent)
 		plt.yticks([])
-		plt.colorbar()
-		plt.title("Est. copy change")
+		#plt.colorbar()
+		plt.title("10k occupancy", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=9)
+		plt.ylabel("Windows sorted by replication timing")
+		plt.xlabel("Time, min")
 
-		plt.subplot(1, 3, 2)
+		plt.subplot(1, 2, 2)
 		plt.imshow(norm_raw, aspect='auto', cmap='RdBu_r', 
-					interpolation='none', vmin=.5, vmax=1.5, 
+					interpolation='none', vmin=0, vmax=2, 
 					extent=extent)
 		plt.yticks([])
+		plt.xlabel("Time, min")
 		plt.colorbar()
-		plt.title("Raw")
-
-		plt.subplot(1, 3, 3)
-		plt.imshow(norm_corrected, 
-				   aspect='auto', cmap='RdBu_r', 
-				   interpolation='none', vmin=0.5, vmax=1.5, 
-				   extent=extent)
-		plt.colorbar()
-		plt.yticks([])
-		plt.title("Corrected")
+		plt.title("10k occupancy,\nnormalized", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=9)
+		plt.suptitle(f"Replicate {self.replicate}", fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+		plt.subplots_adjust(top=0.85)
 
 
 	def compute_ptr_correction(self):
 		from src.peak_to_trough import compute_quantile_ptr_2d
 
-		raw_ptr = compute_quantile_ptr_2d(self.normalized_data_10k)
-		corrected_ptr = compute_quantile_ptr_2d((self.norm_corrected))
+		raw_ptr = compute_quantile_ptr_2d(self.normalized_data_10k, return_indices=False)
+		corrected_ptr = compute_quantile_ptr_2d(self.norm_corrected, return_indices=False)
 
 		ptr_df = pd.DataFrame({
-			'raw': raw_ptr, 'corrected': corrected_ptr, 
+			'raw': raw_ptr, 
+			'corrected': corrected_ptr, 
 			'replication_time': self.chrom_replication_profile.replication_time
 		})
 
@@ -391,7 +391,6 @@ def load_chromatin_copy_correction(config_type, replicate):
 	return correction
 
 
-
 def lookup_origin_copy_correction(copy_correction, origin):
 	"""Look up the copy correction vector for an origin from the
 	genomic copy correction table"""
@@ -420,5 +419,14 @@ def lookup_gene_copy_correction(copy_correction, gene):
 	start_indices = copy_correction.loc[chrom].index
 	bin_idx, bin_start_bp = get_bin_for_position(gene.TSS, start_indices)
 
-	vector = copy_correction.loc[chrom].loc[bin_start_bp]
+	vector = copy_correction.loc[chrom].loc[bin_start_bp].values
+
+	# todo: if there is an issue with the 10k window copy correction
+	# the correction vector defaults to 0's. Rather we would like to 
+	# interpolate from neighbors
+	if vector.sum() == 0:
+		print("Copy correction vector does not exist, using no correction. "
+			  f"gene: {gene['gene']}, chr: {chrom}, {pos}")
+		vector = np.ones_like(vector)
+
 	return vector

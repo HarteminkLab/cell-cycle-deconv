@@ -127,9 +127,11 @@ class ChromatinModel:
 
 		if self.config.copy_correction is not None:
 			print("Applying copy correction to origin reads")
-			copy_correction_vector = lookup_origin_copy_correction
+			copy_correction_vector = lookup_origin_copy_correction(self.config.copy_correction, 
+				self.origin)
 			self.uncorrected_G = self.G
-			self.G = self.G * copy_correction_vector.values.reshape((-1, 1))
+			self.copy_correction_vector = copy_correction_vector
+			self.G = self.G * copy_correction_vector.reshape((-1, 1))
 
 		self.center_origin = self.origin.pos
 
@@ -247,6 +249,12 @@ class ChromatinModel:
 		vmin=0, vmax=50, smooth=False, f=None, mask=None, show_dg1=False, show_rg1=True,
 		show_origin_down_nuc=False, zoom=None, figsize=None, should_smooth_data=False):
 
+
+		from src.tf_sites import TFBindingSites
+
+		tf_binding_sites = TFBindingSites()
+		tf_binding_sites.filter_tf_binding_sites(self.gene, self.mnase_span)
+
 		if f is None:
 			f = self.deconvolved_f().copy()
 
@@ -260,11 +268,11 @@ class ChromatinModel:
 			figheight = 8
 
 		if plotting_orc:
-			if zoom is not None: figwidth = 11
-			else: figwidth = 16
+			if zoom is not None: figwidth = 13
+			else: figwidth = 19
 			figheight = 6
 		else:
-			figwidth = 11
+			figwidth = 13
 
 		if figsize is not None:
 			figwidth, figheight = figsize
@@ -289,7 +297,7 @@ class ChromatinModel:
 			num_cols = len(column_titles)
 
 			fig, ax_cols = plt.subplots(num_rows, num_cols, figsize=(figwidth, figheight))
-			plt.subplots_adjust(hspace=0.5, top=0.77)
+			plt.subplots_adjust(hspace=0.5, top=0.77, right=0.8)
 
 		if plotting_orc:
 			plt.subplots_adjust(hspace=0.5, top=0.71)
@@ -355,6 +363,9 @@ class ChromatinModel:
 				if col == 0:
 					ax.set_ylabel(f"{row+1}", rotation=0, ha='right', labelpad=10, fontsize=16)
 
+				last_col_last_row = (row == num_chromatin_rows-1) & \
+					(col == num_cols-1)
+				tf_binding_sites.plot_tf_sites(ax, legend=last_col_last_row)
 
 		# Add some xtick and xtick labels to the first column last row
 		first_col_last_row = ax_cols[0][-1]
@@ -782,6 +793,18 @@ class ChromatinModel:
 
 		For the currently selected gene
 		"""
+
+		# From the MNase-seq it appears the TSS may need to move a bit to match
+		# the expected +1 nucloeosome location
+		hardcoded_TSS = {
+		}
+
+		if self.gene.name in hardcoded_TSS.keys():
+			TSS = hardcoded_TSS[self.gene.name]
+			print(f"Using hardcoded TSS location for {self.gene.name}: {TSS}")
+		else:
+			TSS = self.gene.TSS
+
 		from src.chromatin_metrics import fragment_lengths_definitions
 		small_lens, med_lens, nuc_lens = fragment_lengths_definitions()
 
@@ -796,19 +819,21 @@ class ChromatinModel:
 
 		# Search around the TSS with a 200bp window
 		window = 200
-		search_peak_span = self.gene.TSS-window//2, \
-			self.gene.TSS+window//2 
+		search_peak_span = TSS-window//2, \
+			TSS+window//2 
+
+		# Larger length span for nucleosome reads search
+		nuc_lens = 120, 200
 
 		cur_nuc_reads = cur_reads[(cur_reads['length'] >= nuc_lens[0]) & 
-							  (cur_reads['length'] < nuc_lens[1]) & 
-								 (cur_reads['mid'] >= search_peak_span[0]) &
-								 (cur_reads['mid'] < search_peak_span[1])]
+							      (cur_reads['length'] < nuc_lens[1]) & 
+								  (cur_reads['mid'] >= search_peak_span[0]) &
+								  (cur_reads['mid'] < search_peak_span[1])]
 
 		counts_per_pos_search = cur_nuc_reads.groupby('mid').count()
 		counts_per_pos_search = counts_per_pos_search[['start']].rename({'start': 'count'})
+
 		pos_max = counts_per_pos_search.idxmax().start
-
-
 		self.computed_plus_one = pos_max
 
 		return pos_max
@@ -1054,7 +1079,8 @@ class ChromatinModel:
 			self.uncorrected_G = self.G
 			self.copy_correction_vector = copy_correction_vector
 
-			self.G = self.G * copy_correction_vector.values.reshape((-1, 1))
+			self.G = self.G * copy_correction_vector.reshape((-1, 1))
+			self.copy_correction_vector = copy_correction_vector
 
 		if log:
 			print_fl(f"Unflattened the input data is of shape: {self.deconv_hist_unflattened.shape}")
@@ -1328,6 +1354,25 @@ class ChromatinModel:
 			'+1': p1, '-1': m1, 'origin_occupancy': origin_occupancy
 		})
 		return df
+
+
+	def plot_orf_annotation(self):
+		from src.orf_plotter import ORFAnnotationPlotter, plot_rect
+		from src.geneset import get_deconvolved_geneset
+
+		gene = self.gene
+		plt.figure(figsize=(6, 1))
+		ax1 = plt.gca()
+		gene_window = self.bin_extents[0],\
+		    self.bin_extents[1]
+
+		geneset = get_deconvolved_geneset()
+		orf_plotter = ORFAnnotationPlotter(geneset)
+		orf_plotter.set_span_chrom(gene_window, gene.chr)
+		orf_plotter.plot_orf_annotations(ax1)
+
+		ax1.set_xlim(*gene_window)
+		ax1.set_ylim(-120, 0)
 
 
 	def save_deconvolved_outputs(self, out_dir, index, using_default_flag):
