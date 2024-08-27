@@ -8,6 +8,7 @@ from src.chromatin_model import ChromatinModel
 from src.chromatin_deconvolution_solver import ChromatinDeconvolveSolver
 from src.utils import print_fl
 from src.global_config import GlobalConstants
+from src.figure_configs import FiguresConfig
 
 
 class CombinedChromatinModel:
@@ -196,13 +197,13 @@ class CombinedChromatinModel:
 
 
 	def create_deconvolution_plots_abbreviated_flipped(self, ge_model=None, vmax=50, num_rows=4, zoom=None,
-		show_rg1=True, figsize=None, should_smooth_data=False):
+		show_rg1=True, figsize=None, should_smooth_data=False, normalized_f=False):
 		"""Create the deconvolution plot defined in chromatin_model.py
 		"""
 
 		fig = self.chrom1_model.create_deconvolution_plots_abbreviated_flipped(ge_model=ge_model, vmax=vmax,
 			show_origin_down_nuc=True, zoom=zoom, num_rows=num_rows, show_rg1=show_rg1, figsize=figsize, 
-			should_smooth_data=should_smooth_data)
+			should_smooth_data=should_smooth_data, normalized_f=normalized_f)
 		return fig
 
 	def plot_raw_prediction(self, replicate, vmax=20):
@@ -245,6 +246,96 @@ class CombinedChromatinModel:
 		plt.axvline(replication_time, c='black', lw=1, ls='dotted', zorder=0)
 		plt.suptitle(f"{self.chrom1_model.origin.ars_name}")
 		print("todo: resolve the timepoints plotted to be the average of rep1 and rep2")
+
+
+	def plot_sm_nuc_hm(self):
+
+		# Summarize the small fragment changes into a matrix, collapse reads of small factor length
+		# down to a single vector in which we can create a time course matrix on.
+		center = self.chrom1_model.computed_plus_one
+		xlims = center-500, center+500
+
+		from src.chromatin_metrics import fragment_lengths_definitions
+		from src.global_config import GlobalConstants
+		config1 = self.chrom1_model.config
+		t_indices = config1.get_Hpositions_for_branch('t')
+
+		# Starting with lengths less than 100
+		f_imgs = self.chrom1_model.get_f_images()
+
+		select_nuc_frag_bins = ((GlobalConstants.Y_LEN_DEFINITIONS > 120) & \
+		                        (GlobalConstants.Y_LEN_DEFINITIONS < 170))[:-1]
+		select_small_frag_bins = (GlobalConstants.Y_LEN_DEFINITIONS <= 100)[:-1]
+
+		def select_bins_sum(f_imgs, selected_bins_indices):
+		    selected_bins = f_imgs[:, selected_bins_indices, :]
+		    selected_bins_sum = selected_bins.mean(axis=1)[t_indices]
+		    return selected_bins_sum
+
+		def plot_frag_bins_hm(selected_bins_sum, vmin=0, vmax=10, cmap='magma_r'):
+		    plt.imshow(selected_bins_sum, vmax=vmax, vmin=vmin, 
+		        extent=[self.chrom1_model.bin_extents[0],
+		                self.chrom1_model.bin_extents[1],
+		               0, selected_bins_sum.shape[0]], aspect='auto', interpolation='none',
+		               origin='lower', cmap=cmap)
+		    plt.xlim(*xlims)
+		    plt.ylim(selected_bins_sum.shape[0], 0)
+		    
+		fig = plt.figure(figsize=(16, 4))
+		small_frags_sum = select_bins_sum(f_imgs, select_small_frag_bins)
+
+		#plt.subplot(2, 1, 5)
+		nuc_frags_sum = select_bins_sum(f_imgs, select_nuc_frag_bins)
+
+		gene = self.chrom1_model.gene
+		from src.sgd import get_gene_title_name
+
+		xticks, xtick_labels = self.chrom1_model.generate_xticks()
+		
+		plt.subplot(2, 3, 4)
+		plot_frag_bins_hm(-small_frags_sum, vmin=-5, vmax=5, cmap='RdBu_r')
+		plt.title("Small Fragments")
+		plt.xticks(xticks, xtick_labels)
+		plt.xlim(*xlims)
+
+		plt.subplot(2, 3, 5)
+		plot_frag_bins_hm(nuc_frags_sum, vmin=-5, vmax=5, cmap='RdBu_r')
+		plt.title("Nucleosome fragments")
+		plt.xticks(xticks, xtick_labels)
+		plt.xlim(*xlims)
+
+		plt.subplot(2, 3, 6)
+		plot_frag_bins_hm(nuc_frags_sum-small_frags_sum, vmin=-5, vmax=5, cmap='RdBu_r')
+		plt.title("Nucleosome+Small Fragments")
+		plt.suptitle(get_gene_title_name(gene.name), fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+		plt.subplots_adjust(top=0.8, hspace=0.5)
+
+		plt.xticks(xticks, xtick_labels)
+		plt.xlim(*xlims)
+
+		plt.subplot(2, 3, 1)
+		ax = plt.gca()
+		self.chrom1_model.plot_orf_annotation(ax)
+		ax.set_xticks(xticks)
+		ax.set_xticklabels(xtick_labels)
+		ax.set_xlim(xlims)
+
+		plt.subplot(2, 3, 2)
+		ax = plt.gca()
+		self.chrom1_model.plot_orf_annotation(ax)
+		ax.set_xticks(xticks)
+		ax.set_xticklabels(xtick_labels)
+		ax.set_xlim(xlims)
+
+		plt.subplot(2, 3, 3)
+		ax = plt.gca()
+		self.chrom1_model.plot_orf_annotation(ax)
+		ax.set_xticks(xticks)
+		ax.set_xticklabels(xtick_labels)
+		ax.set_xlim(xlims)
+
+		return fig
+
 
 	def save_origin_plots(self, plot_dir, origin_index):
 
