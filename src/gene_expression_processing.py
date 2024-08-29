@@ -128,3 +128,4 @@ def retrieve_important_points(expression_values, window_size=11, sigma=1.0, min_
 	important_points = important_points.reset_index(drop=True)
 
 	return smoothed_data_df, important_points, slope
+

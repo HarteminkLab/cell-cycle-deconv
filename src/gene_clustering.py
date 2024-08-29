@@ -106,6 +106,8 @@ class GeneClustering:
 	def load_chromatin_for_cluster(self, chromatin_dir, cluster):
 		from src.deconv_data import load_f_files
 
+		t_indices = self.config.get_Hpositions_for_branch('t')
+
 		current_cluster_exp = self.clustered_expression.loc[cluster]
 		all_gene_f_df = load_f_files(chromatin_dir, current_cluster_exp)
 		self.current_cluster_chromatin = all_gene_f_df
@@ -116,13 +118,14 @@ class GeneClustering:
 		current_genes = self.geneset[['gene', 'strand']].loc[self.current_cluster_exp.index]
 		current_genes['gene_index'] = np.arange(len(current_genes))
 
-		accumulated_gene_f_imgs = self.current_cluster_chromatin.reshape(
-			(-1, 178, 23, 91)).astype(float)
+		accumulated_gene_f_imgs = self.current_cluster_chromatin.values.reshape(
+			(-1, 178, 23, 91)).astype(float)[:, t_indices]
 		crick_genes = current_genes[current_genes.strand == '-'].gene_index
 		accumulated_gene_f_imgs[crick_genes] = np.flip(accumulated_gene_f_imgs[crick_genes],\
 			axis=3)
 
 		self.current_cluster_chromatin = accumulated_gene_f_imgs
+
 
 	def plot_clustered_heatmap(self):
 		clustered_data = self.normalized_high_ptr_expression.copy()
@@ -130,33 +133,131 @@ class GeneClustering:
 		clustered_data = clustered_data.reset_index().set_index(['cluster', 'orf_name'])
 		plt.imshow(clustered_data.sort_index().astype(float))
 
-	def plot_chromatin_in_cluster(self):
+
+	def shift_cluster_chromatin_data(self):
 
 		cluster = self.selected_cluster
-		aligned_clustered_expression_data, aligned_shift  = align_to_medoid(
-			self.current_cluster_exp, self.medoids[cluster])
-		print(aligned_shift)
+		current_shifts = self.aligned_shifts_df[self.aligned_shifts_df.cluster == cluster]
 
 		chrom_dat = self.current_cluster_chromatin
 		shifted_chrom_dat = chrom_dat.copy()
 		for i in range(shifted_chrom_dat.shape[0]):
-			shifted_chrom_dat[i] = np.roll(chrom_dat[i], aligned_shift.values[i], axis=0)
+			shift = int(current_shifts.iloc[i]['shift'])
+			shifted_chrom_dat[i] = np.roll(chrom_dat[i], shift, axis=0)
+		self.aligned_cluster_chromatin_data = shifted_chrom_dat
+		self.current_cluster_chromatin_mean = self.current_cluster_chromatin.mean(axis=0)
+		self.current_aligned_chromatin_mean = self.aligned_cluster_chromatin_data.mean(axis=0)
 
-		aligned_chromatin = shifted_chrom_dat.mean(axis=0)
 
-		fig = plt.figure(figsize=(6, 6))
+	def plot_chromatin_in_cluster(self):
+
+		cluster = self.selected_cluster
+		
+		indices_df = self.interesting_points_df[self.interesting_points_df.cluster == cluster].sort_values('value')
+		indices_df = indices_df.reset_index(drop=True)
+
+		chrom_dat = self.current_cluster_chromatin_mean
+		aligned_chromatin = self.current_aligned_chromatin_mean
+
+		k = len(indices_df)
+		fig = plt.figure(figsize=(13, k*1.5))
 
 		medoid = self.medoids[cluster]
-		interesting_indices = retrieve_important_points(medoid)
-		print(interesting_indices)
 
-		k = len(interesting_indices)
-
-		for i, selected_index in enumerate(interesting_indices):
-			plt.subplot(k, 1, i+1)
-			plt.imshow(aligned_chromatin[selected_index].astype(float),
+		cols = 2
+		for i, index_row in indices_df.iterrows():
+			plt.subplot(k, cols, (i*cols)+1)
+			plt.imshow(chrom_dat[index_row.value].astype(float),
 					  origin='lower', cmap='magma_r', aspect='auto', vmax=10)
 			plt.xticks([])
+			plt.ylabel(f"{index_row.point_type}: {index_row.value}")
+
+			plt.subplot(k, cols, (i*cols)+2)
+			plt.imshow(aligned_chromatin[index_row.value].astype(float),
+					  origin='lower', cmap='magma_r', aspect='auto', vmax=10)
+			plt.xticks([])
+
+		plt.suptitle(f"Cluster {cluster}, n={len(self.aligned_cluster_chromatin_data)}")
+
+
+	def compute_alignments_and_interesting_points_per_cluster(self):
+
+		from src.gene_expression_processing import retrieve_important_points
+			
+		expression = self.normalized_high_ptr_expression
+		medoids = self.medoids
+		num_clusters = self.num_clusters
+
+		interesting_points_df = pd.DataFrame()
+		aligned_shifts_df = pd.DataFrame()
+		aligned_expression_df = pd.DataFrame()
+
+		for i in range(num_clusters):
+
+			medoid = medoids[i]
+			cluster_expression = expression[self.kmedoids.labels_ == i]
+			aligned_expression, aligned_shift = align_to_medoid(cluster_expression, medoid)
+				
+			smoothed_medoid, important_points, _ = retrieve_important_points(medoid, 
+																			min_distance=20)
+			important_points['cluster'] = i
+			aligned_shift['cluster'] = i
+			aligned_expression['cluster'] = i
+
+			interesting_points_df = pd.concat([interesting_points_df, important_points])
+			aligned_shifts_df = pd.concat([aligned_shifts_df, aligned_shift])    
+			aligned_expression_df = pd.concat([aligned_expression_df, aligned_expression])
+
+		self.aligned_expression_df = aligned_expression_df
+		self.interesting_points_df = interesting_points_df
+		self.aligned_shifts_df = aligned_shifts_df
+
+
+	def plot_aligned_clusters(self):
+		from src.gene_expression_processing import retrieve_important_points
+			
+		expression = self.normalized_high_ptr_expression
+		medoids = self.medoids
+
+		plt.figure(figsize=(8, 16))
+		num_clusters = self.num_clusters
+		columns = 2
+
+		interesting_points_df = self.interesting_points_df
+		aligned_shifts_df = self.aligned_shifts_df
+		aligned_expression_df = self.aligned_expression_df.reset_index().set_index(['cluster', 'orf_name'])
+
+		for i in range(num_clusters):
+
+			medoid = medoids[i]
+			cluster_expression = expression[self.kmedoids.labels_ == i]
+
+			aligned_expression = aligned_expression_df.loc[i]
+			
+			plt.subplot(num_clusters, 2, (columns*i)+1)
+			plt.plot(cluster_expression.T, c='gray', alpha=0.25)
+			plt.plot(cluster_expression.columns, medoid)
+			plt.title(f"Cluster {i}")
+
+			plt.subplot(num_clusters, 2, (columns*i)+2)
+			plt.plot(cluster_expression.columns, aligned_expression.T, 
+				c='gray', alpha=0.25)
+			plt.plot(cluster_expression.columns, medoid)
+
+			important_points = interesting_points_df[interesting_points_df.cluster == i]
+			
+			for index, row in important_points.iterrows():
+				if row.point_type == 'maxima':
+					color = 'red'
+				elif row.point_type =='minima':
+					color = 'blue'
+				else:
+					color = 'green'
+
+				plt.axvline(cluster_expression.columns[int(row.value)], color=color)
+
+		plt.subplots_adjust(hspace=0.5)
+
 
 
 def circular_correlation(v1, v2, return_idx=False):
@@ -180,14 +281,14 @@ def circular_correlation(v1, v2, return_idx=False):
 	
 	# Find the maximum correlation and its corresponding shift
 	max_corr = np.max(circular_corr)
-	optimal_shift = np.argmax(circular_corr)
-	
+	optimal_shift = np.argmax(circular_corr[:n])
+
 	# Since shifts beyond n-1 actually mean shifts in the opposite direction
 	if optimal_shift >= n:
 		optimal_shift = optimal_shift - n
 	
 	if return_idx:
-		return max_corr, optimal_shift
+		return max_corr, optimal_shift#, circular_corr, corr
 
 	return max_corr
 
