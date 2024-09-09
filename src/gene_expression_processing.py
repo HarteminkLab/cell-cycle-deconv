@@ -17,7 +17,6 @@ def filter_near_max_mins(important_points, min_distance):
 	sorted_points = important_points.sort_values('value').reset_index(drop=True)
 
 	minima = sorted_points[sorted_points.point_type == 'minima']
-	maxima = sorted_points[sorted_points.point_type == 'maxima']
 
 	drop_mins = []
 
@@ -40,6 +39,7 @@ def filter_near_max_mins(important_points, min_distance):
 		sorted_points = sorted_points.drop(m1.name+1)
 
 	sorted_points = sorted_points.reset_index(drop=True)
+	maxima = sorted_points[sorted_points.point_type == 'maxima']
 
 	# --------- Repeat for the max values
 	drop_maxes = []

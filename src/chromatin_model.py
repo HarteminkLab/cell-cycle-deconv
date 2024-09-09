@@ -1252,8 +1252,6 @@ class ChromatinModel:
 			plt.plot(t_tps, nfr_size_t, label="NFR length", color=cmap(0.1))
 			plt.legend()
 
-			from src.chromatin_model import draw_phase_label_annotations
-
 			ax = plt.gca()
 			draw_phase_label_annotations(ax, self.config, flip=True, annotations_x=-0.13)
 			plt.xlim(t_tps[0], t_tps[-1])

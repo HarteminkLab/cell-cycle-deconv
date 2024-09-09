@@ -5,6 +5,7 @@ from src.timer import Timer
 import matplotlib.pyplot as plt
 from sklearn_extra.cluster import KMedoids
 import pandas as pd
+from src.figure_configs import FiguresConfig
 
 
 class GeneClustering:
@@ -16,7 +17,7 @@ class GeneClustering:
 		figures = Figure3_Chrom_GeneExpression(outdir)
 		gene_expression = figures.gene_expression_a.gene_expression_f
 
-		from src.genset import get_deconvolved_geneset
+		from src.geneset import get_deconvolved_geneset
 		geneset = get_deconvolved_geneset()
 
 		self.gene_expression = gene_expression
@@ -45,6 +46,7 @@ class GeneClustering:
 
 		high_ptr_gene_expression = gene_expression_top_branch.loc[quantile_ptr_genes.index]
 
+		plt.figure(figsize=(4, 3))
 		plt.hist(top_gene_expression_ptr_df, bins=100)
 		plt.yscale('log')
 		plt.xlim(0.9, 4)
@@ -89,6 +91,7 @@ class GeneClustering:
 
 	def cluster_expression(self, num_clusters):
 		self.kmedoids, labels, medoid_indices = cluster_timeseries_kmedoids(self.distance_matrix, num_clusters)
+		labels = labels+1
 		clustered_expression = self.high_ptr_gene_expression.copy()
 		clustered_expression['cluster'] = labels
 		self.clustered_expression = clustered_expression.reset_index().set_index(['cluster', 'orf_name'])
@@ -125,13 +128,50 @@ class GeneClustering:
 			axis=3)
 
 		self.current_cluster_chromatin = accumulated_gene_f_imgs
+		self.normalize_chromatin()
 
+	def normalize_chromatin(self):
+		# Normalize chrom data by total sum per each image
+		chrom_data = self.current_cluster_chromatin
+		normalized_chrom_data = chrom_data.copy()
+		total_target = 1000
+
+		for gene_i in range(chrom_data.shape[0]):
+			gene_chrom = chrom_data[gene_i]
+			gene_sum_per_t = gene_chrom.sum(axis=1).sum(axis=1)
+			normalized_gene_chrom = gene_chrom / gene_sum_per_t.reshape((-1, 1, 1))
+			normalized_chrom_data[gene_i] = normalized_gene_chrom * total_target
+
+		self.normalized_chrom = normalized_chrom_data
 
 	def plot_clustered_heatmap(self):
-		clustered_data = self.normalized_high_ptr_expression.copy()
-		clustered_data['cluster'] = self.labels
-		clustered_data = clustered_data.reset_index().set_index(['cluster', 'orf_name'])
-		plt.imshow(clustered_data.sort_index().astype(float))
+
+		plt.figure(figsize=(4, 4))
+
+		cluster_counts = self.clustered_expression.sort_index().reset_index()\
+			.groupby('cluster').count()[['orf_name']].rename(columns={'orf_name': 'count'})
+		cluster_counts['cumulative_sum'] = cluster_counts.cumsum()['count']
+		ylabel_midpoints = (cluster_counts['count'] // 2).values + np.concatenate([[0], cluster_counts['cumulative_sum'].values[:-1]])
+		cluster_counts['ylabels'] = ylabel_midpoints
+		cluster_counts
+
+		plt.title("Clustered\nGene Expression", fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+		yticks = cluster_counts.ylabels
+		ytick_labels = cluster_counts.index
+		plt.yticks(yticks, ytick_labels)
+		plt.xticks([])
+
+		for cluster, row in cluster_counts.iterrows():
+			plt.axhline(row.cumulative_sum, c='black', lw=1)
+			
+		plt.gca().yaxis.set_tick_params(pad=3, length=0)
+		plt.ylim(cluster_counts['cumulative_sum'].values[-1], 0)
+		plt.ylabel("Cluster")
+
+
+		clustered_data = self.aligned_expression_df.reset_index().set_index(['cluster', 'orf_name'])
+		plt.imshow(clustered_data.sort_index().astype(float), cmap='Purples_r',
+			interpolation='none', aspect='auto')
 
 
 	def shift_cluster_chromatin_data(self):
@@ -139,46 +179,67 @@ class GeneClustering:
 		cluster = self.selected_cluster
 		current_shifts = self.aligned_shifts_df[self.aligned_shifts_df.cluster == cluster]
 
-		chrom_dat = self.current_cluster_chromatin
-		shifted_chrom_dat = chrom_dat.copy()
-		for i in range(shifted_chrom_dat.shape[0]):
-			shift = int(current_shifts.iloc[i]['shift'])
-			shifted_chrom_dat[i] = np.roll(chrom_dat[i], shift, axis=0)
-		self.aligned_cluster_chromatin_data = shifted_chrom_dat
+		def shift_chrom_data(chrom_dat, current_shifts):
+			shifted_chrom_dat = chrom_dat.copy()
+			for i in range(shifted_chrom_dat.shape[0]):
+				shift = int(current_shifts.iloc[i]['shift'])
+				shifted_chrom_dat[i] = np.roll(chrom_dat[i], shift, axis=0)
+			return shifted_chrom_dat
+
+		self.aligned_cluster_chromatin_data = shift_chrom_data(self.current_cluster_chromatin, current_shifts)
+		self.aligned_normalized_cluster_chromatin_data = shift_chrom_data(self.normalized_chrom, current_shifts)
+
 		self.current_cluster_chromatin_mean = self.current_cluster_chromatin.mean(axis=0)
 		self.current_aligned_chromatin_mean = self.aligned_cluster_chromatin_data.mean(axis=0)
 
+		self.current_normalized_chromatin_mean = self.normalized_chrom.mean(axis=0)
+		self.current_normalized_aligned_chromatin_mean = self.aligned_normalized_cluster_chromatin_data.mean(axis=0)
 
-	def plot_chromatin_in_cluster(self):
+
+	def plot_chromatin_in_cluster(self, vmax=3):
 
 		cluster = self.selected_cluster
 		
 		indices_df = self.interesting_points_df[self.interesting_points_df.cluster == cluster].sort_values('value')
 		indices_df = indices_df.reset_index(drop=True)
+	
+		column_titles = ['Unaligned', 'Normalized Unaligned', 'Aligned', 'Normalized Aligned']
 
+		# Normalized chromatin data
+		normalized_chrom_dat = self.current_normalized_chromatin_mean
+		normalized_aligned_chromatin = self.current_normalized_aligned_chromatin_mean
+
+		# Unnormalized chromatin data
 		chrom_dat = self.current_cluster_chromatin_mean
 		aligned_chromatin = self.current_aligned_chromatin_mean
 
 		k = len(indices_df)
 		fig = plt.figure(figsize=(13, k*1.5))
 
-		medoid = self.medoids[cluster]
+		cluster_index = cluster-1
+		medoid = self.medoids[cluster_index]
 
 		cols = 2
 		for i, index_row in indices_df.iterrows():
 			plt.subplot(k, cols, (i*cols)+1)
+
+			# Unaligned data
 			plt.imshow(chrom_dat[index_row.value].astype(float),
-					  origin='lower', cmap='magma_r', aspect='auto', vmax=10)
+					  origin='lower', cmap='magma_r', aspect='auto', vmax=3)
 			plt.xticks([])
-			plt.ylabel(f"{index_row.point_type}: {index_row.value}")
+			
+			if i == 0: plt.title("Unaligned")
 
 			plt.subplot(k, cols, (i*cols)+2)
+			plt.ylabel(f"{index_row.point_type}: {index_row.value}")
 			plt.imshow(aligned_chromatin[index_row.value].astype(float),
-					  origin='lower', cmap='magma_r', aspect='auto', vmax=10)
+					  origin='lower', cmap='magma_r', aspect='auto', vmax=vmax)
 			plt.xticks([])
 
-		plt.suptitle(f"Cluster {cluster}, n={len(self.aligned_cluster_chromatin_data)}")
+			if i == 0: plt.title("Aligned")
 
+		plt.suptitle(f"Cluster {cluster}, n={len(self.aligned_cluster_chromatin_data)}")
+		return fig
 
 	def compute_alignments_and_interesting_points_per_cluster(self):
 
@@ -195,14 +256,15 @@ class GeneClustering:
 		for i in range(num_clusters):
 
 			medoid = medoids[i]
-			cluster_expression = expression[self.kmedoids.labels_ == i]
+			cluster = i+1
+			cluster_expression = expression[self.labels == cluster]
 			aligned_expression, aligned_shift = align_to_medoid(cluster_expression, medoid)
 				
 			smoothed_medoid, important_points, _ = retrieve_important_points(medoid, 
 																			min_distance=20)
-			important_points['cluster'] = i
-			aligned_shift['cluster'] = i
-			aligned_expression['cluster'] = i
+			important_points['cluster'] = cluster
+			aligned_shift['cluster'] = cluster
+			aligned_expression['cluster'] = cluster
 
 			interesting_points_df = pd.concat([interesting_points_df, important_points])
 			aligned_shifts_df = pd.concat([aligned_shifts_df, aligned_shift])    
@@ -213,13 +275,59 @@ class GeneClustering:
 		self.aligned_shifts_df = aligned_shifts_df
 
 
+	def plot_aligned_cluster(self, cluster):
+
+		aligned_expression_df = self.aligned_expression_df.reset_index().set_index(['cluster', 'orf_name'])
+		medoid = self.medoids[cluster-1]
+		curves = aligned_expression_df.loc[cluster]
+
+		x = self.config.get_timepoints_for_branch('t')
+
+		plt.plot(x, curves.T, c='#ddd', alpha=1.)
+		plt.plot(x, medoid)
+		plt.xlim(x[0], x[-1])
+		plt.ylim(-4, 4.1)
+		plt.xticks([])
+		plt.yticks([])
+
+		cluster_medoid_df = pd.DataFrame({
+			'time': x,
+			'H_pos': aligned_expression_df.columns,
+			'medoid_value': medoid
+		})
+
+		important_points = self.interesting_points_df[self.interesting_points_df.cluster == cluster]
+
+		for index, row in important_points.iterrows():
+			if row.point_type == 'maxima':
+				color = 'red'
+				marker='^'
+			elif row.point_type =='minima':
+				color = 'blue'
+				marker='v'
+			else:
+				color = 'black'
+				marker='o'
+
+			hpos = aligned_expression_df.columns[int(row.value)]
+			tp = cluster_medoid_df.loc[hpos].time
+			y_val = cluster_medoid_df.loc[hpos].medoid_value
+
+			plt.scatter(tp, y_val, facecolor='none', edgecolor=color, 
+				marker=marker, s=42, zorder=100, lw=1)
+
+		plt.title(f"Cluster {cluster}, n={len(curves)}",
+			fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+
+
 	def plot_aligned_clusters(self):
 		from src.gene_expression_processing import retrieve_important_points
 			
 		expression = self.normalized_high_ptr_expression
 		medoids = self.medoids
 
-		plt.figure(figsize=(8, 16))
+		plt.figure(figsize=(8, 23))
+
 		num_clusters = self.num_clusters
 		columns = 2
 
@@ -229,35 +337,96 @@ class GeneClustering:
 
 		for i in range(num_clusters):
 
+			cluster = i+1
 			medoid = medoids[i]
-			cluster_expression = expression[self.kmedoids.labels_ == i]
+			cluster_expression = expression[self.labels == cluster]
 
-			aligned_expression = aligned_expression_df.loc[i]
+			expression_curves = cluster_expression.T
+			aligned_expression_curves = aligned_expression_df.loc[cluster].T
 			
 			plt.subplot(num_clusters, 2, (columns*i)+1)
-			plt.plot(cluster_expression.T, c='gray', alpha=0.25)
+			plt.plot(expression_curves, c='#ddd', alpha=1.0)
 			plt.plot(cluster_expression.columns, medoid)
-			plt.title(f"Cluster {i}")
+			plt.ylabel(f"Cluster {cluster}, n={len(cluster_expression)}", rotation=0,
+				ha='right', fontsize=13, labelpad=10)
+			plt.xticks([])
+			# plt.yticks([])
+			if i == 0: plt.title("Unaligned")
+			plt.ylim(-4, 4)
 
 			plt.subplot(num_clusters, 2, (columns*i)+2)
-			plt.plot(cluster_expression.columns, aligned_expression.T, 
-				c='gray', alpha=0.25)
+			plt.plot(cluster_expression.columns, aligned_expression_curves, c='#ddd', alpha=1.0)
 			plt.plot(cluster_expression.columns, medoid)
+			plt.xticks([])
+			plt.yticks([])
+			plt.ylim(-4, 4)
+			if i == 0: plt.title("Aligned")
 
-			important_points = interesting_points_df[interesting_points_df.cluster == i]
-			
+			important_points = interesting_points_df[interesting_points_df.cluster == cluster]
+
+
 			for index, row in important_points.iterrows():
 				if row.point_type == 'maxima':
 					color = 'red'
+					ls='solid'
 				elif row.point_type =='minima':
 					color = 'blue'
+					ls='solid'
 				else:
-					color = 'green'
+					color = 'black'
+					ls = 'dotted'
 
-				plt.axvline(cluster_expression.columns[int(row.value)], color=color)
+				plt.axvline(cluster_expression.columns[int(row.value)], color=color,
+					ls=ls)
 
-		plt.subplots_adjust(hspace=0.5)
+		plt.subplots_adjust(hspace=0.125, wspace=0.125, top=0.9)
 
+
+	def run_gene_ontology_on_cluster(self, gene_ontology=None):
+
+		from src.gene_ontology import GeneOntology
+
+		if gene_ontology is None:
+			gene_ontology = GeneOntology()
+			
+		def get_results_go(gene_ontology, k):
+
+			all_results = pd.DataFrame()
+			all_sigfig = pd.DataFrame()
+			gene_names = self.geneset[['gene']]
+
+			for i in range(k):
+				cluster = i + 1
+				selected_orfs = self.clustered_expression[[]].loc[cluster].index.values
+				selected_gene_names = gene_names.loc[selected_orfs]['gene'].values
+				gene_ontology.run_go(selected_gene_names)
+				results = gene_ontology.results_df.copy()
+				results_sigfig = gene_ontology.results_sig_df.copy()
+				
+				results['cluster'] = cluster
+				results_sigfig['cluster'] = cluster
+
+				all_results = pd.concat([all_results, results])
+				all_sigfig =  pd.concat([all_sigfig, results_sigfig])
+
+			all_results = all_results[~all_results['name'].isin(['biological_process', 
+				'molecular_function', 'cellular_component'])]
+			all_sigfig = all_sigfig[~all_sigfig['name'].isin(['biological_process', 
+				'molecular_function', 'cellular_component'])]
+			
+			return all_results, all_sigfig
+
+		self.go_results, self.go_results_sig = get_results_go(gene_ontology, self.num_clusters)
+
+	def print_go_results(self):
+		sig_res = self.go_results_sig[['id', 'name', 'fdr_bh', 'cluster', 'study_items']]
+		go_clusters = sig_res.cluster.unique()
+		for clust in go_clusters:
+			print(f"Cluster {clust}")
+			go_names = (sig_res[sig_res.cluster == clust]['name'].values)
+			for go_name in go_names:
+				print("  " + go_name[0].upper() + go_name[1:])
+			print()
 
 
 def circular_correlation(v1, v2, return_idx=False):
@@ -303,7 +472,7 @@ def cluster_timeseries_kmedoids(dist_matrix, n_clusters):
 	Perform K-medoids clustering using the precomputed distance matrix.
 	"""
 	kmedoids = KMedoids(n_clusters=n_clusters, metric='precomputed', 
-						method='alternate', init='k-medoids++')
+						method='alternate', init='k-medoids++', random_state=123)
 	kmedoids.fit(dist_matrix)
 	return kmedoids, kmedoids.labels_, kmedoids.medoid_indices_
 
