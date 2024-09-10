@@ -364,20 +364,20 @@ class CombinedChromatinModel:
 		save_figure_for_analysis(save_path)
 		plt.close(fig)
 
-		fig = self.chrom1_model.plot_nucleosome_shift()
-		save_path = f"{plot_dir}/{origin_run_name}_shift.png"
-		save_figure_for_analysis(save_path)
-		plt.close(fig)
+		# fig = self.chrom1_model.plot_nucleosome_shift()
+		# save_path = f"{plot_dir}/{origin_run_name}_shift.png"
+		# save_figure_for_analysis(save_path)
+		# plt.close(fig)
 
-		fig = self.chrom1_model.plot_origin_trackers()
-		save_path = f"{plot_dir}/{origin_run_name}_tracking.png"
-		save_figure_for_analysis(save_path)
-		plt.close(fig)
+		# fig = self.chrom1_model.plot_origin_trackers()
+		# save_path = f"{plot_dir}/{origin_run_name}_tracking.png"
+		# save_figure_for_analysis(save_path)
+		# plt.close(fig)
 
-		fig = self.plot_nfr_origin_occ()
-		save_path = f"{plot_dir}/{origin_run_name}_nfr_origin_occ.png"
-		save_figure_for_analysis(save_path)
-		plt.close(fig)
+		# fig = self.plot_nfr_origin_occ()
+		# save_path = f"{plot_dir}/{origin_run_name}_nfr_origin_occ.png"
+		# save_figure_for_analysis(save_path)
+		# plt.close(fig)
 
 	def save_deconvolved_origin_outputs(self, out_dir, index):
 

@@ -251,10 +251,13 @@ class ChromatinModel:
 		normalized_f=False):
 
 
+		plotting_orc = self.origin is not None
+
 		from src.tf_sites import TFBindingSites
 
-		tf_binding_sites = TFBindingSites()
-		tf_binding_sites.filter_tf_binding_sites(self.gene, self.mnase_span)
+		if not plotting_orc:
+			tf_binding_sites = TFBindingSites()
+			tf_binding_sites.filter_tf_binding_sites(self.gene, self.mnase_span)
 
 		if f is None:
 			f = self.deconvolved_f().copy()
@@ -270,8 +273,6 @@ class ChromatinModel:
 
 		# TODO: Trying normalization
 		print("*** Window is large enough to try and normalize each f image to the same sum")
-
-		plotting_orc = self.origin is not None
 
 		if ge_model is None:
 			figheight = 7
@@ -311,8 +312,6 @@ class ChromatinModel:
 				num_rows = num_rows+1
 
 			num_cols = len(column_titles)
-
-			print(num_rows)
 
 			fig, ax_cols = plt.subplots(num_rows, num_cols, figsize=(figwidth, figheight))
 			plt.subplots_adjust(hspace=0.25, top=0.77, right=0.8)
@@ -380,7 +379,9 @@ class ChromatinModel:
 
 				last_col_last_row = (row == num_chromatin_rows-1) & \
 					(col == num_cols-1)
-				tf_binding_sites.plot_tf_sites(ax, legend=last_col_last_row)
+
+				if not plotting_orc:
+					tf_binding_sites.plot_tf_sites(ax, legend=last_col_last_row)
 
 		# Add some xtick and xtick labels to the first column last row
 		first_col_last_row = ax_cols[0][-1]
@@ -410,9 +411,11 @@ class ChromatinModel:
 		for col in range(len(ax_cols)):
 			# The last subplot in the row
 			ax = ax_cols[col][1]
-			self.plot_orf_annotation(ax)
 
-		if plot_gene_expression:
+			if not plotting_orc:
+				self.plot_orf_annotation(ax)
+
+		if not plotting_orc and plot_gene_expression:
 
 			from src.model import color_for_key
 
