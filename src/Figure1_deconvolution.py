@@ -152,7 +152,7 @@ class Figure1Deconvolution(object):
 		self.combined_model = combined_model
 
 		combined_model.load_combined_mnase_gene(gene_name)
-		combined_model.gamma = 0.007
+		combined_model.gamma = 0.0066
 		combined_model.deconvolve()
 
 		self.combined_ge_model = combined_ge_model

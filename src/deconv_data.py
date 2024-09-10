@@ -33,7 +33,7 @@ def load_gene_expression_fs(gene_expression_dir, geneset=None):
 	return gene_expression_f
 
 
-def load_f_files(chromatin_dir, geneset=None):
+def load_f_files(chromatin_dir, geneset=None, log=True):
 	"""Load all of the gene F results into a dataframe, flatten the F images for the dataframe."""
 
 	if geneset is None:
@@ -45,14 +45,14 @@ def load_f_files(chromatin_dir, geneset=None):
 	# Load the F images for each deconvolved gene
 	current_f = np.load(f_filepaths[0])
 	old_shape = current_f.shape
-	print("Shape of the loaded F:", current_f.shape)
+	if log: print("Shape of the loaded F:", current_f.shape)
 	# Using the old y fragment length definitions
 	# Adjust to 11 x 34
-	print(current_f.shape)
+	if log: print(current_f.shape)
 	if current_f.shape[1] == 340:
 		current_f = pad_10_34_f_img(current_f)
 		current_f = current_f.reshape((old_shape[0], -1)) # Then flatten rows and columns
-		print("Shape of the adjusted F shape:", current_f.shape)
+		if log: print("Shape of the adjusted F shape:", current_f.shape)
 
 	m_times, u_vals = current_f.shape
 	all_gene_fs_df = pd.DataFrame(index=geneset.index, 
@@ -81,10 +81,9 @@ def load_f_files(chromatin_dir, geneset=None):
 
 		all_gene_fs_df.loc[orf_name] = current_f.flatten()
 		
-		if i % 1000 == 0:
-			timer.print_time(f"{i+1}/{len(f_filepaths)}")
+		if log and i % 1000 == 0:
+			timer.print_time(f"{i+1}/{len(geneset)}")
 		i += 1
-		break
 
 	return all_gene_fs_df
 

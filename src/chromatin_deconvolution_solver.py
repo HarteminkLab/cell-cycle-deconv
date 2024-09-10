@@ -70,7 +70,7 @@ class ChromatinDeconvolveSolver:
 			running_rn += self.rn / m
 			running_sn += self.sn / m
 
-			if verbose_progress and i % 100 == 0:
+			if verbose_progress and i % 500 == 0:
 				timer.print_time(f"{i}/{m}")
 
 		self.deconvolved_f_value = deconvolved_f_value

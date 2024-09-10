@@ -29,7 +29,6 @@ def load_analysis_genes():
 	# our analysis, filtered for coverage, any other criteria we may want to 
 	# add later
 
-	# geneset_cov90 = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies_cutoff_cov90.csv').set_index('orf_name')
 	geneset_depth = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies_cutoff_depth170.csv').set_index('orf_name')
 	return geneset_depth
 

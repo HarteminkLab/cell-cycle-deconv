@@ -1,5 +1,4 @@
 
-
 import matplotlib.pyplot as plt
 import pandas as pd
 import numpy as np
@@ -36,7 +35,6 @@ class Figure3ChromatinMetrics(object):
 		# of the deconvolution goes up to 240
 		image_shape = GlobalConstants.IMAGE_SHAPE
 		image_shape = image_shape[0], image_shape[1]
-		# print("Image shape is: ", image_shape)
 
 		img = gene_f_values.reshape((-1, *image_shape))
 

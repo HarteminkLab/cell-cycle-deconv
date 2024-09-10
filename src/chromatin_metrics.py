@@ -5,6 +5,7 @@ import pandas as pd
 from src.timer import Timer
 from matplotlib import pyplot as plt
 from src.read_bam import read_mnase_bam
+from src.figure_configs import FiguresConfig
 
 
 class ChromatinMetrics:
@@ -410,7 +411,7 @@ def len_bins():
 
 	return small_bins, med_bins, nuc_bins
 
-def plot_len_counts(len_counts_df):
+def plot_len_counts(len_counts_df, show_len_cutoffs=True, title=None):
 	
 	small_frag_span, mid_frag_span, nucleosome_len_span = fragment_lengths_definitions()
 	len_counts_df = len_counts_df.copy().T
@@ -428,20 +429,25 @@ def plot_len_counts(len_counts_df):
 	og_ylim = -og_max_ylim*0.1, og_max_ylim
 
 	y = -og_max_ylim*0.025
-	plt.text(small_frag_span[1]//2+25, y, "Small\nfragments", ha='center', va='bottom',
-			 color='red', fontsize=12)
-	plt.text((mid_frag_span[1]+mid_frag_span[0])//2, y, "Mid\nlength\nfragments", 
-			 ha='center', va='bottom', 
-			 color='red', fontsize=12)
-	plt.text((nucleosome_len_span[1]+nucleosome_len_span[0])//2, y,
-			 "Nucleosome\nlength\nfragments", ha='center', va='bottom',
-			 color='red', fontsize=12)
 	plt.xlabel("Fragment length, nt")
 	plt.ylabel("Frequency")
 
 	plt.ylim(*og_ylim)
-	for len_spans in [small_frag_span, mid_frag_span, nucleosome_len_span]:
-		plt.axvline(len_spans[1], linestyle='dotted', c='red')
+
+	if show_len_cutoffs:
+		for len_spans in [small_frag_span, mid_frag_span, nucleosome_len_span]:
+			plt.axvline(len_spans[1], linestyle='dotted', c='red')
+
+		plt.text(small_frag_span[1]//2+25, y, "Small\nfragments", ha='center', va='bottom',
+				 color='red', fontsize=12)
+		plt.text((mid_frag_span[1]+mid_frag_span[0])//2, y, "Mid\nlength\nfragments", 
+				 ha='center', va='bottom', 
+				 color='red', fontsize=12)
+		plt.text((nucleosome_len_span[1]+nucleosome_len_span[0])//2, y,
+				 "Nucleosome\nlength\nfragments", ha='center', va='bottom',
+				 color='red', fontsize=12)
+
+	plt.title(title, fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE, pad=15)
 
 
 def compute_scaling_matrix(tp_counts):

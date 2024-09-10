@@ -34,7 +34,7 @@ class ChromatinModel:
 	def __init__(self, config):
 
 		# Padding defines the window around the TSS to retrieve MNase data
-		self.padding = 1000
+		self.padding = 5000
 		self.geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
 		self.origins = load_origins_w_replication(full=True)
 		self.origin = None
@@ -83,7 +83,7 @@ class ChromatinModel:
 		chrom = origin.chr
 		center = origin.pos
 
-		padding = 1000
+		padding = 3000
 		mnase_span = center-padding, center+padding+1
 
 		from src.chromatin_model import read_chromosome_mnase_reads
@@ -127,9 +127,11 @@ class ChromatinModel:
 
 		if self.config.copy_correction is not None:
 			print("Applying copy correction to origin reads")
-			copy_correction_vector = lookup_origin_copy_correction
+			copy_correction_vector = lookup_origin_copy_correction(self.config.copy_correction, 
+				self.origin)
 			self.uncorrected_G = self.G
-			self.G = self.G * copy_correction_vector.values.reshape((-1, 1))
+			self.copy_correction_vector = copy_correction_vector
+			self.G = self.G * copy_correction_vector.reshape((-1, 1))
 
 		self.center_origin = self.origin.pos
 
@@ -245,14 +247,32 @@ class ChromatinModel:
 
 	def create_deconvolution_plots_abbreviated_flipped(self, ax_cols=None, num_rows=5, ge_model=None, 
 		vmin=0, vmax=50, smooth=False, f=None, mask=None, show_dg1=False, show_rg1=True,
-		show_origin_down_nuc=False, zoom=None, figsize=None, should_smooth_data=False):
+		show_origin_down_nuc=False, zoom=None, figsize=None, should_smooth_data=False, 
+		normalized_f=False):
+
+
+		plotting_orc = self.origin is not None
+
+		from src.tf_sites import TFBindingSites
+
+		if not plotting_orc:
+			tf_binding_sites = TFBindingSites()
+			tf_binding_sites.filter_tf_binding_sites(self.gene, self.mnase_span)
 
 		if f is None:
 			f = self.deconvolved_f().copy()
 
 		f_imgs = f.reshape((-1, self.deconv_hist_unflattened.shape[1], self.deconv_hist_unflattened.shape[2]))
 
-		plotting_orc = self.origin is not None
+		if normalized_f:
+			f_imgs = f.reshape((-1, self.deconv_hist_unflattened.shape[1], 
+			    self.deconv_hist_unflattened.shape[2]))
+			total_f_sum = f_imgs.sum(axis=1).sum(axis=1)
+			f_normalized = f_imgs / total_f_sum.reshape((-1, 1, 1)) * 1000
+			f_imgs = f_normalized
+
+		# TODO: Trying normalization
+		print("*** Window is large enough to try and normalize each f image to the same sum")
 
 		if ge_model is None:
 			figheight = 7
@@ -260,11 +280,11 @@ class ChromatinModel:
 			figheight = 8
 
 		if plotting_orc:
-			if zoom is not None: figwidth = 11
-			else: figwidth = 16
+			if zoom is not None: figwidth = 13
+			else: figwidth = 19
 			figheight = 6
 		else:
-			figwidth = 11
+			figwidth = 27
 
 		if figsize is not None:
 			figwidth, figheight = figsize
@@ -280,16 +300,21 @@ class ChromatinModel:
 			column_titles = column_titles[1:]
 			phase_keys = phase_keys[1:]
 
+		plot_gene_expression = ge_model is not None
+
 		if ax_cols is None:
 
-			# We will add the first row as the deconvolved gene expression
-			if ge_model is not None:
+			if plot_gene_expression:
+				# Second row as the deconvolved gene expression
+				num_rows = num_rows+2
+			else:
+				# Add row for ORF annotations
 				num_rows = num_rows+1
 
 			num_cols = len(column_titles)
 
 			fig, ax_cols = plt.subplots(num_rows, num_cols, figsize=(figwidth, figheight))
-			plt.subplots_adjust(hspace=0.5, top=0.77)
+			plt.subplots_adjust(hspace=0.25, top=0.77, right=0.8)
 
 		if plotting_orc:
 			plt.subplots_adjust(hspace=0.5, top=0.71)
@@ -328,8 +353,8 @@ class ChromatinModel:
 			col = index
 			phase_axs = ax_cols[col]
 
-			if ge_model is None:
-				num_chromatin_rows = len(phase_axs)
+			if plot_gene_expression:
+				num_chromatin_rows = len(phase_axs)-2
 			else:
 				num_chromatin_rows = len(phase_axs)-1
 
@@ -341,20 +366,22 @@ class ChromatinModel:
 			for row in range(num_chromatin_rows):
 
 				# Our first row is for the gene expression, so +1
-				if ge_model is None:
-					ax = phase_axs[row]
+				if plot_gene_expression:
+					ax = phase_axs[row+2]
 				else:
-					ax = phase_axs[row+1]
+					ax = phase_axs[row]
 
-				shape = self.deconv_hist_unflattened[0].shape
-				reshaped_f = f.reshape(-1, shape[0], shape[1])
-
-				self.plot_f_img_phase(ax, reshaped_f, phase, row, num_chromatin_rows, show_title=False, vmax=vmax, vmin=vmin,
+				self.plot_f_img_phase(ax, f_imgs, phase, row, num_chromatin_rows, show_title=False, vmax=vmax, vmin=vmin,
 					mask=mask, show_origin_down_nuc=show_origin_down_nuc, zoom=zoom, should_smooth_data=should_smooth_data)
 
 				if col == 0:
 					ax.set_ylabel(f"{row+1}", rotation=0, ha='right', labelpad=10, fontsize=16)
 
+				last_col_last_row = (row == num_chromatin_rows-1) & \
+					(col == num_cols-1)
+
+				if not plotting_orc:
+					tf_binding_sites.plot_tf_sites(ax, legend=last_col_last_row)
 
 		# Add some xtick and xtick labels to the first column last row
 		first_col_last_row = ax_cols[0][-1]
@@ -372,12 +399,7 @@ class ChromatinModel:
 			xtick_labels = ['ORI' if x == '0' else x for x in xtick_labels]
 
 		else:
-			xticks = self.bin_extents[0], \
-					 self.computed_plus_one, \
-					 self.bin_extents[1]
-			xtick_labels = [str(x-self.computed_plus_one) for x in xticks]
-			xtick_labels[1] = '+1 Nuc.'
-			xtick_labels[2] = '+'+xtick_labels[2]
+			xticks, xtick_labels = self.generate_xticks()
 
 		xlims = first_col_last_row.get_xlim()
 		first_col_last_row.set_xticks(xticks)
@@ -386,8 +408,14 @@ class ChromatinModel:
 
 		# ---------------------
 
-		# If we have deconvolved gene expression, add it to the last column
-		if ge_model is not None:
+		for col in range(len(ax_cols)):
+			# The last subplot in the row
+			ax = ax_cols[col][1]
+
+			if not plotting_orc:
+				self.plot_orf_annotation(ax)
+
+		if not plotting_orc and plot_gene_expression:
 
 			from src.model import color_for_key
 
@@ -445,6 +473,18 @@ class ChromatinModel:
 		title = self.define_title()
 		plt.suptitle(title, fontsize=24)
 		return fig
+
+
+	def generate_xticks(self):
+		xticks = self.computed_plus_one-1000, \
+				 self.computed_plus_one-500, \
+				 self.computed_plus_one, \
+				 self.computed_plus_one+500, \
+				 self.computed_plus_one+1000
+		xtick_labels = [str(x-self.computed_plus_one) for x in xticks]
+		xtick_labels[2] = '+1 Nuc.'
+		xtick_labels[3] = '+'+xtick_labels[3]
+		return xticks, xtick_labels
 
 
 	def gene_title(self):
@@ -782,6 +822,18 @@ class ChromatinModel:
 
 		For the currently selected gene
 		"""
+
+		# From the MNase-seq it appears the TSS may need to move a bit to match
+		# the expected +1 nucloeosome location
+		hardcoded_TSS = {
+		}
+
+		if self.gene.name in hardcoded_TSS.keys():
+			TSS = hardcoded_TSS[self.gene.name]
+			print(f"Using hardcoded TSS location for {self.gene.name}: {TSS}")
+		else:
+			TSS = self.gene.TSS
+
 		from src.chromatin_metrics import fragment_lengths_definitions
 		small_lens, med_lens, nuc_lens = fragment_lengths_definitions()
 
@@ -796,19 +848,21 @@ class ChromatinModel:
 
 		# Search around the TSS with a 200bp window
 		window = 200
-		search_peak_span = self.gene.TSS-window//2, \
-			self.gene.TSS+window//2 
+		search_peak_span = TSS-window//2, \
+			TSS+window//2 
+
+		# Larger length span for nucleosome reads search
+		nuc_lens = 120, 200
 
 		cur_nuc_reads = cur_reads[(cur_reads['length'] >= nuc_lens[0]) & 
-							  (cur_reads['length'] < nuc_lens[1]) & 
-								 (cur_reads['mid'] >= search_peak_span[0]) &
-								 (cur_reads['mid'] < search_peak_span[1])]
+							      (cur_reads['length'] < nuc_lens[1]) & 
+								  (cur_reads['mid'] >= search_peak_span[0]) &
+								  (cur_reads['mid'] < search_peak_span[1])]
 
 		counts_per_pos_search = cur_nuc_reads.groupby('mid').count()
 		counts_per_pos_search = counts_per_pos_search[['start']].rename({'start': 'count'})
+
 		pos_max = counts_per_pos_search.idxmax().start
-
-
 		self.computed_plus_one = pos_max
 
 		return pos_max
@@ -1053,8 +1107,8 @@ class ChromatinModel:
 
 			self.uncorrected_G = self.G
 			self.copy_correction_vector = copy_correction_vector
-
-			self.G = self.G * copy_correction_vector.values.reshape((-1, 1))
+			self.G = self.G / copy_correction_vector.reshape((-1, 1))
+			self.copy_correction_vector = copy_correction_vector
 
 		if log:
 			print_fl(f"Unflattened the input data is of shape: {self.deconv_hist_unflattened.shape}")
@@ -1201,8 +1255,6 @@ class ChromatinModel:
 			plt.plot(t_tps, nfr_size_t, label="NFR length", color=cmap(0.1))
 			plt.legend()
 
-			from src.chromatin_model import draw_phase_label_annotations
-
 			ax = plt.gca()
 			draw_phase_label_annotations(ax, self.config, flip=True, annotations_x=-0.13)
 			plt.xlim(t_tps[0], t_tps[-1])
@@ -1328,6 +1380,27 @@ class ChromatinModel:
 			'+1': p1, '-1': m1, 'origin_occupancy': origin_occupancy
 		})
 		return df
+
+
+	def plot_orf_annotation(self, ax1):
+		from src.orf_plotter import ORFAnnotationPlotter, plot_rect
+		from src.geneset import get_deconvolved_geneset
+
+		gene = self.gene
+		gene_window = self.bin_extents[0],\
+		    self.bin_extents[1]
+
+		geneset = get_deconvolved_geneset()
+		orf_plotter = ORFAnnotationPlotter(geneset)
+		orf_plotter.set_span_chrom(gene_window, gene.chr)
+		orf_plotter.plot_orf_annotations(ax1)
+
+		if gene.strand == '-':
+			ax1.set_xlim(gene_window[1], gene_window[0])
+		else:
+			ax1.set_xlim(*gene_window)
+
+		ax1.set_ylim(-120, 120)
 
 
 	def save_deconvolved_outputs(self, out_dir, index, using_default_flag):

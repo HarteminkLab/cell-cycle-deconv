@@ -10,8 +10,8 @@ def combine_ptr_score(c, d, weight):
 	return score
 
 
-def compute_quantile_ptr_2d(arr2d, axis=1, lo=0.2, hi=0.8):
-	ptr_mat = np.apply_along_axis(lambda row: compute_quantile_ptr(row, lo, hi, return_indices=True), axis, arr2d)
+def compute_quantile_ptr_2d(arr2d, axis=1, lo=0.2, hi=0.8, return_indices=False):
+	ptr_mat = np.apply_along_axis(lambda row: compute_quantile_ptr(row, lo, hi, return_indices=return_indices), axis, arr2d)
 	return ptr_mat
 
 
