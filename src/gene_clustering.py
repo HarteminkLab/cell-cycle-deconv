@@ -219,7 +219,7 @@ class GeneClustering:
 		self.current_normalized_aligned_chromatin_mean = self.aligned_normalized_cluster_chromatin_data.mean(axis=0)
 
 
-	def plot_chromatin_in_cluster(self, vmax=3):
+	def plot_chromatin_in_cluster(self, vmax=5, full=False):
 
 		cluster = self.selected_cluster
 		
@@ -235,33 +235,61 @@ class GeneClustering:
 		# Unnormalized chromatin data
 		chrom_dat = self.current_cluster_chromatin_mean
 		aligned_chromatin = self.current_aligned_chromatin_mean
-
 		k = len(indices_df)
-		fig = plt.figure(figsize=(13, k*1.5))
+
+		if full:
+			cols = 3
+			fig = plt.figure(figsize=(16, k*1.5))
+		else:
+			cols = 1
+			fig = plt.figure(figsize=(5, k*1.5))
 
 		cluster_index = cluster-1
 		medoid = self.medoids[cluster_index]
 
-		cols = 2
 		for i, index_row in indices_df.iterrows():
 			plt.subplot(k, cols, (i*cols)+1)
 
 			# Unaligned data
-			plt.imshow(chrom_dat[index_row.value].astype(float),
-					  origin='lower', cmap='magma_r', aspect='auto', vmax=3)
-			plt.xticks([])
-			
-			if i == 0: plt.title("Unaligned")
+			unaligned = chrom_dat[index_row.value].astype(float)
+			aligned = aligned_chromatin[index_row.value].astype(float)
 
-			plt.subplot(k, cols, (i*cols)+2)
-			plt.ylabel(f"{index_row.point_type}: {index_row.value}")
-			plt.imshow(aligned_chromatin[index_row.value].astype(float),
-					  origin='lower', cmap='magma_r', aspect='auto', vmax=vmax)
-			plt.xticks([])
+			if full:
+				plt.imshow(unaligned,
+						  origin='lower', cmap='magma_r', aspect='auto', vmax=vmax)
+				plt.xticks([])
+				plt.yticks([])
+				plt.ylabel(f"{index_row.point_type}: {index_row.value}")
 
-			if i == 0: plt.title("Aligned")
+				if i == 0: plt.title("Unaligned")
 
-		plt.suptitle(f"Cluster {cluster}, n={len(self.aligned_cluster_chromatin_data)}")
+				plt.subplot(k, cols, (i*cols)+2)
+				plt.imshow(aligned,
+						  origin='lower', cmap='magma_r', aspect='auto', vmax=vmax)
+				plt.xticks([])
+				plt.yticks([])
+
+				if i == 0: plt.title("Aligned")
+
+				plt.subplot(k, cols, (i*cols)+3)
+				plt.imshow(aligned-unaligned,
+						  origin='lower', cmap='RdBu_r', aspect='auto', vmin=-0.05, vmax=0.05)
+				plt.xticks([])
+				plt.yticks([])
+				if i == 0: plt.title("Aligned-Unaligned")
+				plt.subplots_adjust(top=0.87)
+			else:
+				plt.ylabel(f"{index_row.point_type}: {index_row.value}")
+				plt.subplot(k, cols, (i*cols)+1)
+				plt.imshow(aligned,
+						  origin='lower', cmap='magma_r', aspect='auto', vmax=vmax)
+				plt.xticks([])
+				plt.yticks([])
+				plt.subplots_adjust(top=0.9)
+
+		plt.suptitle(f"Cluster {cluster}, n={len(self.aligned_cluster_chromatin_data)}",
+			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+
 		return fig
 
 	def compute_alignments_and_interesting_points_per_cluster(self):
@@ -408,41 +436,15 @@ class GeneClustering:
 		plt.subplots_adjust(hspace=0.125, wspace=0.125, top=0.9)
 
 
-	def run_gene_ontology_on_cluster(self, gene_ontology=None):
+	def run_gene_ontology_on_clustered_genes(self, clustered_genes, gene_ontology=None):
+		"""clustered genes is expected to be indexed on cluster number and orf names"""
 
 		from src.gene_ontology import GeneOntology
+		gene_ontology = GeneOntology()
 
-		if gene_ontology is None:
-			gene_ontology = GeneOntology()
-			
-		def get_results_go(gene_ontology, k):
+		self.go_results, self.go_results_sig = run_gene_ontology_on_clustered_genes(
+			self.geneset, clustered_genes, gene_ontology)
 
-			all_results = pd.DataFrame()
-			all_sigfig = pd.DataFrame()
-			gene_names = self.geneset[['gene']]
-
-			for i in range(k):
-				cluster = i + 1
-				selected_orfs = self.clustered_expression[[]].loc[cluster].index.values
-				selected_gene_names = gene_names.loc[selected_orfs]['gene'].values
-				gene_ontology.run_go(selected_gene_names)
-				results = gene_ontology.results_df.copy()
-				results_sigfig = gene_ontology.results_sig_df.copy()
-				
-				results['cluster'] = cluster
-				results_sigfig['cluster'] = cluster
-
-				all_results = pd.concat([all_results, results])
-				all_sigfig =  pd.concat([all_sigfig, results_sigfig])
-
-			all_results = all_results[~all_results['name'].isin(['biological_process', 
-				'molecular_function', 'cellular_component'])]
-			all_sigfig = all_sigfig[~all_sigfig['name'].isin(['biological_process', 
-				'molecular_function', 'cellular_component'])]
-			
-			return all_results, all_sigfig
-
-		self.go_results, self.go_results_sig = get_results_go(gene_ontology, self.num_clusters)
 
 	def print_go_results(self):
 		sig_res = self.go_results[['id', 'name', 'fdr_bh', 'cluster', 'study_items']]
@@ -485,7 +487,7 @@ def circular_correlation(v1, v2, return_idx=False):
 		optimal_shift = optimal_shift - n
 	
 	if return_idx:
-		return max_corr, optimal_shift#, circular_corr, corr
+		return max_corr, optimal_shift
 
 	return max_corr
 
@@ -518,3 +520,46 @@ def align_to_medoid(data, medoid):
 
 	return pd.DataFrame(aligned_data, index=data.index), data_shift
 
+
+def run_gene_ontology_on_clustered_genes(geneset, clustered_genes, gene_ontology=None):
+	"""clustered genes is expected to be indexed on cluster number and orf names"""
+
+	from src.gene_ontology import GeneOntology
+
+	if gene_ontology is None:
+		gene_ontology = GeneOntology()
+		
+	def get_results_go(gene_ontology, k):
+
+		all_results = pd.DataFrame()
+		all_sigfig = pd.DataFrame()
+		gene_names = geneset[['gene']]
+
+		for i in range(k):
+			cluster = i + 1
+
+			# Get the current cluster orfs and join with gene names
+			selected_orfs = clustered_genes.loc[cluster].index.values
+			selected_gene_names = gene_names.loc[selected_orfs]['gene'].values
+
+			# Run GO on the gene names
+			gene_ontology.run_go(selected_gene_names)
+
+			results = gene_ontology.results_df.copy()
+			results_sigfig = gene_ontology.results_sig_df.copy()
+			
+			results['cluster'] = cluster
+			results_sigfig['cluster'] = cluster
+
+			all_results = pd.concat([all_results, results])
+			all_sigfig =  pd.concat([all_sigfig, results_sigfig])
+
+		all_results = all_results[~all_results['name'].isin(['biological_process', 
+			'molecular_function', 'cellular_component'])]
+		all_sigfig = all_sigfig[~all_sigfig['name'].isin(['biological_process', 
+			'molecular_function', 'cellular_component'])]
+		
+		return all_results, all_sigfig
+
+	num_clusters = clustered_genes.reset_index().cluster.max()
+	return get_results_go(gene_ontology, num_clusters)
