@@ -47,7 +47,7 @@ def main():
 
 	from src.origins import load_origins_w_replication
 
-	origins = load_origins_w_replication(full=True)
+	origins = load_origins_w_replication(full=False)
 	origin = origins.iloc[origin_index]
 
 	print_fl(f"Index: [{origin_index}/{len(origins)}] Deconvolving combined model, origin: {origin['ars_name']}/{origin.name}...")
