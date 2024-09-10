@@ -146,6 +146,8 @@ class GeneClustering:
 
 	def plot_clustered_heatmap(self):
 
+		from src.chromatin_model import draw_phase_label_annotations
+
 		plt.figure(figsize=(4, 4))
 
 		cluster_counts = self.clustered_expression.sort_index().reset_index()\
@@ -153,7 +155,6 @@ class GeneClustering:
 		cluster_counts['cumulative_sum'] = cluster_counts.cumsum()['count']
 		ylabel_midpoints = (cluster_counts['count'] // 2).values + np.concatenate([[0], cluster_counts['cumulative_sum'].values[:-1]])
 		cluster_counts['ylabels'] = ylabel_midpoints
-		cluster_counts
 
 		plt.title("Clustered\nGene Expression", fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
 		yticks = cluster_counts.ylabels
@@ -165,13 +166,35 @@ class GeneClustering:
 			plt.axhline(row.cumulative_sum, c='black', lw=1)
 			
 		plt.gca().yaxis.set_tick_params(pad=3, length=0)
-		plt.ylim(cluster_counts['cumulative_sum'].values[-1], 0)
 		plt.ylabel("Cluster")
 
+		clustered_data = self.aligned_expression_df.reset_index()\
+			.set_index(['cluster', 'orf_name']).sort_index().astype(float)
+		clustered_data.columns = self.clustered_expression.columns
 
-		clustered_data = self.aligned_expression_df.reset_index().set_index(['cluster', 'orf_name'])
-		plt.imshow(clustered_data.sort_index().astype(float), cmap='Purples_r',
-			interpolation='none', aspect='auto')
+		config = self.config
+		cg1_indices = config.get_Hpositions_for_phase("CG1")
+		postg1_indices = config.get_Hpositions_for_phase("postG1")
+		cg1_tps = config.get_phase_timepoints_for_phase("CG1")
+		postg1_tps = config.get_phase_timepoints_for_phase("postG1")
+
+		cg1_tx = clustered_data[cg1_indices]
+		pg1_tx = clustered_data[postg1_indices]
+		n = len(pg1_tx)
+
+		cg1_extent = [cg1_tps[0], cg1_tps[-1], 0, n]
+		postg1_extent = [cg1_tps[-1], postg1_tps[-1], 0, n]
+
+		plt.imshow(cg1_tx, cmap='Purples',
+			interpolation='none', aspect='auto', origin='lower', extent=cg1_extent, vmin=-3, vmax=3)
+		plt.imshow(pg1_tx, cmap='Purples',
+			interpolation='none', aspect='auto', origin='lower', extent=postg1_extent, vmin=-3, vmax=3)
+		plt.colorbar()
+
+		config = self.config
+		draw_phase_label_annotations(plt.gca(), config, flip=True, 
+			annotations_x=len(clustered_data)+28)
+		plt.ylim(cluster_counts['cumulative_sum'].values[-1]+50, 0)
 
 
 	def shift_cluster_chromatin_data(self):
@@ -285,7 +308,6 @@ class GeneClustering:
 
 		plt.plot(x, curves.T, c='#ddd', alpha=1.)
 		plt.plot(x, medoid)
-		plt.xlim(x[0], x[-1])
 		plt.ylim(-4, 4.1)
 		plt.xticks([])
 		plt.yticks([])
@@ -318,6 +340,10 @@ class GeneClustering:
 
 		plt.title(f"Cluster {cluster}, n={len(curves)}",
 			fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+
+		from src.chromatin_model import draw_phase_label_annotations
+		config = self.config
+		draw_phase_label_annotations(plt.gca(), config, flip=True, annotations_x=-3.7)
 
 
 	def plot_aligned_clusters(self):
@@ -419,7 +445,9 @@ class GeneClustering:
 		self.go_results, self.go_results_sig = get_results_go(gene_ontology, self.num_clusters)
 
 	def print_go_results(self):
-		sig_res = self.go_results_sig[['id', 'name', 'fdr_bh', 'cluster', 'study_items']]
+		sig_res = self.go_results[['id', 'name', 'fdr_bh', 'cluster', 'study_items']]
+		sig_res = sig_res[sig_res.fdr_bh < 0.01]
+
 		go_clusters = sig_res.cluster.unique()
 		for clust in go_clusters:
 			print(f"Cluster {clust}")
