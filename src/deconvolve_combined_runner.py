@@ -84,9 +84,9 @@ def main():
 	# ----------------------
 
 	combined_model = CombinedChromatinModel(config1, config2)
-	combined_model.load_combined_mnase_gene(gene['gene'])
 	combined_model.chrom1_model.center_on_TSS = not should_deconvolve_PAS
 	combined_model.chrom2_model.center_on_TSS = not should_deconvolve_PAS
+	combined_model.load_combined_mnase_gene(gene['gene'])
 
 	if gamma is not None:
 		combined_model.deconvolve(verbose=False, gamma=gamma)
