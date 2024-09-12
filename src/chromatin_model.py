@@ -14,6 +14,7 @@ from src.model import Model
 from src.timer import Timer
 from src.utils import print_fl
 from src.global_config import GlobalConstants
+from src.geneset import get_deconvolved_geneset
 
 
 class ChromatinModel:
@@ -35,7 +36,7 @@ class ChromatinModel:
 
 		# Padding defines the window around the TSS to retrieve MNase data
 		self.padding = 5000
-		self.geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
+		self.geneset = get_deconvolved_geneset()
 		self.origins = load_origins_w_replication(full=True)
 		self.origin = None
 		self.center_on_TSS = True
@@ -1391,7 +1392,6 @@ class ChromatinModel:
 
 	def plot_orf_annotation(self, ax1):
 		from src.orf_plotter import ORFAnnotationPlotter, plot_rect
-		from src.geneset import get_deconvolved_geneset
 
 		gene = self.gene
 		gene_window = self.bin_extents[0],\
