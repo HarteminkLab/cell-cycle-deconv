@@ -264,9 +264,9 @@ class ChromatinModel:
 
 		from src.tf_sites import TFBindingSites
 
-		if not plotting_orc:
-			tf_binding_sites = TFBindingSites()
-			tf_binding_sites.filter_tf_binding_sites(self.gene, self.mnase_span)
+		# if not plotting_orc:
+		# 	tf_binding_sites = TFBindingSites()
+		# 	tf_binding_sites.filter_tf_binding_sites(self.gene, self.mnase_span)
 
 		if f is None:
 			f = self.deconvolved_f().copy()
@@ -389,8 +389,8 @@ class ChromatinModel:
 				last_col_last_row = (row == num_chromatin_rows-1) & \
 					(col == num_cols-1)
 
-				if not plotting_orc:
-					tf_binding_sites.plot_tf_sites(ax, legend=last_col_last_row)
+				# if not plotting_orc:
+				# 	tf_binding_sites.plot_tf_sites(ax, legend=last_col_last_row)
 
 		# Add some xtick and xtick labels to the first column last row
 		first_col_last_row = ax_cols[0][-1]
