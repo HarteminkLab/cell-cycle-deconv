@@ -37,7 +37,7 @@ class TFBindingSites:
 		chroms = all_rossi_tf_dfs.chr.str.replace('chr', '').astype(int)
 		all_rossi_tf_dfs.chr = chroms
 
-		macisaac_tfs = pd.read_csv('/Users/trung/Research/_archive/cadmium-paper/data/p005_c2.sacCer3.gff.txt',
+		macisaac_tfs = pd.read_csv('data/reference_data/p005_c2.sacCer3.gff.txt',
 		    sep='\t', header=None)
 		macisaac_tfs = macisaac_tfs[8].str.replace('Site ',
 		    '').str.replace(';', '').unique()
