@@ -38,6 +38,7 @@ class ChromatinModel:
 		self.geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
 		self.origins = load_origins_w_replication(full=True)
 		self.origin = None
+		self.center_on_TSS = True
 
 		self.config = config
 		self.gamma = 0.006 # default gamma value
@@ -143,13 +144,20 @@ class ChromatinModel:
 		# Get some gene information
 		replicate = self.config.replicate
 		self.computed_plus_one = None
-		self.mnase_span = self.gene.TSS-self.padding, self.gene.TSS+self.padding
+
+		if self.center_on_TSS:
+			gene_center = self.gene.TSS
+		else:
+			gene_center = self.gene.PAS
+
+		self.mnase_span = gene_center-self.padding, gene_center+self.padding
 
 		if log:
 			print_fl(f"Loading MNase reads for {self.orf_name}/{self.gene_name}...", end='')
+			print_fl(f"Centering on TSS: {self.center_on_TSS}, otherwise center on PAS)")
+
 		# TODO: This may take a little while, when we've deconvolved already we may want to skip this step,
 		# But that will mean needing to save the +1 location to disk.
-
 		if not self.chr == self.gene.chr:
 
 			if log:
@@ -167,7 +175,7 @@ class ChromatinModel:
 		try:
 			self.find_max_plus_one_location()
 		except ValueError:
-			self.computed_plus_one = self.gene.TSS
+			self.computed_plus_one = gene_center
 
 			if log:
 				print_fl(f"Error finding plus one location, possibly not enough read coverage. Setting plus one to TSS by default")
@@ -828,17 +836,16 @@ class ChromatinModel:
 		hardcoded_TSS = {
 		}
 
-		if self.gene.name in hardcoded_TSS.keys():
-			TSS = hardcoded_TSS[self.gene.name]
-			print(f"Using hardcoded TSS location for {self.gene.name}: {TSS}")
+		if self.center_on_TSS:
+			gene_center = self.gene.TSS
 		else:
-			TSS = self.gene.TSS
+			gene_center = self.gene.PAS
 
 		from src.chromatin_metrics import fragment_lengths_definitions
 		small_lens, med_lens, nuc_lens = fragment_lengths_definitions()
 
 		# Next, we will align at the +1
-		# from the TSS, stack up all timepoints, then look up and dowstream (200 bp window) for the
+		# from the TSS/PAS, stack up all timepoints, then look up and dowstream (200 bp window) for the
 		# position with the highest number of reads, and we will use that position as our +1 position
 		# We will put that position into our gene data set and use that as our reference data set
 
@@ -848,8 +855,8 @@ class ChromatinModel:
 
 		# Search around the TSS with a 200bp window
 		window = 200
-		search_peak_span = TSS-window//2, \
-			TSS+window//2 
+		search_peak_span = gene_center-window//2, \
+			gene_center+window//2 
 
 		# Larger length span for nucleosome reads search
 		nuc_lens = 120, 200

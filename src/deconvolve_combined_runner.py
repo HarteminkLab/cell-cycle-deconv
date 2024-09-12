@@ -21,7 +21,7 @@ def main():
 
 	Usage:
 
-		<output> <gamma_value/-1> <config_type: shared/distinct/delta> <0/1 for copy number correction> <gene_index>
+		<output> <gamma_value/-1> <config_type: shared/distinct/delta> <0/1 for PAS deconvolution> <gene_index>
 
 	Will run the find optimal gamma procedure on the chromatin
 
@@ -41,13 +41,15 @@ def main():
 	print_fl(f"System arguments:\t{system_args}")
 
 	# Specify output directory, gamma value and gene index
-	(_, out_dir, gamma, config_type, should_copy_correct, gene_index) = system_args
+	(_, out_dir, gamma, config_type, deconvolve_PAS, gene_index) = system_args
 	gene_index = int(gene_index)
 	gamma = float(gamma)
-	should_copy_correct = should_copy_correct == '1'
+	should_copy_correct = True#should_copy_correct == '1'
+	should_deconvolve_PAS = deconvolve_PAS != '0'
 
 	print("Config type: ", config_type)
 	print("Will copy correct: ", should_copy_correct)
+	print("Deconvolve PAS: ", should_deconvolve_PAS)
 
 	# Find optimal gamma
 	if gamma < 0: gamma = None
@@ -83,6 +85,8 @@ def main():
 
 	combined_model = CombinedChromatinModel(config1, config2)
 	combined_model.load_combined_mnase_gene(gene['gene'])
+	combined_model.chrom1_model.center_on_TSS = not should_deconvolve_PAS
+	combined_model.chrom2_model.center_on_TSS = not should_deconvolve_PAS
 
 	if gamma is not None:
 		combined_model.deconvolve(verbose=False, gamma=gamma)

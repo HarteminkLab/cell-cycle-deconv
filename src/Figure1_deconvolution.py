@@ -139,7 +139,7 @@ class Figure1Deconvolution(object):
 		plt.ylabel("Experimental time", fontsize=FiguresConfig.FIG_LABEL_FONTSIZE)
 
 
-	def compute_deconvolution(self, gene_name):
+	def compute_deconvolution(self, gene_name, center_on_TSS=True):
 		from src.config import load_configs_by_config_type, load_combined_gene_expression_by_config_type
 		combined_ge_config = load_combined_gene_expression_by_config_type('shared')
 
@@ -149,6 +149,9 @@ class Figure1Deconvolution(object):
 
 		from src.combined_chromatin_model import CombinedChromatinModel
 		combined_model = CombinedChromatinModel(self.config1, self.config2)
+		combined_model.chrom1_model.center_on_TSS = center_on_TSS
+		combined_model.chrom2_model.center_on_TSS = center_on_TSS
+
 		self.combined_model = combined_model
 
 		combined_model.load_combined_mnase_gene(gene_name)
