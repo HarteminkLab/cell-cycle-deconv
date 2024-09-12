@@ -620,3 +620,7 @@ def smooth_data(img, size=5, sigma=0.75):
 	img = smooth_matrix(img, gaussian_kernel)
 
 	return img
+
+
+def proportion_indices(indices, props):
+    return np.array([indices[int(prop * len(indices))] for prop in props])

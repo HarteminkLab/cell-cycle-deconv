@@ -189,7 +189,6 @@ class GeneClustering:
 			interpolation='none', aspect='auto', origin='lower', extent=cg1_extent, vmin=-3, vmax=3)
 		plt.imshow(pg1_tx, cmap='Purples',
 			interpolation='none', aspect='auto', origin='lower', extent=postg1_extent, vmin=-3, vmax=3)
-		plt.colorbar()
 
 		config = self.config
 		draw_phase_label_annotations(plt.gca(), config, flip=True, 
@@ -219,7 +218,7 @@ class GeneClustering:
 		self.current_normalized_aligned_chromatin_mean = self.aligned_normalized_cluster_chromatin_data.mean(axis=0)
 
 
-	def plot_chromatin_in_cluster(self, vmax=5, full=False):
+	def plot_chromatin_in_cluster(self, vmax=5, full=False, plot_h_positions=None):
 
 		cluster = self.selected_cluster
 		
@@ -235,57 +234,41 @@ class GeneClustering:
 		# Unnormalized chromatin data
 		chrom_dat = self.current_cluster_chromatin_mean
 		aligned_chromatin = self.current_aligned_chromatin_mean
-		k = len(indices_df)
-
-		if full:
-			cols = 3
-			fig = plt.figure(figsize=(16, k*1.5))
-		else:
-			cols = 1
-			fig = plt.figure(figsize=(5, k*1.5))
 
 		cluster_index = cluster-1
 		medoid = self.medoids[cluster_index]
 
+		if plot_h_positions is not None:
+
+			t_h_indices = self.config.get_Hpositions_for_branch('t')
+			t_indices = np.arange(len(t_h_indices))
+			plot_t_indices = [t_indices[t_h_indices == h][0] for h in plot_h_positions]
+			indices_df = pd.DataFrame({'value': plot_t_indices})
+
+		k = len(indices_df)
+
+		fig, axs = plt.subplots(2, 3, figsize=(11, 3))
+		axs = np.array(axs).T.flatten()
+
 		for i, index_row in indices_df.iterrows():
-			plt.subplot(k, cols, (i*cols)+1)
 
-			# Unaligned data
-			unaligned = chrom_dat[index_row.value].astype(float)
+			ax = axs[i]
+
 			aligned = aligned_chromatin[index_row.value].astype(float)
+			ax.set_ylabel(f"{i+1}", fontsize=FiguresConfig.FIG_LABEL_FONTSIZE, 
+				rotation=0, ha='right', labelpad=9)
 
-			if full:
-				plt.imshow(unaligned,
-						  origin='lower', cmap='magma_r', aspect='auto', vmax=vmax)
-				plt.xticks([])
-				plt.yticks([])
-				plt.ylabel(f"{index_row.point_type}: {index_row.value}")
+			ax.imshow(aligned,
+					  origin='lower', 
+					  cmap='magma_r', aspect='auto', vmax=vmax)
+			ax.set_xticks([])
+			ax.set_yticks([])
 
-				if i == 0: plt.title("Unaligned")
+			if i == 0: ax.set_title('Shared G1', fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+			elif i == 2: ax.set_title('S', fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+			elif i == 4: ax.set_title('G2/M', fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
 
-				plt.subplot(k, cols, (i*cols)+2)
-				plt.imshow(aligned,
-						  origin='lower', cmap='magma_r', aspect='auto', vmax=vmax)
-				plt.xticks([])
-				plt.yticks([])
-
-				if i == 0: plt.title("Aligned")
-
-				plt.subplot(k, cols, (i*cols)+3)
-				plt.imshow(aligned-unaligned,
-						  origin='lower', cmap='RdBu_r', aspect='auto', vmin=-0.05, vmax=0.05)
-				plt.xticks([])
-				plt.yticks([])
-				if i == 0: plt.title("Aligned-Unaligned")
-				plt.subplots_adjust(top=0.87)
-			else:
-				plt.ylabel(f"{index_row.point_type}: {index_row.value}")
-				plt.subplot(k, cols, (i*cols)+1)
-				plt.imshow(aligned,
-						  origin='lower', cmap='magma_r', aspect='auto', vmax=vmax)
-				plt.xticks([])
-				plt.yticks([])
-				plt.subplots_adjust(top=0.9)
+		plt.subplots_adjust(top=0.80)
 
 		plt.suptitle(f"Cluster {cluster}, n={len(self.aligned_cluster_chromatin_data)}",
 			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
@@ -326,7 +309,8 @@ class GeneClustering:
 		self.aligned_shifts_df = aligned_shifts_df
 
 
-	def plot_aligned_cluster(self, cluster):
+	def plot_aligned_cluster(self, cluster, plot_important_points=False,
+		plot_marker_xs=[]):
 
 		aligned_expression_df = self.aligned_expression_df.reset_index().set_index(['cluster', 'orf_name'])
 		medoid = self.medoids[cluster-1]
@@ -337,34 +321,45 @@ class GeneClustering:
 		plt.plot(x, curves.T, c='#ddd', alpha=1.)
 		plt.plot(x, medoid)
 		plt.ylim(-4, 4.1)
+		plt.xlim(x[0], x[-1])
 		plt.xticks([])
 		plt.yticks([])
+		plt.ylabel("Normalized expression")
 
 		cluster_medoid_df = pd.DataFrame({
 			'time': x,
-			'H_pos': aligned_expression_df.columns,
+			'H_pos': self.clustered_expression.columns,
 			'medoid_value': medoid
 		})
+		cluster_medoid_df = cluster_medoid_df.set_index('H_pos')
 
-		important_points = self.interesting_points_df[self.interesting_points_df.cluster == cluster]
+		for i in range(len(plot_marker_xs)):
+			marker_x = plot_marker_xs[i]
+			tp = cluster_medoid_df.loc[marker_x].time
+			y_val = cluster_medoid_df.loc[marker_x].medoid_value
+			plt.scatter(tp, y_val, facecolor='#555', edgecolor='#555',
+				marker='D', s=23, zorder=100, lw=1)
+			plt.text(tp, y_val+0.25, str(i+1), va='bottom', ha='center')
 
-		for index, row in important_points.iterrows():
-			if row.point_type == 'maxima':
-				color = 'red'
-				marker='^'
-			elif row.point_type =='minima':
-				color = 'blue'
-				marker='v'
-			else:
-				color = 'black'
-				marker='o'
+		if plot_important_points:
+			important_points = self.interesting_points_df[self.interesting_points_df.cluster == cluster]
+			for index, row in important_points.iterrows():
+				if row.point_type == 'maxima':
+					color = 'red'
+					marker='^'
+				elif row.point_type =='minima':
+					color = 'blue'
+					marker='v'
+				else:
+					color = 'black'
+					marker='o'
 
-			hpos = aligned_expression_df.columns[int(row.value)]
-			tp = cluster_medoid_df.loc[hpos].time
-			y_val = cluster_medoid_df.loc[hpos].medoid_value
+				hpos = aligned_expression_df.columns[int(row.value)]
+				tp = cluster_medoid_df.loc[hpos].time
+				y_val = cluster_medoid_df.loc[hpos].medoid_value
 
-			plt.scatter(tp, y_val, facecolor='none', edgecolor=color, 
-				marker=marker, s=42, zorder=100, lw=1)
+				plt.scatter(tp, y_val, facecolor='none', edgecolor=color, 
+					marker=marker, s=42, zorder=100, lw=1)
 
 		plt.title(f"Cluster {cluster}, n={len(curves)}",
 			fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
