@@ -22,8 +22,8 @@ class GlobalConstants:
 	#GB_LEN = 495*3
 	#NUM_BINS_X = (PROM_LEN + GB_LEN + BIN_WIDTH) // BIN_WIDTH
 
-	PROM_LEN = 495
-	GB_LEN = 495
+	PROM_LEN = 495*2
+	GB_LEN = 495*2
 	NUM_BINS_X = (PROM_LEN + GB_LEN + BIN_WIDTH) // BIN_WIDTH
 	
 	# Define the promoter and gene body regions relative to a +1
