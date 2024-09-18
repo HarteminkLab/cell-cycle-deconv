@@ -88,8 +88,6 @@ class ChromatinModel:
 		padding = 3000
 		mnase_span = center-padding, center+padding+1
 
-		from src.chromatin_model import read_chromosome_mnase_reads
-
 		self.mnase_span = mnase_span
 
 		# Load the mnase reads for the origin
@@ -293,7 +291,7 @@ class ChromatinModel:
 			else: figwidth = 19
 			figheight = 6
 		else:
-			figwidth = 27
+			figwidth = 16
 
 		if figsize is not None:
 			figwidth, figheight = figsize

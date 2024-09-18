@@ -1,11 +1,17 @@
+
 import numpy as np
+import matplotlib.pyplot as plt
+import pandas as pd
+
 from scipy.signal import correlate
 from sklearn.cluster import DBSCAN
 from src.timer import Timer
-import matplotlib.pyplot as plt
 from sklearn_extra.cluster import KMedoids
-import pandas as pd
 from src.figure_configs import FiguresConfig
+from src.global_config import GlobalConstants
+from src.deconv_data import load_f_files
+from src.config import load_configs_by_config_type
+from src.geneset import get_deconvolved_geneset
 
 
 class GeneClustering:
@@ -16,21 +22,35 @@ class GeneClustering:
 		from src.Figure3_Chrom_Gene_Expression import Figure3_Chrom_GeneExpression
 		figures = Figure3_Chrom_GeneExpression(outdir)
 		gene_expression = figures.gene_expression_a.gene_expression_f
-
-		from src.geneset import get_deconvolved_geneset
 		geneset = get_deconvolved_geneset()
 
 		self.gene_expression = gene_expression
 		self.geneset = geneset
 
+		config1, config2 = load_configs_by_config_type('shared')
+		self.config = config1
+
+
+	def set_max_expression_threshold(self, q_cutoff = 0.5):
+		# Filter out genes with low maximal expression, to remove genes that cycle with
+		# low expression.
+		
+		t_indices = self.config.get_Hpositions_for_branch('t')
+		gene_expression_top_branch = self.gene_expression[t_indices]
+
+		quantile_expression = gene_expression_top_branch.quantile(q_cutoff, axis=1)
+		q_val = np.quantile(quantile_expression, q_cutoff)
+		quantile_q_genes = quantile_expression[quantile_expression > q_val].index
+		print(f"Genes with maximal expression for quantile: {q_cutoff}\nis set at {q_val:.2f} expression level. {len(quantile_q_genes)} genes meet this criteria")
+
+		self.high_max_expression_genes = quantile_q_genes
+
 
 	def set_threshold_ptr(self, q_ptr):
 
-		from src.config import load_configs_by_config_type
-
-		config1, config2 = load_configs_by_config_type('shared')
-		t_indices = config1.get_Hpositions_for_branch('t')
-		gene_expression_top_branch = self.gene_expression[t_indices]
+		
+		t_indices = self.config.get_Hpositions_for_branch('t')
+		gene_expression_top_branch = self.gene_expression[t_indices].loc[self.high_max_expression_genes]
 
 		from src.peak_to_trough import compute_quantile_ptr_2d
 
@@ -47,13 +67,12 @@ class GeneClustering:
 		high_ptr_gene_expression = gene_expression_top_branch.loc[quantile_ptr_genes.index]
 
 		plt.figure(figsize=(4, 3))
-		plt.hist(top_gene_expression_ptr_df, bins=100)
+		plt.hist(top_gene_expression_ptr_df, bins=50)
 		plt.yscale('log')
 		plt.xlim(0.9, 4)
 		plt.axvline(q_val, c='red')
 		plt.title("Gene expression, PTR")
 
-		self.config = config1
 		self.q_val = q_val
 		self.q_ptr = q_ptr
 		self.top_gene_expression_ptr_df = top_gene_expression_ptr_df
@@ -90,7 +109,8 @@ class GeneClustering:
 
 
 	def cluster_expression(self, num_clusters):
-		self.kmedoids, labels, medoid_indices = cluster_timeseries_kmedoids(self.distance_matrix, num_clusters)
+		self.kmedoids, labels, medoid_indices = cluster_timeseries_kmedoids(self.distance_matrix, 
+			num_clusters)
 		labels = labels+1
 		clustered_expression = self.high_ptr_gene_expression.copy()
 		clustered_expression['cluster'] = labels
@@ -106,43 +126,32 @@ class GeneClustering:
 			medoids[i] = self.normalized_high_ptr_expression.iloc[medoid_index]
 		self.medoids = medoids
 
-	def load_chromatin_for_cluster(self, chromatin_dir, cluster):
-		from src.deconv_data import load_f_files
-
-		t_indices = self.config.get_Hpositions_for_branch('t')
+	def load_chromatin_for_cluster(self, cluster):
 
 		current_cluster_exp = self.clustered_expression.loc[cluster]
-		all_gene_f_df = load_f_files(chromatin_dir, current_cluster_exp)
-		self.current_cluster_chromatin = all_gene_f_df
-		self.current_cluster_exp = current_cluster_exp
-		self.selected_cluster = cluster
+		orf_names = current_cluster_exp.index.values
 
-		# Flip the strand of the loaded chromatin
-		current_genes = self.geneset[['gene', 'strand']].loc[self.current_cluster_exp.index]
-		current_genes['gene_index'] = np.arange(len(current_genes))
+		def load_chromatin_and_shift(chromatin_dir, orf_names):
 
-		accumulated_gene_f_imgs = self.current_cluster_chromatin.values.reshape(
-			(-1, 178, 23, 91)).astype(float)[:, t_indices]
-		crick_genes = current_genes[current_genes.strand == '-'].gene_index
-		accumulated_gene_f_imgs[crick_genes] = np.flip(accumulated_gene_f_imgs[crick_genes],\
-			axis=3)
+			# Load chromatin from disk and shift
+			accumulated_gene_f_imgs = load_chromatin_from_dir(chromatin_dir, orf_names)
 
-		self.current_cluster_chromatin = accumulated_gene_f_imgs
-		self.normalize_chromatin()
+			# Shift the gene f images for their designated cluster
+			shifted_gene_f_imgs = self.shift_cluster_chromatin_data(accumulated_gene_f_imgs)
 
-	def normalize_chromatin(self):
-		# Normalize chrom data by total sum per each image
-		chrom_data = self.current_cluster_chromatin
-		normalized_chrom_data = chrom_data.copy()
-		total_target = 1000
+			return accumulated_gene_f_imgs, shifted_gene_f_imgs
 
-		for gene_i in range(chrom_data.shape[0]):
-			gene_chrom = chrom_data[gene_i]
-			gene_sum_per_t = gene_chrom.sum(axis=1).sum(axis=1)
-			normalized_gene_chrom = gene_chrom / gene_sum_per_t.reshape((-1, 1, 1))
-			normalized_chrom_data[gene_i] = normalized_gene_chrom * total_target
+		if not self.selected_cluster == cluster:
 
-		self.normalized_chrom = normalized_chrom_data
+			self.selected_cluster = cluster
+			self.cluster_TSS_f_imgs, self.shifted_TSS_f_imgs = load_chromatin_and_shift(
+				self.TSS_chromatin_dir, orf_names)
+			self.cluster_PAS_f_imgs, self.shifted_PAS_f_imgs = load_chromatin_and_shift(
+				self.PAS_chromatin_dir, orf_names)
+
+		else:
+			print(f"Already loaded chromtin for cluster {cluster}, reverting to cache.")
+
 
 	def plot_clustered_heatmap(self):
 
@@ -153,7 +162,8 @@ class GeneClustering:
 		cluster_counts = self.clustered_expression.sort_index().reset_index()\
 			.groupby('cluster').count()[['orf_name']].rename(columns={'orf_name': 'count'})
 		cluster_counts['cumulative_sum'] = cluster_counts.cumsum()['count']
-		ylabel_midpoints = (cluster_counts['count'] // 2).values + np.concatenate([[0], cluster_counts['cumulative_sum'].values[:-1]])
+		ylabel_midpoints = (cluster_counts['count'] // 2).values + np.concatenate([[0], 
+			cluster_counts['cumulative_sum'].values[:-1]])
 		cluster_counts['ylabels'] = ylabel_midpoints
 
 		plt.title("Clustered\nGene Expression", fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
@@ -196,7 +206,9 @@ class GeneClustering:
 		plt.ylim(cluster_counts['cumulative_sum'].values[-1]+50, 0)
 
 
-	def shift_cluster_chromatin_data(self):
+	def shift_cluster_chromatin_data(self, current_cluster_chromatin):
+		"""Shift the chromatin data such that the assigned cluster for the gene is optimally aligned
+		to the medoid of the cluster"""
 
 		cluster = self.selected_cluster
 		current_shifts = self.aligned_shifts_df[self.aligned_shifts_df.cluster == cluster]
@@ -208,72 +220,19 @@ class GeneClustering:
 				shifted_chrom_dat[i] = np.roll(chrom_dat[i], shift, axis=0)
 			return shifted_chrom_dat
 
-		self.aligned_cluster_chromatin_data = shift_chrom_data(self.current_cluster_chromatin, current_shifts)
-		self.aligned_normalized_cluster_chromatin_data = shift_chrom_data(self.normalized_chrom, current_shifts)
-
-		self.current_cluster_chromatin_mean = self.current_cluster_chromatin.mean(axis=0)
-		self.current_aligned_chromatin_mean = self.aligned_cluster_chromatin_data.mean(axis=0)
-
-		self.current_normalized_chromatin_mean = self.normalized_chrom.mean(axis=0)
-		self.current_normalized_aligned_chromatin_mean = self.aligned_normalized_cluster_chromatin_data.mean(axis=0)
+		aligned_cluster_chromatin_data = shift_chrom_data(current_cluster_chromatin, current_shifts)
+		return aligned_cluster_chromatin_data
 
 
-	def plot_chromatin_in_cluster(self, vmax=5, full=False, plot_h_positions=None):
+	def plot_chromatin_in_cluster(self):
 
-		cluster = self.selected_cluster
-		
-		indices_df = self.interesting_points_df[self.interesting_points_df.cluster == cluster].sort_values('value')
-		indices_df = indices_df.reset_index(drop=True)
-	
-		column_titles = ['Unaligned', 'Normalized Unaligned', 'Aligned', 'Normalized Aligned']
-
-		# Normalized chromatin data
-		normalized_chrom_dat = self.current_normalized_chromatin_mean
-		normalized_aligned_chromatin = self.current_normalized_aligned_chromatin_mean
-
-		# Unnormalized chromatin data
-		chrom_dat = self.current_cluster_chromatin_mean
-		aligned_chromatin = self.current_aligned_chromatin_mean
-
-		cluster_index = cluster-1
-		medoid = self.medoids[cluster_index]
-
-		if plot_h_positions is not None:
-
-			t_h_indices = self.config.get_Hpositions_for_branch('t')
-			t_indices = np.arange(len(t_h_indices))
-			plot_t_indices = [t_indices[t_h_indices == h][0] for h in plot_h_positions]
-			indices_df = pd.DataFrame({'value': plot_t_indices})
-
-		k = len(indices_df)
-
-		fig, axs = plt.subplots(2, 3, figsize=(11, 3))
-		axs = np.array(axs).T.flatten()
-
-		for i, index_row in indices_df.iterrows():
-
-			ax = axs[i]
-
-			aligned = aligned_chromatin[index_row.value].astype(float)
-			ax.set_ylabel(f"{i+1}", fontsize=FiguresConfig.FIG_LABEL_FONTSIZE, 
-				rotation=0, ha='right', labelpad=9)
-
-			ax.imshow(aligned,
-					  origin='lower', 
-					  cmap='magma_r', aspect='auto', vmax=vmax)
-			ax.set_xticks([])
-			ax.set_yticks([])
-
-			if i == 0: ax.set_title('Shared G1', fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
-			elif i == 2: ax.set_title('S', fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
-			elif i == 4: ax.set_title('G2/M', fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
-
-		plt.subplots_adjust(top=0.80)
-
-		plt.suptitle(f"Cluster {cluster}, n={len(self.aligned_cluster_chromatin_data)}",
-			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
-
+		aligned_TSS_imgs = self.shifted_TSS_f_imgs.mean(axis=0)
+		aligned_PAS_imgs = self.shifted_PAS_f_imgs.mean(axis=0)
+		plot_h_positions = get_phase_indices_for_plotting()
+		title = f"Cluster {self.selected_cluster}, n={len(self.shifted_TSS_f_imgs)}"
+		fig = plot_chromatin(aligned_TSS_imgs, aligned_PAS_imgs, plot_h_positions, title=title)
 		return fig
+
 
 	def compute_alignments_and_interesting_points_per_cluster(self):
 
@@ -309,9 +268,11 @@ class GeneClustering:
 		self.aligned_shifts_df = aligned_shifts_df
 
 
-	def plot_aligned_cluster(self, cluster, plot_important_points=False,
-		plot_marker_xs=[]):
+	def plot_aligned_cluster(self, cluster):
 
+		fig = plt.figure(figsize=(5, 3))
+
+		plot_marker_xs = get_phase_indices_for_plotting()
 		aligned_expression_df = self.aligned_expression_df.reset_index().set_index(['cluster', 'orf_name'])
 		medoid = self.medoids[cluster-1]
 		curves = aligned_expression_df.loc[cluster]
@@ -341,32 +302,17 @@ class GeneClustering:
 				marker='D', s=23, zorder=100, lw=1)
 			plt.text(tp, y_val+0.25, str(i+1), va='bottom', ha='center')
 
-		if plot_important_points:
-			important_points = self.interesting_points_df[self.interesting_points_df.cluster == cluster]
-			for index, row in important_points.iterrows():
-				if row.point_type == 'maxima':
-					color = 'red'
-					marker='^'
-				elif row.point_type =='minima':
-					color = 'blue'
-					marker='v'
-				else:
-					color = 'black'
-					marker='o'
-
-				hpos = aligned_expression_df.columns[int(row.value)]
-				tp = cluster_medoid_df.loc[hpos].time
-				y_val = cluster_medoid_df.loc[hpos].medoid_value
-
-				plt.scatter(tp, y_val, facecolor='none', edgecolor=color, 
-					marker=marker, s=42, zorder=100, lw=1)
-
 		plt.title(f"Cluster {cluster}, n={len(curves)}",
 			fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
 
 		from src.chromatin_model import draw_phase_label_annotations
 		config = self.config
 		draw_phase_label_annotations(plt.gca(), config, flip=True, annotations_x=-3.7)
+
+
+	def set_chromatin_dirs(self, TSS_chromatin_dir, PAS_chromatin_dir):
+		self.TSS_chromatin_dir = TSS_chromatin_dir
+		self.PAS_chromatin_dir = PAS_chromatin_dir
 
 
 	def plot_aligned_clusters(self):
@@ -413,7 +359,6 @@ class GeneClustering:
 
 			important_points = interesting_points_df[interesting_points_df.cluster == cluster]
 
-
 			for index, row in important_points.iterrows():
 				if row.point_type == 'maxima':
 					color = 'red'
@@ -455,7 +400,8 @@ class GeneClustering:
 
 
 def circular_correlation(v1, v2, return_idx=False):
-	"""Compute the circular correlation between two vectors and return the max correlation and the optimal shift."""
+	"""Compute the circular correlation between two vectors and return the 
+	max correlation and the optimal shift."""
 	# Ensure the vectors are numpy arrays
 	v1 = np.array(v1)
 	v2 = np.array(v2)
@@ -558,3 +504,142 @@ def run_gene_ontology_on_clustered_genes(geneset, clustered_genes, gene_ontology
 
 	num_clusters = clustered_genes.reset_index().cluster.max()
 	return get_results_go(gene_ontology, num_clusters)
+
+
+def plot_psuedo_gene(ax):
+	from src.orf_plotter import plot_gene_annotation
+	from src.global_config import GlobalConstants
+
+	gene_start = -40
+	gene_len = 1080
+	TSS = gene_start
+	PAS = gene_start+gene_len
+
+	plot_gene_annotation(ax, gene_start, gene_len, 0, 36, '#ccc', (0, 0), 1, 40, TSS, PAS, True)
+	ax.set_ylim(-50, 100)
+	ax.set_xlim(-GlobalConstants.PROM_LEN, GlobalConstants.GB_LEN*3)
+	ax.axvline(500, ls='solid', c='#aaa', zorder=99, lw=1)
+	ax.set_yticks([])
+	ax.set_xticks([])
+
+
+def load_chromatin_from_dir(chromatin_dir, orf_names):
+
+	config, _ = load_configs_by_config_type('shared')
+	t_indices = config.get_Hpositions_for_branch('t')
+
+	all_gene_f_df = load_f_files(chromatin_dir, orf_names)
+
+	# Flip the strand of the loaded chromatin
+	geneset = get_deconvolved_geneset()
+	current_genes = geneset[['gene', 'strand']].loc[orf_names]
+	current_genes['gene_index'] = np.arange(len(current_genes))
+
+	accumulated_gene_f_imgs = all_gene_f_df.values.reshape(
+		(-1, 178, *GlobalConstants.IMAGE_SHAPE)).astype(float)[:, t_indices]
+	crick_genes = current_genes[current_genes.strand == '-'].gene_index
+	accumulated_gene_f_imgs[crick_genes] = np.flip(
+		accumulated_gene_f_imgs[crick_genes], axis=3)
+
+	return accumulated_gene_f_imgs
+
+
+def plot_chromatin(aligned_TSS_imgs, aligned_PAS_imgs, plot_h_positions=None, vmax=5,
+	title=None):
+
+	# Plot predefined h positions
+	if plot_h_positions is None:
+		plot_h_positions = get_phase_indices_for_plotting()
+
+	config, _ = load_configs_by_config_type('shared')
+	t_h_indices = config.get_Hpositions_for_branch('t')
+	t_indices = np.arange(len(t_h_indices))
+	plot_t_indices = [t_indices[t_h_indices == h][0] for h in plot_h_positions]
+	indices_df = pd.DataFrame({'value': plot_t_indices})
+
+	k = len(indices_df)
+
+	fig, axs = plt.subplots(3, 3, figsize=(21, 5))
+	annotation_axs = axs[0] # Axs for pseudo-gene annotations
+	axs = np.array(axs[1:]).T.flatten()
+
+
+	for i in range(len(annotation_axs)):
+
+		ax = annotation_axs[i]
+		ax.set_xticks([])
+		ax.set_yticks([])
+
+		plot_psuedo_gene(ax)
+
+		if i == 0: ax.set_title('Shared G1', fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+		elif i == 1: ax.set_title('S', fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+		elif i == 2: ax.set_title('G2/M', fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+
+	for i, index_row in indices_df.iterrows():
+
+		ax = axs[i]
+
+		tss_img = aligned_TSS_imgs[index_row.value].astype(float)
+		pas_img = aligned_PAS_imgs[index_row.value].astype(float)
+
+		ax.set_ylabel(f"{i+1}", fontsize=FiguresConfig.FIG_LABEL_FONTSIZE, 
+			rotation=0, ha='right', labelpad=9)
+
+		ax.imshow(tss_img,
+				  origin='lower', 
+				  cmap='magma_r', aspect='auto', 
+				  vmax=vmax,
+				  extent=GlobalConstants.BIN_EXTENTS)
+
+		ax.axvline(0, c='#333', alpha=0.5, lw=1, ls='dotted')
+		ax.axvline(GlobalConstants.GB_LEN*2, c='#333', alpha=0.5, lw=1, ls='dotted')
+
+		pas_extents = [GlobalConstants.BIN_EXTENTS[0]+GlobalConstants.GB_LEN*2,
+			GlobalConstants.BIN_EXTENTS[1]+GlobalConstants.GB_LEN*2,
+			GlobalConstants.BIN_EXTENTS[2], GlobalConstants.BIN_EXTENTS[3]]
+		ax.imshow(pas_img,
+				  origin='lower', 
+				  cmap='magma_r', aspect='auto', 
+				  vmax=vmax,
+				  extent=pas_extents)
+
+		ax.set_xticks([])
+		ax.set_yticks([])
+		ax.set_xlim(-GlobalConstants.PROM_LEN, GlobalConstants.GB_LEN*3)
+		ax.axvline(GlobalConstants.GB_LEN, c='#aaa', ls='solid', lw=1)
+
+		if i == 1:
+			pas_img_center = GlobalConstants.GB_LEN*2
+			ax.set_xticks([-300, 0, 300, GlobalConstants.GB_LEN, 
+				pas_img_center-300, pas_img_center, pas_img_center+300])
+			ax.set_xticklabels(['-300', '+1 nuc.', '+300', '', 
+								'-300', 'last nuc.', '+300'])
+
+	plt.subplots_adjust(top=0.82)
+	plt.suptitle(title, fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+
+	return fig
+
+
+
+def get_phase_indices_for_plotting():
+
+	from src.helpers import proportion_indices
+
+	config, _ = load_configs_by_config_type('shared')
+	g1_indices = config.get_Hpositions_for_phase('CG1')
+	s_indices = config.get_Hpositions_for_phase('S')
+	g2m_indices = config.get_Hpositions_for_phase('G2M')
+
+	sel_g1_indices = proportion_indices(g1_indices, [0.2, 0.8])
+	sel_s_indices = proportion_indices(s_indices, [0.2, 0.8])
+	sel_g2m_indices = proportion_indices(g2m_indices, [0.2, 0.8])
+
+	plot_marker_xs = np.concatenate([
+		sel_g1_indices,
+		sel_s_indices,
+		sel_g2m_indices
+	])
+	return plot_marker_xs
+

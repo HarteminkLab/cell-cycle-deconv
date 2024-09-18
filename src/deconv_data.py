@@ -33,11 +33,11 @@ def load_gene_expression_fs(gene_expression_dir, geneset=None):
 	return gene_expression_f
 
 
-def load_f_files(chromatin_dir, geneset=None, log=True):
+def load_f_files(chromatin_dir, orf_names=None, log=True):
 	"""Load all of the gene F results into a dataframe, flatten the F images for the dataframe."""
 
-	if geneset is None:
-		geneset = get_deconvolved_geneset()
+	if orf_names is None:
+		orf_names = get_deconvolved_geneset().index.values
 	chromatin_dir = chromatin_dir
 
 	f_filepaths = glob.glob(f'{chromatin_dir}/*_f_*.npy')
@@ -55,7 +55,7 @@ def load_f_files(chromatin_dir, geneset=None, log=True):
 		if log: print("Shape of the adjusted F shape:", current_f.shape)
 
 	m_times, u_vals = current_f.shape
-	all_gene_fs_df = pd.DataFrame(index=geneset.index, 
+	all_gene_fs_df = pd.DataFrame(index=orf_names, 
 		columns=np.arange(m_times*u_vals))
 
 	from src.timer import Timer
@@ -70,7 +70,7 @@ def load_f_files(chromatin_dir, geneset=None, log=True):
 
 		# Skip genes not in our analysis set
 		# for runs in which we haven't filtered for low coverage genes yet
-		if not orf_name in geneset.index.values: continue
+		if not orf_name in orf_names: continue
 
 		current_f = np.load(path)
 
@@ -82,7 +82,7 @@ def load_f_files(chromatin_dir, geneset=None, log=True):
 		all_gene_fs_df.loc[orf_name] = current_f.flatten()
 		
 		if log and i % 1000 == 0:
-			timer.print_time(f"{i+1}/{len(geneset)}")
+			timer.print_time(f"{i+1}/{len(orf_names)}")
 		i += 1
 
 	return all_gene_fs_df

@@ -14,7 +14,7 @@ class CopyCorrectionAnalysis:
 	1. Retrieve the 10 kb occupancy counts for all chromosomes
 	2. Normalize these occupancy counts to match up the first cell cycle min and max 
 		occupancy values. 
-		Assumption: All segments of the genome will reach these same minimum and maximal values
+		Assupmption: All segments of the genome will reach these same minimum and maximal values
 			Reality: may not be the case as cells begin entering G1 by late S/G2M, 
 			the maximal value is lowered and mixed with G1 cells.
 	3. Retrieve each of these 10 kb occupancy values for each gene.
@@ -87,8 +87,8 @@ class CopyCorrectionAnalysis:
 		else:
 			chr_bin_curves = self.mnase_occupancies_2.normalized_bin_curves
 
-		self.chrom_replication_profile = pd.read_csv('output/replication_profiles/chrom_replication_timing_shared.csv'
-			).set_index(['chr', 'start'])
+		self.chrom_replication_profile = pd.read_csv(
+			'output/replication_profiles/chrom_replication_timing_shared.csv').set_index(['chr', 'start'])
 
 		# Shuffle the replication profile for a proof of concept, that the correction is non-trivial
 		if shuffle:
@@ -96,13 +96,15 @@ class CopyCorrectionAnalysis:
 			np.random.seed(123)
 			shuffled_index = self.chrom_replication_profile.index.values.copy()
 			np.random.shuffle(shuffled_index)
-			self.chrom_replication_profile.replication_index = self.chrom_replication_profile.loc[shuffled_index].replication_index.values
+			self.chrom_replication_profile.replication_index = \
+				self.chrom_replication_profile.loc[shuffled_index].replication_index.values
 
 		self.chrom_bin_curves = chr_bin_curves
 
 		# Add replication timing
 		idx_tp_mapping = self.config.index_tp_mapping_df()
-		repl_tp = [idx_tp_mapping.loc[repl_index].timepoint for repl_index in self.chrom_replication_profile.replication_index.values]
+		repl_tp = [idx_tp_mapping.loc[repl_index].timepoint for repl_index in \
+			self.chrom_replication_profile.replication_index.values]
 		repl_profile = self.chrom_replication_profile
 		repl_profile['replication_time'] = repl_tp
 		self.chrom_replication_profile = repl_profile
@@ -374,7 +376,8 @@ class CopyCorrectionAnalysis:
 		else:
 			unnormalized_bins = self.mnase_occupancies_2.unnormalized_chr_bin_curves
 
-		equal_scaled_bins = unnormalized_bins / unnormalized_bins.sum(axis=0).values.reshape((1, -1)) * len(unnormalized_bins)
+		equal_scaled_bins = unnormalized_bins / unnormalized_bins.sum(axis=0).values.reshape((1, -1))\
+			* len(unnormalized_bins)
 
 		scaling_term = equal_scaled_bins / self.norm_norm_corrected
 		self.scaling_term = scaling_term
@@ -413,9 +416,7 @@ def lookup_gene_copy_correction(copy_correction, gene):
 
 	from src.CopyNumberCorrection import get_bin_for_position
 
-	chrom = gene.chr
-	pos = gene.TSS
-
+	chrom, pos = gene.chr, gene.TSS
 	start_indices = copy_correction.loc[chrom].index
 	bin_idx, bin_start_bp = get_bin_for_position(gene.TSS, start_indices)
 
