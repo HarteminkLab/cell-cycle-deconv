@@ -134,6 +134,9 @@ class GenomeDeconvolution(object):
 		
 		outdir = self.save_directory
 		
+		chrom, span = self.combined_model.chrom1_model.chr,\
+		    self.combined_model.chrom1_model.mnase_span
+
 		# Save paths
 		raw_rep1_plot_dir = f"{outdir}/plots/raw/replicate1/chr{chrom}"
 		raw_rep2_plot_dir = f"{outdir}/plots/raw/replicate2/chr{chrom}"
