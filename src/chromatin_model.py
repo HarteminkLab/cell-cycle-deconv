@@ -49,6 +49,7 @@ class ChromatinModel:
 		self.prom_len = GlobalConstants.PROM_LEN
 		self.gb_len = GlobalConstants.GB_LEN
 		self.chr = None
+		self.gene = None
 
 		self.max_y_len = GlobalConstants.MAX_Y_LEN
 
@@ -134,6 +135,52 @@ class ChromatinModel:
 			self.G = self.G * copy_correction_vector.reshape((-1, 1))
 
 		self.center_origin = self.origin.pos
+
+	def load_mnase_span(self, chrom, mnase_span, log=True):
+		"""Load the MNase for an arbitrary genomic span"""
+
+		replicate = self.config.replicate
+		self.mnase_span = mnase_span
+
+		if not self.chr == chrom:
+
+			if log:
+				print_fl(f"Loading chromosome reads: {chrom}")
+
+			self.chr_reads = read_chromosome_mnase_reads(replicate, chrom)
+			self.chr = chrom
+
+		else:
+			if log:
+				print_fl(f"Already loaded chromosome reads for {self.chr}. Using cache.")
+
+		self.locus_reads = self.chr_reads[(self.chr_reads.mid > self.mnase_span[0]) & 
+			(self.chr_reads.mid < self.mnase_span[1])]
+
+		self.timepoints = GlobalConstants.CHROM_WT1_TIMEPOINTS if replicate == 1 else GlobalConstants.CHROM_WT2_TIMEPOINTS
+		self.config.WT1_TIMEPOINTS = self.timepoints
+
+		new_span = self.mnase_span
+
+		# Create the bins for the reads
+		exact_bins = self.create_exact_bins()
+		normalized_bins = self.normalize_bins(exact_bins, log=log)
+
+		downsampled_bins = self.downsample_bins(normalized_bins, new_span)
+		self.new_span = new_span
+
+		exact_extent = [self.mnase_span[0], self.mnase_span[1],
+					0, GlobalConstants.MAX_Y_LEN]
+		
+		self.exact_bins = exact_bins
+		self.exact_extent = exact_extent
+		self.bin_extents = exact_extent
+		self.deconv_hist_unflattened = downsampled_bins
+		self.image_shape = self.deconv_hist_unflattened.shape[1:]
+		self.normalized_bins = normalized_bins
+		self.exact_bins = exact_bins
+		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
+		self.apply_copy_correction()
 
 
 	def load_mnase_gene(self, gene_or_orfname, log=True):
@@ -1035,7 +1082,6 @@ class ChromatinModel:
 		prom_len = self.prom_len
 		gb_len = self.gb_len
 
-		# Add half a bin width to allow for the inclusion of +1 bin 
 		if self.gene.strand == '+':
 			new_span = self.computed_plus_one-prom_len-bin_width//2, self.computed_plus_one+gb_len+bin_width//2
 		else:
@@ -1102,14 +1148,23 @@ class ChromatinModel:
 		self.exact_bins = exact_bins
 		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
 
+		self.apply_copy_correction()
+
+
+	def apply_copy_correction(self, log=True):
 		# Correct the copy number of G using the copy number correction dataframe
 		if self.config.copy_correction is not None:
 
-			from src.copy_correction_reanalysis import lookup_gene_copy_correction
+			from src.copy_correction_reanalysis import lookup_gene_copy_correction, \
+				lookup_copy_correction
 
 			print_fl("Applying chromatin copy number correction")
 
-			copy_correction_vector = lookup_gene_copy_correction(self.config.copy_correction, self.gene)
+			if self.gene is not None:
+				copy_correction_vector = lookup_gene_copy_correction(self.config.copy_correction, self.gene)
+			else:
+				copy_correction_vector = lookup_copy_correction(self.config.copy_correction, 
+					self.chr, (self.bin_extents[0]+self.bin_extents[1])//2)
 
 			self.uncorrected_G = self.G
 			self.copy_correction_vector = copy_correction_vector

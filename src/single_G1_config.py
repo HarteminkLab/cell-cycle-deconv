@@ -537,6 +537,81 @@ class Config:
 
 		return mu0, first_s_start, first_s_end, end_of_first_lambd
 
+	def get_important_indices(self):
+		from src.helpers import proportion_indices
+
+		config = self
+		g1_indices = config.get_Hpositions_for_phase('CG1')
+		s_indices = config.get_Hpositions_for_phase('S')
+		g2m_indices = config.get_Hpositions_for_phase('G2M')
+
+		sel_g1_indices = proportion_indices(g1_indices, [0.2, 0.8])
+		sel_s_indices = proportion_indices(s_indices, [0.2, 0.8])
+		sel_g2m_indices = proportion_indices(g2m_indices, [0.2, 0.8])
+
+		plot_marker_xs = np.concatenate([
+			sel_g1_indices,
+			sel_s_indices,
+			sel_g2m_indices
+		])
+
+		return plot_marker_xs
+
+
+	def get_full_phase_indices(self):
+		from src.helpers import proportion_indices
+
+		config = self
+		rg1_indices = config.get_Hpositions_for_phase('RG1')
+		g1_indices = config.get_Hpositions_for_phase('CG1')
+		s_indices = config.get_Hpositions_for_phase('S')
+		g2m_indices = config.get_Hpositions_for_phase('G2M')
+
+		sel_rg1_indices = proportion_indices(rg1_indices, [0.2, 0.8])
+		sel_g1_indices = proportion_indices(g1_indices, [0.2, 0.8])
+		sel_s_indices = proportion_indices(s_indices, [0.2, 0.8])
+		sel_g2m_indices = proportion_indices(g2m_indices, [0.2, 0.8])
+
+		plot_marker_xs = np.concatenate([
+			sel_rg1_indices,
+			sel_g1_indices,
+			sel_s_indices,
+			sel_g2m_indices
+		])
+
+		label_names = [
+			'RG1 - Early',
+			'RG1 - Late',
+			'CG1 - Early',
+			'CG1 - Late',
+			'S - Early',
+			'S - Late',
+			'G2/M - Early',
+			'G2/M - Late',
+		]
+
+		return plot_marker_xs, label_names
+
+
+	def get_important_indices(self):
+		from src.helpers import proportion_indices
+
+		config = self
+		g1_indices = config.get_Hpositions_for_phase('CG1')
+		s_indices = config.get_Hpositions_for_phase('S')
+		g2m_indices = config.get_Hpositions_for_phase('G2M')
+
+		sel_g1_indices = proportion_indices(g1_indices, [0.2, 0.8])
+		sel_s_indices = proportion_indices(s_indices, [0.2, 0.8])
+		sel_g2m_indices = proportion_indices(g2m_indices, [0.2, 0.8])
+
+		plot_marker_xs = np.concatenate([
+			sel_g1_indices,
+			sel_s_indices,
+			sel_g2m_indices
+		])
+
+		return plot_marker_xs
 
 	def get_raw_s_tps(self):
 		"""Get the start and end timepoints for S phase"""

@@ -36,6 +36,11 @@ class CombinedChromatinModel:
 		self.chrom2_model = ChromatinModel(config2)
 
 
+	def load_mnase_span(self, chrom, mnase_span):
+		self.chrom1_model.load_mnase_span(chrom, mnase_span)
+		self.chrom2_model.load_mnase_span(chrom, mnase_span)
+
+
 	def load_combined_mnase_gene(self, gene_name):
 		"""This takes the place of load_mnase_gene, as we don't need the
 		replicate parameter anymore"""
