@@ -2,6 +2,7 @@
 import sys
 sys.path.append('.')
 
+import pandas as pd
 from src.GenomeDeconvolution import GenomeDeconvolution
 
 
@@ -21,7 +22,7 @@ def main():
 	"""
 
 	system_args = tuple(sys.argv)
-	outdir, index = system_args[0], int(system_args[1])
+	outdir, index = system_args[1], int(system_args[2])
 
 	genome_deconvolution = GenomeDeconvolution(save_dir=outdir)
 
