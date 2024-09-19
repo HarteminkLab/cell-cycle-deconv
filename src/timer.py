@@ -1,5 +1,6 @@
 
 import time
+from src.utils import print_fl
 
 
 class Timer:
@@ -24,6 +25,6 @@ class Timer:
 
 	def print_time(self, str=None):
 		if str is None:
-			print(f"{self.get_time()}")
+			print_fl(f"{self.get_time()}")
 		else:
-			print(f"{str} - {self.get_time()}")
+			print_fl(f"{str} - {self.get_time()}")
