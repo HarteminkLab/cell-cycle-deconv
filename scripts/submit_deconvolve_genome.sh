@@ -7,5 +7,5 @@ ARGS="${OUTDIR}"
 
 # 1216 10k windows in the yeast genome (12 million base pairs split into 10,000 kb windows)
 # The maximal sbatch array size is 1000, so split the array batches into 1000s indexed by the BATCH argument
-sbatch -a 0-999%6 -D ./slurm-logs/ --job-name="TSS_1" -p compsci --export="PYFILE=src/deconvolve_genome.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
-sbatch -a 0-216%6 -D ./slurm-logs/ --job-name="TSS_2" -p compsci --export="PYFILE=src/deconvolve_genome.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
+sbatch -a 0-999%10 -D ./slurm-logs/ --job-name="TSS_1" -p compsci --export="PYFILE=src/deconvolve_genome.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+sbatch -a 0-216%10 -D ./slurm-logs/ --job-name="TSS_2" -p compsci --export="PYFILE=src/deconvolve_genome.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
