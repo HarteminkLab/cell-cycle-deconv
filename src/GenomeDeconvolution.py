@@ -131,6 +131,8 @@ class GenomeDeconvolution(object):
 
 
 	def save_to_disk(self):
+
+		from src.utils import mkdirs_safe
 		
 		outdir = self.save_directory
 		
