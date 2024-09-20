@@ -4,7 +4,6 @@ import os
 
 
 def print_fl(val='', end='\n', log=True):
-
 	contents = str(val) + end
 	sys.stdout.write(contents)
 	sys.stdout.flush()

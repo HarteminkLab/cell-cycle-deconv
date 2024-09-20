@@ -43,9 +43,7 @@ class GenomeDeconvolution(object):
 		from src.figure_configs import FiguresConfig
 
 
-		f_val = self.combined_model.deconvolved_f_value
-		f_img = f_val.reshape((-1, 23, 910))
-
+		f_img = self.combined_model.chrom1_model.get_f_images()
 		chrom = self.combined_model.chrom1_model.chr
 		span = self.combined_model.chrom1_model.mnase_span
 
