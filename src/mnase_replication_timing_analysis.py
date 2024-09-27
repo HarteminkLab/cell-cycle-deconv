@@ -9,7 +9,12 @@ from src.global_config import GlobalConstants
 
 class MNaseOriginAnalysis:
 	"""Analysis to determine correlation of cell cycling replication timing with
-	MNase-seq read counts using sliding windows"""
+	MNase-seq read counts using sliding windows
+
+
+	Used only for replication timing estimation.
+
+	"""
 
 	def __init__(self, replicate):
 		self.replicate = replicate
@@ -311,7 +316,7 @@ class MNaseOriginAnalysis:
 
 			# Keep track of the raw counts with no normalization, we will need these
 			# for computing the scaling term for copy correction
-			unnormalized_counts_df = pd.DataFrame(self.all_window_counts.T, columns=self.timepoints,
+			unnormalized_counts_df = pd.DataFrame(self.all_counts_unnormalized.T, columns=self.timepoints,
 						index=self.start_indices)
 			unnormalized_counts_df['chr'] = chrom
 			unnormalized_counts_df = unnormalized_counts_df.reset_index().rename(columns={'index': 'start'})\

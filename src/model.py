@@ -474,9 +474,10 @@ def create_mirror(ind_vec):
 	# the output vector will be a power of 2
 	from src.helpers import compute_closest_pow2
 	vec_len = len(ind_vec)
-	closet_pow2 = compute_closest_pow2(vec_len)
-	if closet_pow2-vec_len > 0:
-		inset_index = (closet_pow2 - vec_len)//2
+	closest_pow2 = compute_closest_pow2(vec_len)
+
+	if closest_pow2-vec_len > 0:
+		inset_index = (closest_pow2 - vec_len)//2
 
 	# Otherwise use half of the input vector
 	else:

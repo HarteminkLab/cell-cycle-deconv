@@ -82,3 +82,40 @@ def read_rossi_sites():
 	rossi_sites = rossi_sites.sort_values(['chr', 'start'])
 
 	return rossi_sites
+
+def load_h3k56ac_marks():
+	"""Load histone marks"""
+
+	histone_mods_df = pd.read_csv('/Users/trung/Research/_archive/data/reference_data/molcel_5341_mmc4',
+		index_col=0, skiprows=[1])
+
+	h3k56_cols = histone_mods_df.columns.str.startswith("H3K56")
+	h3k56_cols = histone_mods_df.columns[h3k56_cols]
+	h3k56_df = histone_mods_df[h3k56_cols]
+	h3k56_sorted_df = h3k56_df.loc[h3k56_df.mean(axis=1).sort_values().index]
+	
+	# Nucleosomes associated with histone marks, with associated ORFs if needed
+	histone_mod_nuc_db = pd.read_csv('/Users/trung/Research/_archive/data/reference_data/mmc3.csv')
+	histone_mod_nuc_db = histone_mod_nuc_db.set_index('nuc_id')
+	histone_mod_nuc_db.sort_values(['chr', 'center'])
+
+	orfs_w_h3k56ac = h3k56_sorted_df.join(histone_mod_nuc_db, how='inner')
+	orfs_w_h3k56ac['mean_acetylation'] = h3k56_df.mean(axis=1)
+	orfs_w_h3k56ac = orfs_w_h3k56ac[['mean_acetylation', 'acc', 'gene']]
+
+	return orfs_w_h3k56ac
+
+
+def save_PAS_nucs_to_disk():
+	from glob import glob
+
+	meta_paths = glob('output/deconvolve_sharedg1_g0066_11x11_PAS_2024_09_12/chromatin/*meta*')
+	meta_df = pd.DataFrame()
+	for meta_path in meta_paths:
+	    loaded_dat = pd.read_csv(meta_path).set_index('Unnamed: 0')
+	    meta_df = pd.concat([meta_df, loaded_dat])
+	meta_df['replicate_1_PAS_nuc'] = meta_df['rep1_+1']
+	meta_df['replicate_2_PAS_nuc'] = meta_df['rep1_+2']
+	meta_df = meta_df[['replicate_1_PAS_nuc', 'replicate_2_PAS_nuc']].reset_index().rename(columns={
+	    'Unnamed: 0': 'orf_name'}).set_index('orf_name')
+	meta_df.to_csv('datasets/computed_mnase/computed_PAS_nucs.csv')

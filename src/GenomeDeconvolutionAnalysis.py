@@ -1,6 +1,8 @@
 
+import matplotlib.pyplot as plt
 import numpy as np
 from src.global_config import GlobalConstants
+import pandas as pd
 
 
 class GenomeDeconvolutionAnalysis(object):
@@ -81,3 +83,126 @@ class GenomeDeconvolutionAnalysis(object):
 			spans = [(start_int*scale, end_int*scale)]
 		
 		return spans
+
+
+	def plot_deconvolved_result(self, f_imgs, mnase_span, smooth=False, normalize=True,
+		vmax=1):
+		from src.global_config import GlobalConstants
+		from src.figure_configs import FiguresConfig
+		from src.config import load_configs_by_config_type
+		from src.orf_plotter import ORFAnnotationPlotter
+		from src.geneset import get_deconvolved_geneset
+
+		config, _  = load_configs_by_config_type('shared')
+		indices, label_names = config.get_full_phase_indices()
+
+		fig, axs = plt.subplots(len(indices)+1, 1, figsize=(13, 11))
+
+		ax = axs[0]
+		ax.set_xticks([])
+		ax.set_yticks([])
+		# genes = get_deconvolved_geneset()
+		# orf_plotter = ORFAnnotationPlotter(genes)
+		# orf_plotter.set_span_chrom(mnase_span, chrom)
+		# orf_plotter.plot_orf_annotations(ax)
+
+		from src.helpers import smooth_data
+		extents = [mnase_span[0], mnase_span[-1], 0, GlobalConstants.MAX_Y_LEN]
+
+		for i in range(len(indices)):
+			ax = axs[i+1]
+			label_name = label_names[i]
+			
+			current_f_img = f_imgs[indices[i]]
+
+			if smooth:
+				current_f_img = smooth_data(current_f_img, size=5, sigma=0.5)
+
+			#
+			# Normalize the image by the sum of the window
+			# 
+			# This should not be necessary if the copy number correction is in place.
+			#
+			# todo: ... May need to revisit the copy number correction.....
+			#
+			if normalize:
+				current_f_img = current_f_img / current_f_img.sum() * 200.
+
+
+			ax.imshow(current_f_img, origin='lower', cmap='magma_r', vmax=vmax, aspect='auto',
+					 extent=extents)
+			ax.set_ylabel(label_name, rotation=0, ha='right', labelpad=9)
+			ax.set_yticks([])
+			
+			if i == (len(indices)-1):
+				ax.set_xticks(np.arange(mnase_span[0], mnase_span[1], 2000), minor=False)
+				ax.set_xticks(np.arange(mnase_span[0], mnase_span[1], 200), minor=True)
+			else:
+				ax.set_xticks([])
+
+			# ax.set_xlim(-300, 800)
+
+		# plt.suptitle(f"Chr{chrom}: {span[0]}-{span[1]}", fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+		plt.subplots_adjust(top=0.923)
+
+		return fig
+
+
+	def load_stacked_mnase_data_for_genes(self, genes, chroms=range(1, 17), center_mode='+1'):
+		"""Load set of genes and flip crick strand genes"""
+		from src.geneset import get_deconvolved_geneset
+		
+		if 'chr' not in genes.columns:
+			genes_reference = get_deconvolved_geneset()
+			genes = genes.join(genes_reference[['chr', 'strand']])
+		
+		# Combine gene data with +1
+		if center_mode == "+1":
+			rep1_plus1s = pd.read_csv('datasets/computed_mnase/rep1_plus_ones.csv')\
+				.set_index('orf_name')
+			rep2_plus1s = pd.read_csv('datasets/computed_mnase/rep2_plus_ones.csv')\
+				.set_index('orf_name')
+			combined_plus1s = (rep1_plus1s + rep2_plus1s)/2
+			genes = combined_plus1s.join(genes)
+			center_key = '+1'
+		elif center_mode == 'PAS_nuc':
+			PAS_nuc = pd.read_csv('datasets/computed_mnase/computed_PAS_nucs.csv')\
+				.set_index('orf_name')
+			PAS_nuc['mean_PAS_nuc'] = PAS_nuc.mean(axis=1)
+			genes = PAS_nuc.join(genes)
+			center_key = 'mean_PAS_nuc'
+		else:
+			raise ValueError(f"Invalid center_mode: {center_mode}")
+
+		padding = 2000
+		loaded_gene_dat = None
+		i = 0
+		failed_file_not_found_count = 0
+
+		for chrom in chroms:
+			chr_genes = genes[(genes.chr == chrom)]
+			for orf_name, gene in chr_genes.iterrows():
+
+				span = int(gene[center_key]-padding), int(gene[center_key]+padding)
+				
+				try:
+					gene_data, loaded_span = self.load_mnase_span(chrom, span)
+				except FileNotFoundError:
+					failed_file_not_found_count += 1
+					continue
+
+				if gene.strand == '-':
+					gene_data = np.flip(gene_data, axis=2)
+
+				if loaded_gene_dat is None:
+					loaded_gene_dat = np.zeros(gene_data.shape)
+
+				loaded_gene_dat += gene_data
+				i += 1
+				
+		if failed_file_not_found_count > 0:
+			print(f"Failed to load {failed_file_not_found_count} files")
+
+		mean_gene_dat = loaded_gene_dat / len(genes)
+			
+		return mean_gene_dat

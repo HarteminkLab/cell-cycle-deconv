@@ -136,7 +136,7 @@ class ChromatinModel:
 
 		self.center_origin = self.origin.pos
 
-	def load_mnase_span(self, chrom, mnase_span, log=True):
+	def load_mnase_span(self, chrom, mnase_span, log=True, downsample=True):
 		"""Load the MNase for an arbitrary genomic span"""
 
 		replicate = self.config.replicate
@@ -166,8 +166,9 @@ class ChromatinModel:
 		exact_bins = self.create_exact_bins()
 		normalized_bins = self.normalize_bins(exact_bins, log=log)
 
-		downsampled_bins = self.downsample_bins(normalized_bins, new_span)
-		self.new_span = new_span
+		if downsample:
+			downsampled_bins = self.downsample_bins(normalized_bins, new_span)
+			self.new_span = new_span
 
 		exact_extent = [self.mnase_span[0], self.mnase_span[1],
 					0, GlobalConstants.MAX_Y_LEN]
@@ -175,12 +176,17 @@ class ChromatinModel:
 		self.exact_bins = exact_bins
 		self.exact_extent = exact_extent
 		self.bin_extents = exact_extent
-		self.deconv_hist_unflattened = downsampled_bins
-		self.image_shape = self.deconv_hist_unflattened.shape[1:]
+
+		if downsample:
+			self.deconv_hist_unflattened = downsampled_bins
+			self.image_shape = self.deconv_hist_unflattened.shape[1:]
+
 		self.normalized_bins = normalized_bins
 		self.exact_bins = exact_bins
-		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
-		self.apply_copy_correction()
+
+		if downsample:
+			self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
+			self.apply_copy_correction(log=log)
 
 
 	def load_mnase_gene(self, gene_or_orfname, log=True):
@@ -245,7 +251,7 @@ class ChromatinModel:
 		timepoints = self.chr_reads['sample'].unique()
 		self.timepoints = timepoints
 		self.config.WT1_TIMEPOINTS = self.timepoints
-		self.create_deconvolution_bins()
+		self.create_deconvolution_bins(log=log)
 
 		
 	def compute_bin_counts_sample(self, sample, x_bins, y_bins):
@@ -1148,7 +1154,7 @@ class ChromatinModel:
 		self.exact_bins = exact_bins
 		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
 
-		self.apply_copy_correction()
+		self.apply_copy_correction(log=log)
 
 
 	def apply_copy_correction(self, log=True):
@@ -1158,7 +1164,8 @@ class ChromatinModel:
 			from src.copy_correction_reanalysis import lookup_gene_copy_correction, \
 				lookup_copy_correction
 
-			print_fl("Applying chromatin copy number correction")
+			if log:
+				print_fl("Applying chromatin copy number correction")
 
 			if self.gene is not None:
 				copy_correction_vector = lookup_gene_copy_correction(self.config.copy_correction, self.gene)
@@ -1511,7 +1518,7 @@ class ChromatinModel:
 		print_fl(f"Saved to {meta_save_path}...")
 
 
-def load_chromatin_model_from_disk(gene_name, chromatin_dir, f_only=False):
+def load_chromatin_model_from_disk(gene_name, chromatin_dir, f_only=False, log=True):
 
 	from src.config import load_yl_rg1_vst_config
 
@@ -1546,7 +1553,7 @@ def load_chromatin_model_from_disk(gene_name, chromatin_dir, f_only=False):
 	chromatin_model = ChromatinModel(config)
 
 	chromatin_model.load_mnase_gene(gene_name)
-	chromatin_model.create_deconvolution_bins()
+	chromatin_model.create_deconvolution_bins(log=log)
 	chromatin_model.setup_deconv_model()
 
 	chromatin_model.deconvolved_f_value = f

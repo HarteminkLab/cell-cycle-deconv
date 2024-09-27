@@ -48,7 +48,6 @@ class GeneClustering:
 
 	def set_threshold_ptr(self, q_ptr):
 
-		
 		t_indices = self.config.get_Hpositions_for_branch('t')
 		gene_expression_top_branch = self.gene_expression[t_indices].loc[self.high_max_expression_genes]
 
@@ -78,16 +77,30 @@ class GeneClustering:
 		self.top_gene_expression_ptr_df = top_gene_expression_ptr_df
 		self.high_ptr_gene_expression = high_ptr_gene_expression
 
+	def set_gene_expression_to_cluster(self, expression, normalize=True):
+
+		if normalize:
+			data_to_cluster = (expression - \
+				expression.mean(axis=1).values.reshape((-1, 1))) /\
+				expression.std(axis=1).values.reshape((-1, 1))
+			data_to_cluster = data_to_cluster
+		else:
+			data_to_cluster = expression
+
+		self.data_to_cluster_df = data_to_cluster
+		self.data_to_cluster = data_to_cluster.values
 
 	def compute_distance_from_gene_expression(self):
 		timer = Timer()
 
-		high_ptr_gene_expression = self.high_ptr_gene_expression
-		normalized_high_ptr_expression = (high_ptr_gene_expression - \
-			high_ptr_gene_expression.mean(axis=1).values.reshape((-1, 1))) /\
-			high_ptr_gene_expression.std(axis=1).values.reshape((-1, 1))
+		# Previous clustering data
+		# high_ptr_gene_expression = self.high_ptr_gene_expression
+		# normalized_high_ptr_expression = (high_ptr_gene_expression - \
+		# 	high_ptr_gene_expression.mean(axis=1).values.reshape((-1, 1))) /\
+		# 	high_ptr_gene_expression.std(axis=1).values.reshape((-1, 1))
+		# time_series_data = normalized_high_ptr_expression.values
 
-		time_series_data = normalized_high_ptr_expression.values
+		time_series_data = self.data_to_cluster
 
 		# Compute the pairwise distance matrix using circular correlation
 		n_samples = len(time_series_data)
@@ -105,25 +118,25 @@ class GeneClustering:
 		timer.print_time()
 
 		self.distance_matrix = distance_matrix
-		self.normalized_high_ptr_expression = normalized_high_ptr_expression
 
 
 	def cluster_expression(self, num_clusters):
 		self.kmedoids, labels, medoid_indices = cluster_timeseries_kmedoids(self.distance_matrix, 
 			num_clusters)
 		labels = labels+1
-		clustered_expression = self.high_ptr_gene_expression.copy()
+		clustered_expression = self.data_to_cluster_df
 		clustered_expression['cluster'] = labels
 		self.clustered_expression = clustered_expression.reset_index().set_index(['cluster', 'orf_name'])
+
 		self.labels = labels
 		self.medoid_indices = medoid_indices
 		self.num_clusters = num_clusters
 
 	def compute_medoids(self):
 		medoids = np.zeros((len(self.medoid_indices), \
-			self.normalized_high_ptr_expression.shape[1]))
+			self.data_to_cluster.shape[1]))
 		for i, medoid_index in enumerate(self.medoid_indices):
-			medoids[i] = self.normalized_high_ptr_expression.iloc[medoid_index]
+			medoids[i] = self.data_to_cluster.iloc[medoid_index]
 		self.medoids = medoids
 
 	def load_chromatin_for_cluster(self, cluster):

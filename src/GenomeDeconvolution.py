@@ -29,16 +29,18 @@ class GenomeDeconvolution(object):
 		self.combined_model = combined_model
 
 
-	def load_chrom_span(self, chrom, span):
+	def load_chrom_span(self, chrom, span, log=True, downsample=True):
+		self.combined_model.load_mnase_span(chrom, span, log=log, downsample=downsample)
 
-		self.combined_model.load_mnase_span(chrom, span)
+		if downsample:
+			self.combined_model.setup_deconv_model()
 
 
-	def deconvolve(self):
-		self.combined_model.deconvolve()
+	def deconvolve(self, G1=None, G2=None):
+		self.combined_model.deconvolve(G1=G1, G2=G2)
 	
 
-	def plot_deconvolved_result(self, smooth=True):
+	def plot_deconvolved_result(self, smooth=True, normalize=True, vmax=15):
 		from src.global_config import GlobalConstants
 		from src.figure_configs import FiguresConfig
 
@@ -70,7 +72,10 @@ class GenomeDeconvolution(object):
 			if smooth:
 				current_f_img = smooth_data(current_f_img, size=5, sigma=0.5)
 
-			ax.imshow(current_f_img, origin='lower', cmap='magma_r', vmax=15, aspect='auto',
+			if normalize:
+				current_f_img = current_f_img / current_f_img.sum() * 2000
+
+			ax.imshow(current_f_img, origin='lower', cmap='magma_r', vmax=vmax, aspect='auto',
 					 extent=self.combined_model.chrom1_model.bin_extents)
 			ax.set_ylabel(label_name, rotation=0, ha='right', labelpad=9)
 			ax.set_yticks([])

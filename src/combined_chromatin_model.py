@@ -36,9 +36,9 @@ class CombinedChromatinModel:
 		self.chrom2_model = ChromatinModel(config2)
 
 
-	def load_mnase_span(self, chrom, mnase_span):
-		self.chrom1_model.load_mnase_span(chrom, mnase_span)
-		self.chrom2_model.load_mnase_span(chrom, mnase_span)
+	def load_mnase_span(self, chrom, mnase_span, log=True, downsample=True):
+		self.chrom1_model.load_mnase_span(chrom, mnase_span, log=log, downsample=downsample)
+		self.chrom2_model.load_mnase_span(chrom, mnase_span, log=log, downsample=downsample)
 
 
 	def load_combined_mnase_gene(self, gene_name):
@@ -111,7 +111,7 @@ class CombinedChromatinModel:
 		self.deconvolved_f_value = None
 
 
-	def deconvolve(self, verbose=False, gamma=0.006, G1=None, G2=None,
+	def deconvolve(self, verbose=False, gamma=0.0066, G1=None, G2=None,
 			wavelet="Symmlet", verbose_progress=True):
 
 		from src.timer import Timer
