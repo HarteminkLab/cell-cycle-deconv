@@ -1060,11 +1060,14 @@ class ChromatinModel:
 		plt.title("Halted cells")
 		
 
-	def normalize_bins(self, exact_bins, log=True):
+	def normalize_bins(self, exact_bins, log=True, scaling_mat=None):
 		"""Normalize the histogram of exact length, position counts"""
 
-		from src.preprocessing import load_scaling_mat
-		scaling_mat = load_scaling_mat(self.config.replicate)
+		# Todo: refactoring
+
+		if scaling_mat is None:
+			from src.preprocessing import load_scaling_mat
+			scaling_mat = load_scaling_mat(self.config.replicate)
 
 		timepoints = self.timepoints
 		normalized_bins = exact_bins.copy()
