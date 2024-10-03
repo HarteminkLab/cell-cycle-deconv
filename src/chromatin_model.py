@@ -165,6 +165,8 @@ class ChromatinModel:
 		# Create the bins for the reads
 		exact_bins = self.create_exact_bins()
 		normalized_bins = self.normalize_bins(exact_bins, log=log)
+		self.normalized_bins = normalized_bins
+
 		self.apply_copy_correction(log=log)
 
 		if downsample:
@@ -182,7 +184,6 @@ class ChromatinModel:
 			self.deconv_hist_unflattened = downsampled_bins
 			self.image_shape = self.deconv_hist_unflattened.shape[1:]
 
-		self.normalized_bins = normalized_bins
 		self.exact_bins = exact_bins
 
 		if downsample:
