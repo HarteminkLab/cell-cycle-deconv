@@ -165,9 +165,10 @@ class ChromatinModel:
 		# Create the bins for the reads
 		exact_bins = self.create_exact_bins()
 		normalized_bins = self.normalize_bins(exact_bins, log=log)
+		self.apply_copy_correction(log=log)
 
 		if downsample:
-			downsampled_bins = self.downsample_bins(normalized_bins, new_span)
+			downsampled_bins = self.downsample_bins(self.corrected_normalized_bins, new_span)
 			self.new_span = new_span
 
 		exact_extent = [self.mnase_span[0], self.mnase_span[1],
@@ -186,7 +187,6 @@ class ChromatinModel:
 
 		if downsample:
 			self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
-			self.apply_copy_correction(log=log)
 
 
 	def load_mnase_gene(self, gene_or_orfname, log=True):
@@ -1161,29 +1161,16 @@ class ChromatinModel:
 
 
 	def apply_copy_correction(self, log=True):
-		# Correct the copy number of G using the copy number correction dataframe
-		if self.config.copy_correction is not None:
+		"""Copy correct using the precomputed correction and normalization scalar vector.
+			See 0_Copy_Correction_Procedure notebook for details
+		"""
 
-			from src.copy_correction_reanalysis import lookup_gene_copy_correction, \
-				lookup_copy_correction
+		from src.copy_correction_reanalysis import perform_precomputed_correction_normalisation
 
-			if log:
-				print_fl("Applying chromatin copy number correction")
+		corrected_normalized_bins = perform_precomputed_correction_normalisation(
+		    self.normalized_bins, self.chr, self.mnase_span, self.config.replicate)
 
-			if self.gene is not None:
-				copy_correction_vector = lookup_gene_copy_correction(self.config.copy_correction, self.gene)
-			else:
-				copy_correction_vector = lookup_copy_correction(self.config.copy_correction, 
-					self.chr, (self.bin_extents[0]+self.bin_extents[1])//2)
-
-			self.uncorrected_G = self.G
-			self.copy_correction_vector = copy_correction_vector
-			self.G = self.G / copy_correction_vector.reshape((-1, 1))
-			self.copy_correction_vector = copy_correction_vector
-
-		if log:
-			print_fl(f"Unflattened the input data is of shape: {self.deconv_hist_unflattened.shape}")
-			print_fl(f"The size of our input data, G is: {self.G.shape}")
+		self.corrected_normalized_bins = corrected_normalized_bins
 		
 
 	def plot_bin_comparison(self):
