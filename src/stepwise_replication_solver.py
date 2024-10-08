@@ -604,6 +604,19 @@ def interpolate_values(repl_prof_values, step=2000):
 	return interpolated_df
 
 
+def load_chrom_replication_profile():
+	from src.config import load_configs_by_config_type
+	from src.stepwise_replication_solver import replication_timing_from_index
+
+	config1, config2 = load_configs_by_config_type('shared')
+	replication_profile = pd.read_csv(
+		'output/replication_profiles/chrom_replication_timing_shared.csv')\
+		.set_index(['chr', 'start'])
+	replication_profile['replication_time'] = replication_timing_from_index(replication_profile.replication_index, 
+		config1, config2)
+	return replication_profile
+
+
 def replication_timing_from_index(chrom_replication_profile, config1, config2):
 	repl_timing = [(config1.get_timepoint_for_index(repl_idx) +
 	 config2.get_timepoint_for_index(repl_idx))/2.

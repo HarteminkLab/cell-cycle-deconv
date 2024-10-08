@@ -85,8 +85,8 @@ class GenomeDeconvolutionAnalysis(object):
 		return spans
 
 
-	def plot_deconvolved_result(self, f_imgs, mnase_span, smooth=False, normalize=True,
-		vmax=1):
+	def plot_deconvolved_result(self, f_imgs, mnase_span, smooth=False, normalize=False,
+		vmax=1, figsize=(13, 11)):
 		from src.global_config import GlobalConstants
 		from src.figure_configs import FiguresConfig
 		from src.config import load_configs_by_config_type
@@ -96,15 +96,11 @@ class GenomeDeconvolutionAnalysis(object):
 		config, _  = load_configs_by_config_type('shared')
 		indices, label_names = config.get_full_phase_indices()
 
-		fig, axs = plt.subplots(len(indices)+1, 1, figsize=(13, 11))
+		fig, axs = plt.subplots(len(indices)+1, 1, figsize=figsize)
 
 		ax = axs[0]
 		ax.set_xticks([])
 		ax.set_yticks([])
-		# genes = get_deconvolved_geneset()
-		# orf_plotter = ORFAnnotationPlotter(genes)
-		# orf_plotter.set_span_chrom(mnase_span, chrom)
-		# orf_plotter.plot_orf_annotations(ax)
 
 		from src.helpers import smooth_data
 		extents = [mnase_span[0], mnase_span[-1], 0, GlobalConstants.MAX_Y_LEN]
@@ -118,16 +114,8 @@ class GenomeDeconvolutionAnalysis(object):
 			if smooth:
 				current_f_img = smooth_data(current_f_img, size=5, sigma=0.5)
 
-			#
-			# Normalize the image by the sum of the window
-			# 
-			# This should not be necessary if the copy number correction is in place.
-			#
-			# todo: ... May need to revisit the copy number correction.....
-			#
 			if normalize:
 				current_f_img = current_f_img / current_f_img.sum() * 200.
-
 
 			ax.imshow(current_f_img, origin='lower', cmap='magma_r', vmax=vmax, aspect='auto',
 					 extent=extents)
@@ -140,21 +128,19 @@ class GenomeDeconvolutionAnalysis(object):
 			else:
 				ax.set_xticks([])
 
-			# ax.set_xlim(-300, 800)
-
-		# plt.suptitle(f"Chr{chrom}: {span[0]}-{span[1]}", fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
 		plt.subplots_adjust(top=0.923)
 
 		return fig
 
 
-	def load_stacked_mnase_data_for_genes(self, genes, chroms=range(1, 17), center_mode='+1'):
+	def load_stacked_mnase_data_for_genes(self, genes, chroms=range(1, 17), 
+		center_mode='+1', padding=2000):
 		"""Load set of genes and flip crick strand genes"""
 		from src.geneset import get_deconvolved_geneset
 		
 		if 'chr' not in genes.columns:
 			genes_reference = get_deconvolved_geneset()
-			genes = genes.join(genes_reference[['chr', 'strand']])
+			genes = genes.join(genes_reference[['chr', 'strand']], how='inner')
 		
 		# Combine gene data with +1
 		if center_mode == "+1":
@@ -163,27 +149,42 @@ class GenomeDeconvolutionAnalysis(object):
 			rep2_plus1s = pd.read_csv('datasets/computed_mnase/rep2_plus_ones.csv')\
 				.set_index('orf_name')
 			combined_plus1s = (rep1_plus1s + rep2_plus1s)/2
-			genes = combined_plus1s.join(genes)
+			genes = combined_plus1s.join(genes, how='inner')
 			center_key = '+1'
 		elif center_mode == 'PAS_nuc':
 			PAS_nuc = pd.read_csv('datasets/computed_mnase/computed_PAS_nucs.csv')\
 				.set_index('orf_name')
 			PAS_nuc['mean_PAS_nuc'] = PAS_nuc.mean(axis=1)
-			genes = PAS_nuc.join(genes)
+			genes = PAS_nuc.join(genes, how='inner')
 			center_key = 'mean_PAS_nuc'
 		else:
 			raise ValueError(f"Invalid center_mode: {center_mode}")
 
-		padding = 2000
 		loaded_gene_dat = None
 		i = 0
 		failed_file_not_found_count = 0
+
+		# todo: Parameterize selecting for gene body nucleosomes for occupancy:
+
+		if center_mode == '+1':
+			gb_nuc_indices = np.arange(90, 161)
+		elif center_mode == 'PAS_nuc':
+			gb_nuc_indices = np.arange(40, 111)
+		else:
+			raise ValueError(f"Invalid center_mode: {center_mode}")
+
+		gb_nuc_occ = pd.DataFrame(columns=range(178), index=genes.index)
 
 		for chrom in chroms:
 			chr_genes = genes[(genes.chr == chrom)]
 			for orf_name, gene in chr_genes.iterrows():
 
-				span = int(gene[center_key]-padding), int(gene[center_key]+padding)
+				try:
+					span = int(gene[center_key]-padding), int(gene[center_key]+padding)
+				except ValueError:
+					print("Failed to find center key for: ", gene.name)
+					failed_file_not_found_count += 1
+					continue
 				
 				try:
 					gene_data, loaded_span = self.load_mnase_span(chrom, span)
@@ -197,6 +198,8 @@ class GenomeDeconvolutionAnalysis(object):
 				if loaded_gene_dat is None:
 					loaded_gene_dat = np.zeros(gene_data.shape)
 
+				gb_nuc_occ.loc[orf_name, :] = gene_data[:, :, gb_nuc_indices].sum(axis=1).sum(axis=1)
+
 				loaded_gene_dat += gene_data
 				i += 1
 				
@@ -205,4 +208,4 @@ class GenomeDeconvolutionAnalysis(object):
 
 		mean_gene_dat = loaded_gene_dat / len(genes)
 			
-		return mean_gene_dat
+		return mean_gene_dat, gb_nuc_occ

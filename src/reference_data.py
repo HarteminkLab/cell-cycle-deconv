@@ -83,25 +83,22 @@ def read_rossi_sites():
 
 	return rossi_sites
 
-def load_h3k56ac_marks():
+def load_h3k56ac_marks(full=False):
 	"""Load histone marks"""
 
 	histone_mods_df = pd.read_csv('/Users/trung/Research/_archive/data/reference_data/molcel_5341_mmc4',
 		index_col=0, skiprows=[1])
 
-	h3k56_cols = histone_mods_df.columns.str.startswith("H3K56")
-	h3k56_cols = histone_mods_df.columns[h3k56_cols]
-	h3k56_df = histone_mods_df[h3k56_cols]
-	h3k56_sorted_df = h3k56_df.loc[h3k56_df.mean(axis=1).sort_values().index]
+	# Get the first column (steady state histone acetylation value)
+	h3k56_acetylation = histone_mods_df[['H3K56ac']]
 	
 	# Nucleosomes associated with histone marks, with associated ORFs if needed
 	histone_mod_nuc_db = pd.read_csv('/Users/trung/Research/_archive/data/reference_data/mmc3.csv')
 	histone_mod_nuc_db = histone_mod_nuc_db.set_index('nuc_id')
 	histone_mod_nuc_db.sort_values(['chr', 'center'])
 
-	orfs_w_h3k56ac = h3k56_sorted_df.join(histone_mod_nuc_db, how='inner')
-	orfs_w_h3k56ac['mean_acetylation'] = h3k56_df.mean(axis=1)
-	orfs_w_h3k56ac = orfs_w_h3k56ac[['mean_acetylation', 'acc', 'gene']]
+	orfs_w_h3k56ac = h3k56_acetylation.join(histone_mod_nuc_db, how='inner')
+	orfs_w_h3k56ac = orfs_w_h3k56ac[['H3K56ac', 'acc', 'gene']]
 
 	return orfs_w_h3k56ac
 

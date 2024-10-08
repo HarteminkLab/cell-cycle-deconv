@@ -12,7 +12,7 @@ from src.utils import print_fl
 
 class GeneOntology:
 
-	def __init__(self, go_obo_path='data/go.obo'):
+	def __init__(self, go_obo_path='./data/goslim_yeast.obo'):
 
 		self.obodag = GODag(go_obo_path)
 

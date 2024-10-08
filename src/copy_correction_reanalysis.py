@@ -1,8 +1,5 @@
 
 
-# @Deprecated in lieu of simpler copy correction
-
-
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
@@ -10,12 +7,12 @@ from src.figure_configs import FiguresConfig
 from src.global_config import GlobalConstants
 from src.utils import print_fl
 
-
 class CopyCorrector:
 
 	def __init__(self, genome_deconvolution):
 
 		from src.config import load_configs_by_config_type
+		from src.stepwise_replication_solver import load_chrom_replication_profile
 
 		# Proposed new copy correction procedure, take the replication time and the 
 		# proportion of cells in S/G2/M and divide by 2 for each corresponding timepoint...
@@ -24,12 +21,10 @@ class CopyCorrector:
 		(H1, _), (H2,  _) = config1.calcH_function(config1.intervals_wt1, config1.WT1_TIMEPOINTS), \
 			config2.calcH_function(config2.intervals_wt1, config2.WT1_TIMEPOINTS)
 
-		chrom_replication_profile = pd.read_csv(
-			'data/replication_timing/yl_2019/chrom_replication_timing_shared.csv')\
-			.set_index(['chr', 'start'])
+		replication_profile = load_chrom_replication_profile()
 
 		self.genome_deconvolution = genome_deconvolution
-		self.chrom_replication_profile = chrom_replication_profile
+		self.chrom_replication_profile = replication_profile
 		self.config1 = config1
 		self.config2 = config2
 		self.H1, self.H2 = H1, H2
@@ -40,7 +35,7 @@ class CopyCorrector:
 			self.genome_deconvolution.combined_model.chrom1_model.mnase_span
 
 		H = self.H1 if replicate == 1 else self.H2
-		replication_idx = self.chrom_replication_profile.loc[chrom].loc[span[0]].replication_index
+		replication_idx = int(self.chrom_replication_profile.loc[chrom].loc[span[0]].replication_index)
 		end_g2m_idx = H.shape[1]-2
 
 		# Total uncorrected Sum from H
@@ -49,6 +44,7 @@ class CopyCorrector:
 		# Compute the replication proportion of reads from the replication index through
 		# the end of G2M
 		replicated_proportion = np.zeros_like(H)
+
 		replicated_proportion[:, replication_idx:end_g2m_idx] = H[:, replication_idx:end_g2m_idx]
 		replicated_sum = replicated_proportion.sum(axis=1)
 		proportion_of_replicated_DNA = replicated_sum / (total_uncorrected_sum + replicated_sum)
@@ -107,14 +103,18 @@ class CopyCorrector:
 		# Then, from replication until the end of G2/M, we will take this proportion of 
 		# reads and divide them by 2...
 
-		plt.figure(figsize=(16, 3))
-		plt.subplot(1, 4, 1)
-		plt.imshow(H1, vmax=0.02, aspect='auto')
+		plt.figure(figsize=(12, 3.5))
+		plt.subplots_adjust(bottom=0.2)
+		plt.subplot(1, 3, 1)
+		plt.imshow(H1, vmax=0.02, aspect='auto', 
+			interpolation='none')
 		plt.title("$\\bf{H}$")
 		plt.xticks([])
 		plt.yticks([])
+		plt.xlabel("Single cell time")
+		plt.ylabel("Experimental time")
 
-		plt.subplot(1, 4, 2)
+		plt.subplot(1, 3, 2)
 
 		self.retrieve_replication_proportions(1)
 
@@ -123,7 +123,8 @@ class CopyCorrector:
 			self.proportion_of_replicated_DNA
 		end_g2m_idx = H1.shape[1]-2
 
-		plt.imshow(H1+replicated_proportion, vmax=0.02, aspect='auto')
+		plt.imshow(H1+replicated_proportion, vmax=0.02, aspect='auto', 
+			interpolation='none')
 		plt.title("$\\bf{H}$ with replicated DNA")
 		plt.xticks([(replication_idx+end_g2m_idx)/2], ["Replicated DNA"])
 		plt.yticks([])
@@ -137,7 +138,7 @@ class CopyCorrector:
 		total_uncorrected_sum = H1.sum(axis=1)
 		replicated_sum = replicated_proportion.sum(axis=1)
 
-		plt.subplot(1, 4, 3)
+		plt.subplot(1, 3, 3)
 		timepoints = self.config1.WT1_TIMEPOINTS
 		plt.plot(timepoints, total_uncorrected_sum, label="Total proportion of DNA",
 			color=plt.get_cmap('tab10')(0))
@@ -145,18 +146,11 @@ class CopyCorrector:
 			color=plt.get_cmap('tab10')(1))
 		plt.plot(timepoints, total_uncorrected_sum-replicated_sum, label="Proportion with\nreplicated DNA removed",
 			color=plt.get_cmap('tab10')(0), ls='dotted')
-
 		plt.title("Copy correction proportion")
 		plt.legend()
 		plt.yticks(np.arange(0, 2, 0.5))
 		plt.ylim(-0.5, 1.75)
-
-		timepoints = self.genome_deconvolution.combined_model.chrom1_model.config.WT1_TIMEPOINTS
-		plt.subplot(1, 4, 4)
-		plt.plot(timepoints, self.uncorrected_reads_sum)
-		plt.plot(timepoints, self.corrected_reads_sum)
-		plt.title("Copy corrected read counts")
-		plt.ylim(0, 20000)
+		plt.xlabel("Experimental time")
 
 
 

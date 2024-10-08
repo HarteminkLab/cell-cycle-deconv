@@ -496,7 +496,6 @@ class Figure3CopyCorrection():
 		box_plotter.group_colors = rep_quantile_colors()
 		box_plotter.width = 0.25
 
-
 		fig = plt.figure(figsize=FiguresConfig.FIGSIZE_SHORT)
 		box_plotter.plot_box_plot(ax=plt.gca(), title='')
 		plt.ylabel("Log2-ratio change in PTR")
@@ -801,14 +800,12 @@ class Figure3CopyCorrection():
 
 		normalized_raw = load_orf_data(f'output/copy_correction/chromatin/normalized_raw_rep{replicate}_shared.csv')
 		chrom_cor = load_orf_data(f'output/copy_correction/chromatin/normalized_corrected_rep{replicate}_shared.csv')
-		
-		#normalized_raw = chrom_raw / chrom_raw.sum(axis=0).values.reshape((1, -1))
-		#normalized_raw *= chrom_cor.sum(axis=0).iloc[0]
 
 		if replicate == 1:
 			orfs_sorted = self.ge_ptrs_rep1.sort_values('replication_time').index
 		else:
 			orfs_sorted = self.ge_ptrs_rep2.sort_values('replication_time').index
+
 		raw = normalized_raw.loc[orfs_sorted]
 		corrected = chrom_cor.loc[orfs_sorted]
 		difference = corrected-raw
