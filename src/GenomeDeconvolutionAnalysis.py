@@ -23,7 +23,6 @@ class GenomeDeconvolutionAnalysis(object):
 	will need to be in base pairs (or rounded to the nearest bin.)
 	- 
 
-
 	"""
 
 	def __init__(self, outdir):

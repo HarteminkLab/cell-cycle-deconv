@@ -76,7 +76,8 @@ class GenomeDeconvolution(object):
 				current_f_img = current_f_img / current_f_img.sum() * 2000
 
 			ax.imshow(current_f_img, origin='lower', cmap='magma_r', vmax=vmax, aspect='auto',
-					 extent=self.combined_model.chrom1_model.bin_extents)
+					 extent=self.combined_model.chrom1_model.bin_extents, 
+					 vmin=self.combined_model.G_deconvolution_offset)
 			ax.set_ylabel(label_name, rotation=0, ha='right', labelpad=9)
 			ax.set_yticks([])
 			

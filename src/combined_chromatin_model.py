@@ -34,6 +34,7 @@ class CombinedChromatinModel:
 
 		self.chrom1_model = ChromatinModel(config1)
 		self.chrom2_model = ChromatinModel(config2)
+		self.G_deconvolution_offset = 1
 
 
 	def load_mnase_span(self, chrom, mnase_span, log=True, downsample=True):
@@ -80,9 +81,14 @@ class CombinedChromatinModel:
 
 		# Combine the two G datasets row-wise
 		if G is None:
-			self.G = np.concatenate([self.G1, self.G2])
+			self.G = np.concatenate([self.G1, 
+				self.G2])
 		else:
 			self.G = G
+
+		if self.G_deconvolution_offset > 0:
+			print_fl(f"Addingn a deconvolution offset to G: {self.G_deconvolution_offset}")
+			self.G = G+self.G_deconvolution_offset
 
 		# Create the first replicates model and H
 		self.deconv1_model = Model(chrom1_model.config, None, chrom1_model.gamma, for_chromatin_deconv=True)
