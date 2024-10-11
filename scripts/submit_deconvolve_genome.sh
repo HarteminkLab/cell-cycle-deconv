@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script to create jobs to create locus plots for all genes across all chromosomes
 
-OUTDIR=output/deconvolved_genome_g0066_10k_10x10_2024_10_03
+OUTDIR=output/deconvolved_genome_g0066_offset1_10k_10x10_2024_10_11
 
 ARGS="${OUTDIR}"
 
