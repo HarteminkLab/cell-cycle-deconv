@@ -85,8 +85,8 @@ class GenomeDeconvolutionAnalysis(object):
 		return spans
 
 
-	def plot_deconvolved_result(self, f_imgs, mnase_span, smooth=False, normalize=False,
-		vmax=1, figsize=(13, 11)):
+	def plot_deconvolved_result(self, f_imgs, mnase_span, smooth=False, 
+		normalize=False, vmax=1, figsize=(13, 11), xlims=None):
 		from src.global_config import GlobalConstants
 		from src.figure_configs import FiguresConfig
 		from src.config import load_configs_by_config_type
@@ -128,13 +128,18 @@ class GenomeDeconvolutionAnalysis(object):
 			else:
 				ax.set_xticks([])
 
+			ax.axvline(0, c='black', lw=1, alpha=0.5, ls='dotted')
+
+			if xlims is not None:
+				ax.set_xlim(*xlims)
+
 		plt.subplots_adjust(top=0.923)
 
 		return fig
 
 
 	def load_stacked_mnase_data_for_genes(self, genes, chroms=range(1, 17), 
-		center_mode='+1', padding=2000):
+		center_mode='+1', padding=2000, normalize=False, compute_gb_occ=False):
 		"""Load set of genes and flip crick strand genes"""
 		from src.geneset import get_deconvolved_geneset
 		
@@ -169,7 +174,8 @@ class GenomeDeconvolutionAnalysis(object):
 		if center_mode == '+1':
 			gb_nuc_indices = np.arange(90, 161)
 		elif center_mode == 'PAS_nuc':
-			gb_nuc_indices = np.arange(40, 111)
+			 # Select all but the last nucleosome, image is 200 bins wide (halfway is 100)
+			gb_nuc_indices = np.arange(40, 90)
 		else:
 			raise ValueError(f"Invalid center_mode: {center_mode}")
 
@@ -195,10 +201,16 @@ class GenomeDeconvolutionAnalysis(object):
 				if gene.strand == '-':
 					gene_data = np.flip(gene_data, axis=2)
 
+				if normalize:
+					TOTAL = 1000
+					gene_data_sum = gene_data.sum(axis=1).sum(axis=1).reshape((-1, 1, 1))
+					gene_data = gene_data / gene_data_sum * TOTAL
+
 				if loaded_gene_dat is None:
 					loaded_gene_dat = np.zeros(gene_data.shape)
 
-				gb_nuc_occ.loc[orf_name, :] = gene_data[:, :, gb_nuc_indices].sum(axis=1).sum(axis=1)
+				if compute_gb_occ:
+					gb_nuc_occ.loc[orf_name, :] = gene_data[:, :, gb_nuc_indices].sum(axis=1).sum(axis=1)
 
 				loaded_gene_dat += gene_data
 				i += 1
@@ -207,5 +219,8 @@ class GenomeDeconvolutionAnalysis(object):
 			print(f"Failed to load {failed_file_not_found_count} files")
 
 		mean_gene_dat = loaded_gene_dat / len(genes)
-			
-		return mean_gene_dat, gb_nuc_occ
+
+		if compute_gb_occ:
+			return mean_gene_dat, gb_nuc_occ
+
+		return mean_gene_dat

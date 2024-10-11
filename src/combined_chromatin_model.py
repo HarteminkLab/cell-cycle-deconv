@@ -54,7 +54,7 @@ class CombinedChromatinModel:
 		self.chrom2_model.load_mnase_orc(orc_or_ars)
 
 
-	def	setup_deconv_model(self, gamma=0.006, G1=None, G2=None, wavelet="Symmlet"):
+	def	setup_deconv_model(self, gamma=0.006, G=None, G1=None, G2=None, wavelet="Symmlet"):
 		from src.single_G1_config import Config as Config_single_G1
 		from src.model import Model
 
@@ -79,7 +79,10 @@ class CombinedChromatinModel:
 			self.G2 = G2
 
 		# Combine the two G datasets row-wise
-		self.G = np.concatenate([self.G1, self.G2])
+		if G is None:
+			self.G = np.concatenate([self.G1, self.G2])
+		else:
+			self.G = G
 
 		# Create the first replicates model and H
 		self.deconv1_model = Model(chrom1_model.config, None, chrom1_model.gamma, for_chromatin_deconv=True)
@@ -111,13 +114,13 @@ class CombinedChromatinModel:
 		self.deconvolved_f_value = None
 
 
-	def deconvolve(self, verbose=False, gamma=0.0066, G1=None, G2=None,
+	def deconvolve(self, verbose=False, gamma=0.0066, G=None, G1=None, G2=None,
 			wavelet="Symmlet", verbose_progress=True):
 
 		from src.timer import Timer
 
 		timer = Timer()
-		self.setup_deconv_model(gamma, G1=G1, G2=G2, wavelet=wavelet)
+		self.setup_deconv_model(gamma, G=G, G1=G1, G2=G2, wavelet=wavelet)
 
 		print_fl(f"Deconvolving combined model with gamma={self.gamma}")
 		print_fl(f"Deconvolving bin size: {self.chrom1_model.bin_width}x{self.chrom1_model.bin_height}")

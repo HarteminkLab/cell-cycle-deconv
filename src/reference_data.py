@@ -100,6 +100,9 @@ def load_h3k56ac_marks(full=False):
 	orfs_w_h3k56ac = h3k56_acetylation.join(histone_mod_nuc_db, how='inner')
 	orfs_w_h3k56ac = orfs_w_h3k56ac[['H3K56ac', 'acc', 'gene']]
 
+	orfs_w_h3k56ac
+
+
 	return orfs_w_h3k56ac
 
 

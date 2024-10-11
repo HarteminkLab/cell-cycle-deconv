@@ -12,6 +12,7 @@ from src.global_config import GlobalConstants
 from src.deconv_data import load_f_files
 from src.config import load_configs_by_config_type
 from src.geneset import get_deconvolved_geneset
+from src.deconvolved_f_plotter import plot_pseudo_gene
 
 
 class GeneClustering:
@@ -519,21 +520,7 @@ def run_gene_ontology_on_clustered_genes(geneset, clustered_genes, gene_ontology
 	return get_results_go(gene_ontology, num_clusters)
 
 
-def plot_psuedo_gene(ax):
-	from src.orf_plotter import plot_gene_annotation
-	from src.global_config import GlobalConstants
 
-	gene_start = -40
-	gene_len = 1080
-	TSS = gene_start
-	PAS = gene_start+gene_len
-
-	plot_gene_annotation(ax, gene_start, gene_len, 0, 36, '#ccc', (0, 0), 1, 40, TSS, PAS, True)
-	ax.set_ylim(-50, 100)
-	ax.set_xlim(-GlobalConstants.PROM_LEN, GlobalConstants.GB_LEN*3)
-	ax.axvline(500, ls='solid', c='#aaa', zorder=99, lw=1)
-	ax.set_yticks([])
-	ax.set_xticks([])
 
 
 def load_chromatin_from_dir(chromatin_dir, orf_names):

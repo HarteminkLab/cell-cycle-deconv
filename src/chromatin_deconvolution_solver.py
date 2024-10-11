@@ -146,14 +146,13 @@ class ChromatinDeconvolveSolver:
 
 			cvxpy.sum(cvxpy.norm(elementwise_result, 'fro')**2)
 
-			# Smoothing along time
-			+ self.gamma * cvxpy.sum(cvxpy.abs(smooth_f_it_result))/g_mean
+			# Smoothing i and t together is more efficient, but
+			# + self.gamma * cvxpy.sum(cvxpy.abs(smooth_f_it_result))/g_mean
 
-			# todo: see above, with regards to controlling the smoothing
-			# of the initial branch.
-
-			# + self.gamma * cvxpy.sum(cvxpy.abs(smooth_f_i_result))/g_mean
-			# + self.gamma * cvxpy.sum(cvxpy.abs(smooth_f_t_result))/g_mean
+			# Smoothing i and t separately enforces a smoother transition
+			# for the t branch
+			+ self.gamma * cvxpy.sum(cvxpy.abs(smooth_f_i_result))/g_mean
+			+ self.gamma * cvxpy.sum(cvxpy.abs(smooth_f_t_result))/g_mean
 		)
 
 		# -------- End definition of the optimization ------------
