@@ -287,18 +287,27 @@ class GenomeDeconvolutionAnalysis(object):
 		return mean_gene_dat
 
 
-	def plot_tss_pas_chrom(self, selected_genes):
+	def plot_tss_pas_chrom(self, selected_genes, title=None):
 		
+		from src.figure_configs import FiguresConfig
+
 		# Padding of the window surrounding the TSS and PAS to select
 		padding = 800
 		inset = 300
 		xlims = (-padding*2+inset, padding*2-inset)
+
+		self.selected_genes = selected_genes
 		
 		tss_f = self.load_stacked_mnase_data_for_genes(selected_genes, padding=padding,
 													  center_mode='+1')
 		pas_f = self.load_stacked_mnase_data_for_genes(selected_genes, padding=padding,
 													  center_mode='PAS_nuc')
+
+		self.tss_f = tss_f
+		self.pas_f = pas_f
+
 		tss_pas_concat_f = np.concatenate([tss_f, pas_f], axis=2)
+
 		from src.deconvolved_f_plotter import DeconvolvedFPlotter
 		from src.deconvolved_f_plotter import plot_pseudo_gene
 
@@ -325,8 +334,13 @@ class GenomeDeconvolutionAnalysis(object):
 		plotter.xlims = xlims
 		plotter.ax_func = format_ax
 		plotter.orf_ax_func = plot_pseudo_orf
+		self.plotter = plotter
+
 		fig = plotter.plot(vmax=5)
 		plt.subplots_adjust(top=0.89)
+
+		if title is not None:
+			plt.suptitle(title, fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
 
 		return fig
 
