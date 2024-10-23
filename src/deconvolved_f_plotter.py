@@ -100,7 +100,7 @@ class DeconvolvedFPlotter:
 				ax.set_xlim(*xlims)
 
 			if self.ax_func:
-				self.ax_func(ax, i, len(plot_intervals), label_name)
+				self.ax_func(ax, index, i, len(plot_intervals), label_name)
 
 		plt.subplots_adjust(left=0.2, top=0.923)
 

@@ -4,7 +4,20 @@ import numpy as np
 import pandas as pd
 
 from src.figure_configs import FiguresConfig
+from src.chromatin_metric_tracking import ChromatinMetricTracking
 from src.figure_configs import save_figure_for_paper
+from src.origins import get_origin_title_name
+from src.plot_helpers import plot_heatmap_cell_cycle_tps
+from src.chromatin_model import draw_phase_label_annotations
+
+
+ORIGIN_FRAG_SPAN = (0, 130)
+
+from src.config import load_configs_by_config_type
+
+config, _ = load_configs_by_config_type('shared')
+t_indices = config.get_Hpositions_for_branch('t')
+
 
 class Figure4DeconvolvedOrigins(object):
 	"""Fourth figure: deconvolved origins analysis. Show how the deconvolution
@@ -12,174 +25,271 @@ class Figure4DeconvolvedOrigins(object):
 	loading and unloading at replication time and difference between early and
 	late replicating origins"""
 
+
 	def __init__(self):
 
-		import glob
+		from src.GenomeDeconvolutionAnalysis import GenomeDeconvolutionAnalysis
 
-		origin_deconv_directory = "output/deconvolve_origins_g0066_2024_06_28"
-
-		# Load the tracking information for NFR and origin occupancy
-		pattern = f'{origin_deconv_directory}/chromatin/*tracking*'
-		tracking_paths = glob.glob(pattern)
-
-		all_nfrs_df = pd.DataFrame()
-		all_origins_occupancy_df = pd.DataFrame()
-
-		for tracking_path in tracking_paths:
-
-			path_split = tracking_path.split('/')[-1].split('_')
-			oridb, ars_name = path_split[3], path_split[4].replace('.csv', '')
-			oridb, ars_name
-
-			tracking_df = pd.read_csv(tracking_path)
-			nfr = np.abs(tracking_df['+1']-tracking_df['-1'])
-			origin_occupancy = tracking_df['origin_occupancy']
-			index = f"oridb_{oridb}"
-			gene_nfr = pd.Series(nfr, name=index)
-			gene_occupancy = pd.Series(origin_occupancy, name=index)
-
-			nfr_df = pd.DataFrame(gene_nfr).T
-			origin_occupancy_df = pd.DataFrame(gene_occupancy).T
-			all_nfrs_df = pd.concat([all_nfrs_df, nfr_df])
-			all_origins_occupancy_df = pd.concat([all_origins_occupancy_df, origin_occupancy_df])
-
-		self.all_origins_occupancy_df = all_origins_occupancy_df
-		self.all_nfrs_df = all_nfrs_df
-
-		from src.config import load_configs_by_config_type
+		outdir = "output/deconvolved_genome_g0066_offset1_10k_10x10_2024_10_11/"
+		analysis = GenomeDeconvolutionAnalysis(outdir)
 		from src.origins import load_origins_w_replication
 
-		origins_w_replication = load_origins_w_replication(full=True)
+		origins = load_origins_w_replication()
+
+		self.origins = origins
+		self.analysis = analysis
+
+	def load_origin(self, origin=None):
+
+		if origin is None:
+			self.origin = self.origins.loc['oridb_809']
+		else:
+			self.origin = origin
+
+		self.padding = 600
+		self.analysis.load_stacked_mnase_data_for_origins(self.origin, padding=self.padding)
+
+		# Flip if +, upstream
+		# or      -, downstream
+		mnase_data = self.analysis.origin_mnase_data
+		if (self.origin.strand == '+' and
+			self.origin.mcm_loading_class == 'upstream') or \
+		   (self.origin.strand == '-' and
+			self.origin.mcm_loading_class == 'downstream'):
+			self.analysis.origin_mnase_data = np.flip(mnase_data, axis=2)
+
+	def plot_loaded_origin(self):
+		from src.deconvolved_f_plotter import DeconvolvedFPlotter
+
+		plotter = DeconvolvedFPlotter()
+		plotter.set_f_imgs(self.analysis.origin_mnase_data, (-self.padding, self.padding))
+		plotter.figsize = (5, 6)
+		plotter.plot_orfs = False
+
+		from src.config import load_configs_by_config_type
 		config1, config2 = load_configs_by_config_type('shared')
 
-		t_indices = config1.get_Hpositions_for_branch('t')
-		origins_w_replication = origins_w_replication.sort_values('replication_time')
+		cg1_index = config1.get_Hpositions_for_branch('t')[0]
 
-		self.origins_w_replication = origins_w_replication
-		self.t_indices = t_indices
+		def ax_func(ax, index, i, n, label_name):
 
-	def plot_heatmap_of_tracking(self, full=True):
+			ax.axvline(self.m1_track[index], lw=1, c='red', alpha=0.5, ls='solid')
+			ax.axvline(self.p1_track[index], lw=1, c='red', alpha=0.5, ls='solid')
 
-		normalized_nfrs_df = normalize_z_score_by_row(self.all_nfrs_df[self.t_indices])
-		normalized_origins_df = normalize_z_score_by_row(self.all_origins_occupancy_df[self.t_indices])
+			ax.axvline(self.m1_track[cg1_index], lw=1, c='gray', alpha=1, ls='dotted')
+			ax.axvline(self.p1_track[cg1_index], lw=1, c='gray', alpha=1, ls='dotted')
 
-		from src.figure_configs import FiguresConfig
+		plotter.ax_func = ax_func
 
-		# Plot only origins with g1 and g2 footprint
-		if not full:
-			origins_w_replication = self.origins_w_replication[self.origins_w_replication.footprint_class == 'g1_and_g2_footprint']
-			origins_w_replication_sorted = \
-				origins_w_replication.sort_values('replication_time')
+		from src.origins import get_origin_title_name
 
-		# Plot all 798 origins
-		else:
-			origins_w_replication_sorted = \
-				self.origins_w_replication.sort_values('replication_time')
+		fig = plotter.plot(vmax=20)
+		plt.suptitle(get_origin_title_name(self.origin), fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
 
-		index = origins_w_replication_sorted.index
+	def plot_tracking_summary_hm(self):
 
+		# Load the small fragments for the entire window, create a summary depiction
+		# of the small fragments occupancy over time
+		from src.Figure3_Deconvolved_Origins import ORIGIN_FRAG_SPAN
+
+		f_mnase_span = -self.padding, self.padding
+
+		mnase_data = self.analysis.origin_mnase_data
+
+		origin_tracker = ChromatinMetricTracking(mnase_data, f_mnase_span)
+		origin_tracker.select_region(f_mnase_span, ORIGIN_FRAG_SPAN) 
+
+		# Idea will be to merge with the nucleosome reads over time to show both nucleosome
+		# positioning and origin occupancy throughout the time course
+		from src.chromatin_metrics import fragment_lengths_definitions
+
+		_, _, nuc_lens = fragment_lengths_definitions()
+		f_mnase_span = -self.padding, self.padding
+		nuc_tracker = ChromatinMetricTracking(mnase_data, f_mnase_span)
+		nuc_tracker.select_region(f_mnase_span, nuc_lens)
+				
+		nuc_dat = nuc_tracker.selected_img_data.sum(axis=1)
+		sm_dat = origin_tracker.selected_img_data.sum(axis=1)
+
+		# Normalize so lowest value is 0 (to adjust for deconvolution pseudocount)
+		nuc_med, sm_med = np.median(nuc_dat.flatten()), np.median(sm_dat.flatten())
+		nuc_dat -= nuc_med
+		sm_dat -= sm_med
+
+		# Plot the difference to show both origin occupancy and nucleosome
+		# occupancy/positioning
+		plt_data = nuc_dat - sm_dat
+
+		# Segment by g1 and s/g2m
+		cg1_indices = config.get_Hpositions_for_phase('CG1')
+		postG1_indices = config.get_Hpositions_for_phase('postG1')
+
+		# define extents
+		cg1_tps = config.get_phase_timepoints_for_phase('CG1')
+		postG1_tps = config.get_phase_timepoints_for_phase('postG1')
+		tps = config.get_timepoints_for_branch('t')
+
+		n = len(t_indices)
+
+		g1_extent = [f_mnase_span[0], f_mnase_span[1], cg1_tps[0], cg1_tps[-1]]
+		postG1_extent = [f_mnase_span[0], f_mnase_span[1], cg1_tps[-1], postG1_tps[-1]]
+ 
+		fig = plt.figure(figsize=(6, 4))
+		ax = plt.gca()
+		ax.imshow(plt_data[cg1_indices], extent=g1_extent, aspect='auto',
+			cmap='BrBG', vmin=-50, vmax=50, origin='lower')
+
+		ax.imshow(plt_data[postG1_indices], extent=postG1_extent, aspect='auto',
+			cmap='BrBG', vmin=-50, vmax=50, origin='lower')
+		ax.set_ylim(g1_extent[2], postG1_extent[3])
+
+		ys = tps
+		ax.plot(self.p1_track[t_indices], ys, c='red', ls='solid', lw=1.5, alpha=0.5)
+		ax.plot(self.m1_track[t_indices], ys, c='red', ls='solid', lw=1.5, alpha=0.5)
+
+		plt.suptitle(get_origin_title_name(self.origin), 
+			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+
+		cg1_len = config.get_g1_lens('CG1')
+		plt.axhline(self.origin.replication_time-cg1_len, c='red', ls='dotted')
+
+		draw_phase_label_annotations(ax, config, annotations_x=g1_extent[0]-35)
+		ax.set_xlim(g1_extent[0]-70, g1_extent[1])
+		ax.set_ylabel("Cell cycle time, min")
+		ax.set_xlabel("Genomic position, bp")
+		plt.subplots_adjust(bottom=0.15)
+
+		ax.set_ylim(postG1_extent[3], g1_extent[2])
+
+
+	def track_nfr(self):
+		from src.global_config import GlobalConstants
+		from src.chromatin_metrics import fragment_lengths_definitions
+
+		sm_span, med, nuc_span = fragment_lengths_definitions()
+
+		f_img_data = self.analysis.origin_mnase_data
+		f_mnase_span = -self.padding, self.padding	
+
+		# Find the origin and set the -1 and +1 positions from that
+		tracker = ChromatinMetricTracking(f_img_data, f_mnase_span)
+		tracker.select_region((-100, 100), ORIGIN_FRAG_SPAN)
+		tracker.track_peak_position()
+
+		origin_pos = tracker.weighted_mean_tracking.mean()
+		self.origin_tracker = tracker
+		self.origin_occ = tracker.selected_img_data.sum(axis=1).sum(axis=1)
+
+		# Find the origin and set the -1 and +1 positions from that
+		tracker = ChromatinMetricTracking(f_img_data, f_mnase_span)
+		span = int(origin_pos), int(origin_pos+250)
+		tracker.select_region(span, nuc_span)
+		tracker.track_peak_position()
+		self.p1_track = tracker.weighted_mean_tracking
+		self.p1_tracker = tracker
+
+		tracker = ChromatinMetricTracking(f_img_data, f_mnase_span)
+		span = int(origin_pos)-250, int(origin_pos)
+		tracker.select_region(span, nuc_span)
+		tracker.track_peak_position()
+		self.m1_track = tracker.weighted_mean_tracking
+		self.m1_tracker = tracker
+
+
+	def plot_heatmap_nfr(self, all_p1s_df, all_m1s_df):
+
+		sorted_origins = self.origins.sort_values('replication_time')
+		nfr_df = all_p1s_df - all_m1s_df
+
+		normalized = (nfr_df - nfr_df.mean(axis=1).values.reshape((-1, 1))) / \
+		   nfr_df.std(axis=1).values.reshape((-1, 1))
+
+		self.normalized_nfr_width = normalized
+
+		plt_data = normalized[t_indices].loc[sorted_origins.index]
 		plt.figure(figsize=(6, 4))
-		plt.subplot(1, 2, 1)
-		plt.imshow(normalized_nfrs_df.loc[index], 
-			aspect='auto', cmap='RdBu_r', vmin=-15, vmax=15, interpolation='none')
-		plt.yticks([])
-		plt.title("Normalized NFR size")
-		plt.xticks([])
-		plt.colorbar()
 
-		plt.subplot(1, 2, 2)
-		plt.imshow(self.all_origins_occupancy_df.loc[index][self.t_indices].tail(200),
-				   aspect='auto',
-				  vmin=0, vmax=120, cmap='Purples', interpolation='none')
-		plt.yticks([])
-		plt.title(f"Origin occupancy")
-		plt.colorbar()
-		plt.xticks([])
+		ax = plt.gca()
+		im = plot_heatmap_cell_cycle_tps(ax, config, plt_data, -2, 2, 'RdBu_r')
+		ax.set_yticks([])
+		ax.set_ylabel("Origins, sorted by replication time")
 
-		plt.suptitle(f"Origin chromatin dynamics sorted\nby replication time,"+
-					 f" n={len(index)}", 
-					 fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
-		plt.subplots_adjust(top=0.8)
-		# todo: label x axis with cell cycle phases
+		plt.title("Origin NFR dynamics", pad=10, fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+		cbar = plt.colorbar(im)
+		cbar.ax.set_ylabel("Normalized NFR width", rotation=270, va='bottom')
+		ax.set_xlabel("Single cell time, min")
 
-	def deconvolve_origins(self, save_dir):
-
-		ars_names = [
-
-			'ARS1623', # Early replicating, origin occupancy persists to G2/M
-
-			'ARS913', # Early replication
-			'ARS1212.5', # Late replication origin
-
-			'ARS1330', # Early replicating origin 
-			'ARS1630' # Late replicating origin
-			]
-
-		from src.combined_chromatin_model import load_combined_model
-		from src.figure_configs import save_figure_for_paper
-
-		origin_models = {}
-
-		for ars_name in ars_names:
-			print(ars_name)
-			combined_model = load_combined_model()
-			origin_models[ars_name] = combined_model
-			combined_model.load_combined_mnase_orc(ars_name)
-			combined_model.deconvolve()
-			combined_model.find_origin_p1_and_m1_nucleosome_position()
-			print("--------------------")
-
-			chrom_model = combined_model.chrom1_model
-
-			# Chromatin deconvolution plot
-			fig = combined_model.create_deconvolution_plots_abbreviated_flipped(zoom=1000, 
-				show_rg1=False)
-			save_figure_for_paper(f"{save_dir}/{ars_name}_chromatin.png")
-			plt.close(fig)
-
-			fig = chrom_model.plot_nfr_shift_origin_occupancy()
-			save_figure_for_paper(f"{save_dir}/{ars_name}_tracking.png")
-			plt.close(fig)
-
-			del combined_model
+		cg1_len = config.get_g1_lens('CG1')
+		ys = np.arange(len(plt_data))
+		ax.plot(sorted_origins.replication_time-cg1_len, ys, c='black')
 
 
-	def plot_heatmap_examples_of_early_late(self):
-		chrom_model = list(self.origin_models.values())[0].chrom1_model
-		t_indices = chrom_model.config.get_Hpositions_for_branch('t')
-		early_origins = chrom_model.origins[chrom_model.origins.footprint_class == 'g1_and_g2_footprint'].sort_values('replication_time').head(100).index.values
-		late_origins = chrom_model.origins[chrom_model.origins.footprint_class == 'g1_and_g2_footprint'].sort_values('replication_time').tail(100).index.values
+	def plot_heatmap_occupancy(self, all_occs_df):
 
-		# Filter the NFRs such that S < G1
-		# Then filter by origin occupancy
-		nfrs = self.all_nfrs_df.loc[late_origins][t_indices]
-		nfrs = nfrs - nfrs.mean(axis=1).values.reshape((-1, 1))
+		sorted_origins = self.origins.sort_values(
+		    'replication_time', ascending=True)
 
-		nfrs_filtered = nfrs[nfrs[150] < nfrs[90]]
-		origin_occs = self.all_origins_occupancy_df.loc[
-			late_origins][t_indices].loc[nfrs_filtered.index]
-		origins_filtered = origin_occs[origin_occs[150] < origin_occs[80]]
+		normalized_occs = (all_occs_df - all_occs_df.mean(axis=1).values.reshape((-1, 1))) /\
+			all_occs_df.std(axis=1).values.reshape((-1, 1))
 
-		n = len(origins_filtered.index)
+		plt_data = normalized_occs[t_indices].loc[sorted_origins.index]
+		plt.figure(figsize=(6, 4))
+		ax = plt.gca()
+		im = plot_heatmap_cell_cycle_tps(ax, config, plt_data, -2, 2, 'RdBu_r')
+		ax.set_yticks([])
+		ax.set_ylabel("Origins, sorted by replication time")
+		plt.title("Origin binding dynamics", pad=10, fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
 
-		plt.figure(figsize=(6, 6))
-		plt.subplot(1, 2, 1)
+		cbar = plt.colorbar(im)
+		cbar.ax.set_ylabel("Normalized origin occupancy", rotation=270, va='bottom')
+		ax.set_xlabel("Single cell time, min")
 
-		plt.imshow(nfrs.loc[origins_filtered.index], aspect='auto', extent=[t_indices[0], t_indices[-1], 0, n])
-		plt.yticks(np.arange(len(origins_filtered))+0.5,
-				   self.origins_w_replication.loc[origins_filtered.index, 'ars_name'])
-		plt.title("NFR")
-
-		plt.subplot(1, 2, 2)
-		plt.imshow(origins_filtered, aspect='auto', extent=[t_indices[0], t_indices[-1], 0, n])
-		plt.title("Origin occupancy")
-		plt.yticks([])
+		cg1_len = config.get_g1_lens('CG1')
+		ys = np.arange(len(plt_data))
+		ax.plot(sorted_origins.replication_time-cg1_len, ys, c='black')
 
 
-def normalize_z_score_by_row(df, norm_sd=False):
-	"""Normalize such that each origin is centered on the mean and scaled to std 1"""
-	mean, sd = df.mean(axis=1), df.std(axis=1)
-	z_norm = (df - mean.values.reshape((-1, 1)))
-	
-	if norm_sd: z_norm /= (sd.values.reshape(-1, 1))
-	return z_norm
+	def plot_occupancy_partition_hm(self, normalized_occs, sorted_origins):
+		"""Plot heatmap partitioning out origins with peak origin occupancy in G1, see if there
+		is a connection with when the NFR is at its peak size."""
+
+		sel_g1_origin = (normalized_occs[t_indices[20]] > normalized_occs[t_indices[20]]*0.1)
+
+		fig = plt.figure(figsize=(4, 4))
+		grid = plt.GridSpec(3, 2, hspace=0.15, wspace=0.1)
+
+		# Create the first two 1x1 axes (top left and top right)
+		ax1 = fig.add_subplot(grid[0, 0])
+		ax2 = fig.add_subplot(grid[0, 1])
+
+		# Create the remaining two 2x1 axes (spanning the bottom two rows)
+		ax3 = fig.add_subplot(grid[1:, 0])
+		ax4 = fig.add_subplot(grid[1:, 1])
+
+		plt_data = normalized_occs[t_indices].loc[sorted_origins.index].loc[sel_g1_origin]
+		plot_heatmap_cell_cycle_tps(ax1, config, plt_data, -50, 50, 'RdBu_r', plot_phase_labels=False)
+
+		ax1.set_xticks([])
+		ax1.set_ylabel(f"G1 peak origins,\nn={sel_g1_origin.sum()}")
+		ax1.set_yticks([])
+		ax1.set_title("Origin occupancy")
+
+		plt_data = normalized_occs[t_indices].loc[sorted_origins.index].loc[~sel_g1_origin]
+		plot_heatmap_cell_cycle_tps(ax3, config, plt_data, -50, 50, 'RdBu_r')
+		ax3.set_ylabel(f"non-G1 peak origins,\nn={(sel_g1_origin==0).sum()}")
+		ax3.set_yticks([])
+		ax3.set_xticks([])
+
+		plt_data = self.normalized_nfr_width[t_indices]\
+		               .loc[sorted_origins.index].loc[sel_g1_origin]
+		plot_heatmap_cell_cycle_tps(ax2, config, plt_data, -100, 100, 'RdBu_r', plot_phase_labels=False)
+		ax2.set_yticks([])
+		ax2.set_xticks([])
+		ax2.set_title("NFR width")
+
+		plt_data = self.normalized_nfr_width[t_indices]\
+		               .loc[sorted_origins.index].loc[~sel_g1_origin]
+		plot_heatmap_cell_cycle_tps(ax4, config, plt_data, -100, 100, 'RdBu_r')
+		ax4.set_yticks([])
+		ax4.set_xticks([])
+

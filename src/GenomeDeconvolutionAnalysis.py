@@ -180,6 +180,13 @@ class GenomeDeconvolutionAnalysis(object):
 
 		return fig
 
+	def load_stacked_mnase_data_for_origins(self, origin, padding=800):
+
+		center = origin.pos
+		chrom = origin.chr
+
+		span = int(center-padding), int(center+padding)
+		self.origin_mnase_data, self.loaded_span = self.load_mnase_span(chrom, span)
 
 	def load_stacked_mnase_data_for_genes(self, genes, chroms=range(1, 17), 
 		center_mode='+1', padding=2000, normalize=False, 
