@@ -63,7 +63,7 @@ class Figure4DeconvolvedOrigins(object):
 
 		plotter = DeconvolvedFPlotter()
 		plotter.set_f_imgs(self.analysis.origin_mnase_data, (-self.padding, self.padding))
-		plotter.figsize = (5, 6)
+		plotter.figsize = (5, 6.5)
 		plotter.plot_orfs = False
 
 		from src.config import load_configs_by_config_type
@@ -84,7 +84,10 @@ class Figure4DeconvolvedOrigins(object):
 		from src.origins import get_origin_title_name
 
 		fig = plotter.plot(vmax=20)
-		plt.suptitle(get_origin_title_name(self.origin), fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+		plt.suptitle(f"{get_origin_title_name(self.origin)}, {self.origin.activation_time} replicating,\n"
+			f"efficiency={self.origin.derived_origin_efficiency_from_mcguffee_et_al_2013:.3f}", 
+			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+		plt.subplots_adjust(top=0.87)
 
 	def plot_tracking_summary_hm(self):
 
@@ -147,7 +150,8 @@ class Figure4DeconvolvedOrigins(object):
 		ax.plot(self.p1_track[t_indices], ys, c='red', ls='solid', lw=1.5, alpha=0.5)
 		ax.plot(self.m1_track[t_indices], ys, c='red', ls='solid', lw=1.5, alpha=0.5)
 
-		plt.suptitle(get_origin_title_name(self.origin), 
+		plt.suptitle(f"{get_origin_title_name(self.origin)}, {self.origin.activation_time} replicating,\n"
+			f"efficiency={self.origin.derived_origin_efficiency_from_mcguffee_et_al_2013:.3f}", 
 			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
 
 		cg1_len = config.get_g1_lens('CG1')
@@ -157,7 +161,7 @@ class Figure4DeconvolvedOrigins(object):
 		ax.set_xlim(g1_extent[0]-70, g1_extent[1])
 		ax.set_ylabel("Cell cycle time, min")
 		ax.set_xlabel("Genomic position, bp")
-		plt.subplots_adjust(bottom=0.15)
+		plt.subplots_adjust(bottom=0.15, top=0.83)
 
 		ax.set_ylim(postG1_extent[3], g1_extent[2])
 
@@ -196,7 +200,7 @@ class Figure4DeconvolvedOrigins(object):
 		self.m1_tracker = tracker
 
 
-	def plot_heatmap_nfr(self, all_p1s_df, all_m1s_df):
+	def plot_heatmap_nfr(self, all_p1s_df, all_m1s_df, annotate_oridbs=[]):
 
 		sorted_origins = self.origins.sort_values('replication_time')
 		nfr_df = all_p1s_df - all_m1s_df
@@ -204,30 +208,54 @@ class Figure4DeconvolvedOrigins(object):
 		normalized = (nfr_df - nfr_df.mean(axis=1).values.reshape((-1, 1))) / \
 		   nfr_df.std(axis=1).values.reshape((-1, 1))
 
+		self.nfr_widths = normalized
 		self.normalized_nfr_width = normalized
 
 		plt_data = normalized[t_indices].loc[sorted_origins.index]
-		plt.figure(figsize=(6, 4))
+		plt.figure(figsize=(6, 8))
 
 		ax = plt.gca()
-		im = plot_heatmap_cell_cycle_tps(ax, config, plt_data, -2, 2, 'RdBu_r')
+		im = plot_heatmap_cell_cycle_tps(ax, config, plt_data, -2, 2, 'RdBu_r',
+			annotations_x_offset=5, ylim_offset=10)
 		ax.set_yticks([])
 		ax.set_ylabel("Origins, sorted by replication time")
 
-		plt.title("Origin NFR dynamics", pad=10, fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
-		cbar = plt.colorbar(im)
+		plt.title(f"Origin NFR dynamics, n={len(plt_data)}", pad=10, 
+			fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+		cbar = plt.colorbar(im, ax=ax, pad=0.1)
 		cbar.ax.set_ylabel("Normalized NFR width", rotation=270, va='bottom')
 		ax.set_xlabel("Single cell time, min")
 
 		cg1_len = config.get_g1_lens('CG1')
 		ys = np.arange(len(plt_data))
-		ax.plot(sorted_origins.replication_time-cg1_len, ys, c='black')
+		ax.scatter(sorted_origins.replication_time-cg1_len, ys, marker='D', s=1, 
+			color='red')
+
+		if len(annotate_oridbs) > 0:
+			oridb_indices = self.origins.loc[sorted_origins.index].copy()
+			oridb_indices['origin_index'] = ys
+
+			tick_positions = []
+			for oridb_name in annotate_oridbs:
+				
+				oridb_row = oridb_indices.loc[oridb_name]
+				tick_positions.append(oridb_row.origin_index)
+
+			ax2 = ax.twinx()
+			ax2.set_ylim(ax.get_ylim())
+			ax2.set_yticks(tick_positions)
+			ax2.set_yticklabels(oridb_indices.loc[annotate_oridbs].ars_name.values,
+				rotation=270, ha='center', va='center')
+			ax2.tick_params(axis='y', pad=5) 
 
 
-	def plot_heatmap_occupancy(self, all_occs_df):
+	def plot_heatmap_occupancy(self, all_occs_df, annotate_oridbs=[]):
 
 		sorted_origins = self.origins.sort_values(
 		    'replication_time', ascending=True)
+
+		# sorted_origins = self.origins.sort_values(
+		#     'derived_origin_efficiency_from_mcguffee_et_al_2013', ascending=False)
 
 		normalized_occs = (all_occs_df - all_occs_df.mean(axis=1).values.reshape((-1, 1))) /\
 			all_occs_df.std(axis=1).values.reshape((-1, 1))
@@ -238,7 +266,7 @@ class Figure4DeconvolvedOrigins(object):
 		im = plot_heatmap_cell_cycle_tps(ax, config, plt_data, -2, 2, 'RdBu_r')
 		ax.set_yticks([])
 		ax.set_ylabel("Origins, sorted by replication time")
-		plt.title("Origin binding dynamics", pad=10, fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+		plt.title(f"Origin binding dynamics, n={len(plt_data)}", pad=10, fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
 
 		cbar = plt.colorbar(im)
 		cbar.ax.set_ylabel("Normalized origin occupancy", rotation=270, va='bottom')
@@ -246,7 +274,25 @@ class Figure4DeconvolvedOrigins(object):
 
 		cg1_len = config.get_g1_lens('CG1')
 		ys = np.arange(len(plt_data))
-		ax.plot(sorted_origins.replication_time-cg1_len, ys, c='black')
+		ax.scatter(sorted_origins.replication_time-cg1_len, ys, marker='D', s=1, 
+			color='red')
+
+		if len(annotate_oridbs) > 0:
+			oridb_indices = self.origins.loc[sorted_origins.index].copy()
+			oridb_indices['origin_index'] = ys
+
+			tick_positions = []
+			for oridb_name in annotate_oridbs:
+				
+				oridb_row = oridb_indices.loc[oridb_name]
+				tick_positions.append(oridb_row.origin_index)
+
+			ax2 = ax.twinx()
+			ax2.set_ylim(ax.get_ylim())
+			ax2.set_yticks(tick_positions)
+			ax2.set_yticklabels(oridb_indices.loc[annotate_oridbs].ars_name.values,
+				rotation=270, ha='center', va='center')
+			ax2.tick_params(axis='y', pad=5) 
 
 
 	def plot_occupancy_partition_hm(self, normalized_occs, sorted_origins):
