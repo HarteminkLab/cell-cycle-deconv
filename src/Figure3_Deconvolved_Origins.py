@@ -11,7 +11,7 @@ from src.plot_helpers import plot_heatmap_cell_cycle_tps
 from src.chromatin_model import draw_phase_label_annotations
 
 
-ORIGIN_FRAG_SPAN = (0, 130)
+ORIGIN_FRAG_SPAN = (0, 100)
 
 from src.config import load_configs_by_config_type
 
@@ -157,7 +157,8 @@ class Figure4DeconvolvedOrigins(object):
 		cg1_len = config.get_g1_lens('CG1')
 		plt.axhline(self.origin.replication_time-cg1_len, c='red', ls='dotted')
 
-		draw_phase_label_annotations(ax, config, annotations_x=g1_extent[0]-35)
+		draw_phase_label_annotations(ax, config,
+			annotations_x=g1_extent[0]-35)
 		ax.set_xlim(g1_extent[0]-70, g1_extent[1])
 		ax.set_ylabel("Cell cycle time, min")
 		ax.set_xlabel("Genomic position, bp")
@@ -182,7 +183,7 @@ class Figure4DeconvolvedOrigins(object):
 
 		origin_pos = tracker.weighted_mean_tracking.mean()
 		self.origin_tracker = tracker
-		self.origin_occ = tracker.selected_img_data.sum(axis=1).sum(axis=1)
+		self.origin_occ = tracker.track_occupancy()
 
 		# Find the origin and set the -1 and +1 positions from that
 		tracker = ChromatinMetricTracking(f_img_data, f_mnase_span)
@@ -205,8 +206,8 @@ class Figure4DeconvolvedOrigins(object):
 		sorted_origins = self.origins.sort_values('replication_time')
 		nfr_df = all_p1s_df - all_m1s_df
 
-		normalized = (nfr_df - nfr_df.mean(axis=1).values.reshape((-1, 1))) / \
-		   nfr_df.std(axis=1).values.reshape((-1, 1))
+		normalized = (nfr_df - nfr_df.mean(axis=1).values.reshape((-1, 1))) #/ \
+		   #nfr_df.std(axis=1).values.reshape((-1, 1))
 
 		self.nfr_widths = normalized
 		self.normalized_nfr_width = normalized
@@ -215,7 +216,7 @@ class Figure4DeconvolvedOrigins(object):
 		plt.figure(figsize=(6, 8))
 
 		ax = plt.gca()
-		im = plot_heatmap_cell_cycle_tps(ax, config, plt_data, -2, 2, 'RdBu_r',
+		im = plot_heatmap_cell_cycle_tps(ax, config, plt_data, -20, 20, 'RdBu_r',
 			annotations_x_offset=5, ylim_offset=10)
 		ax.set_yticks([])
 		ax.set_ylabel("Origins, sorted by replication time")
@@ -252,7 +253,7 @@ class Figure4DeconvolvedOrigins(object):
 	def plot_heatmap_occupancy(self, all_occs_df, annotate_oridbs=[]):
 
 		sorted_origins = self.origins.sort_values(
-		    'replication_time', ascending=True)
+			'replication_time', ascending=True)
 
 		# sorted_origins = self.origins.sort_values(
 		#     'derived_origin_efficiency_from_mcguffee_et_al_2013', ascending=False)
@@ -327,15 +328,154 @@ class Figure4DeconvolvedOrigins(object):
 		ax3.set_xticks([])
 
 		plt_data = self.normalized_nfr_width[t_indices]\
-		               .loc[sorted_origins.index].loc[sel_g1_origin]
+					   .loc[sorted_origins.index].loc[sel_g1_origin]
 		plot_heatmap_cell_cycle_tps(ax2, config, plt_data, -100, 100, 'RdBu_r', plot_phase_labels=False)
 		ax2.set_yticks([])
 		ax2.set_xticks([])
 		ax2.set_title("NFR width")
 
 		plt_data = self.normalized_nfr_width[t_indices]\
-		               .loc[sorted_origins.index].loc[~sel_g1_origin]
+					   .loc[sorted_origins.index].loc[~sel_g1_origin]
 		plot_heatmap_cell_cycle_tps(ax4, config, plt_data, -100, 100, 'RdBu_r')
 		ax4.set_yticks([])
 		ax4.set_xticks([])
 
+
+	def compute_m1_p1_tracks(self):
+		from src.timer import Timer
+
+		timer = Timer()
+
+		all_occs_df = pd.DataFrame()
+		all_m1s_df = pd.DataFrame()
+		all_p1s_df = pd.DataFrame()
+
+		for oridb, origin in self.origins.iterrows():
+
+			self.load_origin(origin)
+			self.track_nfr()
+			m1_track = self.m1_track
+			p1_track = self.p1_track
+			occ_track = self.origin_occ
+			m1_df = pd.DataFrame(m1_track, columns=[oridb]).T
+			p1_df = pd.DataFrame(p1_track, columns=[oridb]).T
+			occ_df = pd.DataFrame(occ_track, columns=[oridb]).T
+
+			all_occs_df = pd.concat([all_occs_df, occ_df])
+			all_m1s_df = pd.concat([all_m1s_df, m1_df])
+			all_p1s_df = pd.concat([all_p1s_df, p1_df])
+
+		timer.print_time()
+		self.all_occs_df = all_occs_df
+		self.all_m1s_df = all_m1s_df
+		self.all_p1s_df = all_p1s_df
+
+
+	def filter_p1_m1_origins(self):
+
+		all_p1s_df = self.all_p1s_df
+		all_m1s_df = self.all_m1s_df
+
+		from src.config import load_configs_by_config_type
+		config, _ = load_configs_by_config_type('shared')
+		t_indices = config.get_Hpositions_for_branch('t')
+
+		shift_cutoff = 4
+
+		# todo: Better convey the nucleosome shift, Belsky shows this shift as +20 nt 
+		# and that the upstream nucleosome may also shift up...
+		p1s_t = all_p1s_df[t_indices]
+		p1_mean = p1s_t[t_indices].mean(axis=1)
+		p1_shift = p1s_t - p1_mean.values.reshape((-1, 1))
+
+		m1s_t = all_m1s_df[t_indices]
+		m1_mean = m1s_t[t_indices].mean(axis=1)
+		m1_shift = m1s_t - m1_mean.values.reshape((-1, 1))
+
+		m1_q10_shift = m1_shift.quantile(0.1, axis=1)
+		p1_q90_shift = p1_shift.quantile(0.9, axis=1)
+
+		m1_shifted = m1_q10_shift[m1_q10_shift < -shift_cutoff]
+		p1_shifted = p1_q90_shift[p1_q90_shift > shift_cutoff]
+
+		self.m1_shifted = m1_shifted
+		self.p1_shifted = p1_shifted
+
+		plt.figure(figsize=(9, 2))
+		plt.subplot(1, 2, 1)
+		plt.hist(m1_q10_shift, bins=50)
+		plt.title("-1 nucleosome shift")
+
+		plt.subplot(1, 2, 2)
+		plt.hist(p1_q90_shift, bins=50)
+		plt.title("+1 nucleosome shift")
+
+		all_p1s_normalized = all_p1s_df[t_indices] - \
+					all_p1s_df[t_indices].mean(axis=1).values.reshape((-1, 1))
+		all_m1s_normalized = all_m1s_df[t_indices] - \
+			all_m1s_df[t_indices].mean(axis=1).values.reshape((-1, 1))
+
+		self.select_both = all_p1s_normalized.index.isin(p1_shifted.index) & \
+			all_p1s_normalized.index.isin(m1_shifted.index)
+		self.select_only_p1 = all_p1s_normalized.index.isin(p1_shifted.index) & \
+			~all_p1s_normalized.index.isin(m1_shifted.index)
+		self.select_only_m1 = ~all_p1s_normalized.index.isin(p1_shifted.index) & \
+			all_p1s_normalized.index.isin(m1_shifted.index)
+		self.select_neither = ~all_p1s_normalized.index.isin(p1_shifted.index) & \
+			~all_p1s_normalized.index.isin(m1_shifted.index)
+
+		self.orfs_m1_p1_both = all_p1s_normalized.loc[self.select_both].index
+		self.orfs_m1_p1_only_p1 = all_p1s_normalized.loc[self.select_only_p1].index
+		self.orfs_m1_p1_only_m1 = all_p1s_normalized.loc[self.select_only_m1].index
+		self.orfs_m1_p1_neither = all_p1s_normalized.loc[self.select_neither].index
+		
+
+	def plot_m1_p1_heatmap(self):
+
+		select_both = self.select_both  
+		select_only_p1 = self.select_only_p1  
+		select_only_m1 = self.select_only_m1  
+		select_neither = self.select_neither  
+
+		m1_shifted = self.m1_shifted
+		p1_shifted = self.p1_shifted
+		all_p1s_df = self.all_p1s_df
+		all_m1s_df = self.all_m1s_df
+
+		all_p1s_normalized = all_p1s_df[t_indices] - \
+			all_p1s_df[t_indices].mean(axis=1).values.reshape((-1, 1))
+		all_m1s_normalized = all_m1s_df[t_indices] - \
+			all_m1s_df[t_indices].mean(axis=1).values.reshape((-1, 1))
+
+		vmax = 20
+		plt.figure(figsize=(8, 11))
+
+		def plot_m1p1_heatmaps_axs(plt_idx, selection):
+			# Filtered for both +1 and -1 shifted origins
+			filtered_m1_shifts_normalized = all_m1s_normalized.loc[selection][t_indices]
+			filtered_p1_shifts_normalized = all_p1s_normalized.loc[selection][t_indices]
+
+			plt.subplot(4, 2, plt_idx)
+			plt.imshow(filtered_m1_shifts_normalized, cmap='RdBu_r', 
+			           vmin=-vmax, vmax=vmax, aspect='auto')
+			plt.yticks([])
+			plt.xticks([])
+
+			plt.subplot(4, 2, plt_idx+1)
+			plt.imshow(filtered_p1_shifts_normalized, cmap='RdBu_r',
+			           vmin=-vmax, vmax=vmax, aspect='auto')
+			plt.yticks([])
+			plt.xticks([])
+
+
+		# Filtered for both +1 and -1 shifted origins
+		plot_m1p1_heatmaps_axs(1, self.orfs_m1_p1_both)
+
+		# Filtered for +1
+		plot_m1p1_heatmaps_axs(3, self.orfs_m1_p1_only_m1)
+
+		# Filtered for -1
+		plot_m1p1_heatmaps_axs(5, self.orfs_m1_p1_only_p1)
+
+		# Filtered for neither
+		plot_m1p1_heatmaps_axs(7, self.orfs_m1_p1_neither)

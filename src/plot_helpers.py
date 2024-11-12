@@ -237,7 +237,7 @@ def adjust_lightness_saturation_colormap(cmap, lightness_factor, saturation_fact
 
 
 def plot_heatmap_cell_cycle_tps(ax, config, plt_data, vmin, vmax, cmap,
-	plot_phase_labels=True, annotations_x_offset=12, ylim_offset=22):
+	plot_phase_labels=True, annotations_x_offset=None, ylim_offset=None):
 	from src.chromatin_model import draw_phase_label_annotations
 
 	# Segment by g1 and s/g2m
@@ -255,16 +255,24 @@ def plot_heatmap_cell_cycle_tps(ax, config, plt_data, vmin, vmax, cmap,
 	cg1_plt_data = plt_data[cg1_indices]
 	postg1_plt_data = plt_data[postG1_indices]
 
-	ax.imshow(cg1_plt_data, extent=g1_extent, aspect='auto',
+	im1 = ax.imshow(cg1_plt_data, extent=g1_extent, aspect='auto',
 			   cmap=cmap, vmin=vmin, vmax=vmax, origin='lower', interpolation='none')
-	im = ax.imshow(postg1_plt_data, extent=postG1_extent, aspect='auto',
+	im2 = ax.imshow(postg1_plt_data, extent=postG1_extent, aspect='auto',
 			   cmap=cmap, vmin=vmin, vmax=vmax, origin='lower', interpolation='none')
 
 	ax.set_xlim(g1_extent[0], postG1_extent[1])
+
+
+	ylims = n, 0
+	annotations_x_offset = n*0.034
+
+	ylim_offset = n*0.067
+
+	ax.set_xlabel("Cell cycle time, minutes")
 
 	if plot_phase_labels:
 		draw_phase_label_annotations(ax, config, flip=True, 
 			annotations_x=n+annotations_x_offset)
 		ax.set_ylim(n+ylim_offset, 0)
 
-	return im
+	return im1, im2

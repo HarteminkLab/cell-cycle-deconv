@@ -65,14 +65,38 @@ class ChromatinMetricTracking(object):
 
 		selected_img_data = self.selected_img_data
 		weighted_mean_tracking = np.zeros(selected_img_data.shape[0])
+		x_positions = np.arange(self.selected_span[0], self.selected_span[1], GlobalConstants.BIN_WIDTH)
+
+		# Identify global peak
+		# add constraint to not exceed this global peak to remove the possibility
+		# of calling another nucleosome's position
+		global_counts = selected_img_data.sum(axis=0).sum(axis=0)
+
+		peak_index = np.argmax(global_counts)
+		peak_position = x_positions[peak_index]
+
+		# Downweight values outside of the peak window to avoid calling different nucleosomes
+		downweight_padding = 30
+		# Downweight values further from peak position
+		outside_of_window = (x_positions > peak_position+downweight_padding) | \
+							(x_positions < peak_position-downweight_padding)
 
 		for i in range(selected_img_data.shape[0]):
-			x_positions = np.arange(self.selected_span[0], self.selected_span[1], GlobalConstants.BIN_WIDTH)
+			
+			# Values outside of the padding window are downweighted to 10
 			values = selected_img_data.sum(axis=1)[i]
-			weighted_mean_val = weighted_peak_estimation(x_positions, values, 100)
+			weighted_values = values.copy()
+			weighted_values[outside_of_window] = values[outside_of_window]*0.1
+
+			weighted_mean_val = weighted_peak_estimation(x_positions, weighted_values, 50)
 			weighted_mean_tracking[i] = weighted_mean_val
 
 		self.weighted_mean_tracking = weighted_mean_tracking
+
+
+	def track_occupancy(self):
+		return self.selected_img_data.sum(axis=1).sum(axis=1)
+
 
 	def plot_position_tracking(self, indices, ax=None):
 		from src.config import load_configs_by_config_type

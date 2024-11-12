@@ -2,7 +2,6 @@
 import numpy as np
 import pandas as pd
 
-
 # Via Xin, beta is when the bud first appears in the bud flow model per the Orlando paper
 # Because we are using Flow only, we do not have a beta value. So we refer to the previously reported beta value
 # This is to describe the timepoint offsets between CG1/DG1 and PostG1

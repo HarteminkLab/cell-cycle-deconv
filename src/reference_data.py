@@ -119,3 +119,28 @@ def save_PAS_nucs_to_disk():
 	meta_df = meta_df[['replicate_1_PAS_nuc', 'replicate_2_PAS_nuc']].reset_index().rename(columns={
 	    'Unnamed: 0': 'orf_name'}).set_index('orf_name')
 	meta_df.to_csv('datasets/computed_mnase/computed_PAS_nucs.csv')
+
+
+def load_chrom_replication_timing():
+
+	from src.config import load_configs_by_config_type
+
+	replication_timing = pd.read_csv(
+	    'data/replication_timing/yl_2019/chrom_replication_timing_shared.csv')
+	replication_timing = replication_timing.set_index(['chr', 'start'])
+	replication_timing['replication_time_1'] = 0
+	replication_timing['replication_time_2'] = 0
+
+	config1, config2 = load_configs_by_config_type('shared')
+
+	for index, row in replication_timing.iterrows():
+	    repl_index = row.replication_index
+	    replication_tp_repl1 = config1.get_timepoint_for_index(repl_index)
+	    replication_tp_repl2 = config2.get_timepoint_for_index(repl_index)
+	    replication_timing.loc[index, 'replication_time_1'] = replication_tp_repl1
+	    replication_timing.loc[index, 'replication_time_2'] = replication_tp_repl2
+
+	replication_timing['replication_time'] = (replication_timing.replication_time_1+replication_timing.replication_time_2)/2
+
+	return replication_timing
+
