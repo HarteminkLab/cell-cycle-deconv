@@ -57,3 +57,12 @@ def load_origins_w_replication(full=False):
 			origins_repl.loc[origin_name, 'replication_index'] = replication_index
 
 	return origins_repl
+
+
+
+def get_origin_title_name(origin):
+	"""For displaying gene names, avoid displaying None"""
+
+	title = ("$\\it{" + origin.ars_name + "}$")
+
+	return title

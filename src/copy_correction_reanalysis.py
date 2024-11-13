@@ -227,9 +227,12 @@ def perform_precomputed_correction_normalisation(bins, chrom, span, replicate):
 	entire genome following copy correction. (Copy correction reduces the
 	number of reads for the latter timepoints)"""
 
+	# Round down to 10k window for lookup
+	rounded_10k_span = (span[0] // 10000) * 10000
+
 	filename = f'data/copy_correction/chromatin/copy_correction_replicate{replicate}.csv'
 	correction_normalization_scalar = pd.read_csv(filename).set_index(['chr', 'start'])
-	correction_norm_scalar = correction_normalization_scalar.loc[chrom].loc[span[0]]
+	correction_norm_scalar = correction_normalization_scalar.loc[chrom].loc[rounded_10k_span]
 	corrected_normalized_bins = bins * correction_norm_scalar.values.reshape((-1, 1, 1))
 
 	return corrected_normalized_bins

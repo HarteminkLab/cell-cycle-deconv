@@ -384,6 +384,38 @@ def weighted_mean(x_values, y_values):
 	return np.average(x_values, weights=y_values)
 
 
+def weighted_peak_estimation(x_values, y_values, width):
+	"""
+	Calculate the weighted mean of x_values within a given window around the peak (maximum y_value).
+	
+	Parameters:
+	x_values (np.array): array of x-axis values.
+	y_values (np.array): array of weights (counts) corresponding to x_values.
+	width (int): window size around the peak to calculate the weighted mean.
+	
+	Returns:
+	float: the weighted mean of the x_values within the window around the peak.
+	"""
+	# Identify the peak (position of the maximum y_value)
+	peak_idx = np.argmax(y_values)
+	peak_x_value = x_values[peak_idx]
+	
+	# Define the window range around the peak
+	window_min = peak_x_value - width / 2
+	window_max = peak_x_value + width / 2
+	
+	# Select values within the window
+	window_mask = (x_values >= window_min) & (x_values <= window_max)
+	x_window = x_values[window_mask]
+	y_window = y_values[window_mask]
+
+	# Calculate the weighted mean within the window
+	if len(x_window) > 0:
+		return np.average(x_window, weights=y_window)
+	else:
+		return peak_x_value  # If no values fall in the window, return the peak position
+
+
 def common_index(arr_of_dfs, index_of_ordering):
 	"""Return the common index using set logic, use df in the index of ordering
 	to keep the ordering in the returned array"""
@@ -623,4 +655,4 @@ def smooth_data(img, size=5, sigma=0.75):
 
 
 def proportion_indices(indices, props):
-    return np.array([indices[int(prop * len(indices))] for prop in props])
+	return np.array([indices[int(prop * len(indices))] for prop in props])

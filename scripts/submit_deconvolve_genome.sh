@@ -13,3 +13,4 @@ sbatch -a 0-216%24 -D ./slurm-logs/ --job-name="genm_2" -p compsci --export="PYF
 # If each job takes 1 hour, and there are 1,216 jobs. If our throughput is 32 jobs at a time.
 # How many hours will it take to finish? (1,216 jobs)  / (48 simultaneous jobs)  * (1.5 hour per job) 
 # = 38 hours = 1.58 days
+

@@ -5,6 +5,7 @@ from src.global_config import GlobalConstants
 from src.figure_configs import FiguresConfig
 from src.orf_plotter import ORFAnnotationPlotter
 from src.geneset import get_deconvolved_geneset
+import pandas as pd
 
 
 class GenomeDeconvolution(object):
@@ -132,6 +133,22 @@ class GenomeDeconvolution(object):
 		plt.subplots_adjust(top=0.923)
 
 		return fig
+
+	def save_gamma_to_disk(self):
+		"""Save optimal gamma and rn/sn values to disk"""
+		from src.utils import mkdirs_safe
+
+		span = self.combined_model.chrom1_model.mnase_span
+		chrom = self.combined_model.chrom1_model.chr
+
+		gamma_save_dir = f"{self.save_directory}/data/gamma"
+		gamma_save_path = f"{gamma_save_dir}/chr{chrom}_{span[0]}_{span[1]}.csv"
+		mkdirs_safe([gamma_save_dir])
+
+		save_dic = {'gamma': self.combined_model.gamma,
+			'rn': self.combined_model.rn,
+			'sn': self.combined_model.sn}
+		pd.DataFrame(save_dic, index=[(chrom, span[0], span[1])]).to_csv(gamma_save_path)
 
 
 	def save_to_disk(self):

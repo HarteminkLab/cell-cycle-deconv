@@ -85,7 +85,7 @@ class DeconvolvedFPlotter:
 			if normalize:
 				current_f_img = current_f_img / current_f_img.sum() * 200.
 
-			ax.imshow(current_f_img, origin='lower', cmap='magma_r', vmax=vmax, aspect='auto',
+			ax.imshow(current_f_img, origin='lower', cmap='magma_r', vmin=1, vmax=vmax, aspect='auto',
 					 extent=extents)
 			ax.set_ylabel(label_name, rotation=0, ha='right', labelpad=9)
 			ax.set_yticks([])
@@ -100,7 +100,7 @@ class DeconvolvedFPlotter:
 				ax.set_xlim(*xlims)
 
 			if self.ax_func:
-				self.ax_func(ax, i, len(plot_intervals), label_name)
+				self.ax_func(ax, index, i, len(plot_intervals), label_name)
 
 		plt.subplots_adjust(left=0.2, top=0.923)
 

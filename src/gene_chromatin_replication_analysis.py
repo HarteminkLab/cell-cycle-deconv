@@ -1068,3 +1068,23 @@ def plot_box_timecourse(ax, dat_narrow_df, color_prop, title):
 	title = f"{title}, n={n}"
 	box_plotter.plot_box_plot(ax=ax, title=title)
 	plt.ylabel("")
+
+
+def convert_h_indices_to_t(config, indices_in_t):
+	"""Get replication indices in terms of the top branches indexing.
+	Subset the top branch indices, then convert the replication indices (that
+	were in H indexing) into the top branches indexing.
+	
+	H = [0, 1, 2, 3]
+	top = [2, 3] # subset of H
+	indices = [2, 3] # indices in H
+	
+	return [0, 1] # updated indices in the top vector
+	"""
+
+	from src.helpers import indices_of_mapping_array
+	t_timepoints = config.get_timepoints_for_branch('t')
+	h_positions = config.get_Hpositions_for_branch('t')
+	ret_indices = indices_of_mapping_array(h_positions, 
+		indices_in_t)
+	return ret_indices
