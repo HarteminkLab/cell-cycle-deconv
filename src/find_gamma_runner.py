@@ -31,7 +31,7 @@ def main():
 
 	genome_deconvolution = GenomeDeconvolution(save_dir=outdir)
 
-	genome_random_100_windows = pd.read_csv('data/reference_data/saccer3_genome_random_1k_windows.csv')
+	genome_random_100_windows = pd.read_csv('data/reference_data/sacCer3_genome_random_1k_windows.csv')
 	current_genomic_span = genome_random_100_windows.loc[index]
 	chrom, span = current_genomic_span.chrom, (current_genomic_span.start, current_genomic_span.end)
 
