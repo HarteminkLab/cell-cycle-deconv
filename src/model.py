@@ -483,5 +483,7 @@ def create_mirror(ind_vec):
 	else:
 		inset_index = len(ind_vec) // 2
 
-	ind_vec_mirror = np.concatenate([np.flip(ind_vec[:inset_index]), ind_vec, np.flip(ind_vec[-inset_index:])])
+	ind_vec_mirror = np.concatenate([np.flip(ind_vec[:inset_index]), 
+		ind_vec, np.flip(ind_vec[-inset_index:])])
+
 	return ind_vec_mirror

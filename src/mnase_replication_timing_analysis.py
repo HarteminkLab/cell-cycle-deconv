@@ -16,8 +16,8 @@ class MNaseOriginAnalysis:
 
 	"""
 
-	def __init__(self, replicate):
-		self.replicate = replicate
+	def __init__(self):
+		pass
 
 	def load_mnase_data(self, replicate, chromosome):
 		from src.sgd import get_chromosome_length

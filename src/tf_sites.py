@@ -112,3 +112,44 @@ class TFBindingSites:
 		if legend:
 			plt.legend(handles=handles, bbox_to_anchor=(1.2, 2.5), loc='upper left')
 
+	def select_tf(self, selected_tf):
+
+		rossi_sites = self.all_rossi_tf_dfs
+		tf_sites = rossi_sites[rossi_sites.tf == selected_tf]
+
+		tf_sites = tf_sites.sort_values(['chr', 'start']).reset_index(drop=True)
+
+		# First check if a site is near its neigbor
+		def filter_neighbors(tf_sites, window=200):
+		    """To avoid overcounting, filter out tf sites that are near neighbors.
+		    Currently we will default to keeping the first of the two instances.
+		    
+		    todo: May need to come up with a better plan for which of the two sites to keep.
+		    """
+
+		    # Recursively run the process until no sites are left to drop 
+		    original_sites = tf_sites.copy()
+		    total_dropped = []
+		    while True:
+		        drop_sites = []
+
+		        for i in range(0, len(tf_sites)-1):
+
+		            first = tf_sites.iloc[i]
+		            second = tf_sites.iloc[i+1]
+
+		            if (first.chr == second.chr) and (second.start-first.start < window):
+		                drop_sites.append(second.name)
+		        
+		        tf_sites = tf_sites.drop(drop_sites)
+		        total_dropped = total_dropped + drop_sites
+
+		        if len(drop_sites) == 0: break
+		    return tf_sites.reset_index(drop=True), original_sites.loc[total_dropped]
+
+		window = 200
+		filtered_tf_sites, dropped_sites = filter_neighbors(tf_sites, window)
+
+		print(f"Filtered out {len(dropped_sites)} sites which were within {window} of a nearby site")
+
+		self.filtered_tf_sites = filtered_tf_sites

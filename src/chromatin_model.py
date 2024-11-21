@@ -227,6 +227,7 @@ class ChromatinModel:
 		print_fl(f"The fitting norm is {self.rn:.2f}, "
 			  f"the smoothing norm is: {self.sn:.2f}")
 
+
 	def compute_ptr(self, quantiles=[0.2, 0.8]):
 
 		# -------- Compute the PTR ---------

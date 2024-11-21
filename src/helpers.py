@@ -3,6 +3,7 @@ import numpy as np
 import scipy.ndimage
 from math import comb
 from scipy.stats import norm
+from scipy.signal import windows
 
 # The initial population mass, used in the Qr and Mgr calculations
 START = 1000
@@ -615,6 +616,16 @@ def get_equal_partitions(vec, k):
 	return partition_indices
 
 
+def normalize_sum_ndarray(arr, axis=1):
+
+	if axis == 1:
+		arr = arr / arr.mean(axis=axis).reshape((-1, 1))
+	else:
+		arr = arr / arr.mean(axis=axis).reshape((1, -1))
+
+	return arr
+
+
 def normalize_max_min(dat, indices=None):
 	"""Normalize the input data to the min and max for comparing"""
 
@@ -656,3 +667,23 @@ def smooth_data(img, size=5, sigma=0.75):
 
 def proportion_indices(indices, props):
 	return np.array([indices[int(prop * len(indices))] for prop in props])
+
+
+def smooth_transitions_custom(data, window_size=3, sigma=0.5, power=1, axis=-1):
+	"""Apply smoothing along specified axis while preserving min/max values."""
+	window = windows.general_gaussian(window_size, power, sigma)
+	window = window / window.sum()
+	
+	def smooth_1d(x):
+
+		if x.sum() == 0: return x
+
+		padded = np.pad(x, (window_size//2, window_size//2), mode='edge')
+		smoothed = np.convolve(padded, window, mode='valid')
+
+		if (smoothed.max() - smoothed.min()) == 0: return x
+
+		# Scale to original range
+		return (smoothed - smoothed.min()) * (x.max() - x.min()) / (smoothed.max() - smoothed.min()) + x.min()
+	
+	return np.apply_along_axis(smooth_1d, axis, data)

@@ -8,22 +8,9 @@ import pandas as pd
 class ViolinPlotPlotter():
 
 	def __init__(self):
-		pass
 
-	def set_data(self, dfs_to_plot, data_key, group_key, group_name_key, category_names):
-
-		self.dfs_to_plot = dfs_to_plot
-		self.data_key = data_key
-		self.group_key = group_key
-		self.group_name_key = group_name_key
-		self.category_names = category_names
-		self.plot_outliers = True
-		self.plot_whiskers = True
-		self.legend = True
-		self.auto_xticks = True
-		self.color_prop_override = False
-		self.color = None
-		self.group_colors = None
+		self.mult = 0.002
+		self.bw = 0.001
 
 		# todo: default ylims for first violin example
 		# set this for future violins
@@ -32,6 +19,24 @@ class ViolinPlotPlotter():
 		# Box plot width
 		self.width = 0.075
 		self.padding = 0.025 # between grouped plots
+		self.plot_outliers = True
+		self.plot_whiskers = True
+		self.legend = True
+		self.auto_xticks = True
+		self.color_prop_override = False
+		self.color = None
+		self.group_colors = None
+		self.legend_loc = 'upper right'
+		self.legend_ncol = 2
+
+	def set_data(self, dfs_to_plot, data_key, group_key, group_name_key, category_names):
+
+		self.dfs_to_plot = dfs_to_plot
+		self.data_key = data_key
+		self.group_key = group_key
+		self.group_name_key = group_name_key
+		self.category_names = category_names
+
 
 	def create_box_plot_data(self, arr_dat):
 		q1, median, q3 = np.percentile(arr_dat, [25, 50, 75])
@@ -57,6 +62,9 @@ class ViolinPlotPlotter():
 			color = self.color
 		else:
 			color = plt.get_cmap('plasma_r')(color_prop*0.6+0.2)
+
+		if self.category_colors is not None:
+			color = self.category_colors[group_index]
 
 		# # For no categories, let's color the groups by different colors
 		if self.group_colors is not None:
@@ -114,7 +122,7 @@ class ViolinPlotPlotter():
 			y = _kde_sklearn(data, x, bw) * mult
 			return x, y
 
-		x, y = compute_density_curve(violin_data, mult=0.002)
+		x, y = compute_density_curve(violin_data, bw=self.bw, mult=self.mult)
 		plt.fill_betweenx(x, -y + x_location, y+x_location, color=color, zorder=0, alpha=0.75, lw=0)
 
 		return color
@@ -164,7 +172,7 @@ class ViolinPlotPlotter():
 
 		# Add these lines to the legend
 		if self.legend:
-			ax.legend(handles=legend_items, loc='center right', title="Replication")
+			ax.legend(handles=legend_items, loc=self.legend_loc, ncol=self.legend_ncol, title="Replication")
 
 		# Auto xticks
 		if self.auto_xticks:

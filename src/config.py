@@ -478,7 +478,7 @@ class Config:
 
 		return genelist_orfs
 
-	def get_key_timepoints_in_raw(self):
+	def get_key_timepoints_in_raw(self, full=False):
 
 		intervals = self.intervals_wt1[0]
 		mu0, lambda_len, gamma1, gamma2, alpha = intervals[0], intervals[1], \
@@ -504,6 +504,10 @@ class Config:
 		# end of the first cell cycle
 		g1_recovery_would_start_here = first_s_start - cg1_length
 		end_of_first_lambd = g1_recovery_would_start_here+lambda_len
+
+		if full:
+			return (g1_recovery_would_start_here, cg1_length, lambda_len,
+				s_length, mu0, first_s_start, first_s_end, end_of_first_lambd)
 
 		return mu0, first_s_start, first_s_end, end_of_first_lambd
 
@@ -544,7 +548,7 @@ def read_yl_vst_data_rep(replicate, drop_rep2_70=True):
 	return wt_data
 
 
-def load_yl_replicate1_rg1_alpha_vst_config(alpha=28):
+def load_yl_replicate1_rg1_alpha_vst_config(alpha=22):
 	"""Load the model in which alpha is set to delay between separation and cytokinesis"""
 	wt1 = read_yl_vst_data_rep(1)
 	model_wt1_file = f'models/yl_cell_cycle/wt1_rg1.{alpha}.label'
@@ -553,7 +557,7 @@ def load_yl_replicate1_rg1_alpha_vst_config(alpha=28):
 
 	return config
 
-def load_yl_replicate2_rg1_alpha_vst_config(alpha=22):
+def load_yl_replicate2_rg1_alpha_vst_config(alpha=20):
 	"""Load the model in which alpha is set to delay between separation and cytokinesis"""
 	wt2 = read_yl_vst_data_rep(2)
 
@@ -616,16 +620,10 @@ def plot_H(config, H=None):
 	import matplotlib.pyplot as plt
 	from src.figure_configs import FiguresConfig
 
-	rg1_cols = config.phase_columns['RG1']
-	cg1_cols = config.phase_columns['CG1']
-	dg1_cols = config.phase_columns['DG1']
+
+	phases = ['H', 'RG1', 'CG1', 'S', 'G2M']
 
 	H_cols = np.array([H.shape[1]-1])
-
-	if 'postG1' in config.phase_columns:
-		post_g1_cols = config.phase_columns['postG1']
-		phases = ['H', 'RG1', 'CG1', 'DG1', 'postG1']
-		cols_list = [H_cols, rg1_cols, cg1_cols, dg1_cols, post_g1_cols]
 
 	plt.figure(figsize=FiguresConfig.FIGSIZE_SHORT_EXTRAWIDE)
 	plt.subplot(1, 2, 1)
@@ -641,7 +639,7 @@ def plot_H(config, H=None):
 	prev = np.zeros(len(x))
 	for i in range(len(phases)):
 		phase = phases[i]
-		cols = cols_list[i]
+		cols = config.get_Hpositions_for_phase(phase)
 		color = color_for_key(phase)
 		y = prev+H[:, cols].sum(axis=1)
 		plt.fill_between(x, prev, y, color=color, label=phase)

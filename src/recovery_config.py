@@ -654,7 +654,7 @@ def load_yl_replicate2_rg1_alpha_vst_config(alpha=20):
 	return config
 
 
-def load_single_g1_config(replicate):
+def load_recovery_config(replicate):
 	if replicate == 1:
 		config = load_yl_replicate1_rg1_alpha_vst_config()
 	else:

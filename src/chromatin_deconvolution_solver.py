@@ -30,11 +30,7 @@ class ChromatinDeconvolveSolver:
 
 		f_i = self.config.get_Hpositions_for_branch('i')
 		f_t = self.config.get_Hpositions_for_branch('t')
-		f_it = np.concatenate([f_i, f_t])
-		f_it_mirror = create_mirror(f_it)
-
-		self.W = get_wavelet_kernel(len(f_it_mirror), type=self.wavelet)
-		self.f_it_mirror = f_it_mirror
+		f_b = self.config.get_Hpositions_for_branch('b')
 
 		# todo: come back to this, but it appears as though it will
 		# be important to switch to this way of smoothing
@@ -46,12 +42,16 @@ class ChromatinDeconvolveSolver:
 		# cg1 pg1 transition
 
 		f_t_mirror = create_mirror(np.concatenate([f_t, f_t]))
-		f_i_mirror = create_mirror(f_i)
+		f_b_mirror = create_mirror(np.concatenate([f_b, f_b]))
+		f_i_mirror = create_mirror(np.concatenate([np.flip(f_i, axis=0), f_i]))
 
 		self.f_t_mirror = f_t_mirror
 		self.f_i_mirror = f_i_mirror
+		self.f_b_mirror = f_b_mirror
+
 		self.W_i = get_wavelet_kernel(len(f_i_mirror), type=self.wavelet)
 		self.W_t = get_wavelet_kernel(len(f_t_mirror), type=self.wavelet)
+		self.W_b = get_wavelet_kernel(len(f_b_mirror), type=self.wavelet)
 
 
 	def deconvolve_G_iteratively(self, gamma, verbose=False, verbose_progress=True):
@@ -111,9 +111,6 @@ class ChromatinDeconvolveSolver:
 
 		g_mean = G.mean()
 
-		f_it_mirror = self.f_it_mirror
-		W = self.W
-
 		# -------- Define the optimization ------------
 
 		# f whose rows span the columns of H
@@ -125,12 +122,15 @@ class ChromatinDeconvolveSolver:
 		# with the updated alpha, the i t and b are approximately all the same length
 		# this was previously 2, when i was half the length of the other two branches
 
-		# The smoothing constraints
-		smooth_f_it_result = W@f[f_it_mirror]
-
 		# todo: testing separate i and t constraints:
 		smooth_f_i_result = self.W_i@f[self.f_i_mirror]
 		smooth_f_t_result = self.W_t@f[self.f_t_mirror]
+
+		from src.config import Config as distinct_config_class
+
+		if type(self.config) == distinct_config_class:
+			smooth_f_b_result = self.W_b@f[self.f_b_mirror]
+		else: smooth_f_b_result = 0
 
 		elementwise_result = cvxpy.multiply(H@f, 1.0/G) - 1
 
@@ -153,6 +153,7 @@ class ChromatinDeconvolveSolver:
 			# for the t branch
 			+ self.gamma * cvxpy.sum(cvxpy.abs(smooth_f_i_result))/g_mean
 			+ self.gamma * cvxpy.sum(cvxpy.abs(smooth_f_t_result))/g_mean
+			+ self.gamma * cvxpy.sum(cvxpy.abs(smooth_f_b_result))/g_mean
 		)
 
 		# -------- End definition of the optimization ------------
@@ -201,10 +202,11 @@ class ChromatinDeconvolveSolver:
 		# computation on a matrix, so we manually take the absolute values
 		# and take the sum.
 		# Normalize by the gene expression level and the size of the grid, m
-		f_it_matmul_res = np.matmul(self.W, f[self.f_it_mirror])
+		f_i_matmul_res = np.matmul(self.W_i, f[self.f_i_mirror])
+		f_t_matmul_res = np.matmul(self.W_t, f[self.f_t_mirror])
 
 		eps = 1e-5
-		sn = (np.sum(np.abs(f_it_matmul_res))) / (g_mean+eps) / m
+		sn = (np.sum(np.abs(f_i_matmul_res)) + np.sum(np.abs(f_t_matmul_res))) / (g_mean+eps) / m
 
 		l1_norm_on_coeffs = 0
 		self.rn, self.sn, self.l1_norm_on_coeffs = rn, sn, l1_norm_on_coeffs
