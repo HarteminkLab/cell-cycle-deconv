@@ -28,7 +28,6 @@ class ModelCreation:
 
 	def __init__(self, posteriors_filepath, output_model_path):
 
-		self.Rname = "RG1"
 		self.CG1_intervals = "t 0"
 		self.PG1_intervals = "t 1 b 1"
 		self.RPG1_intervals = "i 1"
@@ -126,7 +125,6 @@ class ModelCreation:
 
 	def get_model_cfg_str(self):
 
-		Rname = self.Rname
 		CG1_intervals = self.CG1_intervals
 		PG1_intervals = self.PG1_intervals
 		RPG1_intervals = self.RPG1_intervals
@@ -146,13 +144,13 @@ gamma1 %f
 gamma2 %f
 halted %f
 # description
-%s i 0
+RG1 i 0
+RpostG1 %s
 CG1 %s
 DG1 b 0
 postG1 %s
-RpostG1 %s
 %s""" % (-mu0, lambd, delta, sigma0, sigmav, alpha, beta, gamma1, gamma2, halted,
-			 Rname, CG1_intervals, PG1_intervals, RPG1_intervals, intervals)
+		RPG1_intervals, CG1_intervals, PG1_intervals, intervals)
 
 		return ret_str
 
