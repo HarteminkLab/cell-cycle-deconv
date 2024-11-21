@@ -427,10 +427,12 @@ class Config:
 		rg1_indices = self.get_timepoints_phases_Hpositions_for_branch('i')[0][2]
 		cg1_indices = self.get_timepoints_phases_Hpositions_for_branch('t')[0][2]
 		dg1_indices = cg1_indices # Same indices as CG1
+
+		rpostg1_indices = self.get_timepoints_phases_Hpositions_for_branch('i')[1][2]
 		postg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[1][2]
 
 		Hpositions_dic = {
-			'i': np.concatenate([rg1_indices, postg1_indices]),
+			'i': np.concatenate([rg1_indices, rpostg1_indices]),
 			't': np.concatenate([cg1_indices, postg1_indices]),
 			'b': np.concatenate([dg1_indices, postg1_indices])
 		}

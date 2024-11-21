@@ -94,7 +94,12 @@ class Model:
 		f_it = np.concatenate([f_i, f_t])
 		f_it = create_mirror(f_it)
 
+		f_i_mirror = create_mirror(f_i)
+		f_t_mirror = create_mirror(np.concatenate([f_t, f_t]))
+
 		W = get_wavelet_kernel(len(f_it))
+		W_i = get_wavelet_kernel(len(f_i_mirror))
+		W_t = get_wavelet_kernel(len(f_t_mirror))
 
 		# Convex optimization
 		n, m = self.H.shape
@@ -103,15 +108,21 @@ class Model:
 		# There are twice as many t and b indices compared to i
 		# Factor based on time in recovery compared to t and b
 		# so multiply i's smoothing term by 2
-
 		smooth_f_it_result = W@f[f_it]
+		smooth_f_i_result = W_i@f[f_i_mirror]
+		smooth_f_t_result = W_t@f[f_t_mirror]
+
 		objective = cp.Minimize(
 
 			# Fitting norm
 			cp.square(cp.pos(cp.norm(self.H@f/self.g - 1))) + 
 
-			# Smoothing norm
-			+ self.gamma * cp.sum(cp.abs(smooth_f_it_result))/self.g.mean()  
+			# Smoothing norm for it
+			# + self.gamma * cp.sum(cp.abs(smooth_f_it_result))/self.g.mean()  
+
+			# Smoothing norm for i and t separately
+			+ self.gamma * cp.sum(cp.abs(smooth_f_i_result))/self.g.mean()  
+			+ self.gamma * cp.sum(cp.abs(smooth_f_t_result))/self.g.mean()  
 		)
 
 		# To debug suboptimal fits, some genes need a non-negative solution.
@@ -392,6 +403,7 @@ def color_for_key(key):
 
 		 "Delta": np.array([227, 194, 163])/255.,
 		 "postG1": np.array([223, 192, 158])/255.,
+		 "RpostG1": np.array([200, 170, 140])/255.,
 
 		 "G2M": np.array([147, 168, 198])/255.,
 		 "S": np.array([158, 189, 140])/255.,
