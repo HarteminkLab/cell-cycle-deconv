@@ -8,7 +8,6 @@ import numpy as np
 from matplotlib import pyplot as plt
 from src.helpers import get_wavelet_kernel
 from src.utils import print_fl
-from src.model import create_mirror
 
 
 from src.wavelets_2d_linalg import decompose_flattened_kron_coeffs, \
@@ -30,28 +29,9 @@ class ChromatinDeconvolveSolver:
 
 		f_i = self.config.get_Hpositions_for_branch('i')
 		f_t = self.config.get_Hpositions_for_branch('t')
-		f_b = self.config.get_Hpositions_for_branch('b')
 
-		# todo: come back to this, but it appears as though it will
-		# be important to switch to this way of smoothing
-		# as there are implications to creating a mirror on f_it only
-		# f_it only will mirror the ends and smooth the start of rg1 and end of pg1
-		# with equal importance to pg1 to cg1
-
-		# whereas below, we can control and emphasize the importance of the
-		# cg1 pg1 transition
-
-		f_t_mirror = create_mirror(np.concatenate([f_t, f_t]))
-		f_b_mirror = create_mirror(np.concatenate([f_b, f_b]))
-		f_i_mirror = create_mirror(np.concatenate([np.flip(f_i, axis=0), f_i]))
-
-		self.f_t_mirror = f_t_mirror
-		self.f_i_mirror = f_i_mirror
-		self.f_b_mirror = f_b_mirror
-
-		self.W_i = get_wavelet_kernel(len(f_i_mirror), type=self.wavelet)
-		self.W_t = get_wavelet_kernel(len(f_t_mirror), type=self.wavelet)
-		self.W_b = get_wavelet_kernel(len(f_b_mirror), type=self.wavelet)
+		self.f_it = np.concatenate([f_i, f_t])
+		self.W_it = get_wavelet_kernel(len(self.f_it))
 
 
 	def deconvolve_G_iteratively(self, gamma, verbose=False, verbose_progress=True):
@@ -123,8 +103,9 @@ class ChromatinDeconvolveSolver:
 		# this was previously 2, when i was half the length of the other two branches
 
 		# todo: testing separate i and t constraints:
-		smooth_f_i_result = self.W_i@f[self.f_i_mirror]
-		smooth_f_t_result = self.W_t@f[self.f_t_mirror]
+		smooth_f_it_result = self.W_it@f[self.f_it]
+		smooth_f_i_result = self.W_i@f[self.f_i]
+		smooth_f_t_result = self.W_t@f[self.f_t]
 
 		from src.config import Config as distinct_config_class
 
@@ -147,13 +128,7 @@ class ChromatinDeconvolveSolver:
 			cvxpy.sum(cvxpy.norm(elementwise_result, 'fro')**2)
 
 			# Smoothing i and t together is more efficient, but
-			# + self.gamma * cvxpy.sum(cvxpy.abs(smooth_f_it_result))/g_mean
-
-			# Smoothing i and t separately enforces a smoother transition
-			# for the t branch
-			+ self.gamma * cvxpy.sum(cvxpy.abs(smooth_f_i_result))/g_mean
-			+ self.gamma * cvxpy.sum(cvxpy.abs(smooth_f_t_result))/g_mean
-			+ self.gamma * cvxpy.sum(cvxpy.abs(smooth_f_b_result))/g_mean
+			+ self.gamma * cvxpy.sum(cvxpy.abs(smooth_f_it_result))/g_mean
 		)
 
 		# -------- End definition of the optimization ------------
@@ -202,11 +177,10 @@ class ChromatinDeconvolveSolver:
 		# computation on a matrix, so we manually take the absolute values
 		# and take the sum.
 		# Normalize by the gene expression level and the size of the grid, m
-		f_i_matmul_res = np.matmul(self.W_i, f[self.f_i_mirror])
-		f_t_matmul_res = np.matmul(self.W_t, f[self.f_t_mirror])
+		f_i_matmul_res = np.matmul(self.W_it, f[self.f_it])
 
 		eps = 1e-5
-		sn = (np.sum(np.abs(f_i_matmul_res)) + np.sum(np.abs(f_t_matmul_res))) / (g_mean+eps) / m
+		sn = np.sum(np.abs(f_it_matmul_res)) / (g_mean+eps) / m
 
 		l1_norm_on_coeffs = 0
 		self.rn, self.sn, self.l1_norm_on_coeffs = rn, sn, l1_norm_on_coeffs

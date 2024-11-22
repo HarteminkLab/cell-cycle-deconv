@@ -92,14 +92,9 @@ class Model:
 		f_t = self.config.get_Hpositions_for_branch('t')
 
 		f_it = np.concatenate([f_i, f_t])
-		f_it = create_mirror(f_it)
+		f_t = np.concatenate([f_t, f_t])
 
-		f_i_mirror = create_mirror(f_i)
-		f_t_mirror = create_mirror(np.concatenate([f_t, f_t]))
-
-		W = get_wavelet_kernel(len(f_it))
-		W_i = get_wavelet_kernel(len(f_i_mirror))
-		W_t = get_wavelet_kernel(len(f_t_mirror))
+		W_it = get_wavelet_kernel(len(f_it))
 
 		# Convex optimization
 		n, m = self.H.shape
@@ -108,9 +103,7 @@ class Model:
 		# There are twice as many t and b indices compared to i
 		# Factor based on time in recovery compared to t and b
 		# so multiply i's smoothing term by 2
-		smooth_f_it_result = W@f[f_it]
-		smooth_f_i_result = W_i@f[f_i_mirror]
-		smooth_f_t_result = W_t@f[f_t_mirror]
+		smooth_f_it_result = W_it@f[f_it]
 
 		objective = cp.Minimize(
 
@@ -118,11 +111,7 @@ class Model:
 			cp.square(cp.pos(cp.norm(self.H@f/self.g - 1))) + 
 
 			# Smoothing norm for it
-			# + self.gamma * cp.sum(cp.abs(smooth_f_it_result))/self.g.mean()  
-
-			# Smoothing norm for i and t separately
-			+ self.gamma * cp.sum(cp.abs(smooth_f_i_result))/self.g.mean()  
-			+ self.gamma * cp.sum(cp.abs(smooth_f_t_result))/self.g.mean()  
+			+ self.gamma * cp.sum(cp.abs(smooth_f_it_result))/self.g.mean()  
 		)
 
 		# To debug suboptimal fits, some genes need a non-negative solution.
@@ -141,7 +130,7 @@ class Model:
 		# predicted g
 		self.pred_g = np.matmul(self.H, f)
 
-		sn = (np.linalg.norm(np.matmul(W, f[f_it]), 1)) / np.mean(self.g)
+		sn = (np.linalg.norm(np.matmul(W_it, f[f_it]), 1)) / np.mean(self.g)
 		rn = np.square(np.clip(np.linalg.norm(np.matmul(self.H, f) / (self.g) - 1), 0, None))
 
 		self.sn = sn
@@ -324,10 +313,10 @@ class Model:
 			ax2.set_title("Initial branch")
 
 		if not abbreviated:
-			i_timepoints = _plot_branch(ax5, 'i', linestyle='dashed', ylim=ylim)
-			t_timepoints = _plot_branch(ax5, 't', linestyle='dashed', ylim=ylim, 
+			i_timepoints = _plot_branch(ax5, 'i', linestyle='solid', ylim=ylim)
+			t_timepoints = _plot_branch(ax5, 't', linestyle='solid', ylim=ylim, 
 				start_offset=i_timepoints[-1])
-			_plot_branch(ax5, 'b', start_offset=t_timepoints[-1], linestyle='dashed', ylim=ylim)
+			_plot_branch(ax5, 'b', start_offset=t_timepoints[-1], linestyle='solid', ylim=ylim)
 			ax5.set_title("Single cell profile")
 
 		if not abbreviated:
@@ -495,7 +484,7 @@ def create_mirror(ind_vec):
 	else:
 		inset_index = len(ind_vec) // 2
 
-	ind_vec_mirror = np.concatenate([np.flip(ind_vec[:inset_index]), 
+	ind_vec = np.concatenate([np.flip(ind_vec[:inset_index]), 
 		ind_vec, np.flip(ind_vec[-inset_index:])])
 
-	return ind_vec_mirror
+	return ind_vec

@@ -467,14 +467,17 @@ class Config:
 
 		dg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[0][2]
 		postg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[1][2]
+
 		cg1_indices = self.get_timepoints_phases_Hpositions_for_branch('t')[0][2]
 		rg1_indices = self.get_timepoints_phases_Hpositions_for_branch('i')[0][2]
+		rpostg1_indices = self.get_timepoints_phases_Hpositions_for_branch('i')[1][2]
 
 		s_indices, g2m_indices = self.get_s_g2m_indices()
 
 		Hpositions_dic = {
 			'DG1': dg1_indices,
 			'postG1': postg1_indices,
+			'RpostG1': rpostg1_indices,
 			'CG1': cg1_indices,
 			'RG1': rg1_indices,
 			'S': s_indices,
@@ -710,15 +713,10 @@ def plot_H(config, H=None):
 	import matplotlib.pyplot as plt
 	from src.figure_configs import FiguresConfig
 
-	rg1_cols = config.phase_columns['RG1']
-	cg1_cols = config.phase_columns['CG1']
+
+	phases = ['H', 'RG1', 'CG1', 'RpostG1', 'postG1']
 
 	H_cols = np.array([H.shape[1]-1])
-
-	if 'postG1' in config.phase_columns:
-		post_g1_cols = config.phase_columns['postG1']
-		phases = ['H', 'RG1', 'CG1', 'postG1']
-		cols_list = [H_cols, rg1_cols, cg1_cols, post_g1_cols]
 
 	plt.figure(figsize=FiguresConfig.FIGSIZE_SHORT_EXTRAWIDE)
 	plt.subplot(1, 2, 1)
@@ -732,18 +730,11 @@ def plot_H(config, H=None):
 	plt.title("Phase proportions over time", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
 	x = config.WT1_TIMEPOINTS
 	prev = np.zeros(len(x))
-
-	label_mapping = {
-		'H': 'Halted',
-		'RG1': 'Recovery-G1',
-		'CG1': 'G1',
-		'postG1': 'post-G1',
-	}
 	for i in range(len(phases)):
 		phase = phases[i]
-		cols = cols_list[i]
+		cols = config.get_Hpositions_for_phase(phase)
 		color = color_for_key(phase)
 		y = prev+H[:, cols].sum(axis=1)
-		plt.fill_between(x, prev, y, color=color, label=label_mapping[phase])
+		plt.fill_between(x, prev, y, color=color, label=phase)
 		prev = y
 	plt.legend()

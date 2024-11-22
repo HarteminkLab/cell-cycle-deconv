@@ -11,13 +11,16 @@ import pandas as pd
 class GenomeDeconvolution(object):
 	"""Load and plot figures for the first result figure"""
 
-	def __init__(self, save_dir):
+	def __init__(self, save_dir, configs=None):
 
 		self.save_directory = save_dir
 
 		# Create the H for the updated model config to include the H config
-		from src.config import load_configs_by_config_type
-		config1, config2 = load_configs_by_config_type('shared')
+		if configs is None:
+			from src.config import load_configs_by_config_type
+			config1, config2 = load_configs_by_config_type('shared')
+		else:
+			config1, config2 = tuple(configs)
 
 		H, Hpositions = config1.calcH_function(config1.intervals_wt1, config1.WT1_TIMEPOINTS)
 		self.H = H

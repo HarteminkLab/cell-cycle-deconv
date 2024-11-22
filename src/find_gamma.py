@@ -50,8 +50,11 @@ class FindOptimalGamma:
 
 		DEFAULT_RN_CUTOFF = 1
 
-		GAMMA_MIN = 0.0001
-		GAMMA_MAX = 0.001
+		# 11/21/24 - Testing adding an independent recovery S/G2M phase, and removal of mirroring
+		# With this addition higher gamma values are needed, thus the increase from 
+		# 0.0001, 0.001 as the gamma boundaries
+		GAMMA_MIN = 0.001
+		GAMMA_MAX = 0.01
 
 		# left boundary
 		rn_rate_left = 1.10
