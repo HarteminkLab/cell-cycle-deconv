@@ -132,7 +132,7 @@ class CombinedChromatinModel:
 		print_fl(f"Deconvolving combined model with gamma={self.gamma}")
 		print_fl(f"Deconvolving bin size: {self.chrom1_model.bin_width}x{self.chrom1_model.bin_height}")
 		print_fl(f"of G shape: {self.G.shape}")
-		print_fl(f"Padding type: {self.padding_type}")
+		print_fl(f"Padding type: {padding_type}")
 		print_fl(f"Deconvolving with gamma={self.gamma}")
 
 		self.deconvolved_f_value = self.solver.deconvolve_G_iteratively(self.gamma,
