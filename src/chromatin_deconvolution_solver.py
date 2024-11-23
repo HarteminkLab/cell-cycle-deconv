@@ -19,13 +19,14 @@ class ChromatinDeconvolveSolver:
 	for gamma values and reusing the same
 	problem definition"""
 
-	def __init__(self, config, H, G, solver=cvxpy.MOSEK, wavelet="Symmlet"):
+	def __init__(self, config, H, G, solver=cvxpy.MOSEK, wavelet="Symmlet", padding_type='left'):
 
 		self.config = config
 		self.solver = solver
 		self.wavelet = wavelet
 		self.H = H
 		self.G = G
+		self.padding_type = padding_type
 
 		f_i = self.config.get_Hpositions_for_branch('i')
 		f_t = self.config.get_Hpositions_for_branch('t')
@@ -47,23 +48,23 @@ class ChromatinDeconvolveSolver:
 		m = self.G.shape[1]
 		running_sn = 0
 		running_rn = 0
+		self.gamma = gamma
 
 		for i in range(m):
 
 			# Set the solver's G value
-			current_G = self.G[:, i:i+1]
-			self.define_deconvolution_problem(current_G)
+			current_g = self.G[:, i]
+
+			from src.deconvolution_solver import DeconvolutionSolver
+
+			deconvolution_solver = DeconvolutionSolver(self.config, current_g, 
+				self.H, gamma=gamma, padding_type=self.padding_type)
 
 			try:
-				self.solve(gamma_value=gamma, verbose=verbose)
+				current_f, self.sn, self.rn = deconvolution_solver.deconvolve()
 			except cvxpy.error.SolverError:
-				print(f"Error solving i={i}, gamma={gamma}. Skipping.")
-				continue
-			except ValueError:
-				print(f"Error solving i={i}, gamma={gamma}. Skipping.")
 				continue
 
-			current_f = self.f.value.flatten()
 			deconvolved_f_value[:, i] = current_f
 
 			running_rn += self.rn / m
@@ -79,111 +80,4 @@ class ChromatinDeconvolveSolver:
 
 
 	def define_deconvolution_problem(self, G):
-
-		solver = self.solver
-
-		H = self.H
-		
-		# We will add a very small value to g, to avoid divide by zero errors
-		eps = 1e-5
-		G = G + eps
-		self.current_G = G
-
-		g_mean = G.mean()
-
-		# -------- Define the optimization ------------
-
-		# f whose rows span the columns of H
-		# and columns are the length of g's columns
-		f = cvxpy.Variable((H.shape[1], G.shape[1]))
-
-		self.gamma = cvxpy.Parameter(nonneg=True, name='gamma')
-
-		# with the updated alpha, the i t and b are approximately all the same length
-		# this was previously 2, when i was half the length of the other two branches
-
-		# todo: testing separate i and t constraints:
-		smooth_f_it_result = self.W_it@f[self.f_it]
-		smooth_f_i_result = self.W_i@f[self.f_i]
-		smooth_f_t_result = self.W_t@f[self.f_t]
-
-		from src.config import Config as distinct_config_class
-
-		if type(self.config) == distinct_config_class:
-			smooth_f_b_result = self.W_b@f[self.f_b_mirror]
-		else: smooth_f_b_result = 0
-
-		elementwise_result = cvxpy.multiply(H@f, 1.0/G) - 1
-
-		n = G.shape[0]
-		m = G.shape[1]
-		u = H.shape[1]
-
-		constraints = [f >= 0]
-
-		# -------------------------------------------------
-
-		objective = cvxpy.Minimize(
-
-			cvxpy.sum(cvxpy.norm(elementwise_result, 'fro')**2)
-
-			# Smoothing i and t together is more efficient, but
-			+ self.gamma * cvxpy.sum(cvxpy.abs(smooth_f_it_result))/g_mean
-		)
-
-		# -------- End definition of the optimization ------------
-
-		# Perform the convex optimization
-		self.prob = cvxpy.Problem(objective, constraints)
-		self.f = f
-
-	def solve(self, gamma_value, verbose=False):
-
-		self.gamma.value = gamma_value
-		self.verbose = verbose
-
-		# The epsilon value affects the precision of the solver
-		self.result = self.prob.solve(solver=self.solver, warm_start=True, 
-			verbose=self.verbose, eps=1e-4)
-		f = self.f.value
-
-		if self.result == float('-inf'):
-			raise ValueError("No result, possibly too low of coverage for this gene")
-
-		# ------- Upon completion, compute the smoothing norm and 
-		#         fitting/residual norms --------------
-
-		H = self.H
-		G = self.current_G
-		g_mean = G.mean()
-
-		eps = 1e-5
-		G = G + eps
-
-		n = G.shape[0]
-		m = G.shape[1]
-		u = H.shape[1]
-
-		# Extending the deconvolution a matrix form, 
-		# The norm is computing us the Frobeius norm
-		# Which is equivalent to the sum of squares of the
-		# individual elements in the matrix result
-		# Normalize by the result by the size of the grid, m
-		matmul_res = np.matmul(H, f) / G - 1
-		rn = np.sum(matmul_res**2) / m # Equivalent to: np.linalg.norm(matmul_res, ord='fro')**2 / m
-
-		# Extending the smoothing term, is a little trickier
-		# There is no predefined name for the L1 norm type of
-		# computation on a matrix, so we manually take the absolute values
-		# and take the sum.
-		# Normalize by the gene expression level and the size of the grid, m
-		f_i_matmul_res = np.matmul(self.W_it, f[self.f_it])
-
-		eps = 1e-5
-		sn = np.sum(np.abs(f_it_matmul_res)) / (g_mean+eps) / m
-
-		l1_norm_on_coeffs = 0
-		self.rn, self.sn, self.l1_norm_on_coeffs = rn, sn, l1_norm_on_coeffs
-
-		return f, rn, sn, l1_norm_on_coeffs
-
+		self.G = G

@@ -2,14 +2,11 @@
 from math import comb
 from matplotlib import pyplot as plt
 from scipy.stats import norm
-from src.helpers import calcH, createF, get_wavelet_kernel
+from src.helpers import calcH
 
 from src.calcH_single_g1 import calcH as calcH_single_g1
 from src.single_G1_config import Config as Config_single_G1
-
 from src.sgd import get_gene_name_orf_name
-
-import cvxpy as cp
 import numpy as np
 import pandas as pd
 from src.utils import print_fl
@@ -88,54 +85,13 @@ class Model:
 
 	def deconvolve(self, enforce_non_negative=True):
 
-		f_i = self.config.get_Hpositions_for_branch('i')
-		f_t = self.config.get_Hpositions_for_branch('t')
+		from src.deconvolution_solver import DeconvolutionSolver
 
-		f_it = np.concatenate([f_i, f_t])
-		f_t = np.concatenate([f_t, f_t])
-
-		W_it = get_wavelet_kernel(len(f_it))
-
-		# Convex optimization
-		n, m = self.H.shape
-		f = cp.Variable(m)
-
-		# There are twice as many t and b indices compared to i
-		# Factor based on time in recovery compared to t and b
-		# so multiply i's smoothing term by 2
-		smooth_f_it_result = W_it@f[f_it]
-
-		objective = cp.Minimize(
-
-			# Fitting norm
-			cp.square(cp.pos(cp.norm(self.H@f/self.g - 1))) + 
-
-			# Smoothing norm for it
-			+ self.gamma * cp.sum(cp.abs(smooth_f_it_result))/self.g.mean()  
-		)
-
-		# To debug suboptimal fits, some genes need a non-negative solution.
-		# This flag is to confirm that this is indeed the reason for the suboptimal fits.
-		if enforce_non_negative:
-			constraints = [f >= 0]
-		else:
-			constraints = []
-
-		prob = cp.Problem(objective, constraints)
-		result = prob.solve(solver=cp.MOSEK)
-
-		# Convert it into a numpy array
-		f = f.value
+		deconvolution_solver = DeconvolutionSolver(self.config, self.g, self.H, self.gamma)
+		self.f, self.sn, self.rn = deconvolution_solver.deconvolve()
 
 		# predicted g
-		self.pred_g = np.matmul(self.H, f)
-
-		sn = (np.linalg.norm(np.matmul(W_it, f[f_it]), 1)) / np.mean(self.g)
-		rn = np.square(np.clip(np.linalg.norm(np.matmul(self.H, f) / (self.g) - 1), 0, None))
-
-		self.sn = sn
-		self.rn = rn
-		self.f = f
+		self.pred_g = np.matmul(self.H, self.f)
 		self.compute_ptr()
 
 

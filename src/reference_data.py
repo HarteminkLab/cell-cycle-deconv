@@ -1,6 +1,7 @@
 
 
 import pandas as pd
+import matplotlib.pyplot as plt
 
 
 def load_spellman_orfs():
@@ -112,12 +113,12 @@ def save_PAS_nucs_to_disk():
 	meta_paths = glob('output/deconvolve_sharedg1_g0066_11x11_PAS_2024_09_12/chromatin/*meta*')
 	meta_df = pd.DataFrame()
 	for meta_path in meta_paths:
-	    loaded_dat = pd.read_csv(meta_path).set_index('Unnamed: 0')
-	    meta_df = pd.concat([meta_df, loaded_dat])
+		loaded_dat = pd.read_csv(meta_path).set_index('Unnamed: 0')
+		meta_df = pd.concat([meta_df, loaded_dat])
 	meta_df['replicate_1_PAS_nuc'] = meta_df['rep1_+1']
 	meta_df['replicate_2_PAS_nuc'] = meta_df['rep1_+2']
 	meta_df = meta_df[['replicate_1_PAS_nuc', 'replicate_2_PAS_nuc']].reset_index().rename(columns={
-	    'Unnamed: 0': 'orf_name'}).set_index('orf_name')
+		'Unnamed: 0': 'orf_name'}).set_index('orf_name')
 	meta_df.to_csv('datasets/computed_mnase/computed_PAS_nucs.csv')
 
 
@@ -126,7 +127,7 @@ def load_chrom_replication_timing():
 	from src.config import load_configs_by_config_type
 
 	replication_timing = pd.read_csv(
-	    'data/replication_timing/yl_2019/chrom_replication_timing_shared.csv')
+		'data/replication_timing/yl_2019/chrom_replication_timing_shared.csv')
 	replication_timing = replication_timing.set_index(['chr', 'start'])
 	replication_timing['replication_time_1'] = 0
 	replication_timing['replication_time_2'] = 0
@@ -134,13 +135,46 @@ def load_chrom_replication_timing():
 	config1, config2 = load_configs_by_config_type('shared')
 
 	for index, row in replication_timing.iterrows():
-	    repl_index = row.replication_index
-	    replication_tp_repl1 = config1.get_timepoint_for_index(repl_index)
-	    replication_tp_repl2 = config2.get_timepoint_for_index(repl_index)
-	    replication_timing.loc[index, 'replication_time_1'] = replication_tp_repl1
-	    replication_timing.loc[index, 'replication_time_2'] = replication_tp_repl2
+		repl_index = row.replication_index
+		replication_tp_repl1 = config1.get_timepoint_for_index(repl_index)
+		replication_tp_repl2 = config2.get_timepoint_for_index(repl_index)
+		replication_timing.loc[index, 'replication_time_1'] = replication_tp_repl1
+		replication_timing.loc[index, 'replication_time_2'] = replication_tp_repl2
 
 	replication_timing['replication_time'] = (replication_timing.replication_time_1+replication_timing.replication_time_2)/2
 
 	return replication_timing
 
+
+def plot_guo_gene_expression(orf_name):
+	guo_f_df = pd.read_csv('datasets/datasets_from_web_deconvolution.cs.duke.edu/deconvolved_profiles.tsv', sep='\t').set_index('SystematicName')
+	tp_cols = guo_f_df.columns[2:]
+
+	gene = guo_f_df.loc[orf_name][tp_cols]
+
+	df_index = tp_cols
+
+	r_values = [x for x in df_index if x.startswith('R')]
+	d_values = [x for x in df_index if x.startswith('D')]
+	c_values = [x for x in df_index if x.startswith('C')]
+
+	# To get just the numbers for each:
+	r_numbers = [int(x.split(':')[1].rstrip(')')) for x in r_values]
+	d_numbers = [int(x.split(':')[1].rstrip(')')) for x in d_values]
+	c_numbers = [int(x.split(':')[1].rstrip(')')) for x in c_values]
+
+	plt.figure(figsize=(9, 2))
+	plt.subplot(1, 3, 1)
+	plt.plot(r_numbers, gene[r_values])
+	plt.title("Recovery")
+	plt.ylim(0, gene.max()*1.1)
+
+	plt.subplot(1, 3, 2)
+	plt.plot(c_numbers, gene[c_values])
+	plt.title("Mother")
+	plt.ylim(0, gene.max()*1.1)
+
+	plt.subplot(1, 3, 3)
+	plt.plot(d_numbers, gene[d_values])
+	plt.title("Daughter")
+	plt.ylim(0, gene.max()*1.1)

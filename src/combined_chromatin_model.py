@@ -55,7 +55,8 @@ class CombinedChromatinModel:
 		self.chrom2_model.load_mnase_orc(orc_or_ars)
 
 
-	def	setup_deconv_model(self, gamma=0.006, G=None, G1=None, G2=None, wavelet="Symmlet"):
+	def	setup_deconv_model(self, gamma=0.006, G=None, G1=None, G2=None, wavelet="Symmlet",
+			padding_type='left'):
 		from src.single_G1_config import Config as Config_single_G1
 		from src.model import Model
 
@@ -107,7 +108,7 @@ class CombinedChromatinModel:
 		self.deconv_model.gamma = self.gamma
 
 		self.solver = ChromatinDeconvolveSolver(self.deconv1_model.config, self.H, self.G,
-			wavelet=wavelet)
+			wavelet=wavelet, padding_type=padding_type)
 		self.solver.define_deconvolution_problem(self.G)
 
 		# For plotting results
@@ -121,16 +122,17 @@ class CombinedChromatinModel:
 
 
 	def deconvolve(self, verbose=False, gamma=0.0066, G=None, G1=None, G2=None,
-			wavelet="Symmlet", verbose_progress=True):
+			wavelet="Symmlet", verbose_progress=True, padding_type='left'):
 
 		from src.timer import Timer
 
 		timer = Timer()
-		self.setup_deconv_model(gamma, G=G, G1=G1, G2=G2, wavelet=wavelet)
+		self.setup_deconv_model(gamma, G=G, G1=G1, G2=G2, wavelet=wavelet, padding_type=padding_type)
 
 		print_fl(f"Deconvolving combined model with gamma={self.gamma}")
 		print_fl(f"Deconvolving bin size: {self.chrom1_model.bin_width}x{self.chrom1_model.bin_height}")
 		print_fl(f"of G shape: {self.G.shape}")
+		print_fl(f"Padding type: {self.padding_type}")
 		print_fl(f"Deconvolving with gamma={self.gamma}")
 
 		self.deconvolved_f_value = self.solver.deconvolve_G_iteratively(self.gamma,
@@ -144,7 +146,7 @@ class CombinedChromatinModel:
 
 		self.set_results(self.deconvolved_f_value, 
 						  self.rn, self.sn,
-						  self.solver.gamma.value)
+						  self.solver.gamma)
 
 	def find_origin_p1_and_m1_nucleosome_position(self):
 		self.chrom1_model.find_origin_p1_and_m1_nucleosome_position()
@@ -160,7 +162,6 @@ class CombinedChromatinModel:
 
 		timer = Timer()
 
-		# Let's stick to no spatial smoothing for now
 		self.setup_deconv_model()
 		self.find_gamma_chromatin = FindOptimalGammaChromatin(self.solver)
 		self.found_optimal_success = self.find_gamma_chromatin.find_optimal(silence=False)
@@ -419,7 +420,7 @@ class CombinedChromatinModel:
 
 		df = pd.DataFrame({
 			'rn': self.solver.rn, 'sn': self.solver.sn, 
-				'gm': self.solver.gamma.value,
+				'gm': self.solver.gamma,
 			'config1': self.chrom1_model.config.name,
 			'config2': self.chrom2_model.config.name,
 			'model1_path': self.chrom1_model.config.model_wt1_file,
@@ -483,7 +484,7 @@ class CombinedChromatinModel:
 
 		df = pd.DataFrame({
 			'rn': self.solver.rn, 'sn': self.solver.sn, 
-				'gm': self.solver.gamma.value,
+				'gm': self.solver.gamma,
 			'config1': self.chrom1_model.config.name,
 			'config2': self.chrom2_model.config.name,
 			'model1_path': self.chrom1_model.config.model_wt1_file,
@@ -545,7 +546,7 @@ def load_chromatin_model_from_disk(gene_name, chromatin_dir, f_only=False):
 
 	chromatin_model.solver.rn = meta_data.rn
 	chromatin_model.solver.sn = meta_data.sn
-	chromatin_model.solver.gamma.value = meta_data.gm
+	chromatin_model.solver.gamma = meta_data.gm
 
 	return chromatin_model
 
