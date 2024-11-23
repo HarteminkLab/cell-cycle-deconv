@@ -22,13 +22,13 @@ def main():
 	"""
 
 	system_args = tuple(sys.argv)
-	outdir, gamma, padding_type, index = system_args[1], int(system_args[2]), \
-		float(system_args[3]), system_args[4]
+	outdir, gamma, padding_type, index = system_args[1], float(system_args[2]), \
+		system_args[3], int(system_args[4])
 
 	genome_deconvolution = GenomeDeconvolution(save_dir=outdir)
 
 	# genome_10K_windows = pd.read_csv('data/reference_data/sacCer3_genome_10k_windows.csv')
-	genome_test_windows = pd.read_csv('data/reference_data/sacCer3_test_10k_windows.csv')
+	genome_10K_windows = pd.read_csv('data/reference_data/sacCer3_test_10k_windows.csv')
 
 	current_genomic_span = genome_10K_windows.loc[index]
 	chrom, span = current_genomic_span.chr, (current_genomic_span.start, current_genomic_span.end)
