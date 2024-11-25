@@ -121,8 +121,8 @@ class CombinedChromatinModel:
 		self.deconvolved_f_value = None
 
 
-	def deconvolve(self, verbose=False, gamma=0.0066, G=None, G1=None, G2=None,
-			wavelet="Symmlet", verbose_progress=True, padding_type='left'):
+	def deconvolve(self, verbose=False, gamma=0.1, G=None, G1=None, G2=None,
+			wavelet="Symmlet", verbose_progress=True, padding_type='both'):
 
 		from src.timer import Timer
 

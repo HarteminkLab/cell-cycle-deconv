@@ -32,7 +32,7 @@ def main():
 
 	print(f"Deconvolving chr{chrom}, {span[0]}-{span[1]}")
 	genome_deconvolution.load_chrom_span(chrom, span)
-	genome_deconvolution.combined_model.deconvolve()
+	genome_deconvolution.combined_model.deconvolve(padding_type='both', gamma=0.1)
 
 	genome_deconvolution.save_to_disk()
 

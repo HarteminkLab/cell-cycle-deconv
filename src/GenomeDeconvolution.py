@@ -44,7 +44,7 @@ class GenomeDeconvolution(object):
 		self.combined_model.deconvolve(G1=G1, G2=G2)
 	
 
-	def plot_deconvolved_result(self, smooth=True, normalize=True, vmax=15):
+	def plot_deconvolved_result(self, smooth=False, normalize=False, vmax=5):
 		from src.global_config import GlobalConstants
 		from src.figure_configs import FiguresConfig
 
@@ -79,7 +79,7 @@ class GenomeDeconvolution(object):
 			if normalize:
 				current_f_img = current_f_img / current_f_img.sum() * 2000
 
-			ax.imshow(current_f_img, origin='lower', cmap='magma_r', vmax=vmax, aspect='auto',
+			ax.imshow(current_f_img, origin='lower', cmap='magma_r', vmin=1, vmax=vmax, aspect='auto',
 					 extent=self.combined_model.chrom1_model.bin_extents, 
 					 vmin=self.combined_model.G_deconvolution_offset)
 			ax.set_ylabel(label_name, rotation=0, ha='right', labelpad=9)
