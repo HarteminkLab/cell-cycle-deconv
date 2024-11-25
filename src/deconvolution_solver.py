@@ -40,6 +40,15 @@ class DeconvolutionSolver(object):
 			f_it_padded = np.concatenate([f_padding_indices[:padding//2], 
 			 	f_it, f_padding_indices[padding//2:]])
 
+		elif self.padding_type == 'none':
+
+			padding = 0
+			f_fit_indices = np.arange(m)
+			f_padding_indices = np.arange(m, m+padding)
+			f_padded = cp.Variable(m+padding)
+			f_it_padded = np.concatenate([f_padding_indices[:padding//2], 
+			 	f_it, f_padding_indices[padding//2:]])
+
 		else:
 			raise ValueError(f"Unknown padding type: {self.padding_type}")
 
@@ -53,7 +62,6 @@ class DeconvolutionSolver(object):
 
 		# Padding smoothing result
 		smooth_f_it_result = W_it@f_padded[f_it_padded]
-
 
 		objective = cp.Minimize(
 

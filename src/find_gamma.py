@@ -53,7 +53,13 @@ class FindOptimalGamma:
 		# 11/21/24 - Testing adding an independent recovery S/G2M phase, and removal of mirroring
 		# With this addition higher gamma values are needed, thus the increase from 
 		# 0.0001, 0.001 as the gamma boundaries
-		GAMMA_MIN = 0.001
+
+		# Some selected gammas that are predefined: the find gamma curve has some issue
+		# finding an appropriate smoothing:
+		# CLB2: 0.02
+		# CLB5: 0.002
+
+		GAMMA_MIN = 0.0001
 		GAMMA_MAX = 0.01
 
 		# left boundary

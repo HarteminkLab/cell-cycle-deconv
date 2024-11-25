@@ -687,3 +687,44 @@ def smooth_transitions_custom(data, window_size=3, sigma=0.5, power=1, axis=-1):
 		return (smoothed - smoothed.min()) * (x.max() - x.min()) / (smoothed.max() - smoothed.min()) + x.min()
 	
 	return np.apply_along_axis(smooth_1d, axis, data)
+
+
+
+def downsample_bins(bin_data, new_span, original_span, bin_width, bin_height, max_y_len):
+    """ 
+    Downsample bins, generic form of the chromatin downsampling process. This is used
+    for the smoothing kernels. todo: refactor the chromatin kernels to use this method
+    """
+    # Define the bin positions
+    x_bins = np.arange(new_span[0], new_span[1] + bin_width, bin_width)
+    y_bins = np.arange(0, max_y_len + bin_height, bin_height)
+    
+    # Initialize output array
+    downscaled_bins = np.zeros((bin_data.shape[0], len(y_bins), len(x_bins)))
+    
+    # Create coordinate translation function
+    def translate_coordinate(coord):
+        """Translate from selected span to array index space"""
+        span_width = original_span[1] - original_span[0]
+        return int((coord - original_span[0]) * (bin_data.shape[2] / span_width))
+    
+    # Perform downsampling
+    for t_index in range(bin_data.shape[0]):  # timepoints
+        for x_ind in range(1, len(x_bins)):
+            for y_ind in range(1, len(y_bins)):
+                x_start = translate_coordinate(x_bins[x_ind-1])
+                x_end = translate_coordinate(x_bins[x_ind])
+                y_start = int(y_bins[y_ind-1])
+                y_end = int(y_bins[y_ind])
+                
+                # Ensure indices are within bounds
+                x_start = max(0, min(x_start, bin_data.shape[2]))
+                x_end = max(0, min(x_end, bin_data.shape[2]))
+                y_start = max(0, min(y_start, bin_data.shape[1]))
+                y_end = max(0, min(y_end, bin_data.shape[1]))
+                
+                bin_counts = bin_data[t_index][y_start:y_end, x_start:x_end].sum()
+                downscaled_bins[t_index][y_ind-1][x_ind-1] = bin_counts
+    
+    # Remove last row and column of bins
+    return downscaled_bins[:, :-1, :-1]
