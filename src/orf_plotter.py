@@ -161,10 +161,8 @@ class ORFAnnotationPlotter:
 		except AttributeError:
 			genes = genes.sort(['strand', 'start']).reset_index()
 
-		#ax.set_ylim(-100, 100)
-
 		tick_intervals = 500, 100
-		
+
 		for idx, gene in genes.iterrows():
 
 			gene_name = gene['gene']

@@ -87,7 +87,8 @@ class Model:
 
 		from src.deconvolution_solver import DeconvolutionSolver
 
-		deconvolution_solver = DeconvolutionSolver(self.config, self.g, self.H, self.gamma)
+		deconvolution_solver = DeconvolutionSolver(self.config, self.g, self.H, self.gamma, 
+			padding_type='both')
 		self.f, self.sn, self.rn = deconvolution_solver.deconvolve()
 
 		# predicted g

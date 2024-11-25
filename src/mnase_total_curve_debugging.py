@@ -147,7 +147,6 @@ def plot_deconvolved_f_curve(genome_deconvolution, index):
 	# It's worth trying a deconvolution with the new model
 
 
-
 def show_gif(gif_path):
 	from IPython.display import Image
 	import time
@@ -168,4 +167,48 @@ def create_animation(indices, gif_save_path):
 	frames = [Image.open(frame) for frame in frame_files]
 	frames[0].save(gif_save_path, format='GIF', append_images=frames[1:], save_all=True, 
 	duration=30, loop=1)
+
+
+
+def create_weighted_smoothing_curve(config, plot=False):
+
+	from scipy.stats import norm
+
+	f_i = config.get_Hpositions_for_branch('i')
+	f_t = config.get_Hpositions_for_branch('t')
+	# Idea: It appears the bridge between
+	# CG1 and postG1 isn't smoothed enough compared to 
+	# RG1 and postG1. Is there a way we can add extra weighting on the
+	# importance of smoothing this joint?
+
+	rg1_indices = config.get_Hpositions_for_phase('RG1')
+	cg1_indices = config.get_Hpositions_for_phase('CG1')
+	postG1_indices = config.get_Hpositions_for_phase('postG1')
+
+	f_it = np.concatenate([f_i, f_t])
+
+	absolute_indices = np.arange(len(f_it))
+
+	rg1_s_boundary = len(rg1_indices)
+	cg1_s_boundary = len(rg1_indices)+len(postG1_indices)+len(cg1_indices)
+	postG1_cg1_boundary = len(rg1_indices)+len(postG1_indices)
+
+
+	scale = 10
+	factor = 2
+	rg1_s_weight = norm.pdf(absolute_indices, loc=rg1_s_boundary, scale=scale)*factor
+	cg1_s_weight = norm.pdf(absolute_indices, loc=cg1_s_boundary, scale=scale)*factor
+	postg1_cg1_weight = norm.pdf(absolute_indices, loc=postG1_cg1_boundary, scale=scale)*factor
+
+	weight_scaling_vector = rg1_s_weight+cg1_s_weight+postg1_cg1_weight+1
+
+	if plot:
+		plt.plot(absolut_indices, f_it)
+
+		ax = plt.gca()
+		ax2 = ax.twinx()
+		ax2.plot(weight_scaling_vector)
+		ax2.set_ylim(0, 5)
+
+	return weight_scaling_vector
 
