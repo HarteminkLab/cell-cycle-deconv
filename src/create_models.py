@@ -7,12 +7,24 @@ import pandas as pd
 # This is to describe the timepoint offsets between CG1/DG1 and PostG1
 BETA_DEFAULT = 0.
 
+# (Temporal resolution of the length of the cell cycle phase)
+# Currently sums to 128, 
+
+# todo: there is a possibility
+# of reducing this sum allow for padding to reach the 128 mark...
+G1_LENGTH = 49
+POSTG1_LENGTH = 79
+
+SHORTENED_G1_LENGTH = 19
+SHORTENED_POSTG1_LENGTH = 45
+
 class ModelCreation:
 	"""This class is a port of the model creation from the original matlab code. There are some changes, 
 	as we had to port to Python, but most of the meat is here. In our case, we are only concerned with 
 	creating the RG1 model, so we will be refactoring this file to simplify things."""
 
-	def __init__(self, posteriors_filepath, output_model_path):
+	def __init__(self, posteriors_filepath, output_model_path,
+		g1_length=G1_LENGTH, postg1_length=POSTG1_LENGTH):
 
 		self.Rname = "RG1"
 		self.CG1_intervals = "t 0"
@@ -21,6 +33,9 @@ class ModelCreation:
 		self.output_model_path = output_model_path
 		self.posteriors_filepath = posteriors_filepath
 		self.alpha = 0
+
+		self.g1_length = g1_length
+		self.postg1_length = postg1_length
 
 	def create_model(self, save=True):
 
@@ -75,15 +90,15 @@ class ModelCreation:
 		model_dic = {
 
 			"RG1": [
-				{"i":[mu0, position_of_s, 49]}],
+				{"i":[mu0, position_of_s, self.g1_length]}],
 			"CG1":[
-				{"t":[-alpha, position_of_s, 49]}],
+				{"t":[-alpha, position_of_s, self.g1_length]}],
 			"DG1":[
-				{"b":[-delta-alpha, position_of_s, 49]}],
+				{"b":[-delta-alpha, position_of_s, self.g1_length]}],
 			"postG1":[
-				{"t":[position_of_s, lambd-alpha, 79]},
-				{"i":[position_of_s, lambd-alpha, 79]},
-				{"b":[position_of_s, lambd-alpha, 79]}],
+				{"t":[position_of_s, lambd-alpha, self.postg1_length]},
+				{"i":[position_of_s, lambd-alpha, self.postg1_length]},
+				{"b":[position_of_s, lambd-alpha, self.postg1_length]}],
 			}
 
 		return ret_params, model_dic
@@ -152,18 +167,22 @@ def read_cloccs_posteriors(posteriors_filepath):
 	return params
 
 
-def create_wt1_model(output_model_path, alpha):
+def create_wt1_model(output_model_path, alpha=22,
+		g1_length=G1_LENGTH, postg1_length=POSTG1_LENGTH):
 	posteriors_filepath = 'data/2019_cloccs_fits/yl_2019_replicate1/posteriors.txt'
-	model_creator = ModelCreation(posteriors_filepath, output_model_path)
+	model_creator = ModelCreation(posteriors_filepath, output_model_path,
+		g1_length=g1_length, postg1_length=postg1_length)
 	model_creator.alpha = alpha
 	model_creator.create_model()
 
 	return output_model_path
 
 
-def create_wt2_model(output_model_path, alpha):
+def create_wt2_model(output_model_path, alpha=20,
+		g1_length=G1_LENGTH, postg1_length=POSTG1_LENGTH):
 	posteriors_filepath = 'data/2019_cloccs_fits/yl_2019_replicate2/posteriors.txt'
-	model_creator = ModelCreation(posteriors_filepath, output_model_path)
+	model_creator = ModelCreation(posteriors_filepath, output_model_path,
+		g1_length=g1_length, postg1_length=postg1_length)
 	model_creator.alpha = alpha
 	model_creator.create_model()
 	return output_model_path

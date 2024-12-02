@@ -57,6 +57,9 @@ class MNaseOriginAnalysis:
 
 		all_counts_summed = self.all_window_counts_unsummed.sum(axis=2)
 		self.all_counts_unnormalized = all_counts_summed
+		self.all_counts_unnormalized_df = pd.DataFrame(self.all_counts_unnormalized.T,
+			index=self.start_indices)
+		self.all_counts_unnormalized_df.columns = timepoints
 
 		# Normalize by the number of bins that are non-zero across the entire timeecourse
 		self.total_nonzero_bins_per_10k = (cumulative_counts_for_each_10k_bin > 0).sum(axis=1)

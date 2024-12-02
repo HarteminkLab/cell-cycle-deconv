@@ -19,12 +19,18 @@ class DeconvolutionSolver(object):
 
 		f_it = np.concatenate([f_i, f_t])
 
-		W_it = get_wavelet_kernel(len(f_it))
+		from src.helpers import compute_closest_pow2
+
+		len_f_it = len(f_it)
+		closest_pow2 = compute_closest_pow2(len_f_it+len_f_it)
+
+		# Try padding to closest power of 2
+		padding = closest_pow2-len_f_it
+
+		W_it = get_wavelet_kernel(closest_pow2)
 
 		# Convex optimization
 		n, m = self.H.shape
-
-		padding = len(f_it)
 
 		f_fit_indices = np.arange(m)
 		f_padding_indices = np.arange(m, m+padding)

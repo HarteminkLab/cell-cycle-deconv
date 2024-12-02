@@ -44,7 +44,8 @@ class GenomeDeconvolution(object):
 		self.combined_model.deconvolve(G1=G1, G2=G2)
 	
 
-	def plot_deconvolved_result(self, smooth=False, normalize=False, vmax=5):
+	def plot_deconvolved_result(self, smooth=False, 
+			normalize=False, vmax=5, figwidth=23):
 		from src.global_config import GlobalConstants
 		from src.figure_configs import FiguresConfig
 
@@ -56,7 +57,7 @@ class GenomeDeconvolution(object):
 		indices, label_names = self.combined_model\
 			.chrom1_model.config.get_full_phase_indices()
 
-		fig, axs = plt.subplots(len(indices)+1, 1, figsize=(23, 13))
+		fig, axs = plt.subplots(len(indices)+1, 1, figsize=(figwidth, 13))
 
 		ax = axs[0]
 		genes = get_deconvolved_geneset()
