@@ -15,8 +15,8 @@ BETA_DEFAULT = 0.
 G1_LENGTH = 49
 POSTG1_LENGTH = 79
 
-SHORTENED_G1_LENGTH = 19
-SHORTENED_POSTG1_LENGTH = 45
+SHORTENED_G1_LENGTH = 22
+SHORTENED_POSTG1_LENGTH = 42
 
 class ModelCreation:
 	"""This class is a port of the model creation from the original matlab code. There are some changes, 
