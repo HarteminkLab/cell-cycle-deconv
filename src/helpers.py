@@ -4,6 +4,7 @@ import scipy.ndimage
 from math import comb
 from scipy.stats import norm
 from scipy.signal import windows
+import pandas as pd
 
 # The initial population mass, used in the Qr and Mgr calculations
 START = 1000
@@ -616,12 +617,21 @@ def get_equal_partitions(vec, k):
 	return partition_indices
 
 
-def normalize_sum_ndarray(arr, axis=1):
+def normalize_sum_ndarray(input_arr, axis=1):
+
+	if type(input_arr) == pd.DataFrame:
+		df = input_arr
+		arr = df.values
 
 	if axis == 1:
 		arr = arr / arr.mean(axis=axis).reshape((-1, 1))
 	else:
 		arr = arr / arr.mean(axis=axis).reshape((1, -1))
+
+	if type(input_arr) == pd.DataFrame:
+		return_df = pd.DataFrame(arr, index=df.index)
+		return_df.columns = df.columns
+		return return_df
 
 	return arr
 

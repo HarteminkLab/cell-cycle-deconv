@@ -637,7 +637,7 @@ class Config:
 def load_yl_replicate1_rg1_alpha_vst_config(alpha=22):
 	"""Load the model in which alpha is set to delay between separation and cytokinesis"""
 	wt1 = read_yl_vst_data_rep(1)
-	model_wt1_file = f'models/yl_cell_cycle/wt1_rg1.{alpha}.label'
+	model_wt1_file = get_model_filename(1)
 	config = Config(wt1=wt1, model_wt1_file=model_wt1_file, name=f'Replicate 1, $\\alpha$={alpha}', 
 		replicate=1, alpha=alpha)
 
@@ -648,7 +648,7 @@ def load_yl_replicate2_rg1_alpha_vst_config(alpha=20):
 	wt2 = read_yl_vst_data_rep(2)
 
 	# model file
-	model_wt2_file = f'models/yl_cell_cycle/wt2_rg1.{alpha}.label'
+	model_wt2_file = get_model_filename(2)
 	config = Config(wt1=wt2, model_wt1_file=model_wt2_file, name=f'Replicate 2, $\\alpha$={alpha}',
 		replicate=2, alpha=alpha)
 	return config
@@ -661,6 +661,15 @@ def load_single_g1_config(replicate):
 		config = load_yl_replicate2_rg1_alpha_vst_config()
 	return config
 
+def get_model_filename(replicate, alphas=[22, 20]):
+
+	if replicate == 1:
+		model_file = f'models/yl_cell_cycle/wt1_rg1_shortened.{alphas[0]}.label'
+	else:
+		model_file = f'models/yl_cell_cycle/wt2_rg1_shortened.{alphas[1]}.label'
+
+	return model_file
+
 
 def load_combined_single_g1_gene_expression_config(alphas=[22, 20]):
 
@@ -668,15 +677,13 @@ def load_combined_single_g1_gene_expression_config(alphas=[22, 20]):
 	WT2 = read_yl_vst_data_rep(2)
 
 	# model files
-	model_wt1_file = f'models/yl_cell_cycle/wt1_rg1.{alphas[0]}.label'
-	model_wt2_file = f'models/yl_cell_cycle/wt2_rg1.{alphas[1]}.label'
+	model_wt1_file = get_model_filename(1)
+	model_wt2_file = get_model_filename(2)
 
 	config = Config(wt1=WT1, wt2=WT2, model_wt1_file=model_wt1_file, 
 		model_wt2_file=model_wt2_file, name=f'Combined, $\\alpha$={alphas[0]},{alphas[1]}')
 
 	return config
-
-
 
 
 def read_xin_published_wt_data(wildtype):    
