@@ -49,7 +49,6 @@ class GenomeDeconvolution(object):
 		from src.global_config import GlobalConstants
 		from src.figure_configs import FiguresConfig
 
-
 		f_img = self.combined_model.chrom1_model.get_f_images()
 		chrom = self.combined_model.chrom1_model.chr
 		span = self.combined_model.chrom1_model.mnase_span
@@ -82,7 +81,7 @@ class GenomeDeconvolution(object):
 
 			ax.imshow(current_f_img, origin='lower', cmap='magma_r', vmax=vmax, aspect='auto',
 					 extent=self.combined_model.chrom1_model.bin_extents, 
-					 vmin=0.7)
+					 vmin=0.9)
 			ax.set_ylabel(label_name, rotation=0, ha='right', labelpad=9)
 			ax.set_yticks([])
 			
