@@ -10,10 +10,40 @@ from src.replication_deconvolution_solver import deconvolve_avg_copy_curve, \
 class RealDataReplicationDeconvolution():
 	"""This model deconvolve the replication timing.
 	"""
-	def __init__(self, config, chr=10, replicate=1):
+	def __init__(self, config=None, chr=10, replicate=None, configs=None,
+		deconvolve_combined=False):
 
-		self.load_replicate_data(chr, replicate)
-		self.setup_deconvolution(config)
+		if deconvolve_combined:
+
+			self.load_replicate_data(chr, 1)
+			self.setup_deconvolution(configs[0])
+			self.H1 = self.H
+			self.raw1_data = self.normalized_occupancy
+			self.G1 = self.normalized_transformed_data
+			self.config1 = configs[0]
+			self.thresh1 = self.selected_threshold_region
+
+			self.load_replicate_data(chr, 2)
+			self.setup_deconvolution(configs[1])
+			self.raw2_data = self.normalized_occupancy
+			self.H2 = self.H
+			self.G2 = self.normalized_transformed_data
+			self.config2 = configs[0]
+			self.thresh2 = self.selected_threshold_region
+
+			# Construct combined data
+			self.normalized_occupancy = np.concatenate([
+				self.raw1_data, self.raw2_data
+			], axis=1)
+			self.H = np.concatenate([self.H1, self.H2], axis=0)
+			self.normalized_transformed_data = np.concatenate([self.G1, self.G2], 
+				axis=1)
+			self.deconvolve_combined = True
+			self.selected_threshold_region = self.thresh1 @ self.thresh2
+
+		else:
+			self.load_replicate_data(chr, replicate)
+			self.setup_deconvolution(config)
 
 
 	def load_replicate_data(self, chr, replicate):
@@ -83,6 +113,9 @@ class RealDataReplicationDeconvolution():
 		from src.timer import Timer
 
 		H = self.H
+
+		# In the case of combined configs, only one is necessary
+		# The S indices are consistent across both configs/Hs
 		config = self.config
 		G = self.normalized_transformed_data.T
 

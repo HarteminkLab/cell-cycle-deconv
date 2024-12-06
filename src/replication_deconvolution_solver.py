@@ -153,7 +153,7 @@ def deconvolve_replication(config, H, G, avg_copies_per_time):
 	return F
 
 
-def estimate_rough_average_copy_curve_fit(config, H, G):
+def estimate_rough_average_copy_curve_fit(config, H, G, num_skip_sites=10):
 
 	from src.RealDataReplication import deconvolve_avg_copy_curve
 	from src.helpers import normalize_max_min
@@ -169,7 +169,7 @@ def estimate_rough_average_copy_curve_fit(config, H, G):
 
 	timer = Timer()
 
-	for genomic_idx in range(0, num_sites, 15):
+	for genomic_idx in range(0, num_sites, num_skip_sites):
 		
 		def determine_optimal_g(G, genomic_idx):
 			
