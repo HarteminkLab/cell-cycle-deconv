@@ -10,9 +10,24 @@ def combine_ptr_score(c, d, weight):
 	return score
 
 
-def compute_quantile_ptr_2d(arr2d, axis=1, lo=0.2, hi=0.8, return_indices=False):
-	ptr_mat = np.apply_along_axis(lambda row: compute_quantile_ptr(row, lo, hi, return_indices=return_indices), axis, arr2d)
+def compute_quantile_ptr_2d(arr2d, axis=1, lo=0.2, hi=0.8, return_indices=False,
+	eps=1):
+	ptr_mat = np.apply_along_axis(lambda row: 
+		compute_quantile_ptr(row, lo, hi, return_indices=return_indices,
+			eps=eps), axis, arr2d)
 	return ptr_mat
+
+
+def compute_quantile_diff_2d(arr2d, axis=1, lo=0.2, hi=0.8,
+	eps=1):
+	diff_mat = np.apply_along_axis(lambda row: 
+		compute_quantile_diff(row, lo, hi), axis, arr2d)
+	return diff_mat
+
+
+def compute_quantile_diff(data_f, lo=0.2, hi=0.8):
+	quantiles = np.quantile(data_f, q=[lo, hi])
+	return quantiles[1] - quantiles[0]
 
 
 def compute_quantile_ptr(data_f, lo=0.2, hi=0.8, eps=1, return_indices=False):

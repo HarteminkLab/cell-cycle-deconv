@@ -1,391 +1,214 @@
 
-import cvxpy
-import pywt
 
-import pandas as pd
 import numpy as np
-
+import cvxpy as cp
+from src.timer import Timer
 from matplotlib import pyplot as plt
-from src.helpers import get_wavelet_kernel, pad_with_subset
-from src.utils import print_fl
-from src.geneset import get_deconvolved_geneset
 
 
-from src.wavelets_2d_linalg import decompose_flattened_kron_coeffs, \
-	create_kron_wavelet2d_convolution_matrices
-
-
-class ReplicationChromatinDeconvolveSolver:
+def deconvolve_avg_copy_curve(g, config, H, replication_index):
 	"""
-	In this class, we will perform some changes to the chromatin deconvolution 
-	to handle the copy number transition from 1 to 2. We expect this transition to be a 
-	step-wise transition so we will use Haar. And the smoothing constraints will be 
-	different as we expect from postG1 to G1, the contraint no longer needs to be smooth.
+	This function attempts to deconvolve the average copy number
+	curve from a given g, and replication index.
+
+	The expectation is
+	the true replication curve is known, and we are interested in
+	identifying the best copy curve that allows us to fit to the
+	given raw data curve g. 
+
+	This is an estimate, but is powerful when we compute many
+	of these across the genome. The median average copy curve
+	is closer to the true average copy curve.
+
+	The average copy number curve is important because it handles
+	the effects caused by equal sample normalization of the input
+	data.
 	"""
 
-	def __init__(self, mnase_analysis_rep1, mnase_analysis_rep2, solver=cvxpy.MOSEK, wavelet="Haar"):
+	cg1_indices = config.get_Hpositions_for_phase('CG1')
+	rg1_indices = config.get_Hpositions_for_phase('RG1')
+	postg1_indices = config.get_Hpositions_for_phase('postG1')
 
-		self.solver = solver
-		self.wavelet = wavelet
-		self.geneset = get_deconvolved_geneset()
-		self.mnase_analysis_rep1 = mnase_analysis_rep1
-		self.mnase_analysis_rep2 = mnase_analysis_rep2
+	n, m = H.shape
 
-	def plot_raw_data(self):
-		plt.figure(figsize=(4, 2))
-		plt.plot(self.G[:, 0])
+	# Let's try the DCP error thing again, division by a variable is not allowed
+	# but we can try to multiply by a variable....
+	solver = cp.MOSEK
 
-	def define_deconvolution_problem(self):
+	# Create f from replication index
+	f = np.ones(m)
+	f[replication_index:-1] = 2
 
-		solver = self.solver
-		config = self.config
-		G = self.G
-		H = self.H
-		
-		# We will add a very small value to g, to avoid divide by zero errors
-		eps = 1e-5
-		G = G + eps
+	inv_learn_avg_copies = cp.Variable(m)
 
-		f_i = config.get_Hpositions_for_branch('i')
-		f_t = config.get_Hpositions_for_branch('t')
-		f_b = config.get_Hpositions_for_branch('b')
+	normalized_f = cp.multiply((f), inv_learn_avg_copies)
+	predicted_g = H@normalized_f
 
-		f_dg1 = config.get_Hpositions_for_phase('DG1')
-		f_rg1 = config.get_Hpositions_for_phase('RG1')
-		f_cg1 = config.get_Hpositions_for_phase('CG1')
-		f_pg1 = config.get_Hpositions_for_phase('postG1')
+	elementwise_result = cp.multiply(predicted_g, 1.0/g) - 1
 
-		# Smooth each branch separately, but not the end of postG1 into G1.
-		# As we now expect the end of G2M to be copy number 2, and the start
-		# of G1 to be copy number 1.
+	objective = cp.Minimize(
+		cp.sum(cp.norm(elementwise_result, 'fro')**2)
+	)
+	constraints = [inv_learn_avg_copies >=0.5, inv_learn_avg_copies <=1]
 
-		# We can try mirroring to handle edge effects though.
-		f_i_mirror = create_mirror(f_i)
-		f_t_mirror = create_mirror(f_t)
-		f_b_mirror = create_mirror(f_b)
+	# Enforce average copy number of 1 for CG1 and DG1
+	for i in range(0, len(cg1_indices)):
+		current = cg1_indices[i]
+		constraints.append(inv_learn_avg_copies[current] == 1)
 
-		W1 = get_wavelet_kernel(len(f_i_mirror), type=self.wavelet)
-		W2 = get_wavelet_kernel(len(f_t_mirror), type=self.wavelet)
-		W3 = get_wavelet_kernel(len(f_b_mirror), type=self.wavelet)
+	# Enforce average copy number of 1 for RG1
+	for i in range(0, len(rg1_indices)):
+		current = rg1_indices[i]
+		constraints.append(inv_learn_avg_copies[current] == 1)
 
-		g_mean = G.mean()
+	# Enforce monotonic decrease during postG1
+	# Inverse of the average curve from 1 to 0.5
+	for i in range(1, len(postg1_indices)):
+		prev = postg1_indices[i-1]
+		current = postg1_indices[i]
+		constraints.append(inv_learn_avg_copies[prev] >= inv_learn_avg_copies[current])
 
-		# -------- Define the optimization ------------
+		if i == len(postg1_indices)-1:
+			constraints.append(inv_learn_avg_copies[current] == 0.5)
+		elif i == 1:
+			constraints.append(inv_learn_avg_copies[prev] == 1.0)
 
-		# f whose rows span the columns of H
-		# and columns are the length of g's columns
-		f = cvxpy.Variable((H.shape[1], G.shape[1]))
+	# Halted cells, copy number of 1
+	constraints.append(inv_learn_avg_copies[m-1] == 1.0)
 
-		self.gamma = cvxpy.Parameter(nonneg=True, name='gamma')
+	prob = cp.Problem(objective, constraints)
+	result = prob.solve(solver=solver, warm_start=True, verbose=False, eps=1e-5)
 
-		# with the updated alpha, the i t and b are approximately all the same length
-		self.factor_i = 1.
+	return result, f, inv_learn_avg_copies.value, predicted_g.value
 
-		smooth_f_i_result = W1@f[f_i_mirror]
-		smooth_f_t_result = W2@f[f_t_mirror]
-		smooth_f_b_result = W3@f[f_b_mirror]
 
-		# -------------------------------------------------------------------------
+def deconvolve_replication(config, H, G, avg_copies_per_time):
+	"""
+	Deconvolve the replication curve
+	"""
 
-		elementwise_result = cvxpy.multiply(H@f, 1.0/G) - 1
+	cg1_indices = config.get_Hpositions_for_phase('CG1')
+	rg1_indices = config.get_Hpositions_for_phase('RG1')
+	postg1_indices = config.get_Hpositions_for_phase('postG1')
 
-		n = G.shape[0]
-		m = G.shape[1]
-		u = H.shape[1]
+	timer = Timer()
 
-		constraints = [f >= 0]
+	n, m = H.shape
+	n, v = G.shape
+	F = np.zeros((m, v))
 
-		# ------ Constrain monotonic transitions ----------
+	for g_index in range(G.shape[1]):
 
-		# End of G1 to postG1
-		constraints.append(f[f_pg1[0]] >= f[f_cg1[-1]])
-		constraints.append(f[f_pg1[0]] >= f[f_dg1[-1]])
-		constraints.append(f[f_pg1[0]] >= f[f_rg1[-1]])
-		
-		# RG1
-		for i in range(1, len(f_rg1)):
-			index = f_rg1[i]
-			prev_index = f_rg1[i-1]
-			constraints.append(f[index] >= f[prev_index])
+		if g_index % 50 == 0:
+			timer.print_time(f"{g_index}/{G.shape[1]}")
 
-		# DG1
-		for i in range(1, len(f_dg1)):
-			index = f_dg1[i]
-			prev_index = f_dg1[i-1]
-			constraints.append(f[index] >= f[prev_index])
+		g = G[:, g_index]
 
-		# CG1
-		for i in range(1, len(f_cg1)):
-			index = f_cg1[i]
-			prev_index = f_cg1[i-1]
-			constraints.append(f[index] >= f[prev_index])
+		solver = cp.MOSEK
+		f = cp.Variable(m, boolean=True)
 
-		# Post G1
-		for i in range(1, len(f_pg1)):
-			index = f_pg1[i]
-			prev_index = f_pg1[i-1]
-			constraints.append(f[index] >= f[prev_index])
+		normalized_f = (f+1) * 1/avg_copies_per_time
+		predicted_g = H@normalized_f
 
-		# Halted cells are equal to Recovery cells
-		constraints.append(f[index] == f[-1])
+		#elementwise_result = cp.multiply(predicted_g, 1.0/g) - 1
 
-		# -------------------------------------------------
+		# Can we do additive minimization now?
+		elementwise_result = predicted_g - g
 
-		objective = cvxpy.Minimize(
-
-			cvxpy.sum(cvxpy.norm(elementwise_result, 'fro')**2) +
-
-			self.gamma * (self.factor_i*cvxpy.sum(cvxpy.abs(smooth_f_i_result)) +
-							cvxpy.sum(cvxpy.abs(smooth_f_t_result)) + 
-							cvxpy.sum(cvxpy.abs(smooth_f_b_result)) 
-							)/g_mean  
+		objective = cp.Minimize(
+			cp.sum(cp.norm(elementwise_result, 'fro')**2)
 		)
-
-		# -------- End definition ------------
-
-		# Perform the convex optimization
-		self.prob = cvxpy.Problem(objective, constraints)
-		self.f = f
-
-	def plot_replication_timing(self):
-
-		from src.sgd import get_chromosome_length
-
-		repl_timing = self.repl_timing_df.join(self.chr_genes[['start']], how='inner')
-		chrom = self.chrom
-
-		config = self.config
-		chrom_len = get_chromosome_length(chrom)
-
-		self.compute_replication_timing()
-
-		plt.figure(figsize=(13, 2))
-		plt.plot(repl_timing.start, repl_timing.timing, c='black', lw=0.5, ls='dotted')
-		plt.scatter(repl_timing.start, repl_timing.timing, s=2, c='black')
-		plt.ylim(60, 20)
-		plt.xlim(0, chrom_len)
-		plt.title(f"Combined Haar model replicate profile, chr{chrom}")
-
-	def compute_replication_timing(self, threshold = 0.8):
-		"""Compute the replication timing for all genes, assume that we can just
-		use the mother timing for now, as we expect replication to occur in S-phase
-		and each branch shares the same PostG1"""
-
-		from src.TracerPlotter import normalize_max_min
-
-		config = self.config
-
-		t_pos = config.get_Hpositions_for_branch('t')
-		t_tps = config.get_timepoints_for_branch('t')
-
-		# Compute with the top/mother branch
-		f_mother = self.f[t_pos]
-
-		# Normalize such that end of G2M is copy number 2 and start is copy number 1
-		f_normed = np.apply_along_axis(normalize_max_min, 0, f_mother)+1.
-
-		rg1_len, cg1_len, dg1_len = config.get_g1_lens()
-
-		time_indices = np.argmax((f_normed > 1+threshold), axis=0)
-		repl_timing = t_tps[time_indices] + cg1_len
-
-		repl_timing_df = self.chr_genes[[]].copy()
-		repl_timing_df['timing'] = repl_timing
-		repl_timing_df['H_index'] = t_pos[time_indices]
-
-		# Filter out anomolous timings
-		filtered_repl_timing = repl_timing_df.copy()
-		filtered_repl_timing.loc[repl_timing_df.timing > lambda_val*0.8, 'timing'] = np.nan
-
-		print(f"Setting {len(filtered_repl_timing[np.isnan(filtered_repl_timing.timing)])} anomalous "
-			"timings to nan, timing is near the end of the cell cycle.")
-
-		self.repl_timing_df = filtered_repl_timing
-
-	def plot_replication_hm(self, normalize=False, mask=False):
-		f = self.f.copy()
-
-		if normalize:
-			f_norm = f
-			f_norm = f_norm / f_norm.max(axis=0).reshape((1, -1))
-			f = f_norm+1.
-
-		config = self.config
+		constraints = []
 		
-		i_indices = config.get_Hpositions_for_branch('i')
-		t_indices = config.get_Hpositions_for_branch('t')
-		b_indices = config.get_Hpositions_for_branch('b')
+		# Enforce values of 0, during G1
+		for i in range(0, len(cg1_indices)):
+			current = cg1_indices[i]
+			constraints.append(f[current] == 0)
 
-		plt.figure(figsize=(13, 3))
+		for i in range(0, len(rg1_indices)):
+			current = rg1_indices[i]
+			constraints.append(f[current] == 0)
 
-		if mask:
-			f = (f > 1.75) + 1.
+		# Enforce monotonic increase to 1 in postG1
+		for i in range(1, len(postg1_indices)):
+			prev = postg1_indices[i-1]
+			current = postg1_indices[i]
+			constraints.append(f[prev] <= f[current])
+
+			# Enforce start and end of postG1 has
+			# a transition from 0 to 1
+			if i == len(postg1_indices)-1:
+				constraints.append(f[current] == 1)
+			elif i == 1:
+				constraints.append(f[prev] == 0)
+
+		# Halted cells, copy number of 1
+		constraints.append(f[m-1] == 0)
+
+		prob = cp.Problem(objective, constraints)
+		result = prob.solve(solver=solver, warm_start=True, 
+			verbose=False, eps=1e-4)
+		F[:, g_index] = f.value
+
+	return F
+
+
+def estimate_rough_average_copy_curve_fit(config, H, G):
+
+	from src.RealDataReplication import deconvolve_avg_copy_curve
+	from src.helpers import normalize_max_min
+	from src.timer import Timer
+
+	num_sites = G.shape[1]
+	S_indices = config.get_Hpositions_for_phase('S')
+	postG1_indices = config.get_Hpositions_for_phase('postG1')
+
+	n, m = H.shape
+	all_avg_copy_curves = np.zeros((num_sites, m))
+	found_replication_indices = np.zeros((num_sites, 1))
+
+	timer = Timer()
+
+	for genomic_idx in range(0, num_sites, 15):
 		
-		def plot_repl_im(f):
-			plt.imshow(f, origin='lower', aspect='auto', vmin=1, vmax=2)
+		def determine_optimal_g(G, genomic_idx):
+			
+			rns = np.zeros(len(S_indices))
+			sweep_all_avg_copy_curves = np.zeros((len(S_indices), m))
+					
+			# Try all replication indices to compute the optimal copy curve
+			for index, replication_index in enumerate(S_indices):
+				
+				# Get g and normalize to a known good range for deconvolution
+				g = G[:, genomic_idx]
+				normalized_g = normalize_max_min(g)*.1 + .95
+
+				result, f, inv_learn_avg_copies, predicted_g = \
+					deconvolve_avg_copy_curve(normalized_g, config, 
+						H, replication_index)
+				
+				rns[index] = result
+				sweep_all_avg_copy_curves[index] = inv_learn_avg_copies
+
+			min_idx = np.argmin(rns)
+			S_indices[min_idx]
+
+			return min_idx, S_indices[min_idx], rns[min_idx], \
+				1./sweep_all_avg_copy_curves[min_idx]
 		
-		plt.subplot(3, 1, 1)
-		plot_repl_im(f[i_indices])
+		(min_idx, repl_index, rn, \
+		 found_avg_copy_curve) = determine_optimal_g(G, genomic_idx)
 		
-		plt.subplot(3, 1, 2)
-		plot_repl_im(f[t_indices])
+		all_avg_copy_curves[genomic_idx] = found_avg_copy_curve
+		found_replication_indices[genomic_idx] = repl_index
 		
-		plt.subplot(3, 1, 3)
-		plot_repl_im(f[b_indices])
+		if genomic_idx % 20 == 0:
+			timer.print_time(f"{genomic_idx}/{num_sites}")
 
-		plt.suptitle(f"Combined model, chr{self.chrom}, gamma={self.gamma.value}")
+	selected_copy_curves = all_avg_copy_curves[
+		(np.quantile(all_avg_copy_curves, axis=1, q=0.5) > 0), :]
+	rough_average_copy_curve = np.median(selected_copy_curves.T, 
+		axis=1)
 
-
-	def plot_raw_predicted(self):
-		pred_G = self.H @ self.f
-
-		def plot_repl_im(f):
-			plt.imshow(f, origin='lower', aspect='auto', vmin=1, vmax=2.)
-
-		plt.figure(figsize=(13, 3))
-		plt.subplot(2, 1, 1)
-		plot_repl_im(self.G)
-
-		plt.subplot(2, 1, 2)
-		plot_repl_im(pred_G)
-
-
-	def solve(self, gamma_value, verbose=False):
-
-		self.gamma.value = gamma_value
-		self.verbose = verbose
-
-		# The epsilon value affects the precision of the solver
-		self.result = self.prob.solve(solver=self.solver, warm_start=True, 
-			verbose=self.verbose, eps=1e-4)
-		f = self.f.value
-
-		self.f = f
-
-		return f
-
-	def plot_result(self, i):
-		plt.figure(figsize=(13, 2))
-		config = self.config
-
-		f = self.f[:, i]
-
-		f_dg1 = config.get_Hpositions_for_phase('DG1')
-		f_rg1 = config.get_Hpositions_for_phase('RG1')
-		f_cg1 = config.get_Hpositions_for_phase('CG1')
-		f_pg1 = config.get_Hpositions_for_phase('postG1')
-
-		f_rg1_tps = config.get_phase_timepoints_for_phase('RG1')
-		f_cg1_tps = config.get_phase_timepoints_for_phase('CG1')
-		f_dg1_tps = config.get_phase_timepoints_for_phase('DG1')
-		f_pg1_tps = config.get_phase_timepoints_for_phase('postG1')
-
-		plt.subplot(1, 4, 1)
-		plt.plot(f_rg1_tps, f[f_rg1])
-		plt.plot(f_pg1_tps, f[f_pg1])
-		plt.title("Recovery")
-
-		plt.subplot(1, 4, 2)
-		plt.plot(f_cg1_tps, f[f_cg1])
-		plt.plot(f_pg1_tps, f[f_pg1])
-		plt.title("Mother")
-
-		plt.subplot(1, 4, 3)
-		plt.plot(f_dg1_tps, f[f_dg1])
-		plt.plot(f_pg1_tps, f[f_pg1])
-		plt.title("Daughter")
-
-		plt.subplot(1, 4, 4)
-		plt.plot(self.G[:, i])
-		plt.plot(self.H@f)
-		plt.title("Predicted/Raw")
-
-	def set_chromosome(self, chrom):
-		self.chrom = chrom
-		self.chr_genes = self.geneset[self.geneset.chr == chrom]
-
-		G1 = self.get_g_for_chrom(self.mnase_analysis_rep1, self.chrom)
-		G2 = self.get_g_for_chrom(self.mnase_analysis_rep2, self.chrom)
-
-		# If a bin has max low coverage (==1), let's drop it from the gene list
-		# If a bin's lowest coverage drops below 0.9, then the bin's occupancy is lowest in the second
-		# cell cycle and can cause some oddities in the replication profile, so drop those as well.
-		deconv_geneset = self.chr_genes[[]].copy()
-		deconv_geneset['keep_gene'] = (G1.max(axis=0) > 1.) & (G2.max(axis=0) > 1.) & \
-									  (G1.min(axis=0) > 0.9) & (G2.min(axis=0) > 0.9)
-		keep_gene_idx = deconv_geneset[deconv_geneset.keep_gene].index
-
-		print(f"Chr{self.chrom}: Dropped {len(self.chr_genes) - len(keep_gene_idx)} genes with low bin coverage or\n"
-			  "lower min occupancy in the second cell cycle than first.")
-
-		# Subset the chromosome gene list by the high coverage bins and
-		# recompute G1 and G2
-		self.chr_genes = self.chr_genes.loc[keep_gene_idx]
-
-		G1 = self.get_g_for_chrom(self.mnase_analysis_rep1, self.chrom)
-		G2 = self.get_g_for_chrom(self.mnase_analysis_rep2, self.chrom)
-
-		self.G1 = G1
-		self.G2 = G2
-		self.G = np.concatenate([G1, G2])
-
-	def load_combined_config(self):
-
-		from src.config import load_yl_rg1_vst_config
-		from src.helpers import calcH
-		from src.global_config import GlobalConstants
-
-		config1 = load_yl_rg1_vst_config(1)
-		config2 = load_yl_rg1_vst_config(2)
-		H1, Hpos = calcH(config1.intervals_wt1, GlobalConstants.CHROM_WT1_TIMEPOINTS)
-		H2, Hpos = calcH(config2.intervals_wt1, GlobalConstants.CHROM_WT2_TIMEPOINTS)
-
-		# Use config1 for timepoints
-		self.config = config1
-
-		self.H = np.concatenate([H1, H2])
-
-	def get_g_for_chrom(self, mnase_analysis, chrom):
-	    """Get the g curve for deconvolution for a chromosome"""
-	    chr_curves = mnase_analysis.normalized_bin_curves.join(self.chr_genes[[]], how='inner')
-	    g = chr_curves.values.T
-
-	    # Add 1 to enforce copy number values 1-2, also easier to deconvolve values
-	    # away from 0.
-	    g = g + 1.
-	    return g
-
-
-	def save_results(self, directory):
-
-		f_file = f"{directory}/chr{self.chrom}_f.npy"
-		repl_file = f"{directory}/chr{self.chrom}_repl.csv"
-
-		np.save(f_file, self.f)
-		self.repl_timing_df.to_csv(repl_file)
-
-		print(f"Saved {f_file}")
-		print(f"Saved {repl_file}")
-
-
-def create_mirror(ind_vec):
-	ind_vec_n_2 = len(ind_vec) // 2
-	ind_vec_mirror = np.concatenate([np.flip(ind_vec[:ind_vec_n_2]), ind_vec, 
-		np.flip(ind_vec[-ind_vec_n_2:])])
-	return ind_vec_mirror
-
-def plot_chrom_repl_timing_from_data(repl_timing, geneset, chrom):
-    
-    from src.sgd import get_chromosome_length
-    
-    chrom_len = get_chromosome_length(chrom)
-    
-    repl_timing = repl_timing.join(geneset[['chr', 'start']])
-    chr_repl_genes = repl_timing[repl_timing.chr == chrom]
-        
-    plt.figure(figsize=(13, 2))
-    plt.plot(chr_repl_genes.start, chr_repl_genes.timing, lw=0.5, c='black', ls='dotted')
-    plt.scatter(chr_repl_genes.start, chr_repl_genes.timing, s=1, c='black')
-    plt.ylim(60, 20)
-    plt.title(f"Replication timing, Chr{chrom}")
-    plt.xlim(0, chrom_len)
+	return all_avg_copy_curves, found_replication_indices, \
+		selected_copy_curves, rough_average_copy_curve

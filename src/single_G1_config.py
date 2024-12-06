@@ -83,6 +83,10 @@ class Config:
 		else:
 			raise ValueError("Parameter unimplemented: ", which)
 
+	def calculate_H(self):
+		self.H, hpos = self.calcH_function(self.intervals_wt1, self.WT1_TIMEPOINTS)
+		return self.H
+
 	def all_orfs(self):
 		return self.wt1_df.index.values
 
@@ -634,10 +638,10 @@ class Config:
 		second_s_end = end_lambd + s_end
 		return (s_start, s_end), (second_s_start, second_s_end)
 
-def load_yl_replicate1_rg1_alpha_vst_config(alpha=22):
+def load_yl_replicate1_rg1_alpha_vst_config(alpha=22, longer_file=False):
 	"""Load the model in which alpha is set to delay between separation and cytokinesis"""
 	wt1 = read_yl_vst_data_rep(1)
-	model_wt1_file = get_model_filename(1)
+	model_wt1_file = get_model_filename(1, longer_file=longer_file)
 	config = Config(wt1=wt1, model_wt1_file=model_wt1_file, name=f'Replicate 1, $\\alpha$={alpha}', 
 		replicate=1, alpha=alpha)
 
@@ -661,12 +665,19 @@ def load_single_g1_config(replicate):
 		config = load_yl_replicate2_rg1_alpha_vst_config()
 	return config
 
-def get_model_filename(replicate, alphas=[22, 20]):
+def get_model_filename(replicate, alphas=[22, 20], longer_file=False):
 
-	if replicate == 1:
-		model_file = f'models/yl_cell_cycle/wt1_rg1_shortened.{alphas[0]}.label'
+	if longer_file:
+		if replicate == 1:
+			model_file = f'models/yl_cell_cycle/wt1_rg1.{alphas[0]}.label'
+		else:
+			model_file = f'models/yl_cell_cycle/wt2_rg1.{alphas[1]}.label'
+
 	else:
-		model_file = f'models/yl_cell_cycle/wt2_rg1_shortened.{alphas[1]}.label'
+		if replicate == 1:
+			model_file = f'models/yl_cell_cycle/wt1_rg1_shortened.{alphas[0]}.label'
+		else:
+			model_file = f'models/yl_cell_cycle/wt2_rg1_shortened.{alphas[1]}.label'
 
 	return model_file
 

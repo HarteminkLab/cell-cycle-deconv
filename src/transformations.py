@@ -177,3 +177,8 @@ def z_score_norm(data):
     return data
 
 
+def log_transform_counts(raw_counts_matrix):
+    """
+    Transform counts using log transform
+    """
+    return np.log2(raw_counts_matrix + 1)
