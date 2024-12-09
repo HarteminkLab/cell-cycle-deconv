@@ -2,6 +2,7 @@
 import numpy as np
 import cvxpy as cp
 from src.timer import Timer
+import pandas as pd
 from matplotlib import pyplot as plt
 from src.replication_deconvolution_solver import deconvolve_avg_copy_curve, \
 	estimate_rough_average_copy_curve_fit, deconvolve_replication
@@ -39,7 +40,7 @@ class RealDataReplicationDeconvolution():
 			self.normalized_transformed_data = np.concatenate([self.G1, self.G2], 
 				axis=1)
 			self.deconvolve_combined = True
-			self.selected_threshold_region = self.thresh1 @ self.thresh2
+			self.selected_threshold_region = self.thresh1 | self.thresh2
 
 		else:
 			self.load_replicate_data(chr, replicate)
@@ -140,8 +141,15 @@ class RealDataReplicationDeconvolution():
 		if fig is None:
 			fig = plt.figure(figsize=(7, 1))
 
-		plt.imshow(self.F, origin='lower', aspect='auto')
-		plt.ylim(40, 60)
+		threshold_F = threshold_selection(self.F, self.selected_threshold_region,
+			fill=np.nan)
+
+		cmap = plt.get_cmap('Reds_r')
+		cmap.set_bad('#111', 1.)
+
+		plt.imshow(threshold_F, origin='lower', aspect='auto', cmap=cmap,
+			interpolation='none')
+		plt.ylim(45, 65)
 		plt.xticks([])
 
 
@@ -162,7 +170,10 @@ class RealDataReplicationDeconvolution():
 		raw_data = self.normalized_occupancy.T
 		G = self.normalized_transformed_data.T
 
-		thresholded_raw_data = threshold_selection(raw_data.values, 
+		if type(raw_data) == pd.DataFrame:
+			raw_data = raw_data.values
+
+		thresholded_raw_data = threshold_selection(raw_data, 
 		    self.selected_threshold_region, fill=np.nan, renormalize=True)
 
 		thresholded_G = threshold_selection(G, 
