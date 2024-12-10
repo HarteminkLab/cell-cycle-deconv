@@ -41,7 +41,7 @@ def deconvolve_avg_copy_curve(g, config, H, replication_index):
 
 	inv_learn_avg_copies = cp.Variable(m)
 
-	normalized_f = cp.multiply((f), inv_learn_avg_copies)
+	normalized_f = cp.multiply(cp.exp(f), inv_learn_avg_copies)
 	predicted_g = H@normalized_f
 
 	elementwise_result = cp.multiply(predicted_g, 1.0/g) - 1
@@ -49,17 +49,23 @@ def deconvolve_avg_copy_curve(g, config, H, replication_index):
 	objective = cp.Minimize(
 		cp.sum(cp.norm(elementwise_result, 'fro')**2)
 	)
-	constraints = [inv_learn_avg_copies >=0.5, inv_learn_avg_copies <=1]
+
+	# Bounds of the average copy number curve
+	copy_num_bounds = np.array([1, 2])
+	inv_copy_num_bounds = 1, 100#1./np.exp(copy_num_bounds)
+
+	constraints = [inv_learn_avg_copies >=inv_copy_num_bounds[0],
+		inv_learn_avg_copies <= inv_copy_num_bounds[1]]
 
 	# Enforce average copy number of 1 for CG1 and DG1
 	for i in range(0, len(cg1_indices)):
 		current = cg1_indices[i]
-		constraints.append(inv_learn_avg_copies[current] == 1)
+		constraints.append(inv_learn_avg_copies[current] == inv_learn_avg_copies[0])
 
 	# Enforce average copy number of 1 for RG1
 	for i in range(0, len(rg1_indices)):
 		current = rg1_indices[i]
-		constraints.append(inv_learn_avg_copies[current] == 1)
+		constraints.append(inv_learn_avg_copies[current] == inv_learn_avg_copies[0])
 
 	# Enforce monotonic decrease during postG1
 	# Inverse of the average curve from 1 to 0.5
@@ -69,12 +75,14 @@ def deconvolve_avg_copy_curve(g, config, H, replication_index):
 		constraints.append(inv_learn_avg_copies[prev] >= inv_learn_avg_copies[current])
 
 		if i == len(postg1_indices)-1:
-			constraints.append(inv_learn_avg_copies[current] == 0.5)
+			constraints.append(inv_learn_avg_copies[current] == 
+				inv_copy_num_bounds[1])
 		elif i == 1:
-			constraints.append(inv_learn_avg_copies[prev] == 1.0)
+			constraints.append(inv_learn_avg_copies[prev] == 
+				inv_copy_num_bounds[0])
 
 	# Halted cells, copy number of 1
-	constraints.append(inv_learn_avg_copies[m-1] == 1.0)
+	constraints.append(inv_learn_avg_copies[m-1] == inv_copy_num_bounds[0])
 
 	prob = cp.Problem(objective, constraints)
 	result = prob.solve(solver=solver, warm_start=True, verbose=False, eps=1e-5)
@@ -108,7 +116,7 @@ def deconvolve_replication(config, H, G, avg_copies_per_time):
 		f = cp.Variable(m, boolean=True)
 
 		normalized_f = (f+1) * 1/avg_copies_per_time
-		predicted_g = H@normalized_f
+		predicted_g = cp.exp(H@normalized_f)
 
 		#elementwise_result = cp.multiply(predicted_g, 1.0/g) - 1
 
@@ -181,10 +189,9 @@ def estimate_rough_average_copy_curve_fit(config, H, G, num_skip_sites=10):
 				
 				# Get g and normalize to a known good range for deconvolution
 				g = G[:, genomic_idx]
-				normalized_g = normalize_max_min(g)*.1 + .95
 
 				result, f, inv_learn_avg_copies, predicted_g = \
-					deconvolve_avg_copy_curve(normalized_g, config, 
+					deconvolve_avg_copy_curve(g, config, 
 						H, replication_index)
 				
 				rns[index] = result

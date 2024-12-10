@@ -118,7 +118,7 @@ class RealDataReplicationDeconvolution():
 		# In the case of combined configs, only one is necessary
 		# The S indices are consistent across both configs/Hs
 		config = self.config
-		G = self.normalized_transformed_data.T
+		G = self.normalized_occupancy.T.values
 
 		self.all_avg_copy_curves, self.found_replication_indices, \
 		self.selected_copy_curves, self.rough_average_copy_curve \
