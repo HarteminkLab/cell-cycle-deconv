@@ -32,7 +32,7 @@ def main():
 
 	system_args = tuple(sys.argv)
 	outdir, copy_correct, index = system_args[1], int(system_args[2]), \
-		int(system_args[4])
+		int(system_args[3])
 
 	genome_deconvolution = GenomeDeconvolution(save_dir=outdir)
 
