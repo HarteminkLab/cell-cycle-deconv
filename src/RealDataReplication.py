@@ -4,8 +4,7 @@ import cvxpy as cp
 from src.timer import Timer
 import pandas as pd
 from matplotlib import pyplot as plt
-from src.replication_deconvolution_solver import deconvolve_avg_copy_curve, \
-	estimate_rough_average_copy_curve_fit, deconvolve_replication
+from src.replication_deconvolution_solver import deconvolve_replication
 
 
 class RealDataReplicationDeconvolution():
@@ -20,7 +19,7 @@ class RealDataReplicationDeconvolution():
 			self.setup_deconvolution(configs[0])
 			self.H1 = self.H
 			self.raw1_data = self.normalized_occupancy
-			self.G1 = self.normalized_transformed_data
+			self.G1 = self.normalized_occupancy
 			self.config1 = configs[0]
 			self.thresh1 = self.selected_threshold_region
 
@@ -28,7 +27,7 @@ class RealDataReplicationDeconvolution():
 			self.setup_deconvolution(configs[1])
 			self.raw2_data = self.normalized_occupancy
 			self.H2 = self.H
-			self.G2 = self.normalized_transformed_data
+			self.G2 = self.normalized_occupancy
 			self.config2 = configs[0]
 			self.thresh2 = self.selected_threshold_region
 
@@ -37,7 +36,7 @@ class RealDataReplicationDeconvolution():
 				self.raw1_data, self.raw2_data
 			], axis=1)
 			self.H = np.concatenate([self.H1, self.H2], axis=0)
-			self.normalized_transformed_data = np.concatenate([self.G1, self.G2], 
+			self.normalized_occupancy = np.concatenate([self.G1, self.G2], 
 				axis=1)
 			self.deconvolve_combined = True
 			self.selected_threshold_region = self.thresh1 | self.thresh2
@@ -72,173 +71,12 @@ class RealDataReplicationDeconvolution():
 		"""Setup the deconvolution:
 
 		1. The config and H
-		2. The data to deconvolve, transformed via negative binomial
 		"""
 
 		self.config = config
 		self.H, _ = config.calcH_function(config.intervals_wt1, 
 			config.WT1_TIMEPOINTS)
 
-		# Data setup: 
-		from src.transformations import log_transform_counts
-
-		# Transform the raw data, scale values by 100 to resemble
-		# counts data, unsure of this is necessary at this point.
-		# But we have been working copy number like values up to here
-		# so we want to make them more resemble read counts.
-		all_transformed_data = log_transform_counts(
-			self.normalized_occupancy.values*100)
-
-		# Mean transformation
-		normalized_transformed_data = (all_transformed_data / \
-			all_transformed_data.mean(axis=0))
-
-		self.normalized_transformed_data = normalized_transformed_data
-
-
-	def plot_rough_copy_curve_estimation(self):
-		plt.figure(figsize=(4, 2))
-		plt.plot(self.selected_copy_curves[:, :].T)
-		plt.plot(self.rough_average_copy_curve, lw=10)
-		plt.title("Initial/rough copy curve estimation")
-
-
-	def estimate_rough_average_copy_curve_fit(self):
-		"""The replication deconvolution needs an estimate for the average
-		copy curve. First pass can be a sample of 10 sites to fit
-		for this curve by minimizing the rn for all possible values of 
-		replication timing. Each fit will be very rough, but the average
-		copy number curve should be a pretty good estimate"""
-
-		from src.helpers import normalize_max_min
-		from src.timer import Timer
-
-		H = self.H
-
-		# In the case of combined configs, only one is necessary
-		# The S indices are consistent across both configs/Hs
-		config = self.config
-		G = self.normalized_occupancy.T.values
-
-		self.all_avg_copy_curves, self.found_replication_indices, \
-		self.selected_copy_curves, self.rough_average_copy_curve \
-			= estimate_rough_average_copy_curve_fit(config, H, G)
-
-	def deconvolve(self):
-		"""
-		Deconvolve the replication curve from the H, G and average copies curve
-		"""
-
-		config = self.config
-		H = self.H
-		G = self.normalized_transformed_data.T
-		avg_copies_per_time = self.rough_average_copy_curve
-
-		self.F = deconvolve_replication(config, H, G, avg_copies_per_time)
-
-
-	def plot_replication_deconvolution(self, fig=None):
-		if fig is None:
-			fig = plt.figure(figsize=(7, 1))
-
-		threshold_F = threshold_selection(self.F, self.selected_threshold_region,
-			fill=np.nan)
-
-		cmap = plt.get_cmap('Reds_r')
-		cmap.set_bad('#111', 1.)
-
-		plt.imshow(threshold_F, origin='lower', aspect='auto', cmap=cmap,
-			interpolation='none')
-		plt.ylim(45, 65)
-		plt.xticks([])
-
-
-	def plot_deconvolution_prediction(self):
-
-		from src.RealDataReplication import threshold_selection
-
-		new_replication_mat = self.F
-		rough_average_copy_curve = self.rough_average_copy_curve
-		H = self.H
-
-		cmap = plt.get_cmap('RdBu_r')
-		cmap.set_bad('#111', 1.)
-
-		predicted_G = H@((self.F+1)/\
-		    self.rough_average_copy_curve.reshape((-1, 1)))
-		                 
-		raw_data = self.normalized_occupancy.T
-		G = self.normalized_transformed_data.T
-
-		if type(raw_data) == pd.DataFrame:
-			raw_data = raw_data.values
-
-		thresholded_raw_data = threshold_selection(raw_data, 
-		    self.selected_threshold_region, fill=np.nan, renormalize=True)
-
-		thresholded_G = threshold_selection(G, 
-		    self.selected_threshold_region,
-		                   fill=np.nan, renormalize=True)
-
-		thresholded_predicted_G = threshold_selection(predicted_G, 
-		    self.selected_threshold_region,
-		                   fill=np.nan, renormalize=True)
-
-		# To start, here is what the data will look like when 
-		# we take our existing replication
-		# curve with our average copy curve.
-		fig = plt.figure(figsize=(7, 7))
-		plt.subplots_adjust(hspace=0.5)
-
-		plt.subplot(5, 1, 1)
-		self.plot_replication_deconvolution(fig=fig)
-		plt.xticks([])
-		plt.colorbar()
-		plt.title("Deconvolved replication timing")
-
-		plt.subplot(5, 1, 2)
-		plt.imshow(thresholded_raw_data, cmap=cmap, vmin=0, vmax=2,
-          origin='lower', aspect='auto')
-		plt.title("Raw data, untransformed")
-		plt.xticks([])
-		plt.colorbar()
-
-		plt.subplot(5, 1, 3)
-		plt.imshow(thresholded_G, aspect='auto', origin='lower', 
-			cmap=cmap,
-			vmin=0.75, vmax=1.25)
-		plt.colorbar()
-		plt.xticks([])
-		plt.title("G: Raw data log-transformed")
-
-		plt.subplot(5, 1, 4)
-		plt.imshow(thresholded_predicted_G, aspect='auto', origin='lower', 
-			cmap=cmap, vmin=0.75, vmax=1.25)
-		plt.colorbar()
-		plt.xticks([])
-		plt.title("Prediction")
-
-		residual_G = thresholded_G - thresholded_predicted_G
-		plt.subplot(5, 1, 5)
-		plt.imshow(residual_G, aspect='auto', origin='lower', 
-			cmap=cmap,
-			vmin=-0.25, vmax=0.25)
-		plt.colorbar()
-		plt.xticks([])
-		plt.title("Residual: G-prediction")
-
-		plt.subplots_adjust(hspace=0.5)
-
-	def plot_nb_data(self):
-
-		plt.figure(figsize=(7, 1))
-
-		plt.imshow(thresholded_nb_data, vmin=0.75, vmax=1.25,
-				   cmap='RdBu_r', aspect='auto',
-				  origin='lower')
-		plt.xticks([])
-		plt.title("Raw data, Negative binomial transformation")
-		plt.colorbar()
 
 
 def threshold_selection(dat, threshold_selection, fill=1.,
@@ -257,3 +95,148 @@ def threshold_selection(dat, threshold_selection, fill=1.,
 		new_dat = new_dat / row_means.reshape((-1, 1))
 
 	return new_dat
+
+
+def plot_comparison_occupancies_G():
+	# Def plot of chromosome 4 values
+	# # Comparison of chrIV t=0 and t=30
+	# plt.figure(figsize=(24, 6))
+	# plt.subplot(3, 1, 1)
+	# plt.plot(real_deconv_chr4.normalized_occupancy.T.loc[0])
+	# plt.xticks([])
+	# plt.axhline(1, c='black', lw=1)
+	# plt.title("T=0")
+
+	# plt.subplot(3, 1, 2)
+	# plt.plot(real_deconv_chr4.normalized_occupancy.T.loc[30])
+	# plt.axhline(1, c='black', lw=1)
+	# plt.xticks([])
+	# plt.title("T=30")
+
+	# plt.subplot(3, 1, 3)
+	# plt.plot(np.log2(real_deconv_chr4.normalized_occupancy.T.loc[30] / 
+	#                  real_deconv_chr4.normalized_occupancy.T.loc[0])
+	#         )
+	# plt.axhline(0, c='black', lw=1)
+	# plt.ylim(-1, 1)
+	# plt.title("log2 ratio difference")
+	# plt.suptitle("ChrIV t=0 vs t=30 occupancy")
+	pass
+
+def plot_histogram_occupancies_G(config, G):
+	fig, axs = plt.subplots(3, 6, figsize=(13, 6))
+
+	tps = config.WT1_TIMEPOINTS
+	axs = np.array(axs).T.flatten()
+	plot_G = G.T
+
+	for ax in axs:
+	    ax.set_xticks([])
+	    ax.set_yticks([])
+	for i in range(plot_G.shape[1]):
+	    ax = axs[i]
+	    
+	    ax.hist(plot_G[:, i], bins=20, facecolor=plt.get_cmap('Spectral')(i/plot_G.shape[1]),
+	           edgecolor='gray', lw=1)
+	    ax.set_xlim(0, 2)
+	    ax.set_ylim([0, 120])
+	    ax.axvline(1, c='black', lw=1, ls='dotted')
+	    ax.set_title(f"{tps[i]} min")
+	    if i % 3 == 2:
+	        ax.set_xticks([0, 1, 2])
+	    
+	plt.suptitle("Distribution of normalized G data per timepoint")
+	plt.subplots_adjust(hspace=0.5)
+
+	# This shoes the data for G is normal-ish and centered around 1.
+
+def plot_heatmaps(N, F, H, B, G):
+
+    inv_B = np.linalg.inv(B)
+    transformed_G = (np.linalg.inv(N)@G@inv_B)
+
+    plt.figure(figsize=(13, 11))
+
+    plt.subplot(6, 1, 1)
+    plt.imshow(F, cmap='RdBu_r', vmin=0, vmax=2, aspect='auto')
+    plt.xticks([])
+    plt.colorbar()
+    plt.title("$F$")
+
+    plt.subplot(6, 1, 2)
+    plt.imshow(H@F, cmap='RdBu_r', vmin=0, vmax=2, aspect='auto')
+    plt.xticks([])
+    plt.colorbar()
+    plt.title("$HF$")
+
+    plt.subplot(6, 1, 3)
+    plt.imshow(transformed_G, cmap='RdBu_r', vmin=0, vmax=2, aspect='auto')
+    plt.xticks([])
+    plt.colorbar()
+    plt.title("$(N^{-1})G(B^{-1})$")
+
+    plt.subplot(6, 1, 4)
+    predicted_G = N@H@F@B
+    plt.imshow(predicted_G, cmap='RdBu_r', vmin=0, vmax=2, aspect='auto')
+    plt.xticks([])
+    plt.colorbar()
+    plt.title("Predicted G: $NHFB$")
+
+    plt.subplot(6, 1, 5)
+    plt.imshow(G, cmap='RdBu_r', vmin=0, vmax=2, aspect='auto')
+    plt.colorbar()
+    plt.xticks([])
+    plt.title("$G$")
+
+    plt.subplot(6, 1, 6)
+    plt.imshow((N@H@F@B)/(G)-1, vmin=-1, vmax=1, cmap='RdBu_r', aspect='auto')
+    plt.colorbar()
+    plt.title("$\\frac{NHFB}{G} -1$")
+    plt.subplots_adjust(hspace=0.5)
+
+def compute_N(config):
+	from src.model import color_for_key
+
+	H = config.calculate_H()
+	tps = config.WT1_TIMEPOINTS
+
+	cg1_mass = H[:, config.get_Hpositions_for_phase('RG1')].sum(axis=1)
+	rg1_mass = H[:, config.get_Hpositions_for_phase('CG1')].sum(axis=1)
+	s_mass = H[:, config.get_Hpositions_for_phase('S')].sum(axis=1)
+	g2m_mass = H[:, config.get_Hpositions_for_phase('G2M')].sum(axis=1)
+	h_mass = H[:, config.get_Hpositions_for_phase('H')].sum(axis=1)
+
+	# Assume linear transition of S-phase
+	s_indices = config.get_Hpositions_for_phase('S')
+	s_masses = np.linspace(1, 2, len(s_indices))
+
+	g1_mass = cg1_mass+rg1_mass
+	s_dna_content = H[:, config.get_Hpositions_for_phase('S')] @ np.diag(s_masses).sum(axis=1)
+	replicating_mass = s_dna_content+g2m_mass*2
+
+	average_DNA = h_mass+g1_mass+replicating_mass
+	N = np.linalg.inv(np.diag(average_DNA))
+
+	plt.figure(figsize=(6, 3))
+
+	plt.fill_between(tps, h_mass, 0, label="H mass", color=color_for_key('H'))
+
+	plt.fill_between(tps, g1_mass+h_mass, h_mass, label="G1 mass", color=color_for_key('CG1'))
+
+	# ---------
+
+	plt.fill_between(tps, g1_mass+s_dna_content+h_mass, 
+	                      g1_mass+h_mass, label="S mass", color=color_for_key('S'))
+
+	plt.fill_between(tps, g1_mass+s_dna_content+g2m_mass*2+h_mass, 
+	                     g1_mass+s_dna_content+h_mass, 
+	                     label="G2M mass", color=color_for_key('G2M'))
+
+
+	plt.legend()
+
+	plt.title("Estimation of average DNA content, CLOCCS")
+	plt.xlabel("Clock time")
+	plt.ylabel("Average DNA content")
+
+	return average_DNA, N

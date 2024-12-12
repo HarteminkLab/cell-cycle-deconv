@@ -6,91 +6,8 @@ from src.timer import Timer
 from matplotlib import pyplot as plt
 
 
-def deconvolve_avg_copy_curve(g, config, H, replication_index):
-	"""
-	This function attempts to deconvolve the average copy number
-	curve from a given g, and replication index.
-
-	The expectation is
-	the true replication curve is known, and we are interested in
-	identifying the best copy curve that allows us to fit to the
-	given raw data curve g. 
-
-	This is an estimate, but is powerful when we compute many
-	of these across the genome. The median average copy curve
-	is closer to the true average copy curve.
-
-	The average copy number curve is important because it handles
-	the effects caused by equal sample normalization of the input
-	data.
-	"""
-
-	cg1_indices = config.get_Hpositions_for_phase('CG1')
-	rg1_indices = config.get_Hpositions_for_phase('RG1')
-	postg1_indices = config.get_Hpositions_for_phase('postG1')
-
-	n, m = H.shape
-
-	# Let's try the DCP error thing again, division by a variable is not allowed
-	# but we can try to multiply by a variable....
-	solver = cp.MOSEK
-
-	# Create f from replication index
-	f = np.ones(m)
-	f[replication_index:-1] = 2
-
-	inv_learn_avg_copies = cp.Variable(m)
-
-	normalized_f = cp.multiply(cp.exp(f), inv_learn_avg_copies)
-	predicted_g = H@normalized_f
-
-	elementwise_result = cp.multiply(predicted_g, 1.0/g) - 1
-
-	objective = cp.Minimize(
-		cp.sum(cp.norm(elementwise_result, 'fro')**2)
-	)
-
-	# Bounds of the average copy number curve
-	copy_num_bounds = np.array([1, 2])
-	inv_copy_num_bounds = 1, 100#1./np.exp(copy_num_bounds)
-
-	constraints = [inv_learn_avg_copies >=inv_copy_num_bounds[0],
-		inv_learn_avg_copies <= inv_copy_num_bounds[1]]
-
-	# Enforce average copy number of 1 for CG1 and DG1
-	for i in range(0, len(cg1_indices)):
-		current = cg1_indices[i]
-		constraints.append(inv_learn_avg_copies[current] == inv_learn_avg_copies[0])
-
-	# Enforce average copy number of 1 for RG1
-	for i in range(0, len(rg1_indices)):
-		current = rg1_indices[i]
-		constraints.append(inv_learn_avg_copies[current] == inv_learn_avg_copies[0])
-
-	# Enforce monotonic decrease during postG1
-	# Inverse of the average curve from 1 to 0.5
-	for i in range(1, len(postg1_indices)):
-		prev = postg1_indices[i-1]
-		current = postg1_indices[i]
-		constraints.append(inv_learn_avg_copies[prev] >= inv_learn_avg_copies[current])
-
-		if i == len(postg1_indices)-1:
-			constraints.append(inv_learn_avg_copies[current] == 
-				inv_copy_num_bounds[1])
-		elif i == 1:
-			constraints.append(inv_learn_avg_copies[prev] == 
-				inv_copy_num_bounds[0])
-
-	# Halted cells, copy number of 1
-	constraints.append(inv_learn_avg_copies[m-1] == inv_copy_num_bounds[0])
-
-	prob = cp.Problem(objective, constraints)
-	result = prob.solve(solver=solver, warm_start=True, verbose=False, eps=1e-5)
-
-	return result, f, inv_learn_avg_copies.value, predicted_g.value
-
-
-def deconvolve_replication(config, H, G, avg_copies_per_time):
+def deconvolve_replication(config, H, G, N, B, prev_F, timer=None,
+	smoothness_weight=0.01):
 	"""
 	Deconvolve the replication curve
 	"""
@@ -98,12 +15,17 @@ def deconvolve_replication(config, H, G, avg_copies_per_time):
 	cg1_indices = config.get_Hpositions_for_phase('CG1')
 	rg1_indices = config.get_Hpositions_for_phase('RG1')
 	postg1_indices = config.get_Hpositions_for_phase('postG1')
+	s_indices = config.get_Hpositions_for_phase('S')
+	g2m_indices = config.get_Hpositions_for_phase('G2M')
 
-	timer = Timer()
+	if timer is None:
+		timer = Timer()
 
 	n, m = H.shape
 	n, v = G.shape
 	F = np.zeros((m, v))
+	rns = np.zeros(v)
+	sns = np.zeros(v)
 
 	for g_index in range(G.shape[1]):
 
@@ -113,109 +35,94 @@ def deconvolve_replication(config, H, G, avg_copies_per_time):
 		g = G[:, g_index]
 
 		solver = cp.MOSEK
-		f = cp.Variable(m, boolean=True)
 
-		normalized_f = (f+1) * 1/avg_copies_per_time
-		predicted_g = cp.exp(H@normalized_f)
+		# f is modeled as a boolean variable. We are interested
+		# in the copy number so add 1
+		f_0 = cp.Variable(m, boolean=True)
+		f = f_0+1
 
-		#elementwise_result = cp.multiply(predicted_g, 1.0/g) - 1
+		if prev_F is None or g_index == 0 or g_index == v-1:
+			avg_diff = 0
+		else:
 
-		# Can we do additive minimization now?
-		elementwise_result = predicted_g - g
+			neighbor_f_left = np.array(np.nan)
+			neighbor_f_right = np.array(np.nan)
+			compare_f = f
+
+			sum_f = cp.sum(compare_f)
+
+			neighbor_f_left = prev_F[:, g_index-1]
+			neighbor_f_right = prev_F[:, g_index+1]
+				
+			left_sum = neighbor_f_left.sum()
+			right_sum = neighbor_f_right.sum()
+			average_sum = (left_sum+right_sum)/2
+
+			# Minimize the difference between the current f
+			# and the average of the left and right
+			# (We want f to be favor being a middle step between
+			# the left and right sums)
+			avg_diff = average_sum-sum_f
+
+		neighbor_smoothing_norm = cp.abs(avg_diff)
+
+		# Get the relevant baseline occupancy
+		b = B[g_index, g_index]
+
+		predicted_g = N@H@(f*b)
+
+		CONST_1_COPY = 1
+		CONST_2_COPY = 2
+
+		elementwise_result = cp.multiply(predicted_g, 1.0/g) - 1
 
 		objective = cp.Minimize(
-			cp.sum(cp.norm(elementwise_result, 'fro')**2)
+			cp.sum(cp.norm(elementwise_result, 'fro')**2) +
+			smoothness_weight*neighbor_smoothing_norm
 		)
 		constraints = []
 		
 		# Enforce values of 0, during G1
 		for i in range(0, len(cg1_indices)):
 			current = cg1_indices[i]
-			constraints.append(f[current] == 0)
+			constraints.append(f[current] == CONST_1_COPY)
 
 		for i in range(0, len(rg1_indices)):
 			current = rg1_indices[i]
-			constraints.append(f[current] == 0)
+			constraints.append(f[current] == CONST_1_COPY)
 
-		# Enforce monotonic increase to 1 in postG1
-		for i in range(1, len(postg1_indices)):
-			prev = postg1_indices[i-1]
-			current = postg1_indices[i]
+		# Enforce monotonic increase to 1 during S-phase
+		for i in range(1, len(s_indices)):
+			prev = s_indices[i-1]
+			current = s_indices[i]
 			constraints.append(f[prev] <= f[current])
 
-			# Enforce start and end of postG1 has
-			# a transition from 0 to 1
-			if i == len(postg1_indices)-1:
-				constraints.append(f[current] == 1)
-			elif i == 1:
-				constraints.append(f[prev] == 0)
+			# Enforce start and end of S
+			if i == 1:
+				constraints.append(f[prev] == CONST_1_COPY)
+			elif i == len(s_indices)-1:
+				constraints.append(f[current] == CONST_2_COPY)
+
+		# Enforce two copies of DNA in G2M
+		for i in range(0, len(g2m_indices)):
+			current = g2m_indices[i]
+			constraints.append(f[current] == CONST_2_COPY)
 
 		# Halted cells, copy number of 1
-		constraints.append(f[m-1] == 0)
+		constraints.append(f[m-1] == CONST_1_COPY)
 
 		prob = cp.Problem(objective, constraints)
 		result = prob.solve(solver=solver, warm_start=True, 
 			verbose=False, eps=1e-4)
+
+		elementwise_result = cp.multiply(predicted_g, 1.0/g) - 1
+		rn = cp.sum(cp.norm(elementwise_result, 'fro')**2)
+		sn = smoothness_weight*neighbor_smoothing_norm
+
 		F[:, g_index] = f.value
+		rns[g_index] = rn.value
+		sns[g_index] = sn.value
 
-	return F
+	return F, rns.mean(), sns.mean()
 
 
-def estimate_rough_average_copy_curve_fit(config, H, G, num_skip_sites=10):
-
-	from src.RealDataReplication import deconvolve_avg_copy_curve
-	from src.helpers import normalize_max_min
-	from src.timer import Timer
-
-	num_sites = G.shape[1]
-	S_indices = config.get_Hpositions_for_phase('S')
-	postG1_indices = config.get_Hpositions_for_phase('postG1')
-
-	n, m = H.shape
-	all_avg_copy_curves = np.zeros((num_sites, m))
-	found_replication_indices = np.zeros((num_sites, 1))
-
-	timer = Timer()
-
-	for genomic_idx in range(0, num_sites, num_skip_sites):
-		
-		def determine_optimal_g(G, genomic_idx):
-			
-			rns = np.zeros(len(S_indices))
-			sweep_all_avg_copy_curves = np.zeros((len(S_indices), m))
-					
-			# Try all replication indices to compute the optimal copy curve
-			for index, replication_index in enumerate(S_indices):
-				
-				# Get g and normalize to a known good range for deconvolution
-				g = G[:, genomic_idx]
-
-				result, f, inv_learn_avg_copies, predicted_g = \
-					deconvolve_avg_copy_curve(g, config, 
-						H, replication_index)
-				
-				rns[index] = result
-				sweep_all_avg_copy_curves[index] = inv_learn_avg_copies
-
-			min_idx = np.argmin(rns)
-			S_indices[min_idx]
-
-			return min_idx, S_indices[min_idx], rns[min_idx], \
-				1./sweep_all_avg_copy_curves[min_idx]
-		
-		(min_idx, repl_index, rn, \
-		 found_avg_copy_curve) = determine_optimal_g(G, genomic_idx)
-		
-		all_avg_copy_curves[genomic_idx] = found_avg_copy_curve
-		found_replication_indices[genomic_idx] = repl_index
-		
-		if genomic_idx % 20 == 0:
-			timer.print_time(f"{genomic_idx}/{num_sites}")
-
-	selected_copy_curves = all_avg_copy_curves[
-		(np.quantile(all_avg_copy_curves, axis=1, q=0.5) > 0), :]
-	rough_average_copy_curve = np.median(selected_copy_curves.T, 
-		axis=1)
-
-	return all_avg_copy_curves, found_replication_indices, \
-		selected_copy_curves, rough_average_copy_curve

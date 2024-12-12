@@ -154,20 +154,26 @@ def show_gif(gif_path):
 	gif_url = f"{gif_path}?{time.time()}" # bypass cached image
 	display(Image(data=open(gif_path,'rb').read(), format='png'))
 		
-def create_animation(indices, gif_save_path):
+def create_animation(indices, gif_save_path, frames_dir,
+	prefix):
 	from PIL import Image
 
 	frames_dir = 'output/tmp/'
 	frame_files = []
 
 	for animation_index in indices:
-		frame_file = f'{frames_dir}/f_{animation_index}.png'
+		frame_file = f'{frames_dir}/{prefix}{animation_index}.png'
 		frame_files.append(frame_file)
+
+	frame_duration_s = 0.5
+	ms = 1000
+	loops = 0
+
+	durations = list(np.repeat(frame_duration_s*ms, len(frame_files)))
 
 	frames = [Image.open(frame) for frame in frame_files]
 	frames[0].save(gif_save_path, format='GIF', append_images=frames[1:], save_all=True, 
-	duration=30, loop=1)
-
+		duration=durations, loop=loops)
 
 
 def create_weighted_smoothing_curve(config, plot=False):
