@@ -197,6 +197,7 @@ class ORFAnnotationPlotter:
 			ax.set_xlim(*span)
 
 		ax.set_yticks([])
+		ax.set_ylim(-110, 110)
 
 		return ax
 

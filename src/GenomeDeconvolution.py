@@ -45,13 +45,16 @@ class GenomeDeconvolution(object):
 	
 
 	def plot_deconvolved_result(self, smooth=False, 
-			normalize=False, vmax=5, figwidth=23):
+			normalize=False, vmin=0.75, vmax=20, figwidth=23):
 		from src.global_config import GlobalConstants
 		from src.figure_configs import FiguresConfig
 
-		f_img = self.combined_model.chrom1_model.get_f_images()
+		f_imgs = self.combined_model.chrom1_model.get_f_images()
 		chrom = self.combined_model.chrom1_model.chr
 		span = self.combined_model.chrom1_model.mnase_span
+
+		#normalized_f_imgs = f_imgs/f_imgs.mean(axis=1).mean(axis=1).reshape((-1, 1, 1))
+		normalized_f_imgs = f_imgs
 
 		indices, label_names = self.combined_model\
 			.chrom1_model.config.get_full_phase_indices()
@@ -71,7 +74,7 @@ class GenomeDeconvolution(object):
 			ax = axs[i+1]
 			label_name = label_names[i]
 			
-			current_f_img = f_img[indices[i]]
+			current_f_img = normalized_f_imgs[indices[i]]
 
 			if smooth:
 				current_f_img = smooth_data(current_f_img, size=5, sigma=0.5)
@@ -81,7 +84,7 @@ class GenomeDeconvolution(object):
 
 			ax.imshow(current_f_img, origin='lower', cmap='magma_r', vmax=vmax, aspect='auto',
 					 extent=self.combined_model.chrom1_model.bin_extents, 
-					 vmin=0.9)
+					 vmin=vmin)
 			ax.set_ylabel(label_name, rotation=0, ha='right', labelpad=9)
 			ax.set_yticks([])
 			
@@ -94,6 +97,7 @@ class GenomeDeconvolution(object):
 		plt.suptitle(f"Chr{chrom}: {span[0]}-{span[1]}", fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
 		plt.subplots_adjust(top=0.923)
 		return fig
+
 
 	def plot_raw_data(self, replicate):
 

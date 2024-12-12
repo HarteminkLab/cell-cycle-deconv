@@ -454,13 +454,17 @@ def compute_scaling_matrix(tp_counts):
 	# Compute the minimum fragment occupancy for each length 
 	# (what time had the fewest number of reads for 
 	# a given fragment length)
+
+	# Ensure that the total distribution is mean centered
+	# around 1
 	len_counts_df = tp_counts.copy().T
+	len_counts_df = len_counts_df/len_counts_df.mean().mean()
 
+	# After min length computation, again center around 1
 	min_counts_per_len = len_counts_df.min(axis=0)
+	min_counts_per_len = min_counts_per_len/min_counts_per_len.mean()
 
-	# Then compute a scaling matrix, the factor in which we need to 
-	# multiply the lengths matrix in order for each timepoint to be equivalent 
-	# to this min counts vector
+	# Compute the scaling matrix
 	min_len_scaling_matrix = min_counts_per_len / len_counts_df
 	min_len_scaling_matrix = min_len_scaling_matrix.fillna(0)
 

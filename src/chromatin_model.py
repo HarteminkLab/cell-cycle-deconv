@@ -82,11 +82,8 @@ class ChromatinModel:
 		normalized_bins = self.normalize_bins(exact_bins, log=log)
 		self.normalized_bins = normalized_bins
 
-		# Apply copy correction and renormalization
-		self.apply_copy_correction(log=log)
-
 		if downsample:
-			downsampled_bins = self.downsample_bins(self.corrected_normalized_bins, new_span)
+			downsampled_bins = self.downsample_bins(self.normalized_bins, new_span)
 			self.new_span = new_span
 
 		exact_extent = [self.mnase_span[0], self.mnase_span[1],
@@ -298,22 +295,20 @@ class ChromatinModel:
 	def normalize_bins(self, exact_bins, log=True, scaling_mat=None):
 		"""Normalize the histogram of exact length, position counts"""
 
-		# Todo: refactoring
-
 		if scaling_mat is None:
 			from src.preprocessing import load_scaling_mat
 			scaling_mat = load_scaling_mat(self.config.replicate)
 
-		timepoints = self.timepoints
-		normalized_bins = exact_bins.copy()
+		# Normalize the exact bins to center around mean 1
+		normalized_exact_bins = exact_bins/exact_bins.mean()
 
 		# Normalization that matches
 		# the length distribution across all timepoints and replicates
 		if log: print_fl("Applying a normalization for length distribution")
-		for i in range(len(timepoints)):
-			time = timepoints[i]
-			cur_normalized_bins = (scaling_mat[time].values.reshape((-1, 1)) * exact_bins[i])
-			normalized_bins[i] = cur_normalized_bins
+
+		scaling_T = scaling_mat.T
+		scaling_T = scaling_T.values.reshape((scaling_T.shape[0], scaling_T.shape[1], 1))
+		normalized_bins = normalized_exact_bins * scaling_T
 
 		return normalized_bins
 
@@ -346,11 +341,14 @@ class ChromatinModel:
 					y_start = y_bins[y_ind-1]
 					y_end = y_bins[y_ind]
 					
-					bin_counts = bin_data[t_index][y_start:y_end, x_start:x_end].sum()
+					bin_counts = bin_data[t_index][y_start:y_end, x_start:x_end].mean()
 					downscaled_bins[t_index][y_ind-1][x_ind-1] = bin_counts
 
 		# Bins are filled up until the last one row and column, so subset
 		downscaled_bins = downscaled_bins[:, :-1, :-1]
+
+		# Mean 1 normalization
+		downscaled_bins = downscaled_bins/downscaled_bins.mean()
 
 		return downscaled_bins
 
@@ -375,21 +373,6 @@ class ChromatinModel:
 		self.exact_bins = exact_bins
 		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
 
-		self.apply_copy_correction(log=log)
-
-
-	def apply_copy_correction(self, log=True):
-		"""Copy correct using the precomputed correction and normalization scalar vector.
-			See 0_Copy_Correction_Procedure notebook for details
-		"""
-
-		from src.copy_correction_reanalysis import perform_precomputed_correction_normalisation
-
-		corrected_normalized_bins = perform_precomputed_correction_normalisation(
-		    self.normalized_bins, self.chr, self.mnase_span, self.config.replicate)
-
-		self.corrected_normalized_bins = corrected_normalized_bins
-		
 
 	def plot_bin_comparison(self):
 		cols = 3

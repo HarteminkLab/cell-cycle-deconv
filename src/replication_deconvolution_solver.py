@@ -6,7 +6,7 @@ from src.timer import Timer
 from matplotlib import pyplot as plt
 
 
-def deconvolve_replication(config, H, G, N, B, prev_F, timer=None,
+def deconvolve_replication(config, H, G, N, B, prev_F=None, timer=None,
 	smoothness_weight=0.01):
 	"""
 	Deconvolve the replication curve
@@ -91,22 +91,27 @@ def deconvolve_replication(config, H, G, N, B, prev_F, timer=None,
 			current = rg1_indices[i]
 			constraints.append(f[current] == CONST_1_COPY)
 
-		# Enforce monotonic increase to 1 during S-phase
-		for i in range(1, len(s_indices)):
-			prev = s_indices[i-1]
-			current = s_indices[i]
+		# Enforce monotonic increase during indices
+		# designated for replication (may be S only
+		# or postG1)
+		allow_replication_indices = s_indices
+
+		for i in range(1, len(allow_replication_indices)):
+			prev = allow_replication_indices[i-1]
+			current = allow_replication_indices[i]
 			constraints.append(f[prev] <= f[current])
 
 			# Enforce start and end of S
 			if i == 1:
 				constraints.append(f[prev] == CONST_1_COPY)
-			elif i == len(s_indices)-1:
+			elif i == len(allow_replication_indices)-1:
 				constraints.append(f[current] == CONST_2_COPY)
 
-		# Enforce two copies of DNA in G2M
-		for i in range(0, len(g2m_indices)):
-			current = g2m_indices[i]
-			constraints.append(f[current] == CONST_2_COPY)
+		if allow_replication_indices[0] == s_indices[0]:
+			# Enforce two copies of DNA in G2M
+			for i in range(0, len(g2m_indices)):
+				current = g2m_indices[i]
+				constraints.append(f[current] == CONST_2_COPY)
 
 		# Halted cells, copy number of 1
 		constraints.append(f[m-1] == CONST_1_COPY)

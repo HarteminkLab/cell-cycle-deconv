@@ -56,7 +56,7 @@ class CombinedChromatinModel:
 
 
 	def	setup_deconv_model(self, gamma=0.006, G=None, G1=None, G2=None, wavelet="Symmlet",
-			padding_type='left'):
+			padding_type='left', N=None, f_replication=None, b=None):
 		from src.single_G1_config import Config as Config_single_G1
 		from src.model import Model
 
@@ -88,7 +88,7 @@ class CombinedChromatinModel:
 			self.G = G
 
 		if self.G_deconvolution_offset > 0:
-			# print_fl(f"Adding a deconvolution offset to G: {self.G_deconvolution_offset}")
+			print_fl(f"Adding a deconvolution offset to G: {self.G_deconvolution_offset}")
 			self.G = self.G+self.G_deconvolution_offset
 
 		# Create the first replicates model and H
@@ -108,7 +108,8 @@ class CombinedChromatinModel:
 		self.deconv_model.gamma = self.gamma
 
 		self.solver = ChromatinDeconvolveSolver(self.deconv1_model.config, self.H, self.G,
-			wavelet=wavelet, padding_type=padding_type)
+			wavelet=wavelet, padding_type=padding_type, N=N, f_replication=f_replication,
+			b=b)
 		self.solver.define_deconvolution_problem(self.G)
 
 		# For plotting results
@@ -122,12 +123,14 @@ class CombinedChromatinModel:
 
 
 	def deconvolve(self, verbose=False, gamma=0.1, G=None, G1=None, G2=None,
-			wavelet="Symmlet", verbose_progress=True, padding_type='both'):
+			wavelet="Symmlet", verbose_progress=True, padding_type='both',
+			N=None, f_replication=None, b=None):
 
 		from src.timer import Timer
 
 		timer = Timer()
-		self.setup_deconv_model(gamma, G=G, G1=G1, G2=G2, wavelet=wavelet, padding_type=padding_type)
+		self.setup_deconv_model(gamma, G=G, G1=G1, G2=G2, wavelet=wavelet, 
+			padding_type=padding_type, N=N, f_replication=f_replication, b=b)
 
 		print_fl(f"Deconvolving combined model with gamma={self.gamma}")
 		print_fl(f"Deconvolving bin size: {self.chrom1_model.bin_width}x{self.chrom1_model.bin_height}")

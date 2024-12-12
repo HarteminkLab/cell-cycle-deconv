@@ -5,10 +5,14 @@ from src.helpers import get_wavelet_kernel
 
 class DeconvolutionSolver(object):
 
-	def __init__(self, config, g, H, gamma, padding_type='both'):
+	def __init__(self, config, g, H, gamma, N, f_replication,
+	 	b, padding_type='both'):
 		self.config = config
 		self.g = g
 		self.H = H
+		self.N = N
+		self.f_replication = f_replication
+		self.b = b
 		self.gamma = gamma
 		self.padding_type = padding_type
 		
@@ -66,16 +70,28 @@ class DeconvolutionSolver(object):
 		# Factor based on time in recovery compared to t and b
 		# so multiply i's smoothing term by 2
 
+		f_non_replicative = f_padded[f_fit_indices]
+		f_replication = self.f_replication
+
+		f_combined = cp.multiply(f_non_replicative, f_replication)
+
+		H = self.H
+		g = self.g
+		N = self.N
+		b = self.b
+
+		elementwise_result = (N@H@f_combined*b)/(g) - 1
+
 		# Padding smoothing result
 		smooth_f_it_result = W_it@f_padded[f_it_padded]
 
 		objective = cp.Minimize(
 
 			# Fitting norm
-			cp.square(cp.pos(cp.norm(self.H@f_padded[f_fit_indices]/self.g - 1))) + 
+			cp.square(cp.pos(cp.norm(elementwise_result))) + 
 
 			# Smoothing norm for it
-			+ self.gamma * cp.sum(cp.abs(smooth_f_it_result))/self.g.mean()  
+			+ self.gamma * cp.sum(cp.abs(smooth_f_it_result))/(self.g.mean())
 		)
 
 		constraints = [f_padded >= 0]

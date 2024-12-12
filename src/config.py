@@ -647,12 +647,18 @@ def plot_H(config, H=None):
 	plt.legend()
 
 
-def load_configs_by_config_type(config_type, mode='chromatin', with_copy_correction=True):
+def load_default_chrom_configs(config_type='shared', mode='chromatin', with_copy_correction=True,
+longer_file=False):
+	return load_configs_by_config_type('shared', mode=mode, 
+		with_copy_correction=with_copy_correction, longer_file=longer_file)
+
+
+def load_configs_by_config_type(config_type, mode='chromatin',
+		with_copy_correction=True, longer_file=False):
 
 	from src.config import load_yl_rg1_vst_config
 	from src.delta_config import load_yl_delta_config
 	from src.single_G1_config import load_single_g1_config
-	from src.copy_correction_reanalysis import load_chromatin_copy_correction
 
 	if config_type == 'delta':
 		config1 = load_yl_delta_config(1)
@@ -661,8 +667,8 @@ def load_configs_by_config_type(config_type, mode='chromatin', with_copy_correct
 		config1 = load_yl_rg1_vst_config(1)
 		config2 = load_yl_rg1_vst_config(2)
 	elif config_type == 'shared':
-		config1 = load_single_g1_config(1)
-		config2 = load_single_g1_config(2)
+		config1 = load_single_g1_config(1, longer_file=longer_file)
+		config2 = load_single_g1_config(2, longer_file=longer_file)
 	else:
 		raise ValueError("Invalid config type")
 
@@ -685,10 +691,7 @@ def load_configs_by_config_type(config_type, mode='chromatin', with_copy_correct
 
 		# Set the config's copy number correction dataframes
 		if with_copy_correction:
-			copy_correction1 = load_chromatin_copy_correction(config_type, 1)
-			copy_correction2 = load_chromatin_copy_correction(config_type, 2)
-			config1.copy_correction = copy_correction1
-			config2.copy_correction = copy_correction2
+			print("todo: Copy correction is not in place")
 		else:
 			config1.copy_correction = None
 			config2.copy_correction = None

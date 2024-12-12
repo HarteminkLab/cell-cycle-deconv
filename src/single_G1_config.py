@@ -647,22 +647,22 @@ def load_yl_replicate1_rg1_alpha_vst_config(alpha=22, longer_file=False):
 
 	return config
 
-def load_yl_replicate2_rg1_alpha_vst_config(alpha=20):
+def load_yl_replicate2_rg1_alpha_vst_config(alpha=20, longer_file=False):
 	"""Load the model in which alpha is set to delay between separation and cytokinesis"""
 	wt2 = read_yl_vst_data_rep(2)
 
 	# model file
-	model_wt2_file = get_model_filename(2)
+	model_wt2_file = get_model_filename(2, longer_file=longer_file)
 	config = Config(wt1=wt2, model_wt1_file=model_wt2_file, name=f'Replicate 2, $\\alpha$={alpha}',
 		replicate=2, alpha=alpha)
 	return config
 
 
-def load_single_g1_config(replicate):
+def load_single_g1_config(replicate, longer_file=False):
 	if replicate == 1:
-		config = load_yl_replicate1_rg1_alpha_vst_config()
+		config = load_yl_replicate1_rg1_alpha_vst_config(longer_file=longer_file)
 	else:
-		config = load_yl_replicate2_rg1_alpha_vst_config()
+		config = load_yl_replicate2_rg1_alpha_vst_config(longer_file=longer_file)
 	return config
 
 def get_model_filename(replicate, alphas=[22, 20], longer_file=False):

@@ -19,13 +19,17 @@ class ChromatinDeconvolveSolver:
 	for gamma values and reusing the same
 	problem definition"""
 
-	def __init__(self, config, H, G, solver=cvxpy.MOSEK, wavelet="Symmlet", padding_type='left'):
+	def __init__(self, config, H, G, N, b, f_replication,
+	 	solver=cvxpy.MOSEK, wavelet="Symmlet", padding_type='left'):
 
 		self.config = config
 		self.solver = solver
 		self.wavelet = wavelet
 		self.H = H
 		self.G = G
+		self.N = N
+		self.b = b
+		self.f_replication = f_replication
 		self.padding_type = padding_type
 
 		f_i = self.config.get_Hpositions_for_branch('i')
@@ -58,7 +62,8 @@ class ChromatinDeconvolveSolver:
 			from src.deconvolution_solver import DeconvolutionSolver
 
 			deconvolution_solver = DeconvolutionSolver(self.config, current_g, 
-				self.H, gamma=gamma, padding_type=self.padding_type)
+				self.H, gamma=gamma, padding_type=self.padding_type,
+				N=self.N, f_replication=self.f_replication, b=self.b)
 
 			try:
 				current_f, self.sn, self.rn = deconvolution_solver.deconvolve()
