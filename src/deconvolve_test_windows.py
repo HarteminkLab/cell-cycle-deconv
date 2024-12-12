@@ -17,8 +17,7 @@ def main():
 	Will run the find optimal gamma procedure on the chromatin. 
 	Example script to deconvolve the first 10k window of the genome
 
-		python src/deconvolve_genome.py output/deconvolved_genome_g0066_10k_10x10_2024_09_19 0
-
+		python src/deconvolve_test_windows.py outdir 1 0
 
 		Example test windows: Early, Late, CLB2
 
