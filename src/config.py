@@ -680,21 +680,10 @@ def load_configs_by_config_type(config_type, mode='chromatin',
 		config1.WT1_TIMEPOINTS = data1.columns
 		config2.WT1_TIMEPOINTS = data2.columns
 
-		# todo new copy correction procedure from genomic correction
-		config1.copy_correction = None
-		config2.copy_correction = None
-
 	else:
 		from src.global_config import GlobalConstants
 		config1.WT1_TIMEPOINTS = GlobalConstants.CHROM_WT1_TIMEPOINTS
 		config2.WT1_TIMEPOINTS = GlobalConstants.CHROM_WT2_TIMEPOINTS
-
-		# Set the config's copy number correction dataframes
-		if with_copy_correction:
-			print("todo: Copy correction is not in place")
-		else:
-			config1.copy_correction = None
-			config2.copy_correction = None
 
 	config1.config_type = config_type
 	config2.config_type = config_type
