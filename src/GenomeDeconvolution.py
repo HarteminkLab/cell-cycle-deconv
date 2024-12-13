@@ -45,7 +45,7 @@ class GenomeDeconvolution(object):
 	
 
 	def plot_deconvolved_result(self, smooth=False, 
-			normalize=False, vmin=0.75, vmax=20, figwidth=23):
+			normalize=False, vmin=0.1, vmax=20, figwidth=23):
 		from src.global_config import GlobalConstants
 		from src.figure_configs import FiguresConfig
 

@@ -34,7 +34,7 @@ class CombinedChromatinModel:
 
 		self.chrom1_model = ChromatinModel(config1)
 		self.chrom2_model = ChromatinModel(config2)
-		self.G_deconvolution_offset = 1
+		self.G_deconvolution_offset = 0.1
 
 
 	def load_mnase_span(self, chrom, mnase_span, log=True, downsample=True):
