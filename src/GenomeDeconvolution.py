@@ -29,7 +29,7 @@ class GenomeDeconvolution(object):
 
 		from src.combined_chromatin_model import CombinedChromatinModel
 		combined_model = CombinedChromatinModel(self.config1, self.config2)
-		combined_model.gamma = 0.0066
+		combined_model.gamma = 0.007
 		self.combined_model = combined_model
 
 
@@ -45,7 +45,7 @@ class GenomeDeconvolution(object):
 	
 
 	def plot_deconvolved_result(self, smooth=False, 
-			normalize=False, vmin=0.1, vmax=20, figwidth=23):
+			normalize=False, vmin=1, vmax=20, figwidth=23):
 		from src.global_config import GlobalConstants
 		from src.figure_configs import FiguresConfig
 

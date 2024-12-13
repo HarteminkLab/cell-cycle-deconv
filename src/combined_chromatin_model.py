@@ -34,7 +34,7 @@ class CombinedChromatinModel:
 
 		self.chrom1_model = ChromatinModel(config1)
 		self.chrom2_model = ChromatinModel(config2)
-		self.G_deconvolution_offset = 0.1
+		self.G_deconvolution_offset = 1
 
 
 	def load_mnase_span(self, chrom, mnase_span, log=True, downsample=True):
@@ -55,7 +55,7 @@ class CombinedChromatinModel:
 		self.chrom2_model.load_mnase_orc(orc_or_ars)
 
 
-	def	setup_deconv_model(self, gamma=0.006, G=None, G1=None, G2=None, wavelet="Symmlet",
+	def	setup_deconv_model(self, gamma=0.007, G=None, G1=None, G2=None, wavelet="Symmlet",
 			padding_type='left', N=None, f_replication=None, b=None):
 		from src.single_G1_config import Config as Config_single_G1
 		from src.model import Model
@@ -122,7 +122,7 @@ class CombinedChromatinModel:
 		self.deconvolved_f_value = None
 
 
-	def deconvolve(self, verbose=False, gamma=0.1, G=None, G1=None, G2=None,
+	def deconvolve(self, verbose=False, gamma=0.007, G=None, G1=None, G2=None,
 			wavelet="Symmlet", verbose_progress=True, padding_type='both',
 			N=None, f_replication=None, b=None):
 

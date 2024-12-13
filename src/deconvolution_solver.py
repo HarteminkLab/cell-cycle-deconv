@@ -94,7 +94,7 @@ class DeconvolutionSolver(object):
 			+ self.gamma * cp.sum(cp.abs(smooth_f_it_result))/(self.g.mean())
 		)
 
-		constraints = [f_padded >= -1]
+		constraints = [f_padded >= 0]
 
 		prob = cp.Problem(objective, constraints)
 		result = prob.solve(solver=cp.MOSEK)
