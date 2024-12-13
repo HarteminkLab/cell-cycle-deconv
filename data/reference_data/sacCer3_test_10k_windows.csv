@@ -1,4 +1,10 @@
-chr,start,end
-10,194000,204000
-3,260000,270000
-16,770000,780000
+chr,start,end,description
+16,770000,780000,"cycling CLB2"
+4,414000,424000,"early window"
+4,416000,426000,"early window"
+4,418000,428000,"early window"
+10,214000,224000,"late window"
+10,984000,994000,"late window"
+10,982000,992000,"late window"
+2,740000,750000,"origin ARS224"
+16,630000,640000,"origin ARS1623"
