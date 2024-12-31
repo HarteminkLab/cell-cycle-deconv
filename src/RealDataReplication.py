@@ -7,6 +7,10 @@ from matplotlib import pyplot as plt
 from src.replication_deconvolution_solver import deconvolve_replication
 from src.utils import print_fl
 
+early_color = plt.get_cmap('Oranges')(0.75)
+late_color = plt.get_cmap('Purples')(0.75)
+
+
 class RealDataReplicationDeconvolution():
 	"""This model deconvolve the replication timing.
 	"""
@@ -51,8 +55,10 @@ class RealDataReplicationDeconvolution():
 
 			self.deconvolve_combined = True
 			self.selected_threshold_region = self.thresh1 | self.thresh2
+			self.replicate = 'combined'
 
 		else:
+			self.replicate = replicate
 			self.config = config
 			self.load_replicate_data(chr, replicate)
 			self.setup_deconvolution(config)
@@ -87,19 +93,96 @@ class RealDataReplicationDeconvolution():
 
 		print_fl("Initializing N using config H.")
 		self.G = self.normalized_occupancy.T.values
-		self.average_DNA, self.N = compute_N(config)
+		self.average_DNA, self.initial_N = compute_N(config)
 
 		print_fl("Initializing B using timepoint 0")
-		self.B = np.diag(self.G[0])
+		self.initial_B = np.diag(self.G[0])
 
 
 	def deconvolve(self):
-		self.F, self.rn, self.sn = deconvolve_replication(self.config, self.H, self.G, self.N, self.B)
+		self.F, self.rn, self.sn = deconvolve_replication(self.config, 
+			self.H, self.G, self.N, self.B)
+
+
+	def iterative_deconvolution_updates(self, total_iterations, timer=None):
+		"""Iteratively deconvolve for the replication curve F.
+
+		Then update N and B. Keep track of the residual norm to identify
+		when the solution converges.
+		"""
+
+		if timer is None:
+			timer = Timer()
+
+		initial_N = self.initial_N
+		initial_B = self.initial_B
+
+		# The Ns and Bs to start each iteration. 
+		# the first entry will be the initial conditions
+		self.Ns = np.zeros((total_iterations, *initial_N.shape))
+		self.Bs = np.zeros((total_iterations, *initial_B.shape))
+		self.Ns[0] = initial_N
+		self.Bs[0] = initial_B
+
+		# The residual following the end of the each iteration
+		self.iterative_update_rns = np.zeros(total_iterations)
+
+		# The iteratively updated Fs following each run
+		n, m = self.H.shape
+		num_sites = initial_B.shape[0]
+		self.Fs = np.zeros((total_iterations, m, num_sites))
+
+		for iteration in range(total_iterations):
+
+			print("Iteration", iteration)
+
+			N = self.Ns[iteration]
+			B = self.Bs[iteration]
+
+			result = deconvolve_replication(self.config, 
+				self.H, self.G, N, B, timer=timer)
+
+			F, rn = result
+
+			# Store the solutions in the F and rn datum
+			self.Fs[iteration] = F
+			self.iterative_update_rns[iteration] = rn
+
+			# Update N and B
+			updated_N, updated_B = self.update_N_B(N, self.H, self.G, B, F)
+
+			# Update N and B for the next run
+			# skip the last entry
+			if iteration < total_iterations-1:
+				self.Ns[iteration+1] = updated_N
+				self.Bs[iteration+1] = updated_B
+
+			print(f"Iteration completed {timer.get_time()}, rn={rn}")
+
+			self.F = F
+			self.rn = rn
+			self.N = N
+			self.B = B
+
+
+	def update_N_B(self, N, H, G, B, F):
+		"""Using the solution from the last run, update N and B"""
+		updated_n_diag = np.diag(H@(F.mean(axis=1)))
+		updated_N = np.linalg.inv(np.diag(H@F@B.mean(axis=1)))
+
+		num_rows = G.shape[0]
+		G_sums = G.T @ np.ones((num_rows, 1))
+		NHF_sums = (updated_N@H@F).T @ np.ones((num_rows, 1))
+		updated_b_diag = (G_sums / NHF_sums).flatten()
+		updated_B = np.diag(updated_b_diag)
+
+		return updated_N, updated_B
 
 
 	def plot_heatmaps(self):
 		plot_heatmaps(self.N, self.F, self.H, self.B, self.G)
-		plt.suptitle(f"Replication deconvolution,\nChromosome {self.chrom}")
+		plt.suptitle(f"Replication {self.replicate}"
+			f" deconvolution,\nChromosome {self.chrom}")
 
 
 	def save_replication_deconvolution(self):
@@ -116,18 +199,139 @@ class RealDataReplicationDeconvolution():
 		np.save(B_save_path, self.B)
 
 		B_df = pd.DataFrame(self.B,
-		            index=self.normalized_occupancy.index,
-		            columns=self.normalized_occupancy.index)
+					index=self.normalized_occupancy.index,
+					columns=self.normalized_occupancy.index)
 		B_df.index.name = 'start'
 		B_df.to_csv(B_save_path)
 
 		F_df = pd.DataFrame(self.F, 
-		    columns=self.normalized_occupancy.index)
+			columns=self.normalized_occupancy.index)
 		F_df.to_csv(F_save_path, index=False)
 
 		print(f"Saved to: {N_save_path}")
 		print(f"Saved to: {B_save_path}")
 		print(f"Saved to: {F_save_path}")
+
+
+	def plot_B(self):
+
+		from src.sgd import get_chromosome_length
+
+		chrom = self.chrom
+		B = self.B
+		chrom_len = get_chromosome_length(chrom)
+
+		ys = np.diag(B)
+		xs = np.linspace(0, chrom_len, len(ys))
+
+		plt.figure(figsize=(9, 3))
+		plt.plot(xs, ys, c=plt.get_cmap('Spectral')(0.3), lw=3)
+		plt.title(f"Average 10 kb occupancy, chr{chrom}", pad=11)
+		plt.xlim(0, chrom_len)
+		plt.xlabel("Genomic position, bp")
+		plt.ylabel("Average occupancy")
+		plt.subplots_adjust(bottom=0.3)
+
+	def plot_F(self):
+		from src.sgd import get_chromosome_length
+		from src.chromatin_model import draw_phase_label_annotations
+
+		chrom = self.chrom
+		chrom_len = get_chromosome_length(chrom)
+
+		F = self.F
+
+		fig = plt.figure(figsize=(13, 3))
+
+		config = self.config
+		t_indices = config.get_Hpositions_for_branch('t')
+		t_tps = config.get_timepoints_for_branch('t')
+
+		extent = [0, chrom_len,
+			t_tps[0], t_tps[-1]]
+
+		plt.imshow(F[t_indices, :], cmap='RdBu_r', vmin=0, vmax=2, 
+			interpolation='none', aspect='auto',
+				  extent=extent, origin='lower')
+
+		cbar = plt.colorbar()
+		cbar.ax.set_ylim(1, 2)
+		cbar.ax.set_yticks([1, 2])
+		cbar.ax.set_ylabel("Copy number")
+
+		plt.title(f"Chr{chrom} replication profile, $F_r$")
+
+		ax = plt.gca()
+
+		draw_phase_label_annotations(ax, config, 
+			flip=False, annotations_x=-11000)
+
+		plt.xlim(extent[0]-25000, extent[1])
+		plt.ylim(extent[3]-1, extent[2])
+		plt.xlabel("Genomic position, bp")
+		plt.ylabel("Average single\ncell time, min")
+		plt.subplots_adjust(bottom=0.2)
+
+	def compute_replication_profile(self):
+
+		from src.chromatin_model import draw_phase_label_annotations
+
+		config = self.config
+		t_indices = config.get_Hpositions_for_branch('t')
+		t_tps = config.get_timepoints_for_branch('t')
+
+		t_index_tp_mapping = pd.DataFrame({'tp': config.get_timepoints_for_branch('t')},
+			index=config.get_Hpositions_for_branch('t'))
+
+		timing_dict = t_index_tp_mapping.iloc[:, 0].to_dict()
+
+		start_indices = self.unnormalized_total_occupancy.index.values
+
+		F = self.F
+		replication_profile = pd.DataFrame(np.argmax(F, axis=0), index=start_indices, 
+			columns=['replication_index'])
+		replication_profile['replication_timing'] = replication_profile['replication_index'].map(timing_dict)
+
+		self.replication_profile = replication_profile
+
+
+	def plot_example_f_curves(self):
+
+		from src.chromatin_model import draw_phase_label_annotations
+
+		config = self.config
+		t_indices = config.get_Hpositions_for_branch('t')
+		t_tps = config.get_timepoints_for_branch('t')
+
+		start_indices = self.unnormalized_total_occupancy.index.values
+		sorted_replication_profile = self.replication_profile.sort_values('replication_index')
+
+		early_row = sorted_replication_profile.iloc[10]
+		late_row = sorted_replication_profile.loc[570000]
+		self.early_row = early_row
+		self.late_row = late_row
+
+		F = self.F
+
+		# Create a dataframe of the top branch replication profile
+		top_F_df = pd.DataFrame(F.T[:, t_indices], 
+			index=start_indices, columns=t_tps)
+
+		plt.figure(figsize=(8, 4))
+
+		plt.plot(top_F_df.loc[early_row.name]+0.005, 
+				 label=f"Early, {early_row.name}",
+				c=early_color, lw=4)
+		plt.plot(top_F_df.loc[late_row.name]-0.005, 
+				 label=f"Late, {late_row.name}",
+				 c=late_color, lw=4)
+		plt.legend(loc='upper left')
+		plt.ylabel("Copy number")
+		plt.xlabel("Average single cell time, min")
+		draw_phase_label_annotations(plt.gca(), config, flip=True, annotations_x=0.9)
+		plt.xlim(t_tps[0], t_tps[-1])
+		plt.yticks([1, 2])
+		plt.title("Example replication curves", pad=11)
 
 
 def threshold_selection(dat, threshold_selection, fill=1.,
@@ -209,41 +413,42 @@ def plot_heatmaps(N, F, H, B, G):
 	plt.figure(figsize=(13, 11))
 
 	plt.subplot(6, 1, 1)
-	plt.imshow(F, cmap='RdBu_r', vmin=0, vmax=2, aspect='auto')
+	plt.imshow(F, cmap='RdBu_r', vmin=0, vmax=2, interpolation='none', aspect='auto')
 	plt.xticks([])
 	plt.colorbar()
 	plt.title("$F$")
 
 	plt.subplot(6, 1, 2)
-	plt.imshow(H@F, cmap='RdBu_r', vmin=0, vmax=2, aspect='auto')
+	plt.imshow(H@F, cmap='RdBu_r', vmin=0, vmax=2, interpolation='none', aspect='auto')
 	plt.xticks([])
 	plt.colorbar()
 	plt.title("$HF$")
 
 	plt.subplot(6, 1, 3)
-	plt.imshow(transformed_G, cmap='RdBu_r', vmin=0, vmax=2, aspect='auto')
+	plt.imshow(transformed_G, cmap='RdBu_r', vmin=0, vmax=2, interpolation='none', aspect='auto')
 	plt.xticks([])
 	plt.colorbar()
 	plt.title("$(N^{-1})G(B^{-1})$")
 
 	plt.subplot(6, 1, 4)
 	predicted_G = N@H@F@B
-	plt.imshow(predicted_G, cmap='RdBu_r', vmin=0, vmax=2, aspect='auto')
+	plt.imshow(predicted_G, cmap='RdBu_r', vmin=0, vmax=2, interpolation='none', aspect='auto')
 	plt.xticks([])
 	plt.colorbar()
 	plt.title("Predicted G: $NHFB$")
 
 	plt.subplot(6, 1, 5)
-	plt.imshow(G, cmap='RdBu_r', vmin=0, vmax=2, aspect='auto')
+	plt.imshow(G, cmap='RdBu_r', vmin=0, vmax=2, interpolation='none', aspect='auto')
 	plt.colorbar()
 	plt.xticks([])
 	plt.title("$G$")
 
 	plt.subplot(6, 1, 6)
-	plt.imshow((N@H@F@B)/(G)-1, vmin=-1, vmax=1, cmap='RdBu_r', aspect='auto')
+	plt.imshow((N@H@F@B) - (G), vmin=-1, vmax=1, cmap='RdBu_r', interpolation='none', aspect='auto')
 	plt.colorbar()
-	plt.title("$\\frac{NHFB}{G} -1$")
+	plt.title("$NHFB - G$")
 	plt.subplots_adjust(hspace=0.5, top=0.9)
+
 
 def compute_N(config, plot=False):
 	from src.model import color_for_key
@@ -269,7 +474,7 @@ def compute_N(config, plot=False):
 	N = np.linalg.inv(np.diag(average_DNA))
 
 	if plot:
-		plt.figure(figsize=(6, 3))
+		plt.figure(figsize=(6, 4))
 
 		plt.fill_between(tps, h_mass, 0, label="H mass", color=color_for_key('H'))
 
@@ -277,42 +482,48 @@ def compute_N(config, plot=False):
 
 		# ---------
 
+		inv_n = g1_mass+s_dna_content+g2m_mass*2+h_mass
+
 		plt.fill_between(tps, g1_mass+s_dna_content+h_mass, 
 							  g1_mass+h_mass, label="S mass", color=color_for_key('S'))
 
-		plt.fill_between(tps, g1_mass+s_dna_content+g2m_mass*2+h_mass, 
+		plt.fill_between(tps, inv_n, 
 							 g1_mass+s_dna_content+h_mass, 
 							 label="G2M mass", color=color_for_key('G2M'))
 
+		plt.plot(tps, inv_n, c='red', lw=4, 
+			label="Avg. DNA content")
+		plt.ylim(0, 2.2)
 
-		plt.legend()
+		plt.legend(ncol=3, loc='upper right')
 
 		plt.title("Estimation of average DNA content, CLOCCS")
 		plt.xlabel("Clock time")
 		plt.ylabel("Average DNA content")
+		plt.xlim(0, tps[-1])
 
 	return average_DNA, N
 
 
 def read_n_fr_b(chrom, deconv_span):
-    from src.mnase_10kb_loader import get_bin_for_position
+	from src.mnase_10kb_loader import get_bin_for_position
 
-    N = np.load('data/copy_correction/N_combined.npy')
-    B_df = pd.read_csv(f'data/copy_correction/B_chr{chrom}_combined.csv').set_index('start')
-    Fr_df = pd.read_csv(f'data/copy_correction/F_chr{chrom}_combined.csv')
-    B_df.columns = B_df.columns.astype(int)
-    Fr_df.columns = Fr_df.columns.astype(int)
+	N = np.load('data/copy_correction/N_combined.npy')
+	B_df = pd.read_csv(f'data/copy_correction/B_chr{chrom}_combined.csv').set_index('start')
+	Fr_df = pd.read_csv(f'data/copy_correction/F_chr{chrom}_combined.csv')
+	B_df.columns = B_df.columns.astype(int)
+	Fr_df.columns = Fr_df.columns.astype(int)
 
-    start_indices = B_df.index
+	start_indices = B_df.index
 
-    mid_span = (deconv_span[0]+deconv_span[1])/2
-    bin_idx, start = get_bin_for_position(mid_span, start_indices)
+	mid_span = (deconv_span[0]+deconv_span[1])/2
+	bin_idx, start = get_bin_for_position(mid_span, start_indices)
 
-    # Load the b and f_replication for the span to be deconvolved.
-    b = B_df.loc[start].loc[start]
-    fr = Fr_df[start]
+	# Load the b and f_replication for the span to be deconvolved.
+	b = B_df.loc[start].loc[start]
+	fr = Fr_df[start]
 
-    return N, fr, b
+	return N, fr, b
 
 
 def read_no_copy_correction_n_fr_b(H):

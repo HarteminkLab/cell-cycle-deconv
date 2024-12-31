@@ -1,13 +1,13 @@
 # lengths
-mu0 26.790100
-lambda 68.191400
-delta 8.180500
-sigma0 10.988500
-sigmav 0.142400
+mu0 23.6475
+lambda 71.5240
+delta 2.3997
+sigma0 10.78
+sigmav 0.1442
 alpha 22.000000
 beta 0.000000
-gamma1 0.004100
-gamma2 0.254700
+gamma1 0.04700
+gamma2 0.2785
 halted 0.224500
 # description
 RG1 i 0

@@ -717,7 +717,8 @@ def read_chromosome_mnase_reads(replicate, chr):
 	return chr_reads
 
 
-def draw_phase_label_annotations(ax, config=None, phases = ['CG1', 'S', 'G2M'], 
+def draw_phase_label_annotations(ax, config=None, 
+		phases = ['CG1', 'S', 'G2M'], 
 		flip=False, annotations_x=0, offset=False):
 
 	from src.model import color_for_key
@@ -740,7 +741,17 @@ def draw_phase_label_annotations(ax, config=None, phases = ['CG1', 'S', 'G2M'],
 
 		if last_tp is None:
 			last_tp = tps[0]
+
+		# Define the start of S at 0 minutes
+		# todo: reality is that the 0 min position
+		# sits between G1 and S in the model, but this
+		if phase == 'S':
+			tps[0] = 0
+		elif phase == 'CG1':
+			tps[-1] = 0
+
 		tp_start, tp_end = last_tp, tps[-1]
+
 		last_tp = tps[-1]
 
 		tp_mid = (tp_start + tp_end)/2
