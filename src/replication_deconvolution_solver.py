@@ -31,7 +31,7 @@ def deconvolve_replication(config, H, G, N, B, timer=None):
 
 	for g_index in range(G.shape[1]):
 
-		if g_index % 50 == 0:
+		if g_index % 200 == 0:
 			timer.print_time(f"{g_index}/{G.shape[1]}")
 
 		g = G[:, g_index]
@@ -66,6 +66,61 @@ def deconvolve_replication(config, H, G, N, B, timer=None):
 
 		F[:, g_index] = f.value
 		rns[g_index] = rn.value
+
+	return F, rns.mean()
+
+
+def deconvolve_replication_brute_force(config, H, G, N, B, timer=None):
+	"""
+	Deconvolve the replication curve
+	"""
+
+	cg1_indices = config.get_Hpositions_for_phase('CG1')
+	rg1_indices = config.get_Hpositions_for_phase('RG1')
+	postg1_indices = config.get_Hpositions_for_phase('postG1')
+	s_indices = config.get_Hpositions_for_phase('S')
+	g2m_indices = config.get_Hpositions_for_phase('G2M')
+
+	if timer is None:
+		timer = Timer()
+
+	n, m = H.shape
+	n, v = G.shape
+	F = np.zeros((m, v))
+	rns = np.zeros(v)
+
+	for g_index in range(G.shape[1]):
+
+		if g_index % 100 == 0:
+			timer.print_time(f"{g_index}/{G.shape[1]}")
+
+		g = G[:, g_index]
+
+		# Get the relevant baseline occupancy
+		b = B[g_index, g_index]
+
+		def minimization_objective(f, g):
+			predicted_g = N@H@(f*b)
+			diff = predicted_g - g
+			rn = np.mean(np.linalg.norm(diff)**2)
+			return rn
+
+		postg1_indices = config.get_Hpositions_for_phase('postG1')
+
+		best_rn = float('inf')
+		best_f = None
+		for repl_index in postg1_indices:
+			# Create f vector for replication timing and compute rn
+			f = np.ones(m)
+			f[repl_index:-1] = 2
+			rn = minimization_objective(f, g)
+
+			if rn < best_rn:
+				best_rn = rn
+				best_f = f
+
+		F[:, g_index] = best_f
+		rns[g_index] = best_rn
 
 	return F, rns.mean()
 

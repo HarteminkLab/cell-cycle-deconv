@@ -83,7 +83,6 @@ class ModelCreation:
 		# Previoulsy, beta was used from the budding index model. However, for the flow cytometry model
 		# we do not have beta, but we will instead use the average between gamma1 and gamma2 to estimate
 		# the S phase position
-		beta = BETA_DEFAULT # Unused
 		position_of_s = gamma1*lambd
 
 		ret_params = mu0, lambd, delta, sigma0, sigmav, alpha, beta, gamma1, gamma2, halted
@@ -102,7 +101,6 @@ class ModelCreation:
 			}
 
 		return ret_params, model_dic
-
 
 	def get_sub_interval_str(self):
 		model = self.model_dic

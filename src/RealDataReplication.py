@@ -4,7 +4,7 @@ import cvxpy as cp
 from src.timer import Timer
 import pandas as pd
 from matplotlib import pyplot as plt
-from src.replication_deconvolution_solver import deconvolve_replication
+from src.replication_deconvolution_solver import deconvolve_replication, deconvolve_replication_brute_force
 from src.utils import print_fl
 
 early_color = plt.get_cmap('Oranges')(0.75)
@@ -100,7 +100,7 @@ class RealDataReplicationDeconvolution():
 
 
 	def deconvolve(self):
-		self.F, self.rn, self.sn = deconvolve_replication(self.config, 
+		self.F, self.rn = deconvolve_replication_brute_force(self.config, 
 			self.H, self.G, self.N, self.B)
 
 
@@ -139,7 +139,7 @@ class RealDataReplicationDeconvolution():
 			N = self.Ns[iteration]
 			B = self.Bs[iteration]
 
-			result = deconvolve_replication(self.config, 
+			result = deconvolve_replication_brute_force(self.config, 
 				self.H, self.G, N, B, timer=timer)
 
 			F, rn = result
@@ -170,11 +170,16 @@ class RealDataReplicationDeconvolution():
 		updated_n_diag = np.diag(H@(F.mean(axis=1)))
 		updated_N = np.linalg.inv(np.diag(H@F@B.mean(axis=1)))
 
-		num_rows = G.shape[0]
-		G_sums = G.T @ np.ones((num_rows, 1))
-		NHF_sums = (updated_N@H@F).T @ np.ones((num_rows, 1))
-		updated_b_diag = (G_sums / NHF_sums).flatten()
-		updated_B = np.diag(updated_b_diag)
+		# num_rows = G.shape[0]
+		# G_sums = G.T @ np.ones((num_rows, 1))
+		# NHF_sums = (updated_N@H@F).T @ np.ones((num_rows, 1))
+		# updated_b_diag = (G_sums / NHF_sums).flatten()
+		# updated_B = np.diag(updated_b_diag)
+
+
+		# todo: Trying no updates to B
+
+		updated_B = self.initial_B
 
 		return updated_N, updated_B
 
@@ -232,6 +237,64 @@ class RealDataReplicationDeconvolution():
 		plt.ylabel("Average occupancy")
 		plt.subplots_adjust(bottom=0.3)
 
+
+	def plot_G(self):
+
+		tps = self.config.WT1_TIMEPOINTS
+		start_indices = self.unnormalized_total_occupancy.index.values
+		extent = [0, start_indices[-1], 0, tps[-1]]
+
+		plt.figure(figsize=(13, 3))
+		plt.imshow(self.G, cmap='RdBu_r', vmin=0, vmax=2, 
+			interpolation='none', aspect='auto',
+			extent=extent)
+		plt.colorbar()
+		plt.title(f"Experiment 10 kb MNase-seq reads, replicate 1, chr{self.chrom}")
+		plt.xlabel("Genomic position, bp")
+		plt.ylabel("Experimental time")
+
+		plt.subplots_adjust(bottom=0.2)
+
+
+	def plot_predicted_G(self):
+
+		predicted_G = self.N@self.H@self.F@self.B
+
+		tps = self.config.WT1_TIMEPOINTS
+		start_indices = self.unnormalized_total_occupancy.index.values
+		extent = [0, start_indices[-1], 0, tps[-1]]
+
+		plt.figure(figsize=(13, 3))
+		plt.imshow(predicted_G, cmap='RdBu_r', vmin=0, vmax=2, 
+			interpolation='none', aspect='auto',
+			extent=extent)
+		plt.colorbar()
+		plt.title(f"Predicted $G$, replicate 1, chr{self.chrom}")
+		plt.xlabel("Genomic position, bp")
+		plt.ylabel("Experimental time")
+
+		plt.subplots_adjust(bottom=0.2)
+
+	def plot_residual(self):
+
+		predicted_G = self.N@self.H@self.F@self.B
+		residual = predicted_G - self.G
+
+		tps = self.config.WT1_TIMEPOINTS
+		start_indices = self.unnormalized_total_occupancy.index.values
+		extent = [0, start_indices[-1], 0, tps[-1]]
+
+		plt.figure(figsize=(13, 3))
+		plt.imshow(residual, cmap='RdBu_r', vmin=-1, vmax=1, 
+			interpolation='none', aspect='auto',
+			extent=extent)
+		plt.colorbar()
+		plt.title(f"Residual, replicate 1, chr{self.chrom}")
+		plt.xlabel("Genomic position, bp")
+		plt.ylabel("Experimental time")
+
+		plt.subplots_adjust(bottom=0.2)
+
 	def plot_F(self):
 		from src.sgd import get_chromosome_length
 		from src.chromatin_model import draw_phase_label_annotations
@@ -239,7 +302,7 @@ class RealDataReplicationDeconvolution():
 		chrom = self.chrom
 		chrom_len = get_chromosome_length(chrom)
 
-		F = self.F
+		F = self.top_F_df
 
 		fig = plt.figure(figsize=(13, 3))
 
@@ -247,10 +310,10 @@ class RealDataReplicationDeconvolution():
 		t_indices = config.get_Hpositions_for_branch('t')
 		t_tps = config.get_timepoints_for_branch('t')
 
-		extent = [0, chrom_len,
-			t_tps[0], t_tps[-1]]
+		extent = [0, F.index[-1],
+			F.columns[0], F.columns[-1]]
 
-		plt.imshow(F[t_indices, :], cmap='RdBu_r', vmin=0, vmax=2, 
+		plt.imshow(F.T, cmap='RdBu_r', vmin=0, vmax=2, 
 			interpolation='none', aspect='auto',
 				  extent=extent, origin='lower')
 
@@ -294,6 +357,9 @@ class RealDataReplicationDeconvolution():
 
 		self.replication_profile = replication_profile
 
+		# Create a dataframe of the top branch replication profile
+		self.top_F_df = pd.DataFrame(F.T[:, t_indices], 
+			index=start_indices, columns=t_tps)
 
 	def plot_example_f_curves(self):
 

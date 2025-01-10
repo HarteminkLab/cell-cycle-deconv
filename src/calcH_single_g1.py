@@ -8,6 +8,27 @@ START = 1000
 # Maximum number of cell cycle "runs"
 MAX_RUNS = 10
 
+
+def get_parameter_indices(parameter_names):
+	return [get_parameter_index(p) for p in parameter_names]
+
+
+def get_parameter_index(parameter_name):
+
+	param_indices = {'mu0': 0,
+		'lambda_val': 1,
+		'delta': 2,
+		'sigma0': 3,
+		'sigmav': 4,
+		'alpha': 5,
+		'beta': 6,
+		'gamma1': 7,
+		'gamma2': 8,
+		'halted': 9}
+
+	return param_indices[parameter_name]
+
+
 def calcH(model_intervals, timepoints):
 	parameters, relations, initial_timepoints, top_timepoints, bottom_timepoints, _ = model_intervals
 

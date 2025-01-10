@@ -153,6 +153,7 @@ class Config:
 		return lengths, relations, initial_tps, top_tps, bottom_tps, (initial_phase_map,
 			top_phase_map, bottom_phase_map)
 
+
 	def parse_lengths(self, line):
 		segments = line.split(' ')
 		if segments[0] in ('mu0', 'lambda', 'delta', 'sigma0', 'sigmav', 'alpha', \
