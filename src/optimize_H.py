@@ -37,24 +37,21 @@ class ParameterOptimizer:
 		# Should be a 1:1 mapping to the values
 		self.params_df.loc[:, 'value'] = parameter_values
 
+
 	def update_config_parameters(self, params_df):
 		# Steps to update parameters:
 		# 1. unpack from config intervals
 		# 2. perform update
 		# 3. update config
 
-		model_intervals = list(self.config.intervals_wt1)
-		parameters = list(model_intervals[0])
+		params_dic = self.config.params_dic
 
 		for parameter_name, row in params_df.iterrows():
-			index = int(row.param_index)
-			parameters[index] = row.value
+			params_dic[parameter_name] = row.value
 
-		# Update the model interval's parameters
-		model_intervals[0] = parameters
-		self.config.intervals_wt1 = model_intervals
-
-		return self.config
+		# After parameter updates, the config needs to recompute
+		# the corresponding timepoints for calculating H
+		self.config.update_timepoints()
 
 
 	def compute_loss(self, params):
@@ -111,7 +108,7 @@ class ParameterOptimizer:
 		result = minimize(
 			objective_function,
 			initial_parameter_values,
-			method='Nelder-Mead',
+			method=method,
 			bounds=bounds_list,
 			options={
 				'maxiter': maxiter,

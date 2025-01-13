@@ -17,6 +17,7 @@ def get_parameter_index(parameter_name):
 
 	param_indices = {'mu0': 0,
 		'lambda_val': 1,
+		'lambda': 1,
 		'delta': 2,
 		'sigma0': 3,
 		'sigmav': 4,
@@ -28,10 +29,16 @@ def get_parameter_index(parameter_name):
 
 	return param_indices[parameter_name]
 
-
 def calcH(model_intervals, timepoints):
 	parameters, relations, initial_timepoints, top_timepoints, bottom_timepoints, _ = model_intervals
+	return calcH_expanded(parameters, relations, initial_timepoints, top_timepoints, bottom_timepoints, timepoints)
 
+
+def calcH_expanded(parameters, relations, initial_timepoints, top_timepoints, bottom_timepoints, timepoints):
+
+	model_intervals = parameters, relations, initial_timepoints, \
+		top_timepoints, bottom_timepoints, None
+	
 	if len(parameters) == 8:
 		mu0, lambda_val, delta, sigma0, sigmav, alpha, beta, halted = parameters
 	else:

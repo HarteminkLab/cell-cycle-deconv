@@ -102,10 +102,8 @@ def deconvolve_replication_brute_force(config, H, G, N, B, timer=None):
 		def minimization_objective(f, g):
 			predicted_g = N@H@(f*b)
 			diff = predicted_g - g
-			rn = np.mean(np.linalg.norm(diff)**2)
+			rn = np.mean(diff**2)
 			return rn
-
-		postg1_indices = config.get_Hpositions_for_phase('postG1')
 
 		best_rn = float('inf')
 		best_f = None

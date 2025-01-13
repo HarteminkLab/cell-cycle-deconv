@@ -738,3 +738,8 @@ def downsample_bins(bin_data, new_span, original_span, bin_width, bin_height, ma
     
     # Remove last row and column of bins
     return downscaled_bins[:, :-1, :-1]
+
+
+def midpoints(arr):
+    return (arr[:-1] + arr[1:]) / 2
+

@@ -81,30 +81,39 @@ class RealDataReplicationDeconvolution():
 		self.selected_threshold_region = self.normalized_occupancy.T.mean(axis=0) > 0.75
 
 
-	def setup_deconvolution(self, config):
+	def setup_deconvolution(self, config, initial_N=None, initial_B=None):
 		"""Setup the deconvolution:
 
 		1. The config and H
 		"""
 
 		self.config = config
-		self.H, _ = config.calcH_function(config.intervals_wt1, 
-			config.WT1_TIMEPOINTS)
+		self.config.calculate_H()
+		self.H = self.config.H
 
 		print_fl("Initializing N using config H.")
 		self.G = self.normalized_occupancy.T.values
-		self.average_DNA, self.initial_N = compute_N(config)
+
+		if initial_N is None:
+			self.average_DNA, self.initial_N = compute_N(config)
+		else:
+			self.initial_N = initial_N
 
 		print_fl("Initializing B using timepoint 0")
-		self.initial_B = np.diag(self.G[0])
+		if initial_B is None:
+			self.initial_B = np.diag(self.G[0])
+		else:
+			self.initial_B = initial_B
 
 
 	def deconvolve(self):
+		self.setup_deconvolution(self.config)
 		self.F, self.rn = deconvolve_replication_brute_force(self.config, 
 			self.H, self.G, self.N, self.B)
 
 
-	def iterative_deconvolution_updates(self, total_iterations, timer=None):
+	def iterative_deconvolution_updates(self, total_iterations, timer=None,
+		initial_N=None, initial_B=None):
 		"""Iteratively deconvolve for the replication curve F.
 
 		Then update N and B. Keep track of the residual norm to identify
@@ -114,8 +123,11 @@ class RealDataReplicationDeconvolution():
 		if timer is None:
 			timer = Timer()
 
-		initial_N = self.initial_N
-		initial_B = self.initial_B
+		if initial_N is None:
+			initial_N = self.initial_N
+
+		if initial_B is None:
+			initial_B = self.initial_B
 
 		# The Ns and Bs to start each iteration. 
 		# the first entry will be the initial conditions
@@ -164,28 +176,35 @@ class RealDataReplicationDeconvolution():
 			self.N = N
 			self.B = B
 
+	def compute_rn(self, H, F, N, B, G):
+
+		NHFB = N @ H @ F @ B
+		loss = np.mean((NHFB - G)**2)
+
+		return loss
+
 
 	def update_N_B(self, N, H, G, B, F):
 		"""Using the solution from the last run, update N and B"""
-		updated_n_diag = np.diag(H@(F.mean(axis=1)))
-		updated_N = np.linalg.inv(np.diag(H@F@B.mean(axis=1)))
 
-		# num_rows = G.shape[0]
-		# G_sums = G.T @ np.ones((num_rows, 1))
-		# NHF_sums = (updated_N@H@F).T @ np.ones((num_rows, 1))
-		# updated_b_diag = (G_sums / NHF_sums).flatten()
-		# updated_B = np.diag(updated_b_diag)
+		# Where is G? in this formulation
+		GBinv_HF_div = np.divide((G@np.linalg.inv(B)), (H@F))
+		updated_N = np.diag(GBinv_HF_div.mean(axis=1))
 
-
-		# todo: Trying no updates to B
-
-		updated_B = self.initial_B
+		num_rows = G.shape[0]
+		G_sums = G.T @ np.ones((num_rows, 1))
+		NHF_sums = (updated_N@H@F).T @ np.ones((num_rows, 1))
+		updated_b_diag = (G_sums / NHF_sums).flatten()
+		updated_B = np.diag(updated_b_diag)
+		# updated_B = self.initial_B
 
 		return updated_N, updated_B
 
 
 	def plot_heatmaps(self):
-		plot_heatmaps(self.N, self.F, self.H, self.B, self.G)
+		N, F, G, B, H = self.N, self.F, self.G, self.B, self.H
+
+		plot_heatmaps(N, F, H, B, G)
 		plt.suptitle(f"Replication {self.replicate}"
 			f" deconvolution,\nChromosome {self.chrom}")
 
@@ -240,7 +259,7 @@ class RealDataReplicationDeconvolution():
 
 	def plot_G(self):
 
-		tps = self.config.WT1_TIMEPOINTS
+		tps = self.config.timepoints
 		start_indices = self.unnormalized_total_occupancy.index.values
 		extent = [0, start_indices[-1], 0, tps[-1]]
 
@@ -260,7 +279,7 @@ class RealDataReplicationDeconvolution():
 
 		predicted_G = self.N@self.H@self.F@self.B
 
-		tps = self.config.WT1_TIMEPOINTS
+		tps = self.config.timepoints
 		start_indices = self.unnormalized_total_occupancy.index.values
 		extent = [0, start_indices[-1], 0, tps[-1]]
 
@@ -280,7 +299,7 @@ class RealDataReplicationDeconvolution():
 		predicted_G = self.N@self.H@self.F@self.B
 		residual = predicted_G - self.G
 
-		tps = self.config.WT1_TIMEPOINTS
+		tps = self.config.timepoints
 		start_indices = self.unnormalized_total_occupancy.index.values
 		extent = [0, start_indices[-1], 0, tps[-1]]
 
@@ -447,7 +466,7 @@ def plot_comparison_occupancies_G():
 def plot_histogram_occupancies_G(config, G):
 	fig, axs = plt.subplots(3, 6, figsize=(13, 6))
 
-	tps = config.WT1_TIMEPOINTS
+	tps = config.timepoints
 	axs = np.array(axs).T.flatten()
 	plot_G = G.T
 
@@ -519,8 +538,9 @@ def plot_heatmaps(N, F, H, B, G):
 def compute_N(config, plot=False):
 	from src.model import color_for_key
 
-	H = config.calculate_H()
-	tps = config.WT1_TIMEPOINTS
+	config.calculate_H()
+	H = config.H
+	tps = config.timepoints
 
 	cg1_mass = H[:, config.get_Hpositions_for_phase('RG1')].sum(axis=1)
 	rg1_mass = H[:, config.get_Hpositions_for_phase('CG1')].sum(axis=1)
