@@ -120,6 +120,9 @@ def deconvolve_replication_brute_force(config, H, G, N, B, timer=None):
 		F[:, g_index] = best_f
 		rns[g_index] = best_rn
 
+	NHFB = N @ H @ F @ B
+	loss = np.mean((NHFB - G)**2)
+
 	return F, rns.mean()
 
 

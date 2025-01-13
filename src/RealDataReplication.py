@@ -154,6 +154,13 @@ class RealDataReplicationDeconvolution():
 			result = deconvolve_replication_brute_force(self.config, 
 				self.H, self.G, N, B, timer=timer)
 
+			self.F = result[0]
+			self.rn = result[1]
+			self.N = N
+			self.B = B
+
+			print(self.compute_rn())
+
 			F, rn = result
 
 			# Store the solutions in the F and rn datum
@@ -169,6 +176,8 @@ class RealDataReplicationDeconvolution():
 				self.Ns[iteration+1] = updated_N
 				self.Bs[iteration+1] = updated_B
 
+			# print(self.compute_rn())
+
 			print(f"Iteration completed {timer.get_time()}, rn={rn}")
 
 			self.F = F
@@ -176,8 +185,11 @@ class RealDataReplicationDeconvolution():
 			self.N = N
 			self.B = B
 
-	def compute_rn(self, H, F, N, B, G):
+			# print(self.compute_rn())
 
+	def compute_rn(self):
+		N, H, F, B = self.N, self.H, self.F, self.B
+		G = self.G
 		NHFB = N @ H @ F @ B
 		loss = np.mean((NHFB - G)**2)
 

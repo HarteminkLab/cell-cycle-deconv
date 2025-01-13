@@ -39,10 +39,6 @@ class ParameterOptimizer:
 
 
 	def update_config_parameters(self, params_df):
-		# Steps to update parameters:
-		# 1. unpack from config intervals
-		# 2. perform update
-		# 3. update config
 
 		params_dic = self.config.params_dic
 
@@ -56,11 +52,14 @@ class ParameterOptimizer:
 
 	def compute_loss(self, params):
 
-		self.update_params_df(params)
-		self.update_config_parameters(self.params_df)
-	
-		# Compute H with new parameters
-		H = self.config.calculate_H()
+		if params is None:
+			H = self.config.H
+		else:
+			self.update_params_df(params)
+			self.update_config_parameters(self.params_df)
+		
+			# Compute H with new parameters
+			H = self.config.calculate_H()
 		
 		# Compute NHFB
 		NHFB = self.N @ H @ self.F @ self.B
