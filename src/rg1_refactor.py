@@ -173,13 +173,20 @@ class RG1Model(object):
 		# Compute the G2M and S indices by collecting the length of S
 
 		postg1_indices = self.get_Hpositions_for_phase('postG1')
-		mu0, s_start, s_end, first_lambda = self.get_key_timepoints_in_raw()
+
+		gamma1 = self.params_dic['gamma1']
+		gamma2 = self.params_dic['gamma2']
+		lambda_val = self.params_dic['lambda']
+
+		s_start = lambda_val*gamma1
+		s_end = lambda_val*gamma2
+
 		s_len = s_end - s_start
 		postg1_tps = self.get_timepoints_for_phase('postG1')
 
-		s_end_idx = (postg1_tps > s_len).argmax()
-		g2m_indices = postg1_indices[s_end_idx:]
-		s_indices = postg1_indices[:s_end_idx]
+		s_indices = postg1_indices[(postg1_tps >= s_start) & (postg1_tps < s_end)]
+		g2m_indices = postg1_indices[postg1_indices > s_indices[-1]]
+
 		return s_indices, g2m_indices
 		
 	def calculate_H(self):
@@ -256,7 +263,7 @@ def load_default_chrom_configs():
 
 	config1 = RG1Model()
 	config1.load_from_posteriors('data/2019_cloccs_fits/yl_2019_replicate1/posteriors.txt',
-							  GlobalConstants.CHROM_WT1_TIMEPOINTS, alpha=22)
+							  GlobalConstants.CHROM_WT1_TIMEPOINTS, alpha=0)
 
 	config2 = RG1Model()
 	config2.load_from_posteriors('data/2019_cloccs_fits/yl_2019_replicate2/posteriors.txt',
@@ -265,4 +272,29 @@ def load_default_chrom_configs():
 
 	return config1, config2
 
+
+# Next test comparisons of mu0 and gamma1 
+# 
+#   load_test_configs_alpha_gamma1_debugging
+#
+
+# def load_test_configs_alpha_gamma1_debugging():
+
+# 	from src.global_config import GlobalConstants
+
+# 	config1 = RG1Model()
+# 	config1.load_from_posteriors('data/2019_cloccs_fits/yl_2019_replicate1/posteriors.txt',
+# 							  GlobalConstants.CHROM_WT1_TIMEPOINTS, alpha=0)
+# 	config1.params_dic['gamma1'] = 0.3235
+# 	config1.update_timepoints()
+# 	config1.calculate_H()
+
+# 	config2 = RG1Model()
+# 	config2.load_from_posteriors('data/2019_cloccs_fits/yl_2019_replicate1/posteriors.txt',
+# 							  GlobalConstants.CHROM_WT1_TIMEPOINTS, alpha=22)
+# 	config2.params_dic['gamma1'] = 0.
+# 	config2.update_timepoints()
+# 	config2.calculate_H()
+
+# 	return config1, config2
 

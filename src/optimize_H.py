@@ -60,10 +60,16 @@ class ParameterOptimizer:
 		
 			# Compute H with new parameters
 			H = self.config.calculate_H()
-		
+
 		# Compute NHFB
-		NHFB = self.N @ H @ self.F @ self.B
-		loss = np.mean((NHFB - self.G)**2)
+		from src.RealDataReplication import compute_rn
+
+		F = self.F
+		G = self.G
+		N = self.N
+		B = self.B
+
+		loss = compute_rn(N, H, F, B, G)
 
 		self.current_params = params
 		self.current_H = H

@@ -4,7 +4,7 @@ import cvxpy as cp
 from src.timer import Timer
 import pandas as pd
 from matplotlib import pyplot as plt
-from src.replication_deconvolution_solver import deconvolve_replication, deconvolve_replication_brute_force
+from src.replication_deconvolution_solver import deconvolve_replication_brute_force
 from src.utils import print_fl
 
 early_color = plt.get_cmap('Oranges')(0.75)
@@ -78,24 +78,36 @@ class RealDataReplicationDeconvolution():
 	
 		# Setup regions to threshold, 
 		# regions with low occupancy will be omitted when needed
+		print("Threshold windows with less than 75% read coverage.")
 		self.selected_threshold_region = self.normalized_occupancy.T.mean(axis=0) > 0.75
 
-
-	def setup_deconvolution(self, config, initial_N=None, initial_B=None):
+	def setup_deconvolution(self, config=None, initial_N=None, initial_B=None):
 		"""Setup the deconvolution:
 
 		1. The config and H
 		"""
 
-		self.config = config
+		if config is None and self.config is None:
+			raise ValueError("Config has not been initialized")
+
+		elif config is not None:
+			self.config = config
+
 		self.config.calculate_H()
 		self.H = self.config.H
 
 		print_fl("Initializing N using config H.")
-		self.G = self.normalized_occupancy.T.values
+		self.G_df = self.normalized_occupancy.T
+
+		# Mask out the 
+		keep_column_indices = self.selected_threshold_region[self.selected_threshold_region].index
+		self.masked_G_df = self.G_df[keep_column_indices]
+
+		self.masked_start_indices = keep_column_indices
+		self.G = self.masked_G_df.values
 
 		if initial_N is None:
-			self.average_DNA, self.initial_N = compute_N(config)
+			self.average_DNA, self.initial_N = compute_N(self.config)
 		else:
 			self.initial_N = initial_N
 
@@ -159,8 +171,6 @@ class RealDataReplicationDeconvolution():
 			self.N = N
 			self.B = B
 
-			print(self.compute_rn())
-
 			F, rn = result
 
 			# Store the solutions in the F and rn datum
@@ -176,8 +186,6 @@ class RealDataReplicationDeconvolution():
 				self.Ns[iteration+1] = updated_N
 				self.Bs[iteration+1] = updated_B
 
-			# print(self.compute_rn())
-
 			print(f"Iteration completed {timer.get_time()}, rn={rn}")
 
 			self.F = F
@@ -185,30 +193,24 @@ class RealDataReplicationDeconvolution():
 			self.N = N
 			self.B = B
 
-			# print(self.compute_rn())
-
 	def compute_rn(self):
 		N, H, F, B = self.N, self.H, self.F, self.B
 		G = self.G
-		NHFB = N @ H @ F @ B
-		loss = np.mean((NHFB - G)**2)
-
-		return loss
-
+		return compute_rn(N, H, F, B, G)
 
 	def update_N_B(self, N, H, G, B, F):
 		"""Using the solution from the last run, update N and B"""
 
-		# Where is G? in this formulation
+		# Update N based on G, B, H, and F
 		GBinv_HF_div = np.divide((G@np.linalg.inv(B)), (H@F))
 		updated_N = np.diag(GBinv_HF_div.mean(axis=1))
 
+		# Update B based on N H F and G
 		num_rows = G.shape[0]
 		G_sums = G.T @ np.ones((num_rows, 1))
 		NHF_sums = (updated_N@H@F).T @ np.ones((num_rows, 1))
 		updated_b_diag = (G_sums / NHF_sums).flatten()
 		updated_B = np.diag(updated_b_diag)
-		# updated_B = self.initial_B
 
 		return updated_N, updated_B
 
@@ -216,7 +218,8 @@ class RealDataReplicationDeconvolution():
 	def plot_heatmaps(self):
 		N, F, G, B, H = self.N, self.F, self.G, self.B, self.H
 
-		plot_heatmaps(N, F, H, B, G)
+		plot_heatmaps(N, F, H, B, G, column_names=self.masked_G_df.columns,
+			full_column_names=self.G_df.columns)
 		plt.suptitle(f"Replication {self.replicate}"
 			f" deconvolution,\nChromosome {self.chrom}")
 
@@ -431,49 +434,23 @@ class RealDataReplicationDeconvolution():
 		plt.title("Example replication curves", pad=11)
 
 
-def threshold_selection(dat, threshold_selection, fill=1.,
-	renormalize=False):
-	new_dat = dat.copy()
-	new_dat[:, ~threshold_selection] = fill
+# def threshold_selection(dat, threshold_selection, fill=1.,
+# 	renormalize=False):
+# 	new_dat = dat.copy()
+# 	new_dat[:, ~threshold_selection] = fill
 
-	# If thresholded to fill with nans, we can renormalize such
-	# that the non-thresholded out regions mean to 1
-	if renormalize:
+# 	# If thresholded to fill with nans, we can renormalize such
+# 	# that the non-thresholded out regions mean to 1
+# 	if renormalize:
 
-		# Get the current mean of the good rows
-		row_means = np.nanmean(new_dat, axis=1)
+# 		# Get the current mean of the good rows
+# 		row_means = np.nanmean(new_dat, axis=1)
 
-		# Divide the data by these mean
-		new_dat = new_dat / row_means.reshape((-1, 1))
+# 		# Divide the data by these mean
+# 		new_dat = new_dat / row_means.reshape((-1, 1))
 
-	return new_dat
+# 	return new_dat
 
-
-def plot_comparison_occupancies_G():
-	# Def plot of chromosome 4 values
-	# # Comparison of chrIV t=0 and t=30
-	# plt.figure(figsize=(24, 6))
-	# plt.subplot(3, 1, 1)
-	# plt.plot(real_deconv_chr4.normalized_occupancy.T.loc[0])
-	# plt.xticks([])
-	# plt.axhline(1, c='black', lw=1)
-	# plt.title("T=0")
-
-	# plt.subplot(3, 1, 2)
-	# plt.plot(real_deconv_chr4.normalized_occupancy.T.loc[30])
-	# plt.axhline(1, c='black', lw=1)
-	# plt.xticks([])
-	# plt.title("T=30")
-
-	# plt.subplot(3, 1, 3)
-	# plt.plot(np.log2(real_deconv_chr4.normalized_occupancy.T.loc[30] / 
-	#                  real_deconv_chr4.normalized_occupancy.T.loc[0])
-	#         )
-	# plt.axhline(0, c='black', lw=1)
-	# plt.ylim(-1, 1)
-	# plt.title("log2 ratio difference")
-	# plt.suptitle("ChrIV t=0 vs t=30 occupancy")
-	pass
 
 def plot_histogram_occupancies_G(config, G):
 	fig, axs = plt.subplots(3, 6, figsize=(13, 6))
@@ -502,10 +479,30 @@ def plot_histogram_occupancies_G(config, G):
 
 	# This shoes the data for G is normal-ish and centered around 1.
 
-def plot_heatmaps(N, F, H, B, G):
+def plot_heatmaps(N, F, H, B, G, column_names, full_column_names):
 
 	inv_B = np.linalg.inv(B)
-	transformed_G = (np.linalg.inv(N)@G@inv_B)
+
+	HF = H@F
+	Ninv_G_B_inv = (np.linalg.inv(N)@G@inv_B)
+	predicted_G = N@H@F@B
+	residual_diff = (N@H@F@B) - (G)
+
+	def create_df_and_full_cols(dat, column_names, full_column_names):
+		"""Insert back in the nan columns for plotting"""
+		complete_dat = pd.DataFrame(dat, columns=column_names)
+		for c in full_column_names:
+			if c not in column_names:
+				complete_dat[c] = np.nan
+		complete_dat = complete_dat[sorted(complete_dat.columns)]
+		return complete_dat
+
+	F = create_df_and_full_cols(F, column_names, full_column_names)
+	G = create_df_and_full_cols(G, column_names, full_column_names)
+	HF = create_df_and_full_cols(HF, column_names, full_column_names)
+	Ninv_G_B_inv = create_df_and_full_cols(Ninv_G_B_inv, column_names, full_column_names)
+	predicted_G = create_df_and_full_cols(predicted_G, column_names, full_column_names)
+	residual_diff = create_df_and_full_cols(residual_diff, column_names, full_column_names)
 
 	plt.figure(figsize=(13, 11))
 
@@ -516,19 +513,17 @@ def plot_heatmaps(N, F, H, B, G):
 	plt.title("$F$")
 
 	plt.subplot(6, 1, 2)
-	plt.imshow(H@F, cmap='RdBu_r', vmin=0, vmax=2, interpolation='none', aspect='auto')
-	plt.xticks([])
+	plt.imshow(HF, cmap='RdBu_r', vmin=0, vmax=2, interpolation='none', aspect='auto')
 	plt.colorbar()
+	plt.xticks([])
 	plt.title("$HF$")
 
 	plt.subplot(6, 1, 3)
-	plt.imshow(transformed_G, cmap='RdBu_r', vmin=0, vmax=2, interpolation='none', aspect='auto')
-	plt.xticks([])
+	plt.imshow(Ninv_G_B_inv, cmap='RdBu_r', vmin=0, vmax=2, interpolation='none', aspect='auto')
 	plt.colorbar()
 	plt.title("$(N^{-1})G(B^{-1})$")
 
 	plt.subplot(6, 1, 4)
-	predicted_G = N@H@F@B
 	plt.imshow(predicted_G, cmap='RdBu_r', vmin=0, vmax=2, interpolation='none', aspect='auto')
 	plt.xticks([])
 	plt.colorbar()
@@ -541,7 +536,7 @@ def plot_heatmaps(N, F, H, B, G):
 	plt.title("$G$")
 
 	plt.subplot(6, 1, 6)
-	plt.imshow((N@H@F@B) - (G), vmin=-1, vmax=1, cmap='RdBu_r', interpolation='none', aspect='auto')
+	plt.imshow(residual_diff, vmin=-1, vmax=1, cmap='RdBu_r', interpolation='none', aspect='auto')
 	plt.colorbar()
 	plt.title("$NHFB - G$")
 	plt.subplots_adjust(hspace=0.5, top=0.9)
@@ -633,3 +628,7 @@ def read_no_copy_correction_n_fr_b(H):
 
 	return N, fr, b
 
+def compute_rn(N, H, F, B, G):
+	NHFB = N @ H @ F @ B
+	loss = np.mean((NHFB - G)**2)
+	return loss

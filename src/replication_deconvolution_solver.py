@@ -10,69 +10,13 @@ CONST_1_COPY = 1
 CONST_2_COPY = 2
 
 
-def deconvolve_replication(config, H, G, N, B, timer=None):
+def deconvolve_replication_brute_force(config, H, G, N, B, timer=None,
+	mode='S'):
 	"""
-	Deconvolve the replication curve
-	"""
-
-	cg1_indices = config.get_Hpositions_for_phase('CG1')
-	rg1_indices = config.get_Hpositions_for_phase('RG1')
-	postg1_indices = config.get_Hpositions_for_phase('postG1')
-	s_indices = config.get_Hpositions_for_phase('S')
-	g2m_indices = config.get_Hpositions_for_phase('G2M')
-
-	if timer is None:
-		timer = Timer()
-
-	n, m = H.shape
-	n, v = G.shape
-	F = np.zeros((m, v))
-	rns = np.zeros(v)
-
-	for g_index in range(G.shape[1]):
-
-		if g_index % 200 == 0:
-			timer.print_time(f"{g_index}/{G.shape[1]}")
-
-		g = G[:, g_index]
-
-		solver = cp.MOSEK
-
-		# f is modeled as a boolean variable. We are interested
-		# in the copy number so add 1
-		f_0 = cp.Variable(m, boolean=True)
-		f = f_0+1
-
-		# Get the relevant baseline occupancy
-		b = B[g_index, g_index]
-
-		predicted_g = N@H@(f*b)
-
-		elementwise_result = predicted_g - g
-
-		objective = cp.Minimize(
-			cp.sum(cp.norm(elementwise_result, 'fro')**2)
-		)
-
-		# constraints = define_constraints(f, config)
-		constraints = define_constraints(f, config)
-
-		prob = cp.Problem(objective, constraints)
-		result = prob.solve(solver=solver, warm_start=True, 
-			verbose=False, eps=1e-4)
-
-		elementwise_result = cp.multiply(predicted_g, 1.0/g) - 1
-		rn = cp.sum(cp.norm(elementwise_result, 'fro')**2)
-
-		F[:, g_index] = f.value
-		rns[g_index] = rn.value
-
-	return F, rns.mean()
-
-
-def deconvolve_replication_brute_force(config, H, G, N, B, timer=None):
-	"""
-	Deconvolve the replication curve
+	Deconvolve the replication curve by computing the rn for every possible
+	replication index, this is faster than any optimizer method (if there 
+	is a large number if indices, this could be refined using a binary
+	search)
 	"""
 
 	cg1_indices = config.get_Hpositions_for_phase('CG1')
@@ -80,6 +24,13 @@ def deconvolve_replication_brute_force(config, H, G, N, B, timer=None):
 	postg1_indices = config.get_Hpositions_for_phase('postG1')
 	s_indices = config.get_Hpositions_for_phase('S')
 	g2m_indices = config.get_Hpositions_for_phase('G2M')
+
+	if mode == 'S':
+		replication_indices = s_indices
+	elif mode == 'postG1':
+		replication_indices = postg1_indices
+	else:
+		raise ValueError("Unknown mode", mode)
 
 	if timer is None:
 		timer = Timer()
@@ -107,7 +58,8 @@ def deconvolve_replication_brute_force(config, H, G, N, B, timer=None):
 
 		best_rn = float('inf')
 		best_f = None
-		for repl_index in postg1_indices:
+
+		for repl_index in replication_indices:
 			# Create f vector for replication timing and compute rn
 			f = np.ones(m)
 			f[repl_index:-1] = 2
