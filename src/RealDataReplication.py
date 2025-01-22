@@ -434,6 +434,12 @@ class RealDataReplicationDeconvolution():
 		plt.title("Example replication curves", pad=11)
 
 
+	def update_parameters(self, updated_parameters):
+		self.config.params_dic.update(updated_parameters)
+		self.config.update_timepoints()
+		self.config.calculate_H()
+		self.H = self.config.H
+
 # def threshold_selection(dat, threshold_selection, fill=1.,
 # 	renormalize=False):
 # 	new_dat = dat.copy()
@@ -481,6 +487,9 @@ def plot_histogram_occupancies_G(config, G):
 
 def plot_heatmaps(N, F, H, B, G, column_names, full_column_names):
 
+	RdBu_cmap = plt.cm.RdBu_r
+	RdBu_cmap.set_bad('#aaaaaa')  # Set the color for NaN values
+
 	inv_B = np.linalg.inv(B)
 
 	HF = H@F
@@ -507,36 +516,36 @@ def plot_heatmaps(N, F, H, B, G, column_names, full_column_names):
 	plt.figure(figsize=(13, 11))
 
 	plt.subplot(6, 1, 1)
-	plt.imshow(F, cmap='RdBu_r', vmin=0, vmax=2, interpolation='none', aspect='auto')
+	plt.imshow(F, cmap=RdBu_cmap, vmin=0, vmax=2, interpolation='none', aspect='auto')
 	plt.xticks([])
 	plt.colorbar()
 	plt.title("$F$")
 
 	plt.subplot(6, 1, 2)
-	plt.imshow(HF, cmap='RdBu_r', vmin=0, vmax=2, interpolation='none', aspect='auto')
+	plt.imshow(HF, cmap=RdBu_cmap, vmin=0, vmax=2, interpolation='none', aspect='auto')
 	plt.colorbar()
 	plt.xticks([])
 	plt.title("$HF$")
 
 	plt.subplot(6, 1, 3)
-	plt.imshow(Ninv_G_B_inv, cmap='RdBu_r', vmin=0, vmax=2, interpolation='none', aspect='auto')
+	plt.imshow(Ninv_G_B_inv, cmap=RdBu_cmap, vmin=0, vmax=2, interpolation='none', aspect='auto')
 	plt.colorbar()
 	plt.title("$(N^{-1})G(B^{-1})$")
 
 	plt.subplot(6, 1, 4)
-	plt.imshow(predicted_G, cmap='RdBu_r', vmin=0, vmax=2, interpolation='none', aspect='auto')
+	plt.imshow(predicted_G, cmap=RdBu_cmap, vmin=0, vmax=2, interpolation='none', aspect='auto')
 	plt.xticks([])
 	plt.colorbar()
 	plt.title("Predicted G: $NHFB$")
 
 	plt.subplot(6, 1, 5)
-	plt.imshow(G, cmap='RdBu_r', vmin=0, vmax=2, interpolation='none', aspect='auto')
+	plt.imshow(G, cmap=RdBu_cmap, vmin=0, vmax=2, interpolation='none', aspect='auto')
 	plt.colorbar()
 	plt.xticks([])
 	plt.title("$G$")
 
 	plt.subplot(6, 1, 6)
-	plt.imshow(residual_diff, vmin=-1, vmax=1, cmap='RdBu_r', interpolation='none', aspect='auto')
+	plt.imshow(residual_diff, vmin=-1, vmax=1, cmap=RdBu_cmap, interpolation='none', aspect='auto')
 	plt.colorbar()
 	plt.title("$NHFB - G$")
 	plt.subplots_adjust(hspace=0.5, top=0.9)

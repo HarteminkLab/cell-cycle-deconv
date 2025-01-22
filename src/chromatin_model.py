@@ -725,7 +725,7 @@ def draw_phase_label_annotations(ax, config=None,
 
 	tp_set = []
 	for phase in phases:
-		tps = config.get_phase_timepoints_for_phase(phase)
+		tps = config.get_timepoints_for_phase(phase)
 		tp_set.append(tps)
 
 	if offset:
@@ -735,20 +735,14 @@ def draw_phase_label_annotations(ax, config=None,
 	for i in range(len(tp_set)):
 		tps = tp_set[i]
 
+		if len(tps) == 0: continue
+
 		if offset: tps = tps + offset_by
 
 		phase = phases[i]
 
 		if last_tp is None:
 			last_tp = tps[0]
-
-		# Define the start of S at 0 minutes
-		# todo: reality is that the 0 min position
-		# sits between G1 and S in the model, but this
-		if phase == 'S':
-			tps[0] = 0
-		elif phase == 'CG1':
-			tps[-1] = 0
 
 		tp_start, tp_end = last_tp, tps[-1]
 
@@ -769,5 +763,6 @@ def draw_phase_label_annotations(ax, config=None,
 			rotation = 0
 
 		ax.plot(xs, ys, c=color_for_key(phase), lw=20, solid_capstyle='butt')
+
 		ax.text(text_x, text_y, phase, va='center', ha='center', fontsize=10,
 			color='white', rotation=rotation)

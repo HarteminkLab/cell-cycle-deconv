@@ -40,6 +40,7 @@ class RG1Model(object):
 		mu0 = self.params_dic['mu0']
 		lambda_val = self.params_dic['lambda']
 		gamma1 = self.params_dic['gamma1']
+		delta = self.params_dic['delta']
 		start_of_s = gamma1*lambda_val
 
 		# for now, let's set alpha to 0
@@ -47,11 +48,21 @@ class RG1Model(object):
 
 		rg1_time_span = mu0, start_of_s
 		cg1_time_span = -alpha, start_of_s
+		dg1_time_span = -delta-alpha, start_of_s
 		postg1_time_span = start_of_s, lambda_val-alpha
 
 		rg1_timepoints = np.linspace(rg1_time_span[0], rg1_time_span[1], G1_NUM_TPS+1)
 		cg1_timepoints = np.linspace(cg1_time_span[0], cg1_time_span[1], G1_NUM_TPS+1)
+		dg1_timepoints = np.linspace(dg1_time_span[0], dg1_time_span[1], G1_NUM_TPS+1)
 		postg1_timepoints = np.linspace(postg1_time_span[0], postg1_time_span[1], POSTG1_NUM_TPS+1)
+
+		Hpos = np.concatenate([
+					range(0, G1_NUM_TPS), # RG1
+					range(G1_NUM_TPS, G1_NUM_TPS*2), # CG1 and DG1
+					range(G1_NUM_TPS, G1_NUM_TPS*2), # CG1 and DG1
+					range(G1_NUM_TPS*2, G1_NUM_TPS*2+POSTG1_NUM_TPS), # CG1 and DG1
+					[G1_NUM_TPS*2+POSTG1_NUM_TPS], # Halted
+				])
 
 		# Create the dataframe that maps the H positions directly to the the timepoints
 		timepoints_dataframe = pd.DataFrame({
@@ -61,25 +72,38 @@ class RG1Model(object):
 			# these timepoints correspond
 			'timepoint_start': np.concatenate([rg1_timepoints[0:-1], 
 				cg1_timepoints[0:-1], 
-				postg1_timepoints[0:-1]]),
+				dg1_timepoints[0:-1], 
+				postg1_timepoints[0:-1], [0]]),
 
 			'timepoint_end': np.concatenate([rg1_timepoints[1:], 
 				cg1_timepoints[1:], 
-				postg1_timepoints[1:]]),
+				dg1_timepoints[1:], 
+				postg1_timepoints[1:], [0]],),
 
 			'phase': np.concatenate([
 				np.repeat('RG1', G1_NUM_TPS),
 				np.repeat('CG1', G1_NUM_TPS),
+				np.repeat('DG1', G1_NUM_TPS),
 				np.repeat('postG1', POSTG1_NUM_TPS),
+				np.repeat('Halted', 1),
 				])
+			,
+			'Hpos':
+				np.concatenate([
+					range(0, G1_NUM_TPS), # RG1
+					range(G1_NUM_TPS, G1_NUM_TPS*2), # CG1
+					range(G1_NUM_TPS, G1_NUM_TPS*2), # DG1 (same indices)
+					range(G1_NUM_TPS*2, G1_NUM_TPS*2+POSTG1_NUM_TPS), # Post G1
+					[G1_NUM_TPS*2+POSTG1_NUM_TPS], # Halted
+				]),
 			})
-		timepoints_dataframe.index.name = 'Hpos'
-		self.timepoints_df = timepoints_dataframe.reset_index().set_index('phase')
+		
+		self.timepoints_df = timepoints_dataframe.set_index('phase')
 
 		self.branch_phase_mapping = {
 			'i': ['RG1', 'postG1'],
 			't': ['CG1', 'postG1'],
-			'b': ['CG1', 'postG1'],
+			'b': ['DG1', 'postG1'],
 		}
 
 		# Create the dataframe that contains the per branch timepoints and
@@ -117,6 +141,7 @@ class RG1Model(object):
 		elif phase in ['S', 'G2M']:
 
 			s_indices, g2m_indices = self.get_s_g2m_indices()
+
 			if phase == 'S':
 				return s_indices
 			elif phase == 'G2M':
@@ -128,7 +153,19 @@ class RG1Model(object):
 		return self.branch_Hpos_df.loc[branch].Hpos.values
 		
 	def get_timepoints_for_phase(self, phase):
-		return self.timepoints_df.loc[phase].timepoint_start.values
+
+		if phase in ['S', 'G2M']:
+
+			s_indices = self.get_Hpositions_for_phase('S')
+			postG1_rows = self.timepoints_df.loc['postG1']
+
+			if phase == 'S':
+				return postG1_rows[postG1_rows.Hpos <= s_indices[-1]].timepoint_start.values
+			else:
+				return postG1_rows[postG1_rows.Hpos > s_indices[-1]].timepoint_start.values
+
+		else:
+			return self.timepoints_df.loc[phase].timepoint_start.values
 
 	def get_timepoints_for_branch(self, branch):
 		return self.branch_Hpos_df.loc[branch].timepoint_start.values
@@ -235,6 +272,8 @@ class RG1Model(object):
 				phase_timepoint_starts = self.branch_Hpos_df.loc[branch].loc[phase].timepoint_start.values
 				phase_timepoint_ends = self.branch_Hpos_df.loc[branch].loc[phase].timepoint_end.values
 				phase_timepoints = np.concatenate([phase_timepoint_starts, phase_timepoint_ends[-1:]])
+
+				print(phase, phase_timepoint_starts)
 				timepoints_for_branch.append(phase_timepoints)
 
 			return timepoints_for_branch

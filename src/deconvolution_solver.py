@@ -5,14 +5,27 @@ from src.helpers import get_wavelet_kernel
 
 class DeconvolutionSolver(object):
 
-	def __init__(self, config, g, H, gamma, N, f_replication,
-	 	b, padding_type='both'):
+	def __init__(self, config, g, H, gamma, N=None, f_replication=None,
+	 	b=None, padding_type='both'):
+
+		n, m = H.shape
+
+		if N is None:
+			N = np.eye(n)
+
+		if f_replication is None:
+			f_replication = np.ones(m)
+
+		if b is None:
+			b = 1
+
 		self.config = config
 		self.g = g
 		self.H = H
 		self.N = N
 		self.f_replication = f_replication
 		self.b = b
+
 		self.gamma = gamma
 		self.padding_type = padding_type
 		

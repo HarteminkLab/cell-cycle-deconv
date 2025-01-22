@@ -23,7 +23,8 @@ class Model:
 		g (list of float): Measured time series population data.
 	"""
 	
-	def __init__(self, config, gene_or_orfname, gamma=0.0, for_chromatin_deconv=False):
+	def __init__(self, config, gene_or_orfname, gamma=0.0, for_chromatin_deconv=False,
+		expression_data=None):
 
 		if gene_or_orfname is None:
 			self.orf_name = None
@@ -35,17 +36,14 @@ class Model:
 		self.gamma = gamma
 
 		if not for_chromatin_deconv:
-			if self.config.wt1_df is not None:
-				g1 = self.config.wt1_df.loc[self.orf_name].values
-				self.g1 = g1
-				self.g = g1
+			g1 = expression_data.loc[self.orf_name].values
+			self.g1 = g1
+			self.g = g1
 
-		self.initial_phase_map, self.top_phase_map, self.bottom_phase_map = config.intervals_wt1[-1]
+		H1 = config.H
 
-		calcH_function = config.calcH_function
-		H1, self.Hpos = calcH_function(config.intervals_wt1, config.WT1_TIMEPOINTS)
-
-		if self.config.has_two_replicates:
+		# todo: testing refactor of config for single replicate
+		if False:
 
 			if not for_chromatin_deconv:
 				# Load g2
@@ -62,19 +60,10 @@ class Model:
 
 				self.g = np.concatenate((g1, g2))
 
-			H2, _ = calcH_function(config.intervals_wt2, config.WT2_TIMEPOINTS)
+			H2, _ = calcH_function(config.intervals_wt2, config.timepoints)
 			self.H = np.concatenate((H1, H2))
 
 		else:
-
-			if not for_chromatin_deconv:
-				# Just correct g1, g
-				if config.copy_correction is not None:
-					print_fl("Applying copy number correction")
-					copy_correction_vector = config.copy_correction.loc[self.orf_name]
-					self.g1 = self.g1 * copy_correction_vector
-					self.g = self.g1
-
 			self.H = H1
 
 	def deconvolve_find_optimal_gamma(self, silence=True):
@@ -114,7 +103,7 @@ class Model:
 		g1 = self.g1
 		predicted_g = self.pred_g
 
-		if self.config.has_two_replicates:
+		if False: #self.config.has_two_replicates:
 			g2 = self.g2
 			g = np.concatenate([g1, g2])
 
@@ -138,31 +127,26 @@ class Model:
 		if H is None:
 			H = self.H
 
-		rg1_cols = self.config.phase_columns['RG1']
-		cg1_cols = self.config.phase_columns['CG1']
-		dg1_cols = self.config.phase_columns['DG1']
+		rg1_cols = self.config.get_Hpositions_for_phase('RG1')
+		cg1_cols = self.config.get_Hpositions_for_phase('CG1')
+		dg1_cols = self.config.get_Hpositions_for_phase('DG1')
 
 		H_cols = np.array([H.shape[1]-1])
 
-		if 'postG1' in self.config.phase_columns:
-			post_g1_cols = self.config.phase_columns['postG1']
-			phases = ['H', 'RG1', 'CG1', 'DG1', 'postG1']
-			cols_list = [H_cols, rg1_cols, cg1_cols, dg1_cols, post_g1_cols]
-		else:
-			s_cols = self.config.phase_columns['S']
-			g2m_cols = self.config.phase_columns['G2M']
-			phases = ['H', 'RG1', 'CG1', 'DG1', 'S', 'G2M']
-			cols_list = [H_cols, rg1_cols, cg1_cols, dg1_cols, s_cols, g2m_cols]
+		s_cols = self.config.get_Hpositions_for_phase('S')
+		g2m_cols = self.config.get_Hpositions_for_phase('G2M')
+		phases = ['H', 'RG1', 'CG1', 'DG1', 'S', 'G2M']
+		cols_list = [H_cols, rg1_cols, cg1_cols, dg1_cols, s_cols, g2m_cols]
 
 		plt.figure(figsize=(16, 3))
 		plt.subplot(1, 2, 1)
 
 		plt.imshow(H, vmax=H[:, :-1].max(), aspect='auto', cmap='Reds',
-				  extent=[0, H.shape[1], self.config.WT1_TIMEPOINTS[-1], 0])
+				  extent=[0, H.shape[1], self.config.timepoints[-1], 0])
 
 		plt.subplot(1, 2, 2)
 
-		x = self.config.WT1_TIMEPOINTS
+		x = self.config.timepoints
 
 		prev = np.zeros(len(x))
 			
@@ -196,8 +180,8 @@ class Model:
 
 		# -----------------
 
-		timepoints1 = self.config.WT1_TIMEPOINTS
-		timepoints2 = self.config.WT2_TIMEPOINTS
+		timepoints1 = self.config.timepoints
+		timepoints2 = self.config.timepoints
 
 		if timepoints2 is not None:
 			xlims = timepoints1[0], max(timepoints1[-1], timepoints2[-1])
@@ -219,7 +203,7 @@ class Model:
 		# -----------------
 
 		if g2 is not None:
-			timepoints2 = self.config.WT2_TIMEPOINTS
+			timepoints2 = self.config.timepoints
 			ax4.plot(timepoints2, g2, color=self.color_for_key('raw'), lw=4)
 			ax4.plot(timepoints2, predicted_g2, color=self.color_for_key('fit'), lw=4)
 			# ax4.set_yscale('log')
@@ -228,33 +212,40 @@ class Model:
 
 		def _plot_branch(ax, branch, ylim, start_offset=0, linestyle='solid'):
 			"""Plot the branch coloring the individual phases within the branch"""
-			phase_tp_idx_list = self.config.get_timepoints_phases_Hpositions_for_branch(branch)
-
+			phase_tp_idx_list = self.config.branch_Hpos_df.loc[branch]
 
 			offset = 0
-			if start_offset:
-				offset = start_offset-phase_tp_idx_list[0][1].values[0]
+			#if start_offset:
+				#offset = start_offset-phase_tp_idx_list[0][1].values[0]
 
-			for phase, timepoints, indices in phase_tp_idx_list:
-				ax.plot(timepoints+offset, f[indices], color=self.color_for_key(phase), 
+			phases = phase_tp_idx_list.index.values
+			for phase in phases:
+
+				branch = 'i'
+				branch_tps = phase_tp_idx_list.loc[phase].timepoint_start
+				indices = phase_tp_idx_list.loc[phase].Hpos
+
+				ax.plot(branch_tps+offset, f[indices], color=self.color_for_key(phase), 
 					lw=5, linestyle=linestyle)
 
 			ax.set_ylim(ylim[0], ylim[1])
 
-			# return timepoints in case we want to append more branches on to the plot
-			return timepoints.values + offset
+			return branch_tps.values + offset
 
 		# ------------------
 
 		# Set the ylim appropriate to the values in f
-		diff = np.max(f) - np.min(f)
-		ylim = np.min(f)-diff*0.1, np.min(f)+diff*1.1
+		f_values_for_lim = f[:-1]
+		diff = np.max(f_values_for_lim) - np.min(f_values_for_lim)
+		ylim = np.min(f_values_for_lim)-diff*0.1, np.min(f_values_for_lim)+diff*1.1
 
 		# Halted cells are the last element in f
 		halted_f = f[len(f)-1]
 		ax1.scatter(-1, halted_f, color='gray', s=50, marker='H')
 
-		for phase, indices in self.config.phase_columns.items():
+		phases = ['RG1', 'CG1', 'DG1', 'postG1']
+		for phase in phases:
+			indices = self.config.get_Hpositions_for_phase(phase)
 			plot_f_values = f[indices]
 			ax1.plot(indices, plot_f_values, color=self.color_for_key(phase), lw=5)
 		ax1.set_ylim(*ylim)
@@ -291,8 +282,8 @@ class Model:
 
 		title = f"{self.gene_name} / {self.orf_name}, gamma={self.gamma:.4f}\nrn={self.rn:.4f}, sn={self.sn:.2f}"
 
-		if self.config.name is not None:
-			title = f"{self.config.name}\n" + title
+		#if self.config.name is not None:
+		#	title = f"{self.config.name}\n" + title
 
 		plt.suptitle(title, fontsize=23)
 		return fig
