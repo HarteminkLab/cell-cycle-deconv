@@ -273,7 +273,6 @@ class RG1Model(object):
 				phase_timepoint_ends = self.branch_Hpos_df.loc[branch].loc[phase].timepoint_end.values
 				phase_timepoints = np.concatenate([phase_timepoint_starts, phase_timepoint_ends[-1:]])
 
-				print(phase, phase_timepoint_starts)
 				timepoints_for_branch.append(phase_timepoints)
 
 			return timepoints_for_branch
