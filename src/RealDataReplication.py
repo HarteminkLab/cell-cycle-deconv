@@ -224,10 +224,11 @@ class RealDataReplicationDeconvolution():
 	def plot_heatmaps(self):
 		N, F, G, B, H = self.N, self.F, self.G, self.B, self.H
 
-		plot_heatmaps(N, F, H, B, G, column_names=self.masked_G_df.columns,
+		fig = plot_heatmaps(N, F, H, B, G, column_names=self.masked_G_df.columns,
 			full_column_names=self.G_df.columns)
 		plt.suptitle(f"Replication {self.replicate}"
 			f" deconvolution,\nChromosome {self.chrom}")
+		return fig
 
 	def plot_B(self):
 
@@ -490,7 +491,7 @@ def plot_heatmaps(N, F, H, B, G, column_names, full_column_names):
 	predicted_G = create_df_and_full_cols(predicted_G, column_names, full_column_names)
 	residual_diff = create_df_and_full_cols(residual_diff, column_names, full_column_names)
 
-	plt.figure(figsize=(13, 11))
+	fig = plt.figure(figsize=(13, 11))
 
 	plt.subplot(6, 1, 1)
 	plt.imshow(F, cmap=RdBu_cmap, vmin=0, vmax=2, interpolation='none', aspect='auto')
@@ -526,6 +527,8 @@ def plot_heatmaps(N, F, H, B, G, column_names, full_column_names):
 	plt.colorbar()
 	plt.title("$NHFB - G$")
 	plt.subplots_adjust(hspace=0.5, top=0.9)
+
+	return fig
 
 
 def compute_N(config, plot=False):

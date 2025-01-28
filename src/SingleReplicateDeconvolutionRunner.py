@@ -67,6 +67,9 @@ class SingleReplicateDeconvolutionRunner():
 		def update_function(epoch, update_params_df, Hs, Fs, Ns, Bs):
 			"""Update function that runs for each epoch for progressive
 			updating"""
+
+			self.current_epoch = epoch
+
 			if epoch % 10 == 0:
 				self.update_params_df = update_params_df
 				self.Hs = Hs
@@ -91,6 +94,7 @@ class SingleReplicateDeconvolutionRunner():
 		F_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_Fs.npy'
 		H_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_Hs.npy'
 		parameters_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_parameters.csv'
+		fig_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}.png'
 
 		np.save(N_save_path, self.Ns)
 		np.save(B_save_path, self.Bs)
@@ -98,12 +102,18 @@ class SingleReplicateDeconvolutionRunner():
 		np.save(F_save_path, self.Fs)
 		self.update_params_df.to_csv(parameters_save_path)
 
+		fig = self.deconvolution.plot_heatmaps()
+		plt.suptitle(f"Replication {self.replicate}"
+			f" deconvolution,\nChromosome {self.chrom}, epoch={self.current_epoch}")
+		plt.savefig(fig_path, dpi=150)
+		plt.close(fig)
+
 		print_fl(f"Saved to: {N_save_path}")
 		print_fl(f"Saved to: {B_save_path}")
 		print_fl(f"Saved to: {H_save_path}")
 		print_fl(f"Saved to: {F_save_path}")
 		print_fl(f"Saved to: {parameters_save_path}")
-
+		print_fl(f"Saved to: {fig_path}")
 
 if __name__ == '__main__':
 	main()
