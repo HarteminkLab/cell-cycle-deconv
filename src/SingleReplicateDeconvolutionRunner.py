@@ -85,11 +85,11 @@ class SingleReplicateDeconvolutionRunner():
 
 		mkdirs_safe([self.save_dir])
 
-		N_save_path = f'{self.save_directory}/rep{self.replicate}_chr{self.chrom}_Ns.npy'
-		B_save_path = f'{self.save_directory}/rep{self.replicate}_chr{self.chrom}_Bs.npy'
-		F_save_path = f'{self.save_directory}/rep{self.replicate}_chr{self.chrom}_Fs.npy'
-		H_save_path = f'{self.save_directory}/rep{self.replicate}_chr{self.chrom}_Hs.npy'
-		parameters_save_path = f'{self.save_directory}/rep{self.replicate}_chr{self.chrom}_parameters.csv'
+		N_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_Ns.npy'
+		B_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_Bs.npy'
+		F_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_Fs.npy'
+		H_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_Hs.npy'
+		parameters_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_parameters.csv'
 
 		np.save(N_save_path, self.Ns)
 		np.save(B_save_path, self.Bs)
