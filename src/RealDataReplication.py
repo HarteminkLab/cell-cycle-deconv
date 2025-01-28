@@ -1,4 +1,5 @@
 
+ 
 import numpy as np
 import cvxpy as cp
 from src.timer import Timer
@@ -162,7 +163,7 @@ class RealDataReplicationDeconvolution():
 		for iteration in range(total_iterations):
 
 			if verbose:
-				print_fl("Iteration", iteration)
+				print_fl(f"Iteration {iteration}")
 
 			N = self.Ns[iteration]
 			B = self.Bs[iteration]

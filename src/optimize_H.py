@@ -186,7 +186,7 @@ def run_epochs(real_deconv1, params_df, num_epochs, function_update=None):
 
 	for epoch in range(num_epochs):
 
-		print_fl("Epoch: ", epoch)
+		print_fl(f"Epoch: {epoch}")
 		
 		optimizer.optimize(maxiter=1000, verbose=True)
 
@@ -218,7 +218,7 @@ def run_epochs(real_deconv1, params_df, num_epochs, function_update=None):
 		print_fl(update_params_df.iloc[-1])
 
 		if function_update is not None:
-			function_update(epoch, update_params_df Hs, Fs, Ns, Bs)
+			function_update(epoch, update_params_df, Hs, Fs, Ns, Bs)
 
 	return update_params_df, Hs, Fs, Ns, Bs
 

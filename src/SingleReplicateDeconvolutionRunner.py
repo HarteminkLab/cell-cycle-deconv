@@ -1,4 +1,7 @@
 
+import sys
+sys.path.append('.')
+
 from src.utils import print_fl
 from src.RealDataReplication import RealDataReplicationDeconvolution
 from src.rg1_refactor import load_default_chrom_configs
@@ -22,11 +25,11 @@ def main():
 	chrom = int(chrom)
 	num_epochs = int(num_epochs)
 
-	print_fl("Arguments: ", system_args)
+	print_fl(("Arguments: ", system_args))
 
 	# Start runner
-	runner = SingleReplicateDeconvolutionRunner(chrom, replicate, outdir)
-	runner.start_runs()
+	runner = SingleReplicateDeconvolutionRunner(chrom, replicate, out_dir)
+	runner.start_runs(num_epochs=num_epochs)
 	runner.save_to_disk()
 
 
@@ -44,8 +47,11 @@ class SingleReplicateDeconvolutionRunner():
 		config1, config2 = load_default_chrom_configs()
 
 		config = config1 if replicate == 1 else config2
-		config.shift_parameters_for_alpha()
+		print_fl(str(config.params_dic))
+
 		print_fl("Shifting initial parameters for alpha")
+		config.shift_parameters_for_alpha()
+		print_fl(str(config.params_dic))
 
 		self.deconvolution = RealDataReplicationDeconvolution(config, replicate=replicate, chr=chrom)
 
@@ -57,7 +63,7 @@ class SingleReplicateDeconvolutionRunner():
 		self.deconvolution.setup_deconvolution(self.deconvolution.config)
 		self.deconvolution.iterative_deconvolution_updates(20, verbose=False)
 
-		def update_function(epoch, update_params_df Hs, Fs, Ns, Bs):
+		def update_function(epoch, update_params_df, Hs, Fs, Ns, Bs):
 			"""Update function that runs for each epoch for progressive
 			updating"""
 			if epoch % 10 == 0:
