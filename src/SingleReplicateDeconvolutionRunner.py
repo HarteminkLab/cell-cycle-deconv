@@ -6,6 +6,7 @@ import numpy as np
 from src.utils import print_fl
 from src.RealDataReplication import RealDataReplicationDeconvolution
 from src.rg1_refactor import load_default_chrom_configs
+import matplotlib.pyplot as plt
 
 
 def main():
