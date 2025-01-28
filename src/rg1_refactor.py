@@ -46,10 +46,52 @@ class RG1Model(object):
 		# for now, let's set alpha to 0
 		alpha = self.alpha
 
+		# ***** here, is alpha handled here? or mu0 is defined/specified differently... ***
+		# Ambiguious specification
+		#
+		#       mu0 includes g1 time if mu0 is longer than g1, this had not come up when start of s
+		#       was typically 0.0
+		#
+		#       Now, when start of s > 0, mu0 is any additional length that is not accounted for as 
+		#       G1 (when mu0 is negative).
+		#
+		#       When mu0 is positive, this would indicate the first recovery G1 is shorter than
+		#       the expected G1 length.
+		#
+		# The old model that includes alpha, from create_models.pl from
+		# Xin's code
+		# rg1_time_span = mu0, start_of_s 
+		# cg1_time_span = -alpha, start_of_s
+		# dg1_time_span = -delta-alpha, start_of_s
+		# postg1_time_span = start_of_s, lambda_val-alpha
+
+		# Assumption: the length of alpha, is additional time spent in G1 that isn't accounted for in FACS
+		#             because of the cell-wall degradation timing.
+		#
+		#            The first cell cycle G1 does not include this degradation, thus alpha is not included in
+		#            this timing. In that case the length of G1 is indeed:
+	    #            (alpha + lambda*gamma1) ---- 
+	    #
+		# 
+		# Now we are modeling gamma1 differently, with MNase, we don't consider the FACS limitations. Thus
+		# CG1 can be modeled as 0 to lambda*gamma1. Meaning we need to add in the alpha time as the true length
+		# of additional time spent in G1. 
+		#
+		# This in turn affects mu0: Now defined as a difference/"delta" from the expected start of G1 for 
+		# the first recovery cell cycle.
+
+		# Therefore if we are translating from the CLOCCS fits to the updated model's fit... we need to 
+		# add alpha to mu0 to account for the additional length of G1. gamma1, gamma2 are both translated forward
+		# so mu0 needs to as well...
+		#
+		# see the function: shift_parameters_for_alpha
+		#
+		# todo: this is an ongoing justification.... and affects the initialization of the parameter
+		# fitting for the replication deconvolution.
 		rg1_time_span = mu0, start_of_s
-		cg1_time_span = -alpha, start_of_s
-		dg1_time_span = -delta-alpha, start_of_s
-		postg1_time_span = start_of_s, lambda_val-alpha
+		cg1_time_span = 0, start_of_s
+		dg1_time_span = -delta, start_of_s
+		postg1_time_span = start_of_s, lambda_val
 
 		rg1_timepoints = np.linspace(rg1_time_span[0], rg1_time_span[1], G1_NUM_TPS+1)
 		cg1_timepoints = np.linspace(cg1_time_span[0], cg1_time_span[1], G1_NUM_TPS+1)
@@ -283,6 +325,42 @@ class RG1Model(object):
 
 		return (parameters, relations, i_timepoints, t_timepoints, b_timepoints, None)
 
+	def shift_parameters_for_alpha(self):
+		"""From Guo, the CLOCCS estimates need to be adjusted because CLOCCS 
+		assumes cells that have divided, but the cell wall has not been degraded yet, to 
+		be in G2M.
+		Guo estimated previously that this delay (alpha) was about 30% of the cell cycle 
+		(exact value is in the paper).
+
+		Thus we can use this value as the time/proportion that mu0 and gamma1 and gamma2
+		should be shifted for the initialization
+		"""
+		alpha = self.alpha
+		params_dic = self.params_dic
+
+		lambda_ = params_dic['lambda']
+		old_mu0 = params_dic['mu0']
+		old_gamma1 = params_dic['gamma1']
+		old_gamma2 = params_dic['gamma2']
+
+		mu0 = old_mu0+alpha
+
+		gamma_shift = alpha/lambda_ 
+
+		gamma1 = old_gamma1 + gamma_shift
+		gamma2 = old_gamma2 + gamma_shift
+
+		params_dic = params_dic.copy()
+		params_dic['mu0'] = mu0
+		params_dic['gamma1'] = gamma1
+		params_dic['gamma2'] = gamma2
+
+		# alpha is now embedded into the mu0, gamma1, and gamma2 values so
+		# we can set it to 0
+		self.params_dic = params_dic
+		self.alpha = 0
+		self.update_timepoints()
+
 
 def read_cloccs_posteriors(posteriors_filepath):
 	params = {}
@@ -301,7 +379,7 @@ def load_default_chrom_configs():
 
 	config1 = RG1Model()
 	config1.load_from_posteriors('data/2019_cloccs_fits/yl_2019_replicate1/posteriors.txt',
-							  GlobalConstants.CHROM_WT1_TIMEPOINTS, alpha=0)
+							  GlobalConstants.CHROM_WT1_TIMEPOINTS, alpha=22)
 
 	config2 = RG1Model()
 	config2.load_from_posteriors('data/2019_cloccs_fits/yl_2019_replicate2/posteriors.txt',
@@ -309,30 +387,4 @@ def load_default_chrom_configs():
 
 
 	return config1, config2
-
-
-# Next test comparisons of mu0 and gamma1 
-# 
-#   load_test_configs_alpha_gamma1_debugging
-#
-
-# def load_test_configs_alpha_gamma1_debugging():
-
-# 	from src.global_config import GlobalConstants
-
-# 	config1 = RG1Model()
-# 	config1.load_from_posteriors('data/2019_cloccs_fits/yl_2019_replicate1/posteriors.txt',
-# 							  GlobalConstants.CHROM_WT1_TIMEPOINTS, alpha=0)
-# 	config1.params_dic['gamma1'] = 0.3235
-# 	config1.update_timepoints()
-# 	config1.calculate_H()
-
-# 	config2 = RG1Model()
-# 	config2.load_from_posteriors('data/2019_cloccs_fits/yl_2019_replicate1/posteriors.txt',
-# 							  GlobalConstants.CHROM_WT1_TIMEPOINTS, alpha=22)
-# 	config2.params_dic['gamma1'] = 0.
-# 	config2.update_timepoints()
-# 	config2.calculate_H()
-
-# 	return config1, config2
 

@@ -11,7 +11,7 @@ CONST_2_COPY = 2
 
 
 def deconvolve_replication_brute_force(config, H, G, N, B, timer=None,
-	mode='S'):
+	mode='S', verbose=True):
 	"""
 	Deconvolve the replication curve by computing the rn for every possible
 	replication index, this is faster than any optimizer method (if there 
@@ -42,7 +42,7 @@ def deconvolve_replication_brute_force(config, H, G, N, B, timer=None,
 
 	for g_index in range(G.shape[1]):
 
-		if g_index % 100 == 0:
+		if verbose and g_index % 100 == 0:
 			timer.print_time(f"{g_index}/{G.shape[1]}")
 
 		g = G[:, g_index]

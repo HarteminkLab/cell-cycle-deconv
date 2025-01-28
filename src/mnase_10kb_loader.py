@@ -14,12 +14,20 @@ class MNase10kbLoader:
 	def __init__(self):
 		pass
 
-	def load_mnase_data(self, replicate, chromosome):
+	def load_mnase_data(self, replicate, chromosome, fragment_lengths_span=None):
 		from src.sgd import get_chromosome_length
 
 		self.replicate = replicate
 		self.chromosome = chromosome
 		self.mnase_reads = read_chromosome_mnase_reads(replicate, chromosome)
+
+		# todo: Here  add the option to filter mnase reads by fragment length***
+		if fragment_lengths_span is not None:
+
+			# Filter by fragment lengths
+			selection_criteria = (self.mnase_reads['length'] >= fragment_lengths_span[0]) & (self.mnase_reads['length'] < fragment_lengths_span[1])
+			self.mnase_reads = self.mnase_reads[selection_criteria]
+
 		self.timepoints = self.mnase_reads['sample'].unique()
 		self.chrom_len = get_chromosome_length(self.chromosome)
 

@@ -67,9 +67,12 @@ class RealDataReplicationDeconvolution():
 	def load_replicate_data(self, chr, replicate):
 
 		from src.mnase_10kb_loader import MNase10kbLoader
+		from src.chromatin_metrics import fragment_lengths_definitions
+		small_span, med_span, nuc_span = fragment_lengths_definitions()
 
 		mnase_loader = MNase10kbLoader()
-		mnase_loader.load_mnase_data(replicate=replicate, chromosome=chr)
+		mnase_loader.load_mnase_data(replicate=replicate, chromosome=chr,
+			fragment_lengths_span=nuc_span)
 		mnase_loader.compute_sliding_window_counts_all_times()
 
 		self.mnase_loader = mnase_loader
@@ -78,7 +81,7 @@ class RealDataReplicationDeconvolution():
 	
 		# Setup regions to threshold, 
 		# regions with low occupancy will be omitted when needed
-		print("Threshold windows with less than 75% read coverage.")
+		print_fl("Threshold windows with less than 75% read coverage.")
 		self.selected_threshold_region = self.normalized_occupancy.T.mean(axis=0) > 0.75
 
 	def setup_deconvolution(self, config=None, initial_N=None, initial_B=None):
@@ -125,7 +128,7 @@ class RealDataReplicationDeconvolution():
 
 
 	def iterative_deconvolution_updates(self, total_iterations, timer=None,
-		initial_N=None, initial_B=None):
+		initial_N=None, initial_B=None, verbose=True):
 		"""Iteratively deconvolve for the replication curve F.
 
 		Then update N and B. Keep track of the residual norm to identify
@@ -158,13 +161,14 @@ class RealDataReplicationDeconvolution():
 
 		for iteration in range(total_iterations):
 
-			print("Iteration", iteration)
+			if verbose:
+				print_fl("Iteration", iteration)
 
 			N = self.Ns[iteration]
 			B = self.Bs[iteration]
 
 			result = deconvolve_replication_brute_force(self.config, 
-				self.H, self.G, N, B, timer=timer)
+				self.H, self.G, N, B, timer=timer, verbose=verbose)
 
 			self.F = result[0]
 			self.rn = result[1]
@@ -186,7 +190,8 @@ class RealDataReplicationDeconvolution():
 				self.Ns[iteration+1] = updated_N
 				self.Bs[iteration+1] = updated_B
 
-			print(f"Iteration completed {timer.get_time()}, rn={rn}")
+			if verbose:
+				print_fl(f"Iteration completed {timer.get_time()}, rn={rn}")
 
 			self.F = F
 			self.rn = rn
@@ -222,35 +227,6 @@ class RealDataReplicationDeconvolution():
 			full_column_names=self.G_df.columns)
 		plt.suptitle(f"Replication {self.replicate}"
 			f" deconvolution,\nChromosome {self.chrom}")
-
-
-	def save_replication_deconvolution(self):
-		from src.utils import mkdirs_safe
-
-		copy_correction_save_dir = 'data/copy_correction/'
-		mkdirs_safe([copy_correction_save_dir])
-
-		N_save_path = f'{copy_correction_save_dir}/N_combined.npy'
-		B_save_path = f'{copy_correction_save_dir}/B_chr{self.chrom}_combined.csv'
-		F_save_path = f'{copy_correction_save_dir}/F_chr{self.chrom}_combined.csv'
-
-		np.save(N_save_path, self.N)
-		np.save(B_save_path, self.B)
-
-		B_df = pd.DataFrame(self.B,
-					index=self.normalized_occupancy.index,
-					columns=self.normalized_occupancy.index)
-		B_df.index.name = 'start'
-		B_df.to_csv(B_save_path)
-
-		F_df = pd.DataFrame(self.F, 
-			columns=self.normalized_occupancy.index)
-		F_df.to_csv(F_save_path, index=False)
-
-		print(f"Saved to: {N_save_path}")
-		print(f"Saved to: {B_save_path}")
-		print(f"Saved to: {F_save_path}")
-
 
 	def plot_B(self):
 
