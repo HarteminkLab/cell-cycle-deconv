@@ -1,5 +1,5 @@
 #!/bin/bash
-#SBATCH --time=3:00:00
+#SBATCH --time=48:00:00
 #SBATCH --mem 12G
 #SBATCH -p compsci
 

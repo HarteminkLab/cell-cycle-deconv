@@ -90,17 +90,17 @@ class SingleReplicateDeconvolutionRunner():
 
 		mkdirs_safe([self.save_dir])
 
-		N_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_Ns.npy'
-		B_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_Bs.npy'
-		F_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_Fs.npy'
-		H_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_Hs.npy'
+		N_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_N.npy'
+		B_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_B.npy'
+		F_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_F.npy'
+		H_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_H.npy'
 		parameters_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_parameters.csv'
 		fig_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}.png'
 
-		np.save(N_save_path, self.Ns)
-		np.save(B_save_path, self.Bs)
-		np.save(H_save_path, self.Hs)
-		np.save(F_save_path, self.Fs)
+		np.save(N_save_path, self.N[self.current_epoch])
+		np.save(B_save_path, self.B[self.current_epoch])
+		np.save(H_save_path, self.H[self.current_epoch])
+		np.save(F_save_path, self.F[self.current_epoch])
 		self.update_params_df.to_csv(parameters_save_path)
 
 		fig = self.deconvolution.plot_heatmaps()
