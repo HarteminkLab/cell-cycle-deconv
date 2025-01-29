@@ -97,10 +97,10 @@ class SingleReplicateDeconvolutionRunner():
 		parameters_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_parameters.csv'
 		fig_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}.png'
 
-		np.save(N_save_path, self.N[self.current_epoch])
-		np.save(B_save_path, self.B[self.current_epoch])
-		np.save(H_save_path, self.H[self.current_epoch])
-		np.save(F_save_path, self.F[self.current_epoch])
+		np.save(N_save_path, self.Ns[self.current_epoch])
+		np.save(B_save_path, self.Bs[self.current_epoch])
+		np.save(H_save_path, self.Hs[self.current_epoch])
+		np.save(F_save_path, self.Fs[self.current_epoch])
 		self.update_params_df.to_csv(parameters_save_path)
 
 		fig = self.deconvolution.plot_heatmaps()
