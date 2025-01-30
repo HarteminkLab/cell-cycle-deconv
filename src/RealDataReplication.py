@@ -1,12 +1,13 @@
-
  
 import numpy as np
 import cvxpy as cp
-from src.timer import Timer
 import pandas as pd
+
+from src.timer import Timer
+from src.utils import print_fl
 from matplotlib import pyplot as plt
 from src.replication_deconvolution_solver import deconvolve_replication_brute_force
-from src.utils import print_fl
+from typing import Tuple, Optional, NamedTuple
 
 early_color = plt.get_cmap('Oranges')(0.75)
 late_color = plt.get_cmap('Purples')(0.75)
@@ -15,54 +16,12 @@ late_color = plt.get_cmap('Purples')(0.75)
 class RealDataReplicationDeconvolution():
 	"""This model deconvolve the replication timing.
 	"""
-	def __init__(self, config=None, chr=10, replicate=None, configs=None,
-		deconvolve_combined=False):
+	def __init__(self, config, chr, replicate):
 
 		self.chrom = chr
-
-		if deconvolve_combined:
-
-			print_fl("Setting up combined deconvolution model")
-
-			self.load_replicate_data(chr, 1)
-			self.setup_deconvolution(configs[0])
-			self.H1 = self.H
-			self.average_DNA_1 = self.average_DNA
-			self.N1 = self.N
-			self.G1 = self.G
-			self.B1 = self.B
-			self.config1 = configs[0]
-			self.thresh1 = self.selected_threshold_region
-
-			self.load_replicate_data(chr, 2)
-			self.setup_deconvolution(configs[1])
-			self.average_DNA_2 = self.average_DNA
-			self.H2 = self.H
-			self.B2 = self.B
-			self.G2 = self.G
-			self.config2 = configs[0]
-			self.thresh2 = self.selected_threshold_region
-
-			self.H = np.concatenate([self.H1, self.H2], axis=0)
-			self.G = np.concatenate([self.G1, self.G2], 
-				axis=0)
-
-			# Construct N as average DNA from replicate 1 and 2 concatenated
-			self.average_DNA = np.concatenate([self.average_DNA_1, self.average_DNA_2])
-			self.N = np.linalg.inv(np.diag(self.average_DNA))
-
-			# Construct B as the average of replicate 1 and 2
-			self.B = (self.B1 + self.B2)/2.
-
-			self.deconvolve_combined = True
-			self.selected_threshold_region = self.thresh1 | self.thresh2
-			self.replicate = 'combined'
-
-		else:
-			self.replicate = replicate
-			self.config = config
-			self.load_replicate_data(chr, replicate)
-			self.setup_deconvolution(config)
+		self.replicate = replicate
+		self.config = config
+		self.load_replicate_data(chr, replicate)
 
 
 	def load_replicate_data(self, chr, replicate):
@@ -79,6 +38,7 @@ class RealDataReplicationDeconvolution():
 		self.mnase_loader = mnase_loader
 		self.unnormalized_total_occupancy = mnase_loader.all_counts_unnormalized_df
 		self.normalized_occupancy = mnase_loader.normalized_total_occupancy_df
+		self.G_df = self.normalized_occupancy.T
 	
 		# Setup regions to threshold, 
 		# regions with low occupancy will be omitted when needed
@@ -87,8 +47,10 @@ class RealDataReplicationDeconvolution():
 
 	def setup_deconvolution(self, config=None, initial_N=None, initial_B=None):
 		"""Setup the deconvolution:
-
-		1. The config and H
+		1. H from the config parameters
+		2. G from the normalized data, masked out for low coverage regions
+		3. N from the cell cycle parameters as defined in the config
+		4. B from the first timepoint in G
 		"""
 
 		if config is None and self.config is None:
@@ -97,13 +59,11 @@ class RealDataReplicationDeconvolution():
 		elif config is not None:
 			self.config = config
 
+		print_fl("Initializing N using config H.")
 		self.config.calculate_H()
 		self.H = self.config.H
 
-		print_fl("Initializing N using config H.")
-		self.G_df = self.normalized_occupancy.T
-
-		# Mask out the 
+		# Mask out the low coverage regions
 		keep_column_indices = self.selected_threshold_region[self.selected_threshold_region].index
 		self.masked_G_df = self.G_df[keep_column_indices]
 
@@ -130,79 +90,20 @@ class RealDataReplicationDeconvolution():
 
 	def iterative_deconvolution_updates(self, total_iterations, timer=None,
 		initial_N=None, initial_B=None, verbose=True):
-		"""Iteratively deconvolve for the replication curve F.
+		"""Iteratively deconvolve for the replication curve F."""
 
-		Then update N and B. Keep track of the residual norm to identify
-		when the solution converges.
-		"""
+		result = iterative_deconvolution_updates(
+		    config=self.config, H=self.H, G=self.G, initial_N=self.initial_N, 
+		    initial_B=self.initial_B, total_iterations=total_iterations, 
+		    timer=timer, verbose=verbose)
 
-		if timer is None:
-			timer = Timer()
-
-		if initial_N is None:
-			initial_N = self.initial_N
-
-		if initial_B is None:
-			initial_B = self.initial_B
-
-		# The Ns and Bs to start each iteration. 
-		# the first entry will be the initial conditions
-		self.Ns = np.zeros((total_iterations, *initial_N.shape))
-		self.Bs = np.zeros((total_iterations, *initial_B.shape))
-		self.Ns[0] = initial_N
-		self.Bs[0] = initial_B
-
-		# The residual following the end of the each iteration
-		self.iterative_update_rns = np.zeros(total_iterations)
-
-		# The iteratively updated Fs following each run
-		n, m = self.H.shape
-		num_sites = initial_B.shape[0]
-		self.Fs = np.zeros((total_iterations, m, num_sites))
-
-		for iteration in range(total_iterations):
-
-			if verbose:
-				print_fl(f"Iteration {iteration}")
-
-			N = self.Ns[iteration]
-			B = self.Bs[iteration]
-
-			result = deconvolve_replication_brute_force(self.config, 
-				self.H, self.G, N, B, timer=timer, verbose=verbose)
-
-			self.F = result[0]
-			self.rn = result[1]
-			self.N = N
-			self.B = B
-
-			F, rn = result
-
-			# Store the solutions in the F and rn datum
-			self.Fs[iteration] = F
-			self.iterative_update_rns[iteration] = rn
-
-			# Update N and B
-			updated_N, updated_B = self.update_N_B(N, self.H, self.G, B, F)
-
-			# Update N and B for the next run
-			# skip the last entry
-			if iteration < total_iterations-1:
-				self.Ns[iteration+1] = updated_N
-				self.Bs[iteration+1] = updated_B
-
-			if verbose:
-				print_fl(f"Iteration completed {timer.get_time()}, rn={rn}")
-
-			self.F = F
-			self.rn = rn
-			self.N = N
-			self.B = B
+		return result
 
 	def compute_rn(self):
 		N, H, F, B = self.N, self.H, self.F, self.B
 		G = self.G
 		return compute_rn(N, H, F, B, G)
+
 
 	def update_N_B(self, N, H, G, B, F):
 		"""Using the solution from the last run, update N and B"""
@@ -621,3 +522,95 @@ def compute_rn(N, H, F, B, G):
 	NHFB = N @ H @ F @ B
 	loss = np.mean((NHFB - G)**2)
 	return loss
+
+
+def update_N_B(N: np.ndarray, H: np.ndarray, G: np.ndarray,
+               B: np.ndarray, F: np.ndarray):
+    """Update N and B matrices based on current F solution.
+        
+    Returns:
+        Tuple of (updated_N, updated_B)
+    """
+    # Update N based on G, B, H, and F
+    GBinv_HF_div = np.divide((G @ np.linalg.inv(B)), (H @ F))
+    updated_N = np.diag(GBinv_HF_div.mean(axis=1))
+
+    # Update B based on N H F and G
+    num_rows = G.shape[0]
+    G_sums = G.T @ np.ones((num_rows, 1))
+    NHF_sums = (updated_N @ H @ F).T @ np.ones((num_rows, 1))
+    updated_b_diag = (G_sums / NHF_sums).flatten()
+    updated_B = np.diag(updated_b_diag)
+
+    return updated_N, updated_B
+
+
+class DeconvolutionResult(NamedTuple):
+    """Container for all results from the iterative deconvolution process"""
+    Ns: np.ndarray  # History of N values for each iteration 
+    Bs: np.ndarray  # History of B values for each iteration
+    Fs: np.ndarray  # History of F values for each iteration
+    iterative_update_rns: np.ndarray  # Residual norms for each iteration
+
+
+def iterative_deconvolution_updates(
+    config: dict,
+    H: np.ndarray,
+    G: np.ndarray, 
+    initial_N: np.ndarray,
+    initial_B: np.ndarray,
+    total_iterations: int,
+    timer=None,
+    verbose: bool = True
+) -> DeconvolutionResult:
+    """Iteratively deconvolve for the replication curve F and update N and B.
+        DeconvolutionResult containing iteration history and final values
+    """
+    if timer is None:
+        timer = Timer()
+
+    # Initialize arrays to store iteration history
+    Ns = np.zeros((total_iterations, *initial_N.shape))
+    Bs = np.zeros((total_iterations, *initial_B.shape))
+    Ns[0] = initial_N
+    Bs[0] = initial_B
+    
+    # Initialize arrays for F solutions and residual norms
+    n, m = H.shape
+    num_sites = initial_B.shape[0]
+    Fs = np.zeros((total_iterations, m, num_sites))
+    iterative_update_rns = np.zeros(total_iterations)
+
+    # Current working values
+    current_N = initial_N
+    current_B = initial_B
+    
+    for iteration in range(total_iterations):
+        if verbose:
+            print_fl(f"Iteration {iteration}")
+            
+        # Perform deconvolution step
+        F, rn = deconvolve_replication_brute_force(
+            config, H, G, current_N, current_B,
+            timer=timer, verbose=verbose
+        )
+        
+        # Store the solutions
+        Fs[iteration] = F
+        iterative_update_rns[iteration] = rn
+        
+        # Update N and B for next iteration
+        if iteration < total_iterations - 1:
+            current_N, current_B = update_N_B(current_N, H, G, current_B, F)
+            Ns[iteration + 1] = current_N
+            Bs[iteration + 1] = current_B
+            
+        if verbose:
+            print_fl(f"Iteration completed {timer.get_time()}, rn={rn}")
+
+    return DeconvolutionResult(
+        Ns=Ns,
+        Bs=Bs, 
+        Fs=Fs,
+        iterative_update_rns=iterative_update_rns,
+    )
