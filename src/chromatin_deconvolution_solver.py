@@ -83,6 +83,3 @@ class ChromatinDeconvolveSolver:
 		self.sn = running_sn
 		return self.deconvolved_f_value
 
-
-	def define_deconvolution_problem(self, G):
-		self.G = G

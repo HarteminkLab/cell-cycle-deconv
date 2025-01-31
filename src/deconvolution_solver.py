@@ -6,7 +6,7 @@ from src.helpers import get_wavelet_kernel
 class DeconvolutionSolver(object):
 
 	def __init__(self, config, g, H, gamma, N=None, f_replication=None,
-	 	b=None, padding_type='both'):
+	 	b=None, padding_type='both', obj_error_mode='additive'):
 
 		n, m = H.shape
 
@@ -19,6 +19,7 @@ class DeconvolutionSolver(object):
 		if b is None:
 			b = 1
 
+		self.obj_error_mode = obj_error_mode
 		self.config = config
 		self.g = g
 		self.H = H
@@ -93,7 +94,13 @@ class DeconvolutionSolver(object):
 		N = self.N
 		b = self.b
 
-		elementwise_result = (N@H@f_combined*b)/(g) - 1
+		if self.obj_error_mode == 'multiplicative':
+			eps = 1e-5
+			elementwise_result = (N@H@f_combined*b)/(g+eps) - 1
+		elif self.obj_error_mode == 'additive':
+			elementwise_result = (N@H@f_combined*b) - (g)
+		else:
+			raise ValueError(f"Unimplemented objective error mode: {self.obj_error_mode}")
 
 		# Padding smoothing result
 		smooth_f_it_result = W_it@f_padded[f_it_padded]
@@ -116,7 +123,7 @@ class DeconvolutionSolver(object):
 		f = f_padded[f_fit_indices].value
 		self.f_padded = f_padded.value
 
-		sn = (np.linalg.norm(np.matmul(W_it, f_padded[f_it_padded].value), 1)) / np.mean(self.g)
-		rn = np.square(np.clip(np.linalg.norm(np.matmul(self.H, f) / (self.g) - 1), 0, None))
+		sn = np.linalg.norm(np.matmul(W_it, f_padded[f_it_padded].value), 1)
+		rn = np.square(np.clip(np.linalg.norm(np.matmul(self.H, f) - (self.g)), 0, None))
 
 		return f, sn, rn

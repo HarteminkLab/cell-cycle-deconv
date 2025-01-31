@@ -78,8 +78,8 @@ class ChromatinModel:
 		new_span = self.mnase_span
 
 		# Create the bins for the reads
-		exact_bins = self.create_exact_bins()
-		normalized_bins = self.normalize_bins(exact_bins, log=log)
+		exact_bins = create_exact_bins(locus_reads, new_span, self.timepoints)
+		normalized_bins = normalize_bins_by_len(self.replicate, exact_bins, log=log)
 		self.normalized_bins = normalized_bins
 
 		if downsample:
@@ -100,12 +100,7 @@ class ChromatinModel:
 
 	
 	def compute_bin_counts_sample(self, sample, x_bins, y_bins):
-
-		plotting_reads = self.locus_reads[self.locus_reads['sample'] == sample]
-		hist, x_edges, y_edges = np.histogram2d(plotting_reads['mid'], 
-			plotting_reads['length'], bins=[x_bins, y_bins])
-
-		return plotting_reads, hist, x_edges, y_edges
+		return compute_bin_counts_sample(self.locus_reads, sample, x_bins, y_bins)
 
 
 	def deconvolved_f(self):
@@ -292,27 +287,6 @@ class ChromatinModel:
 		return exact_bins
 		
 
-	def normalize_bins(self, exact_bins, log=True, scaling_mat=None):
-		"""Normalize the histogram of exact length, position counts"""
-
-		if scaling_mat is None:
-			from src.preprocessing import load_scaling_mat
-			scaling_mat = load_scaling_mat(self.config.replicate)
-
-		# Normalize the exact bins to center around mean 1
-		normalized_exact_bins = exact_bins/exact_bins.mean()
-
-		# Normalization that matches
-		# the length distribution across all timepoints and replicates
-		if log: print_fl("Applying a normalization for length distribution")
-
-		scaling_T = scaling_mat.T
-		scaling_T = scaling_T.values.reshape((scaling_T.shape[0], scaling_T.shape[1], 1))
-		normalized_bins = normalized_exact_bins * scaling_T
-
-		return normalized_bins
-
-
 	def downsample_bins(self, bin_data, new_span):
 
 		bin_width = self.bin_width
@@ -356,7 +330,7 @@ class ChromatinModel:
 	def create_deconvolution_bins(self, log=False):
 		
 		exact_bins = self.create_exact_bins()
-		normalized_bins = self.normalize_bins(exact_bins, log=log)
+		normalized_bins = normalize_bins(self.replicate, exact_bins, log=log)
 		downsampled_bins = self.downsample_bins_gene(normalized_bins)
 		
 		exact_extent = [self.mnase_span[0], self.mnase_span[1],
@@ -766,3 +740,100 @@ def draw_phase_label_annotations(ax, config=None,
 
 		ax.text(text_x, text_y, phase, va='center', ha='center', fontsize=10,
 			color='white', rotation=rotation)
+
+
+def create_exact_bins(locus_reads, mnase_span, timepoints):
+	xbins = np.arange(*mnase_span)
+	ybins = np.arange(0, 252)
+
+	n = len(timepoints)
+
+	# Bin histogram is one less than the bin definitions because the bins include the outer edges
+	# of the bins
+	exact_bins = np.zeros((n, len(ybins)-1, len(xbins)-1))
+
+	for time_idx in range(n):
+
+		sample = timepoints[time_idx]
+
+		plotting_reads, hist, \
+			x_edges, y_edges = compute_bin_counts_sample(locus_reads, sample, xbins, ybins)
+		hist = hist.T
+		exact_bins[time_idx] = hist
+	return exact_bins
+
+
+def compute_bin_counts_sample(locus_reads, sample, x_bins, y_bins):
+
+	plotting_reads = locus_reads[locus_reads['sample'] == sample]
+	hist, x_edges, y_edges = np.histogram2d(plotting_reads['mid'], 
+		plotting_reads['length'], bins=[x_bins, y_bins])
+
+	return plotting_reads, hist, x_edges, y_edges
+
+
+def downsample_bins(bin_data, mnase_span, bin_width, bin_height,
+	max_y_len, timepoints):
+
+	# Define the bin positions and the fragment lengths, these will define
+	# the lower bound of the bin (the last bin will be truncated)
+	x_bins = np.arange(mnase_span[0], mnase_span[1]+bin_width, bin_width)
+	y_bins = np.arange(0, max_y_len+bin_height, bin_height)
+
+	# Now we will loop through each x and y bin to aggregate the counts to 
+	# create our new downsampled histogram
+	downscaled_bins = np.zeros((bin_data.shape[0], len(y_bins), len(x_bins)))
+
+	from src.coordinate_translator import CoordinateTranslator
+
+	# Translate from the selected mnase span to np array space
+	coord_translator = CoordinateTranslator(mnase_span)
+
+	for t_index in range(len(timepoints)):
+		for x_ind in range(1, len(x_bins)):
+			for y_ind in range(1, len(y_bins)):
+				x_start = coord_translator.translate(x_bins[x_ind-1])
+				x_end = coord_translator.translate(x_bins[x_ind])
+				y_start = y_bins[y_ind-1]
+				y_end = y_bins[y_ind]
+				
+				bin_counts = bin_data[t_index][y_start:y_end, x_start:x_end].mean()
+				downscaled_bins[t_index][y_ind-1][x_ind-1] = bin_counts
+
+	# Bins are filled up until the last one row and column, so subset
+	downscaled_bins = downscaled_bins[:, :-1, :-1]
+
+	return downscaled_bins
+
+
+def normalize_bins_by_len(replicate, exact_bins, log=True, scaling_mat=None):
+	"""Normalize the histogram of exact length, position counts"""
+
+	# Load the scaling matrix for the replicate, this matrix
+	# contains the length distribution scalar for each replicate for each
+	# length at each timepoint.
+	if scaling_mat is None:
+		from src.preprocessing import load_scaling_mat
+		scaling_mat = load_scaling_mat(replicate)
+
+	# Normalize to a consistent read depth, this ensures that any window
+	# of any size will have the same read depth per basepair
+	#
+	# todo: examine larger windows and determine if this read depth is logical
+	#
+	def normalize_to_depth(G, target_depth=0.005):
+	    total_bp_area = G.shape[1] * G.shape[2]
+	    scale = (target_depth * total_bp_area)
+	    return G / G.sum(axis=(1, 2))[:, None, None] * scale
+
+	normalized_exact_bins = normalize_to_depth(exact_bins)
+
+	# Normalization that matches
+	# the length distribution across all timepoints and replicates
+	if log: print_fl("Applying a normalization for length distribution")
+
+	scaling_T = scaling_mat.T
+	scaling_T = scaling_T.values.reshape((scaling_T.shape[0], scaling_T.shape[1], 1))
+	normalized_bins = normalized_exact_bins * scaling_T
+
+	return normalized_bins
