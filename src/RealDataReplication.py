@@ -93,14 +93,14 @@ class RealDataReplicationDeconvolution():
 		"""Iteratively deconvolve for the replication curve F."""
 
 		result = iterative_deconvolution_updates(
-		    config=self.config, H=self.H, G=self.G, initial_N=self.initial_N, 
-		    initial_B=self.initial_B, total_iterations=total_iterations, 
-		    timer=timer, verbose=verbose)
+			config=self.config, H=self.H, G=self.G, initial_N=self.initial_N, 
+			initial_B=self.initial_B, total_iterations=total_iterations, 
+			timer=timer, verbose=verbose)
 
-        self.N = result.Ns[-1]
-        self.F = result.Fs[-1]
-        self.rn = result.iterative_update_rns[-1]
-        self.B = result.Bs[-1]
+		self.N = result.Ns[-1]
+		self.F = result.Fs[-1]
+		self.rn = result.iterative_update_rns[-1]
+		self.B = result.Bs[-1]
 
 		return result
 
@@ -530,92 +530,92 @@ def compute_rn(N, H, F, B, G):
 
 
 def update_N_B(N: np.ndarray, H: np.ndarray, G: np.ndarray,
-               B: np.ndarray, F: np.ndarray):
-    """Update N and B matrices based on current F solution.
-        
-    Returns:
-        Tuple of (updated_N, updated_B)
-    """
-    # Update N based on G, B, H, and F
-    GBinv_HF_div = np.divide((G @ np.linalg.inv(B)), (H @ F))
-    updated_N = np.diag(GBinv_HF_div.mean(axis=1))
+			   B: np.ndarray, F: np.ndarray):
+	"""Update N and B matrices based on current F solution.
+		
+	Returns:
+		Tuple of (updated_N, updated_B)
+	"""
+	# Update N based on G, B, H, and F
+	GBinv_HF_div = np.divide((G @ np.linalg.inv(B)), (H @ F))
+	updated_N = np.diag(GBinv_HF_div.mean(axis=1))
 
-    # Update B based on N H F and G
-    num_rows = G.shape[0]
-    G_sums = G.T @ np.ones((num_rows, 1))
-    NHF_sums = (updated_N @ H @ F).T @ np.ones((num_rows, 1))
-    updated_b_diag = (G_sums / NHF_sums).flatten()
-    updated_B = np.diag(updated_b_diag)
+	# Update B based on N H F and G
+	num_rows = G.shape[0]
+	G_sums = G.T @ np.ones((num_rows, 1))
+	NHF_sums = (updated_N @ H @ F).T @ np.ones((num_rows, 1))
+	updated_b_diag = (G_sums / NHF_sums).flatten()
+	updated_B = np.diag(updated_b_diag)
 
-    return updated_N, updated_B
+	return updated_N, updated_B
 
 
 class DeconvolutionResult(NamedTuple):
-    """Container for all results from the iterative deconvolution process"""
-    Ns: np.ndarray  # History of N values for each iteration 
-    Bs: np.ndarray  # History of B values for each iteration
-    Fs: np.ndarray  # History of F values for each iteration
-    iterative_update_rns: np.ndarray  # Residual norms for each iteration
+	"""Container for all results from the iterative deconvolution process"""
+	Ns: np.ndarray  # History of N values for each iteration 
+	Bs: np.ndarray  # History of B values for each iteration
+	Fs: np.ndarray  # History of F values for each iteration
+	iterative_update_rns: np.ndarray  # Residual norms for each iteration
 
 
 def iterative_deconvolution_updates(
-    config: dict,
-    H: np.ndarray,
-    G: np.ndarray, 
-    initial_N: np.ndarray,
-    initial_B: np.ndarray,
-    total_iterations: int,
-    timer=None,
-    verbose: bool = True
+	config: dict,
+	H: np.ndarray,
+	G: np.ndarray, 
+	initial_N: np.ndarray,
+	initial_B: np.ndarray,
+	total_iterations: int,
+	timer=None,
+	verbose: bool = True
 ) -> DeconvolutionResult:
-    """Iteratively deconvolve for the replication curve F and update N and B.
-        DeconvolutionResult containing iteration history and final values
-    """
-    if timer is None:
-        timer = Timer()
+	"""Iteratively deconvolve for the replication curve F and update N and B.
+		DeconvolutionResult containing iteration history and final values
+	"""
+	if timer is None:
+		timer = Timer()
 
-    # Initialize arrays to store iteration history
-    Ns = np.zeros((total_iterations, *initial_N.shape))
-    Bs = np.zeros((total_iterations, *initial_B.shape))
-    Ns[0] = initial_N
-    Bs[0] = initial_B
-    
-    # Initialize arrays for F solutions and residual norms
-    n, m = H.shape
-    num_sites = initial_B.shape[0]
-    Fs = np.zeros((total_iterations, m, num_sites))
-    iterative_update_rns = np.zeros(total_iterations)
+	# Initialize arrays to store iteration history
+	Ns = np.zeros((total_iterations, *initial_N.shape))
+	Bs = np.zeros((total_iterations, *initial_B.shape))
+	Ns[0] = initial_N
+	Bs[0] = initial_B
+	
+	# Initialize arrays for F solutions and residual norms
+	n, m = H.shape
+	num_sites = initial_B.shape[0]
+	Fs = np.zeros((total_iterations, m, num_sites))
+	iterative_update_rns = np.zeros(total_iterations)
 
-    # Current working values
-    current_N = initial_N
-    current_B = initial_B
-    
-    for iteration in range(total_iterations):
-        if verbose:
-            print_fl(f"Iteration {iteration}")
-            
-        # Perform deconvolution step
-        F, rn = deconvolve_replication_brute_force(
-            config, H, G, current_N, current_B,
-            timer=timer, verbose=verbose
-        )
-        
-        # Store the solutions
-        Fs[iteration] = F
-        iterative_update_rns[iteration] = rn
-        
-        # Update N and B for next iteration
-        if iteration < total_iterations - 1:
-            current_N, current_B = update_N_B(current_N, H, G, current_B, F)
-            Ns[iteration + 1] = current_N
-            Bs[iteration + 1] = current_B
-            
-        if verbose:
-            print_fl(f"Iteration completed {timer.get_time()}, rn={rn}")
+	# Current working values
+	current_N = initial_N
+	current_B = initial_B
+	
+	for iteration in range(total_iterations):
+		if verbose:
+			print_fl(f"Iteration {iteration}")
+			
+		# Perform deconvolution step
+		F, rn = deconvolve_replication_brute_force(
+			config, H, G, current_N, current_B,
+			timer=timer, verbose=verbose
+		)
+		
+		# Store the solutions
+		Fs[iteration] = F
+		iterative_update_rns[iteration] = rn
+		
+		# Update N and B for next iteration
+		if iteration < total_iterations - 1:
+			current_N, current_B = update_N_B(current_N, H, G, current_B, F)
+			Ns[iteration + 1] = current_N
+			Bs[iteration + 1] = current_B
+			
+		if verbose:
+			print_fl(f"Iteration completed {timer.get_time()}, rn={rn}")
 
-    return DeconvolutionResult(
-        Ns=Ns,
-        Bs=Bs, 
-        Fs=Fs,
-        iterative_update_rns=iterative_update_rns,
-    )
+	return DeconvolutionResult(
+		Ns=Ns,
+		Bs=Bs, 
+		Fs=Fs,
+		iterative_update_rns=iterative_update_rns,
+	)
