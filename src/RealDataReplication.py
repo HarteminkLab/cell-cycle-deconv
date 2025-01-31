@@ -97,6 +97,11 @@ class RealDataReplicationDeconvolution():
 		    initial_B=self.initial_B, total_iterations=total_iterations, 
 		    timer=timer, verbose=verbose)
 
+        self.N = result.Ns[-1]
+        self.F = result.Fs[-1]
+        self.rn = result.iterative_update_rns[-1]
+        self.B = result.Bs[-1]
+
 		return result
 
 	def compute_rn(self):
