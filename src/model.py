@@ -5,7 +5,6 @@ from scipy.stats import norm
 from src.helpers import calcH
 
 from src.calcH_single_g1 import calcH as calcH_single_g1
-from src.single_G1_config import Config as Config_single_G1
 from src.sgd import get_gene_name_orf_name
 import numpy as np
 import pandas as pd
@@ -335,8 +334,8 @@ def color_for_key(key):
 		 "R": np.array([199, 148, 144])/255.,
 		 "RG1": np.array([199, 148, 144])/255.,
 
-		 "CG1": np.array([214, 170, 129])/255.,
-		 "DG1": np.array([227, 194, 163])/255.,
+		 "CG1": np.array([64, 137, 189])/255.,
+		 "DG1": np.array([97, 189, 255])/255.,
 
 		 "Delta": np.array([227, 194, 163])/255.,
 		 "postG1": np.array([223, 192, 158])/255.,

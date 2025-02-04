@@ -1,10 +1,6 @@
-
 import numpy as np
-import scipy.ndimage
-from math import comb
 from scipy.stats import norm
-from scipy.signal import windows
-import pandas as pd
+from math import comb
 
 # The initial population mass, used in the Qr and Mgr calculations
 START = 1000
@@ -12,12 +8,37 @@ START = 1000
 # Maximum number of cell cycle "runs"
 MAX_RUNS = 10
 
-def calcH_config(config):
-	return calcH(config.intervals_wt1, config.WT1_TIMEPOINTS)
+
+def get_parameter_indices(parameter_names):
+	return [get_parameter_index(p) for p in parameter_names]
+
+
+def get_parameter_index(parameter_name):
+
+	param_indices = {'mu0': 0,
+		'lambda_val': 1,
+		'lambda': 1,
+		'delta': 2,
+		'sigma0': 3,
+		'sigmav': 4,
+		'alpha': 5,
+		'beta': 6,
+		'gamma1': 7,
+		'gamma2': 8,
+		'halted': 9}
+
+	return param_indices[parameter_name]
 
 def calcH(model_intervals, timepoints):
 	parameters, relations, initial_timepoints, top_timepoints, bottom_timepoints, _ = model_intervals
+	return calcH_expanded(parameters, relations, initial_timepoints, top_timepoints, bottom_timepoints, timepoints)
 
+
+def calcH_expanded(parameters, relations, initial_timepoints, top_timepoints, bottom_timepoints, timepoints):
+
+	model_intervals = parameters, relations, initial_timepoints, \
+		top_timepoints, bottom_timepoints, None
+	
 	if len(parameters) == 8:
 		mu0, lambda_val, delta, sigma0, sigmav, alpha, beta, halted = parameters
 	else:
@@ -88,11 +109,19 @@ def calcH(model_intervals, timepoints):
 						portion = cdf * 0 if trun_denom == 0 else (cdf - trun_cdf) / trun_denom
 						bottom_partial_H[idx][i, :] += np.diff(portion) * frac_rest
 
+
+	# First index is G1 or postG1
+	# Second index is time
+	# 2 x 16
+	top_partial_H, bottom_partial_H
+	# Place the bottom partial_H into the top partial H
+
 	Hsegments = {}
 	for i in range(len(relations)):
 		relation = relations[i]
 
 		for idx in range(1, len(relation) - 1, 2):
+
 			label = relation[idx]
 			num = int(relation[idx + 1])
 			if label == 'i':
@@ -102,8 +131,6 @@ def calcH(model_intervals, timepoints):
 			elif label == 'b':
 				matrix = bottom_partial_H[num]
 
-
-
 			if idx == 1:
 				Hsegments[i] = matrix
 			else:
@@ -111,8 +138,15 @@ def calcH(model_intervals, timepoints):
 
 	H, Hpos, cur_start = np.hstack(list(Hsegments.values())), {}, 0
 	for i in range(len(Hsegments)):
+
+		# Specifically, for DG1, we are removing this 
+		# index (2) so skip this Hsegment as we construct the H positions
+		if i not in Hsegments.keys(): continue
+
 		cur_len = Hsegments[i].shape[1]
 		cur_end = cur_start + cur_len
+
+
 		Hpos[i] = [cur_start, cur_end]
 		cur_start = cur_end
 
@@ -120,7 +154,6 @@ def calcH(model_intervals, timepoints):
 	for i in range(H.shape[0]):
 		w = np.sum(H[i, :])
 		H[i, :] = H[i, :] / w
-
 
 	# compute the expected alive and halted mass at each timepoint
 	mass_dic = get_alive_halted_mass(model_intervals, timepoints)
@@ -186,18 +219,8 @@ def createF(Hpos, phaseMap):
 		f_partial_list[i] = indices
 	return np.array(f_partial), f_partial_list
 
-
-def get_wavelet_kernel(N, type="Symmlet", par=8):
-	wavelet_kernel = WavMat(MakeONFilter(type, par), N)
-
-	# Create weighting matrix
-	# weights = np.ones(N)
-
-	# D = np.diag(weights)
-
-	# return wavelet_kernel, D
-	return wavelet_kernel
-
+def get_wavelet_kernel(N, type="Symmlet", par=5):
+	return WavMat(MakeONFilter(type, par), N)
 
 def WavMat(h, N, k0=None, shift=2):
 	# WavMat -- Transformation Matrix of FWT_PO
@@ -243,18 +266,6 @@ def WavMat(h, N, k0=None, shift=2):
 # data = np.dot(W.T, wt)
 # print(wt)
 # print(data)
-
-def get_pywt_filter(wavelet_name):
-	"""
-	Get normalized filter coefficients from PyWavelets.
-	"""
-	import pywt
-	wavelet = pywt.Wavelet(wavelet_name)
-	# Get decomposition low-pass filter
-	filter_coeffs = wavelet.dec_lo
-	# Normalize
-	filter_coeffs = filter_coeffs / np.linalg.norm(filter_coeffs)
-	return filter_coeffs
 
 def MakeONFilter(Type, Par):
 	# ... (previous code)
@@ -408,38 +419,6 @@ def weighted_mean(x_values, y_values):
 	return np.average(x_values, weights=y_values)
 
 
-def weighted_peak_estimation(x_values, y_values, width):
-	"""
-	Calculate the weighted mean of x_values within a given window around the peak (maximum y_value).
-	
-	Parameters:
-	x_values (np.array): array of x-axis values.
-	y_values (np.array): array of weights (counts) corresponding to x_values.
-	width (int): window size around the peak to calculate the weighted mean.
-	
-	Returns:
-	float: the weighted mean of the x_values within the window around the peak.
-	"""
-	# Identify the peak (position of the maximum y_value)
-	peak_idx = np.argmax(y_values)
-	peak_x_value = x_values[peak_idx]
-	
-	# Define the window range around the peak
-	window_min = peak_x_value - width / 2
-	window_max = peak_x_value + width / 2
-	
-	# Select values within the window
-	window_mask = (x_values >= window_min) & (x_values <= window_max)
-	x_window = x_values[window_mask]
-	y_window = y_values[window_mask]
-
-	# Calculate the weighted mean within the window
-	if len(x_window) > 0:
-		return np.average(x_window, weights=y_window)
-	else:
-		return peak_x_value  # If no values fall in the window, return the peak position
-
-
 def common_index(arr_of_dfs, index_of_ordering):
 	"""Return the common index using set logic, use df in the index of ordering
 	to keep the ordering in the returned array"""
@@ -468,7 +447,7 @@ def get_quantile_values(dat, q):
 	for i in range(len(qvals)):
 		
 		qval = qvals[i]
-		cur_seg = dat[(dat >= lower_val) & (dat < qval)]
+		cur_seg = dat[(dat > lower_val) & (dat < qval)]
 		segments.append(cur_seg)
 		
 		# Update lower range
@@ -476,7 +455,7 @@ def get_quantile_values(dat, q):
 		lens.append(len(cur_seg))
 		
 	# Get last segment, > qval
-	cur_seg = dat[(dat >= qval)]
+	cur_seg = dat[(dat > qval)]
 	segments.append(cur_seg)
 	lens.append(len(cur_seg))
 		
@@ -506,56 +485,56 @@ def get_mean_between_indices(df, start, end):
 
 
 def combine_with_bins(data, bins, axis=1):
-	"""
-	Combine rows or columns of a DataFrame or 2D numpy array according to bin edges and return a new DataFrame or numpy array.
+    """
+    Combine rows or columns of a DataFrame or 2D numpy array according to bin edges and return a new DataFrame or numpy array.
 
-	Parameters:
-	data (pd.DataFrame or np.ndarray): The input DataFrame or 2D numpy array.
-	bins (array-like): The bin edges used to combine rows or columns.
-	axis (int): The axis along which to combine (0 for rows, 1 for columns).
+    Parameters:
+    data (pd.DataFrame or np.ndarray): The input DataFrame or 2D numpy array.
+    bins (array-like): The bin edges used to combine rows or columns.
+    axis (int): The axis along which to combine (0 for rows, 1 for columns).
 
-	Returns:
-	pd.DataFrame or np.ndarray: A new DataFrame or numpy array with the combined rows or columns.
-	"""
-	# Ensure bins are sorted and unique
-	import pandas as pd
+    Returns:
+    pd.DataFrame or np.ndarray: A new DataFrame or numpy array with the combined rows or columns.
+    """
+    # Ensure bins are sorted and unique
+    import pandas as pd
 
-	bins = np.unique(bins)
-	
-	# Check if the input is a DataFrame or numpy array
-	if isinstance(data, pd.DataFrame):
-		data_type = 'DataFrame'
-	elif isinstance(data, np.ndarray):
-		data_type = 'ndarray'
-		data = pd.DataFrame(data)
-	else:
-		raise ValueError("Input data must be a pandas DataFrame or a 2D numpy array.")
-	
-	# Initialize an empty dictionary to store combined data
-	combined_data = {}
+    bins = np.unique(bins)
+    
+    # Check if the input is a DataFrame or numpy array
+    if isinstance(data, pd.DataFrame):
+        data_type = 'DataFrame'
+    elif isinstance(data, np.ndarray):
+        data_type = 'ndarray'
+        data = pd.DataFrame(data)
+    else:
+        raise ValueError("Input data must be a pandas DataFrame or a 2D numpy array.")
+    
+    # Initialize an empty dictionary to store combined data
+    combined_data = {}
 
-	# Iterate over the bins to combine rows or columns
-	for i in range(len(bins) - 1):
-		start_idx = bins[i]
-		end_idx = bins[i + 1]
-		
-		if axis == 1:
-			# Combine columns
-			combined_data[f'{start_idx}'] = data.iloc[:, start_idx:end_idx].mean(axis=1)
-		elif axis == 0:
-			# Combine rows
-			combined_data[f'{start_idx}'] = data.iloc[start_idx:end_idx, :].mean(axis=0)
-		else:
-			raise ValueError("Axis must be 0 (rows) or 1 (columns).")
+    # Iterate over the bins to combine rows or columns
+    for i in range(len(bins) - 1):
+        start_idx = bins[i]
+        end_idx = bins[i + 1]
+        
+        if axis == 1:
+            # Combine columns
+            combined_data[f'{start_idx}'] = data.iloc[:, start_idx:end_idx].mean(axis=1)
+        elif axis == 0:
+            # Combine rows
+            combined_data[f'{start_idx}'] = data.iloc[start_idx:end_idx, :].mean(axis=0)
+        else:
+            raise ValueError("Axis must be 0 (rows) or 1 (columns).")
 
-	# Convert the combined data to the appropriate format
-	combined_df = pd.DataFrame(combined_data)
-	if axis == 0:
-		combined_df = combined_df.T
+    # Convert the combined data to the appropriate format
+    combined_df = pd.DataFrame(combined_data)
+    if axis == 0:
+    	combined_df = combined_df.T
 
-	if data_type == 'ndarray':
-		return combined_df.to_numpy()
-	return combined_df
+    if data_type == 'ndarray':
+        return combined_df.to_numpy()
+    return combined_df
 
 
 def select_columns_by_indices(df, start_indices, end_indices):
@@ -604,29 +583,6 @@ def select_columns_by_indices(df, start_indices, end_indices):
 	return new_df
 
 
-def summarize_columns_by_indices(array, start_indices, end_indices, combine_func):
-	"""
-	Summarize columns from the numpy array based on the provided start and end indices for each row
-	and a combining function.
-
-	Parameters:
-	array (np.ndarray): The input numpy array.
-	start_indices (list of int): List of start indices for each row.
-	end_indices (list of int): List of end indices for each row.
-	combine_func (callable): Function to combine the selected columns (e.g., np.mean, np.sum).
-
-	Returns:
-	np.ndarray: A 1D array with the summarized values for each row.
-	"""
-	
-	summarized_values = np.array([
-		combine_func(array[row, start:end]) 
-		for row, (start, end) in enumerate(zip(start_indices, end_indices))
-	])
-	
-	return summarized_values
-
-
 def get_equal_partitions(vec, k):
 	"""Compute equal partitions of a given vector. Returns 
 	a vector of the start and indices of each partition"""
@@ -637,131 +593,3 @@ def get_equal_partitions(vec, k):
 	for i in range(1, len(bin_edges)):
 		partition_indices.append((bin_edges[i-1], bin_edges[i]))
 	return partition_indices
-
-
-def normalize_sum_ndarray(input_arr, axis=1):
-
-	if type(input_arr) == pd.DataFrame:
-		df = input_arr
-		arr = df.values
-
-	if axis == 1:
-		arr = arr / arr.mean(axis=axis).reshape((-1, 1))
-	else:
-		arr = arr / arr.mean(axis=axis).reshape((1, -1))
-
-	if type(input_arr) == pd.DataFrame:
-		return_df = pd.DataFrame(arr, index=df.index)
-		return_df.columns = df.columns
-		return return_df
-
-	return arr
-
-
-def normalize_max_min(dat, indices=None):
-	"""Normalize the input data to the min and max for comparing"""
-
-	if indices is None: indices = np.arange(len(dat))
-
-	min_v, max_v = dat[indices].min(), dat[indices].max()
-	delta = (max_v - min_v) + 1e-5 # avoid divide by zero
-	dat = dat.copy()
-	dat = (dat - min_v) / delta
-	return dat
-
-
-def create_gaussian_kernel(size, sigma):
-	"""Create a 2d kernel for smoothing"""
-	x = np.linspace(- (size // 2), size // 2, size)
-	y = np.linspace(- (size // 2), size // 2, size)
-	x, y = np.meshgrid(x, y)
-	kernel = np.exp(-0.5 * (x**2 + y**2) / sigma**2)
-	kernel /= np.sum(kernel)
-	return kernel
-
-
-def smooth_matrix(matrix, kernel):
-	"""Smooth an input 2d matrix with a 2d kernel"""
-	smoothed_matrix = scipy.ndimage.convolve(matrix, kernel, mode='reflect')
-	return smoothed_matrix
-
-
-def smooth_data(img, size=5, sigma=0.75):
-
-	# Create a 2D Gaussian kernel
-	gaussian_kernel = create_gaussian_kernel(size, sigma)
-
-	# Apply Gaussian smoothing to the matrix
-	img = smooth_matrix(img, gaussian_kernel)
-
-	return img
-
-
-def proportion_indices(indices, props):
-	return np.array([indices[int(prop * len(indices))] for prop in props])
-
-
-def smooth_transitions_custom(data, window_size=3, sigma=0.5, power=1, axis=-1):
-	"""Apply smoothing along specified axis while preserving min/max values."""
-	window = windows.general_gaussian(window_size, power, sigma)
-	window = window / window.sum()
-	
-	def smooth_1d(x):
-
-		if x.sum() == 0: return x
-
-		padded = np.pad(x, (window_size//2, window_size//2), mode='edge')
-		smoothed = np.convolve(padded, window, mode='valid')
-
-		if (smoothed.max() - smoothed.min()) == 0: return x
-
-		# Scale to original range
-		return (smoothed - smoothed.min()) * (x.max() - x.min()) / (smoothed.max() - smoothed.min()) + x.min()
-	
-	return np.apply_along_axis(smooth_1d, axis, data)
-
-
-
-def downsample_bins(bin_data, new_span, original_span, bin_width, bin_height, max_y_len):
-	""" 
-	Downsample bins, generic form of the chromatin downsampling process. This is used
-	for the smoothing kernels. todo: refactor the chromatin kernels to use this method
-	"""
-	# Define the bin positions
-	x_bins = np.arange(new_span[0], new_span[1] + bin_width, bin_width)
-	y_bins = np.arange(0, max_y_len + bin_height, bin_height)
-	
-	# Initialize output array
-	downscaled_bins = np.zeros((bin_data.shape[0], len(y_bins), len(x_bins)))
-	
-	# Create coordinate translation function
-	def translate_coordinate(coord):
-		"""Translate from selected span to array index space"""
-		span_width = original_span[1] - original_span[0]
-		return int((coord - original_span[0]) * (bin_data.shape[2] / span_width))
-	
-	# Perform downsampling
-	for t_index in range(bin_data.shape[0]):  # timepoints
-		for x_ind in range(1, len(x_bins)):
-			for y_ind in range(1, len(y_bins)):
-				x_start = translate_coordinate(x_bins[x_ind-1])
-				x_end = translate_coordinate(x_bins[x_ind])
-				y_start = int(y_bins[y_ind-1])
-				y_end = int(y_bins[y_ind])
-				
-				# Ensure indices are within bounds
-				x_start = max(0, min(x_start, bin_data.shape[2]))
-				x_end = max(0, min(x_end, bin_data.shape[2]))
-				y_start = max(0, min(y_start, bin_data.shape[1]))
-				y_end = max(0, min(y_end, bin_data.shape[1]))
-				
-				bin_counts = bin_data[t_index][y_start:y_end, x_start:x_end].sum()
-				downscaled_bins[t_index][y_ind-1][x_ind-1] = bin_counts
-	
-	# Remove last row and column of bins
-	return downscaled_bins[:, :-1, :-1]
-
-
-def midpoints(arr):
-	return (arr[:-1] + arr[1:]) / 2
-

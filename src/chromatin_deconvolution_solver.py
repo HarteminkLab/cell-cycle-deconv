@@ -66,7 +66,7 @@ class ChromatinDeconvolveSolver:
 				N=self.N, f_replication=self.f_replication, b=self.b)
 
 			try:
-				current_f, self.sn, self.rn = deconvolution_solver.deconvolve()
+				current_f, self.sn, self.rn, self.W_it = deconvolution_solver.deconvolve()
 			except cvxpy.error.SolverError:
 				continue
 

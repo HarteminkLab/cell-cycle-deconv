@@ -837,3 +837,38 @@ def normalize_bins_by_len(replicate, exact_bins, log=True, scaling_mat=None):
 	normalized_bins = normalized_exact_bins * scaling_T
 
 	return normalized_bins
+
+
+
+def plot_prediction():
+	predicted_G = dg1_H@F
+	predicted_G_imgs = predicted_G.reshape((predicted_G.shape[0], 26, -1))
+	G_imgs = G.reshape((G.shape[0], 26, -1))
+
+	num_rows = len(timepoints)
+	num_cols = 3
+
+	fig = plt.figure(figsize=(5, 13))
+	for i in range(num_rows):
+
+	    plt.subplot(num_rows, num_cols, num_cols*i+1)
+	    plt.imshow(predicted_G_imgs[i], origin='lower', aspect='auto', vmin=0, vmax=0.2,
+	              cmap='magma_r')
+	    plt.xticks([])
+	    plt.yticks([])
+	    plt.ylabel(f"{timepoints[i]}'")
+	    
+	    plt.subplot(num_rows, num_cols, num_cols*i+2)
+	    plt.imshow(G_imgs[i], origin='lower', aspect='auto', vmin=0, vmax=0.2,
+	              cmap='magma_r')
+	    plt.xticks([])
+	    plt.yticks([])
+
+	    plt.subplot(num_rows, num_cols, num_cols*i+3)
+	    plt.imshow(G_imgs[i]-predicted_G_imgs[i], origin='lower', aspect='auto',
+	              cmap='RdBu_r', vmin=-0.1, vmax=0.1)
+	    plt.xticks([])
+	    plt.yticks([])
+
+	plt.suptitle("Predicted vs Raw data bins")
+	plt.subplots_adjust(top=0.95)

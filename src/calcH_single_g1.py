@@ -114,9 +114,8 @@ def calcH_expanded(parameters, relations, initial_timepoints, top_timepoints, bo
 	# Second index is time
 	# 2 x 16
 	top_partial_H, bottom_partial_H
-	# Place the bottom partial_H into the top partial H
 
-	top_partial_H[0] += bottom_partial_H[0]
+	top_partial_H[0] = top_partial_H[0]/2. + bottom_partial_H[0]/2.
 	bottom_partial_H[0] = np.zeros_like(bottom_partial_H[0])
 
 	Hsegments = {}
@@ -144,6 +143,7 @@ def calcH_expanded(parameters, relations, initial_timepoints, top_timepoints, bo
 				Hsegments[i] += matrix
 
 	H, Hpos, cur_start = np.hstack(list(Hsegments.values())), {}, 0
+
 	for i in range(len(Hsegments)):
 
 		# Specifically, for DG1, we are removing this 
@@ -152,8 +152,6 @@ def calcH_expanded(parameters, relations, initial_timepoints, top_timepoints, bo
 
 		cur_len = Hsegments[i].shape[1]
 		cur_end = cur_start + cur_len
-
-
 		Hpos[i] = [cur_start, cur_end]
 		cur_start = cur_end
 
@@ -176,6 +174,10 @@ def calcH_expanded(parameters, relations, initial_timepoints, top_timepoints, bo
 
 		# Add the halted cells proportion as the last column
 		H_w_halted[i, -1] = halted/total
+
+	# CG1 is defined in Hpos in the second list item, we will use
+	cg1_start, cg1_end = Hpos[1]
+	cg1_indices = range(cg1_start, cg1_end)
 
 	return H_w_halted, Hpos
 	

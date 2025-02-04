@@ -34,18 +34,20 @@ class DeconvolutionSolver(object):
 
 		f_i = self.config.get_Hpositions_for_branch('i')
 		f_t = self.config.get_Hpositions_for_branch('t')
+		f_b = self.config.get_Hpositions_for_branch('b')
+		f_cg1 = self.config.get_Hpositions_for_phase('CG1')
 
-		f_it = np.concatenate([f_i, f_t])
+		f_tb = np.concatenate([f_t, f_b])
 
 		from src.helpers import compute_closest_pow2
 
-		len_f_it = len(f_it)
-		closest_pow2 = compute_closest_pow2(len_f_it+len_f_it)
+		# len_f_it = len(f_it)
+		# closest_pow2_it = compute_closest_pow2(len_f_it+len_f_it)
 
 		# Try padding to closest power of 2
-		padding = closest_pow2-len_f_it
-
-		W_it = get_wavelet_kernel(closest_pow2)
+		# padding = closest_pow2_it-len_f_it
+		padding = 0
+		padding_2 = padding//2
 
 		# Convex optimization
 		n, m = self.H.shape
@@ -56,33 +58,32 @@ class DeconvolutionSolver(object):
 
 		# Pad the start, this allows for smoother transitions for the
 		# MNase-seq data in aggregate
-		if self.padding_type == 'left':
-			f_it_padded = np.concatenate([f_padding_indices[:padding], f_it])
+		# if self.padding_type == 'left':
+		# 	f_it_padded = np.concatenate([f_padding_indices[:padding], f_it])
 
-		# Pad both ends, this works well for the gene expression
-		elif self.padding_type == 'both':
-			f_it_padded = np.concatenate([f_padding_indices[:padding//2], 
-			 	f_it, f_padding_indices[padding//2:]])
+		# # Pad both ends, this works well for the gene expression
+		# elif self.padding_type == 'both':
+		# 	f_it_padded = np.concatenate([f_padding_indices[:padding_2], 
+		# 	 	f_it, f_padding_indices[padding_2:]])
 
-		elif self.padding_type == 'none':
+		# elif self.padding_type == 'none':
 
-			padding = 0
-			f_fit_indices = np.arange(m)
-			f_padding_indices = np.arange(m, m+padding)
-			f_padded = cp.Variable(m+padding)
-			f_it_padded = np.concatenate([f_padding_indices[:padding//2], 
-			 	f_it, f_padding_indices[padding//2:]])
+		# 	# No padding
+		# 	padding = 0
+		# 	padding_2 = 0
 
-		else:
-			raise ValueError(f"Unknown padding type: {self.padding_type}")
+		# 	f_fit_indices = np.arange(m)
+		# 	f_padding_indices = []
+		# 	f_padded = cp.Variable(m)
+		# 	f_it_padded = f_it
 
-		W_it = get_wavelet_kernel(len(f_it_padded))
+		# else:
+		# 	raise ValueError(f"Unknown padding type: {self.padding_type}")
 
-		# ---------------------------------------------
+		# W_it, D_it = get_wavelet_kernel(len(f_it_padded))
 
-		# There are twice as many t and b indices compared to i
-		# Factor based on time in recovery compared to t and b
-		# so multiply i's smoothing term by 2
+		W_i = get_wavelet_kernel(len(f_i))
+		W_tb = get_wavelet_kernel(len(f_tb))
 
 		f_non_replicative = f_padded[f_fit_indices]
 		f_replication = self.f_replication
@@ -102,8 +103,8 @@ class DeconvolutionSolver(object):
 		else:
 			raise ValueError(f"Unimplemented objective error mode: {self.obj_error_mode}")
 
-		# Padding smoothing result
-		smooth_f_it_result = W_it@f_padded[f_it_padded]
+		smooth_f_i_result = W_i@f_padded[f_i]
+		smooth_f_tb_result = W_tb@f_padded[f_tb]
 
 		objective = cp.Minimize(
 
@@ -111,10 +112,12 @@ class DeconvolutionSolver(object):
 			cp.square(cp.pos(cp.norm(elementwise_result))) + 
 
 			# Smoothing norm for it
-			+ self.gamma * cp.sum(cp.abs(smooth_f_it_result))/(self.g.mean())
+			+ self.gamma * cp.sum(cp.abs(smooth_f_i_result))*2#.125
+			+ self.gamma * cp.sum(cp.abs(smooth_f_tb_result))
 		)
 
-		constraints = [f_padded >= 0]
+		# Constraint for halted cells
+		constraints = [f_padded >= 0, f_padded[-1] == f_padded[0]]
 
 		prob = cp.Problem(objective, constraints)
 		result = prob.solve(solver=cp.MOSEK)
@@ -123,7 +126,7 @@ class DeconvolutionSolver(object):
 		f = f_padded[f_fit_indices].value
 		self.f_padded = f_padded.value
 
-		sn = np.linalg.norm(np.matmul(W_it, f_padded[f_it_padded].value), 1)
-		rn = np.square(np.clip(np.linalg.norm(np.matmul(self.H, f) - (self.g)), 0, None))
+		sn = cp.sum(cp.abs(smooth_f_i_result)).value + cp.sum(cp.abs(smooth_f_tb_result)).value
+		rn = cp.square(cp.pos(cp.norm(elementwise_result))).value
 
-		return f, sn, rn
+		return f, sn, rn, W_i

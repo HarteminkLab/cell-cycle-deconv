@@ -1,0 +1,722 @@
+
+import pandas as pd
+import numpy as np
+import os
+from src.helpers import calcH
+
+
+class Config:
+	"""
+	A config class to read data and initialize the model.
+	"""
+
+	def __init__(self, wt1=None, wt2=None, wt1_timepoints=None, wt2_timepoints=None, 
+			model_wt1_file=None, model_wt2_file=None, name=None, model_wt1_lines=None,
+			model_wt2_lines=None, replicate=None, alpha=None):
+
+		self.name = name
+		self.replicate = replicate
+		self.alpha = alpha
+		self.calcH_function = calcH
+
+		# Replicate 1 configuration
+		if wt1 is not None:
+			self.wt1_df = wt1
+			self.WT1_TIMEPOINTS = wt1.columns.values.astype(int)
+			self.model_wt1_file = model_wt1_file
+
+			self.wt2_df = None
+			self.WT2_TIMEPOINTS = None
+			self.model_wt2_file = None
+
+		# TODO: Assuming we are using the configuration without the data.
+		# Currently this is used for deconvolving the chromatin in which
+		# the data is handled by the chromatin_grid_compute.py class
+		else:
+			self.wt1_df = None
+			self.WT1_TIMEPOINTS = wt1_timepoints
+
+			self.model_wt2_file = None
+			self.wt2_df = None
+			self.WT2_TIMEPOINTS = None
+
+		if model_wt1_file is not None:
+			self.intervals_wt1 = self.read_model_format(model_wt1_file)
+		elif model_wt1_lines is not None:
+			self.intervals_wt1 = self.read_model_lines(model_wt1_lines)
+
+		# Replicate 2 configuration
+		if wt2 is not None:
+			self.WT2_TIMEPOINTS = wt2.columns.values.astype(int)
+			self.wt2_df = wt2
+			self.model_wt2_file = model_wt2_file
+			
+			if model_wt2_file is not None:
+				self.intervals_wt2 = self.read_model_format(model_wt2_file)
+			elif model_wt2_lines is not None:
+				self.intervals_wt2 = self.read_model_lines(model_wt2_lines)
+
+		# Boolean flag to indicate whether we have 1 or 2 replicates
+		self.has_two_replicates = wt2 is not None
+
+		self.create_helper_structures()
+
+	def get_g1_lens(self, which=None):
+		
+		mu0 = self.parameters.loc['mu0'].value
+		lambda_val = self.parameters.loc['lambda'].value
+		delta = self.parameters.loc['delta'].value
+		gamma1 = self.parameters.loc['gamma1'].value
+		gamma2 = self.parameters.loc['gamma2'].value
+		alpha = self.parameters.loc['alpha'].value
+		
+		cg1_len = alpha + lambda_val*gamma1
+		dg1_len = alpha + lambda_val*gamma1 + delta
+		rg1_len = mu0
+
+		if which is None:
+			return rg1_len, cg1_len, dg1_len
+		elif which == "CG1":
+			return cg1_length
+		else:
+			raise ValueError("Parameter unimplemented: ", which)
+
+
+	def all_orfs(self):
+		return self.wt1_df.index.values
+
+	def read_model_format(self, modelfile):
+		if not os.path.exists(modelfile):
+			raise FileNotFoundError(f"The model file {modelfile} does not exist")
+
+		with open(modelfile, 'r') as f:
+			lines = f.readlines()
+			ret = self.read_model_lines(lines)
+
+		return ret
+
+	def read_model_lines(self, f):
+
+		LENGTHS, DESCRIPTION, I, T, B = '# lengths', '# description', \
+			'# i', '# t', '# b' 
+		lengths, relations, initial_tps, top_tps, bottom_tps, parseFlag = [], \
+			[], [], [], [], -1
+
+		for line in f:
+			line = line.strip()
+			if not line:
+				continue
+			if line == LENGTHS:
+				parseFlag = 1
+			elif line == DESCRIPTION:
+				parseFlag = 2
+			elif line == I:
+				parseFlag = 3
+			elif line == T:
+				parseFlag = 4
+			elif line == B:
+				parseFlag = 5
+			# lengths
+			elif parseFlag == 1:
+				value = self.parse_lengths(line)
+				lengths.append(value)
+			# description
+			elif parseFlag == 2:
+				relation = line.split(' ')
+				relations.append(relation)
+			# interval i
+			elif parseFlag == 3:
+				interval = np.array(line.split(' '), dtype=np.float64)
+				initial_tps.append(interval)
+			# interval t
+			elif parseFlag == 4:
+				interval = np.array(line.split(' '), dtype=np.float64)
+				top_tps.append(interval)
+			# interval b
+			elif parseFlag == 5:
+				interval = np.array(line.split(' '), dtype=np.float64)
+				bottom_tps.append(interval)
+
+		initial_phase_map, top_phase_map, bottom_phase_map = {}, {}, {}
+		for i, relation in enumerate(relations):
+			notation = relation[0]
+			for idx in range(1, len(relation)-1, 2):
+				label = relation[idx]
+				num = relation[idx+1]
+				if label == 'i':
+					initial_phase_map[num] = (notation, i)
+				elif label == 't':
+					top_phase_map[num] = (notation, i)
+				elif label == 'b':
+					bottom_phase_map[num] = (notation, i)
+
+		return lengths, relations, initial_tps, top_tps, bottom_tps, (initial_phase_map,
+			top_phase_map, bottom_phase_map)
+
+
+	def parse_lengths(self, line):
+		segments = line.split(' ')
+		if segments[0] in ('mu0', 'lambda', 'delta', 'sigma0', 'sigmav', 'alpha', \
+			'beta', 'gamma1', 'gamma2', 'halted'):
+			value = float(segments[1])
+		else:
+			raise ValueError(f'Wrong parameter {segments[0]} in line {line}')
+		return value
+
+
+	def create_helper_structures(self):
+		"""
+		We will create some dataframes and dictionaries that will help with looking up branch/phase subsets.
+		"""
+
+		# Assume we can just use wt2's model config (that wt1 has the same defined intervals)
+		lengths, relations, initial_tps, top_tps, bottom_tps, \
+		(initial_phase_map, top_phase_map, bottom_phase_map) = self.intervals_wt1
+
+		def get_branch_timepoints_by_index(branch, phase_tp_index):
+
+			if branch == 'i':
+				ret = initial_tps[phase_tp_index]
+			elif branch == 't':
+				ret = top_tps[phase_tp_index]
+			elif branch == 'b':
+				ret = bottom_tps[phase_tp_index]
+
+			return ret
+
+		all_phases = []
+		all_branches = []
+		all_branch_indices = []
+		all_timepoints = []
+
+		for item in relations:
+			
+			phase = item[0]
+			
+			intervals = item[1:]
+
+			for interval_idx in range(0, len(intervals), 2):
+				branch, phase_tp_index = intervals[interval_idx], int(intervals[interval_idx+1])
+
+				branch, phase_tp_index
+
+				timepoints = get_branch_timepoints_by_index(branch, phase_tp_index)
+
+				all_phases = all_phases + ([phase]*len(timepoints))
+				all_branches = all_branches + ([branch]*len(timepoints))
+				all_branch_indices = all_branch_indices + ([phase_tp_index]*len(timepoints))
+				all_timepoints = all_timepoints + list(timepoints)
+
+		phase_branch_tp_df = pd.DataFrame({'phase': all_phases, 'branch': all_branches, 
+					  'tp_index': all_branch_indices, 'timepoint': all_timepoints})
+		phase_branch_tp_df = phase_branch_tp_df.set_index(['phase', 'branch'])
+		self.phase_branch_tp_df = phase_branch_tp_df
+
+		# --------------------------
+
+		# Construct a dictionary that will allow us to retrieve the indices in the H matrix
+		# for the requested cell phase
+		phase_columns = {}
+		last = 0
+		num_columns = 0
+		for relation in relations:
+			phase = relation[0]
+			first_branch = phase_branch_tp_df.loc[phase].index.unique()[0]
+			first_branch_tps = phase_branch_tp_df.loc[phase].loc[first_branch]
+
+			current_length = len(first_branch_tps)-1
+
+			phase_columns[relation[0]] = np.arange(last, last+current_length)
+			last = last+current_length
+			num_columns = last
+
+		self.phase_columns = phase_columns
+		self.num_columns = num_columns
+
+		# todo: New data frame containing index, timepoints and phase,
+		# can use this data structure for some other functions.
+		self.H_map_df = self.get_H_dataframe_mapping()
+		self.parameters = pd.DataFrame(
+			data=self.intervals_wt1[0],
+			index=['mu0', 'lambda', 'delta', 'sigma0', 'sigmav', 'alpha', 
+			'beta', 'gamma1', 'gamma2', 'halted'],
+			columns=['value']
+		)
+
+
+	def get_phase_timepoints_for_phase(self, phase):
+		rg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('i')[0][1].values
+		cg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('t')[0][1].values
+		dg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('b')[0][1].values
+		postg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('b')[1][1].values
+
+		s_indices = self.get_Hpositions_for_phase('S')
+		s_end = len(s_indices)
+		s_timepoints = postg1_timepoints[:s_end]
+		g2m_timepoints = postg1_timepoints[s_end:]
+
+		phase_map = {
+			'RG1': rg1_timepoints,
+			'CG1': cg1_timepoints,
+			'DG1': dg1_timepoints,
+			'postG1': postg1_timepoints,
+			'S': s_timepoints,
+			'G2M': g2m_timepoints,
+			'G2/M': g2m_timepoints,
+		}
+		return phase_map[phase]
+
+	def get_timepoint_for_index(self, h_index):
+		"""Get the timepoint for an index"""
+		return self.H_map_df.loc[h_index].timepoint
+
+	def get_H_dataframe_mapping(self):
+		rg1_indices = self.get_timepoints_phases_Hpositions_for_branch('i')[0][2]
+		cg1_indices = self.get_timepoints_phases_Hpositions_for_branch('t')[0][2]
+		dg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[0][2]
+		postg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[1][2]
+
+		rg1_tps = self.get_timepoints_phases_Hpositions_for_branch('i')[0][1].values
+		cg1_tps = self.get_timepoints_phases_Hpositions_for_branch('t')[0][1].values
+		dg1_tps = self.get_timepoints_phases_Hpositions_for_branch('b')[0][1].values
+		postg1_tps = self.get_timepoints_phases_Hpositions_for_branch('b')[1][1].values
+
+		def df_for_phase_set(indices, tps, phase):
+			df = pd.DataFrame(
+				data={
+					'h_index': indices,
+					'timepoint': tps,
+					'phase': np.repeat(phase, len(indices)),
+				})
+			return df
+
+		rg1_df = df_for_phase_set(rg1_indices, rg1_tps, 'RG1')
+		dg1_df = df_for_phase_set(dg1_indices, dg1_tps, 'DG1')
+		cg1_df = df_for_phase_set(cg1_indices, cg1_tps, 'CG1')
+		postg1_df = df_for_phase_set(postg1_indices, postg1_tps, 'postG1')
+
+		df = pd.concat([
+			rg1_df,
+			dg1_df,
+			cg1_df,
+			postg1_df 
+		])
+
+		return df.reset_index(drop=True).set_index('h_index')
+
+
+	def get_phase_timepoints_for_plotting(self):
+
+		cg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('t')[0][1].values
+		postcg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('t')[1][1].values
+		dg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('b')[0][1].values
+		postdg1_timepoints = self.get_timepoints_phases_Hpositions_for_branch('b')[1][1].values
+
+		# Append end of G1 for contiguous timepoints for plotting
+		cg1_timepoints = np.concatenate([cg1_timepoints, postcg1_timepoints[0:1]])
+		dg1_timepoints = np.concatenate([dg1_timepoints, postdg1_timepoints[0:1]])
+
+		# Calculate S-phase
+		gamma1, gamma2 = self.intervals_wt1[0][7], self.intervals_wt1[0][8]
+		lambda_val = self.intervals_wt1[0][1]
+
+		s_start, s_end = lambda_val*gamma1, lambda_val*gamma2
+
+		c_s_timepoints = postcg1_timepoints[postcg1_timepoints < s_end]
+		c_g2m_timepoints = postcg1_timepoints[postcg1_timepoints >= s_end]
+
+		# contiguous plotting
+		c_s_timepoints = np.concatenate([c_s_timepoints, c_g2m_timepoints[:1]])
+
+		d_s_timepoints = postdg1_timepoints[postdg1_timepoints < s_end]
+		d_g2m_timepoints = postdg1_timepoints[postdg1_timepoints >= s_end]
+
+		# contiguous plotting
+		d_s_timepoints = np.concatenate([d_s_timepoints, d_g2m_timepoints[:1]])
+
+		return (cg1_timepoints, c_s_timepoints, c_g2m_timepoints), \
+			   (dg1_timepoints, d_s_timepoints, d_g2m_timepoints)
+
+
+
+	def get_timepoints_for_branch(self, branch):
+		"""
+		This function will return the timepoints as an array for a branch.
+
+		Basically consolidating the timepoints for  each phase within the branch.
+
+		This is useful for the rescaling function for computing PTR, which takes in
+		the timepoints as a single array as input.
+		"""
+
+		timepoints = np.array([])
+		for phase, timepoints_series, indices in self.get_timepoints_phases_Hpositions_for_branch(branch):    
+			current_timepoints = timepoints_series.values
+			timepoints = np.concatenate([timepoints, current_timepoints])
+
+		timepoints
+
+		return timepoints
+
+
+	def get_timepoints_phases_Hpositions_for_branch(self, branch):
+		"""
+		A bit complicated, but this method is for plotting. 
+		
+		We will want the phases, the timepoints, and the indices in H (also in f).
+		
+		There is probably a cleaner way to do this, but we will just use the dataframe
+		of all timepoints to do this.
+		"""
+
+		# Then we will want the phases and the indices for a branch
+		search_df = self.phase_branch_tp_df.reset_index()
+		phases_for_branch = search_df[search_df.branch == branch].phase.unique()
+
+		branch_indices = []
+		for phase in phases_for_branch:
+			timepoints = search_df[(search_df.phase == phase) & 
+								   (search_df.branch == branch)].timepoint
+			branch_indices.append((phase, timepoints[:-1], self.phase_columns[phase]))
+
+		return branch_indices
+
+
+	def get_branch_phase_mapping(self):
+		"""Get a mapping from branch namem to a list of the phases within the branch. Useful
+		for knowing which index of the timepoints list represents which phase"""
+
+		relations = self.intervals_wt1[1]
+
+		branch_phase_mapping = {
+			'i': [],
+			't': [],
+			'b': [],
+		}
+
+		for phase_list in relations:
+			phase = phase_list[0]
+			index_pairs = phase_list[1:]
+			
+			for index_ind in range(0, len(index_pairs), 2):
+				branch = index_pairs[index_ind]
+				tp_index = index_pairs[index_ind+1]
+				
+				cur_map = branch_phase_mapping[branch]
+				cur_map.append(phase)
+
+				branch_phase_mapping[branch] = cur_map
+		return branch_phase_mapping
+
+
+	def get_Hpositions_for_branch(self, branch):
+		rg1_indices = self.get_timepoints_phases_Hpositions_for_branch('i')[0][2]
+		cg1_indices = self.get_timepoints_phases_Hpositions_for_branch('t')[0][2]
+		dg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[0][2]
+		postg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[1][2]
+
+		Hpositions_dic = {
+			'i': np.concatenate([rg1_indices, postg1_indices]),
+			't': np.concatenate([cg1_indices, postg1_indices]),
+			'b': np.concatenate([dg1_indices, postg1_indices])
+		}
+		return Hpositions_dic[branch]
+
+	def get_Hpositions_for_phase(self, phase):
+		"""
+		TODO: This is strictly for the RG1 model with hard-coded locations for each phase
+		in each branch. 
+
+		Refactor this if we start using other models. This method is used for plotting purposes.
+		"""
+
+		dg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[0][2]
+		postg1_indices = self.get_timepoints_phases_Hpositions_for_branch('b')[1][2]
+		cg1_indices = self.get_timepoints_phases_Hpositions_for_branch('t')[0][2]
+		rg1_indices = self.get_timepoints_phases_Hpositions_for_branch('i')[0][2]
+
+		# Compute the G2M and S indices by collecting the length of S
+		mu0, s_start, s_end, first_lambda = self.get_key_timepoints_in_raw()
+		s_len = s_end - s_start
+		postg1_tps = self.get_phase_timepoints_for_phase('postG1')
+		s_end_idx = (postg1_tps > s_len).argmax()
+		g2_m_indices = postg1_indices[s_end_idx:]
+		s_indices = postg1_indices[:s_end_idx]
+
+		Hpositions_dic = {
+			'DG1': dg1_indices,
+			'postG1': postg1_indices,
+			'CG1': cg1_indices,
+			'RG1': rg1_indices,
+			'S': s_indices,
+			'G2/M': g2_m_indices
+		}
+		return Hpositions_dic[phase]
+
+
+	def get_geneset_df(self):
+		"""
+		Returns the geneset data frame in the same order as the raw gene expression is defined.
+
+		The original matlab data had the orf names and the gene expression in separate files, so here
+		we will create a dataframe with the orf names ordering as well as any other gene data
+		we may need.
+
+		Note that some of the gene information may note exist (nas).
+		"""
+
+		from src.sgd import read_sgd_genes
+
+		genelist_orfs = pd.DataFrame(self.orf_index_map.items())
+		genelist_orfs.columns = ['orf_name', 'data_idx']
+		genelist_orfs = genelist_orfs.set_index('orf_name')
+		genelist_orfs = genelist_orfs.iloc[:-1] # last row is empty for some reason
+
+		genes = read_sgd_genes()
+		genes.loc[genes['gene'].isna(), 'gene'] = genes[genes['gene'].isna()].index
+
+		genelist_orfs = genelist_orfs.join(genes).sort_values('data_idx')
+
+		return genelist_orfs
+
+	def get_key_timepoints_in_raw(self, full=False):
+
+		intervals = self.intervals_wt1[0]
+		mu0, lambda_len, gamma1, gamma2, alpha = intervals[0], intervals[1], \
+			intervals[7], intervals[8], intervals[5]
+
+		# Estimate the first S from mu0, lambda, gamma1, and gamma2
+		cg1_length = gamma1*lambda_len+alpha
+		s_start = (lambda_len*gamma1)
+		s_end = (lambda_len*gamma2)
+		s_length = s_end - s_start
+
+		# For the first cell cycle, mu0 includes the first G1
+		# so S starts when Recovery (mu0) ends
+		first_s_start = mu0
+		first_s_end = mu0+s_length
+		lambda_len = lambda_len
+
+		# The end of the first cycle is computed
+		# by taking the cell cycle length, subtracting the length of S 
+		# (to get G1 and G2/M)
+		# Then subtract out what the first G1 would be.
+		# Then offset by mu0 length to get the actual timepoint for the 
+		# end of the first cell cycle
+		g1_recovery_would_start_here = first_s_start - cg1_length
+		end_of_first_lambd = g1_recovery_would_start_here+lambda_len
+
+		if full:
+			return (g1_recovery_would_start_here, cg1_length, lambda_len,
+				s_length, mu0, first_s_start, first_s_end, end_of_first_lambd)
+
+		return mu0, first_s_start, first_s_end, end_of_first_lambd
+
+
+	def get_raw_s_tps(self):
+		"""Get the start and end timepoints for S phase"""
+		mu0, first_s_start, first_s_end, end_lambd = self.get_key_timepoints_in_raw()
+		intervals = self.intervals_wt1[0]
+		mu0, lambda_len, gamma1, gamma2, alpha = intervals[0], intervals[1], \
+			intervals[7], intervals[8], intervals[5]
+		first_s_start = mu0
+		lambda_len = lambda_len
+		s_start = alpha+(lambda_len*gamma1)
+		s_end = alpha+(lambda_len*gamma2)
+		s_length = s_end-s_start
+		first_s_end = mu0+s_length
+
+		second_s_start = end_lambd + s_start
+		second_s_end = end_lambd + s_end
+		return (s_start, s_end), (second_s_start, second_s_end)
+
+
+def read_yl_vst_data_rep(replicate, drop_rep2_70=True):
+	wt_data = pd.read_csv(f'datasets/yl_cell_cycle/replicate{replicate}_deseq2_vst_counts.csv')
+	wt_data = wt_data.rename(columns={"Unnamed: 0": "orf_name"}).set_index('orf_name')
+	wt_data.columns = [int(s.replace('X', '')) for s in wt_data.columns.values]
+
+	# Replicate 2, timepoint 70 appears to be low quality
+	# Checking if removing this timepoint improves the fit quality.
+	if replicate == 2 and drop_rep2_70:
+		# Remove timepoint 70 for replicate 2
+		wt_data = wt_data[wt_data.columns[(wt_data.columns != 70)]]
+
+	# Normalize such that all timepoints are equal
+	target_read_counts = 60000 # (approximate read counts prior to normalization)
+	wt_data.loc[:] = wt_data.values / wt_data.values.sum(axis=0).reshape((1, -1)) * target_read_counts
+
+	return wt_data
+
+
+def load_yl_replicate1_rg1_alpha_vst_config(alpha=22):
+	"""Load the model in which alpha is set to delay between separation and cytokinesis"""
+	wt1 = read_yl_vst_data_rep(1)
+	model_wt1_file = f'models/yl_cell_cycle/wt1_rg1.{alpha}.label'
+	config = Config(wt1=wt1, model_wt1_file=model_wt1_file, name=f'Replicate 1, $\\alpha$={alpha}', 
+		replicate=1, alpha=alpha)
+
+	return config
+
+def load_yl_replicate2_rg1_alpha_vst_config(alpha=20):
+	"""Load the model in which alpha is set to delay between separation and cytokinesis"""
+	wt2 = read_yl_vst_data_rep(2)
+
+	# model file
+	model_wt2_file = f'models/yl_cell_cycle/wt2_rg1.{alpha}.label'
+	config = Config(wt1=wt2, model_wt1_file=model_wt2_file, name=f'Replicate 2, $\\alpha$={alpha}',
+		replicate=2, alpha=alpha)
+	return config
+
+
+def load_yl_rg1_vst_config(replicate):
+	if replicate == 1:
+		config = load_yl_replicate1_rg1_alpha_vst_config()
+	else:
+		config = load_yl_replicate2_rg1_alpha_vst_config()
+	return config
+
+
+def load_combined_yl_alpha_vst_gene_expression_config(alphas=[28, 22], drop_rep2_70=True):
+
+	WT1 = read_yl_vst_data_rep(1)
+	WT2 = read_yl_vst_data_rep(2, drop_rep2_70=drop_rep2_70)
+
+	# model files
+	model_wt1_file = f'models/yl_cell_cycle/wt1_rg1.{alphas[0]}.label'
+	model_wt2_file = f'models/yl_cell_cycle/wt2_rg1.{alphas[1]}.label'
+
+	config = Config(wt1=WT1, wt2=WT2, model_wt1_file=model_wt1_file, 
+		model_wt2_file=model_wt2_file, name=f'Combined, $\\alpha$={alphas[0]},{alphas[1]}')
+
+	return config
+
+
+def read_xin_published_wt_data(wildtype):    
+	# Handle columns and rows, second row has clock time, drop alias columns
+	wt1_web_df = pd.read_csv(f'datasets/datasets_from_web_deconvolution.cs.duke.edu/wildtype{wildtype}.tsv', 
+		sep='\t')
+	wt1_web_df.columns = wt1_web_df.iloc[0]
+	wt1_web_df = wt1_web_df.rename(columns={'byClock': 'orf_name'}).set_index('orf_name')
+	wt1_web_df = wt1_web_df[wt1_web_df.columns[3:]]
+	wt1_web_df = wt1_web_df.iloc[1:]
+	return wt1_web_df
+
+
+def get_yl2019_chromatin_timepoints(replicate):
+	"""todo: refactoring to use this function instead of 
+	lazy loading the timepoints from the mnase reads"""
+
+	if replicate == 1:
+		return np.array([ 0, 10, 20, 30, 40, 50, 60, 70, 
+			80, 90, 100, 110, 120, 130, 140, 150])
+
+	elif replicate == 2:
+		return np.array([ 0, 10, 20, 30, 40, 50, 60, 70, 
+			80, 90, 100, 110, 120, 130, 140])
+
+
+def plot_H(config, H=None):
+	from src.model import color_for_key
+	import matplotlib.pyplot as plt
+	from src.figure_configs import FiguresConfig
+
+
+	phases = ['H', 'RG1', 'CG1', 'S', 'G2M']
+
+	H_cols = np.array([H.shape[1]-1])
+
+	plt.figure(figsize=FiguresConfig.FIGSIZE_SHORT_EXTRAWIDE)
+	plt.subplot(1, 2, 1)
+
+	plt.title("H convolution matrix", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+	plt.imshow(H, vmax=H[:, :-1].max(), aspect='auto', cmap='Reds',
+			  extent=[0, H.shape[1], config.WT1_TIMEPOINTS[-1], 0])
+
+	plt.subplot(1, 2, 2)
+
+	plt.title("Phase proportions over time", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+	x = config.WT1_TIMEPOINTS
+	prev = np.zeros(len(x))
+	for i in range(len(phases)):
+		phase = phases[i]
+		cols = config.get_Hpositions_for_phase(phase)
+		color = color_for_key(phase)
+		y = prev+H[:, cols].sum(axis=1)
+		plt.fill_between(x, prev, y, color=color, label=phase)
+		prev = y
+	plt.legend()
+
+
+def load_default_chrom_configs(config_type='shared', mode='chromatin', with_copy_correction=True,
+longer_file=False):
+	return load_configs_by_config_type('shared', mode=mode, 
+		with_copy_correction=with_copy_correction, longer_file=longer_file)
+
+
+def load_configs_by_config_type(config_type, mode='chromatin',
+		with_copy_correction=True, longer_file=False):
+
+	from src.config import load_yl_rg1_vst_config
+	from src.delta_config import load_yl_delta_config
+	from src.single_G1_config import load_single_g1_config
+
+	if config_type == 'delta':
+		config1 = load_yl_delta_config(1)
+		config2 = load_yl_delta_config(2)
+	elif config_type == 'distinct':
+		config1 = load_yl_rg1_vst_config(1)
+		config2 = load_yl_rg1_vst_config(2)
+	elif config_type == 'shared':
+		config1 = load_single_g1_config(1, longer_file=longer_file)
+		config2 = load_single_g1_config(2, longer_file=longer_file)
+	else:
+		raise ValueError("Invalid config type")
+
+	# If loading by expression, update the config's timepoints
+	if mode == 'expression':
+		data1 = read_yl_vst_data_rep(1)
+		data2 = read_yl_vst_data_rep(2)
+
+		config1.WT1_TIMEPOINTS = data1.columns
+		config2.WT1_TIMEPOINTS = data2.columns
+
+	else:
+		from src.global_config import GlobalConstants
+		config1.WT1_TIMEPOINTS = GlobalConstants.CHROM_WT1_TIMEPOINTS
+		config2.WT1_TIMEPOINTS = GlobalConstants.CHROM_WT2_TIMEPOINTS
+
+	config1.config_type = config_type
+	config2.config_type = config_type
+	
+	return config1, config2
+
+
+def load_combined_gene_expression_by_config_type(config_type, with_copy_correction=True):
+
+	from src.single_G1_config import load_combined_single_g1_gene_expression_config
+	from src.delta_config import load_delta_combined_gene_expression_config
+
+	if config_type == 'delta':
+		config = load_delta_combined_gene_expression_config()
+		
+	elif config_type == 'distinct':
+		config = load_combined_yl_alpha_vst_gene_expression_config()
+	
+	elif config_type == 'shared':
+		config = load_combined_single_g1_gene_expression_config()
+
+	else:
+		raise ValueError("Invalid config type")
+
+	config.config_type = config_type
+
+	# The shared gene expression config contains both corrections
+	if with_copy_correction:
+		config.copy_correction = None
+	else:
+		config.copy_correction = None
+
+	return config
+
+
