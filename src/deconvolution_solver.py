@@ -6,7 +6,7 @@ from src.helpers import get_wavelet_kernel
 class DeconvolutionSolver(object):
 
 	def __init__(self, config, g, H, gamma, N=None, f_replication=None,
-	 	b=None, padding_type='both', obj_error_mode='additive'):
+		b=None, padding_type='both', obj_error_mode='additive'):
 
 		n, m = H.shape
 
@@ -103,16 +103,42 @@ class DeconvolutionSolver(object):
 		else:
 			raise ValueError(f"Unimplemented objective error mode: {self.obj_error_mode}")
 
-		smooth_f_i_result = W_i@f_padded[f_i]
-		smooth_f_tb_result = W_tb@f_padded[f_tb]
+		def get_level_based_weights(N):
+			"""Add a weighting system to the coefficients to discourage higher frequency coefficients.
+			We desire smoothing on the earlier more broad coefficient levels"""
+			weights = np.ones(N)
+			level = 0
+			start_idx = 0
+			 
+			 while start_idx < N:
+				# Calculate size of current level
+				level_size = 2**level
+				end_idx = min(start_idx + level_size, N)
+				 
+				# Assign weights, higher for later levels (higher frequencies)
+				weights[start_idx:end_idx] = 2**(level)  # Can adjust base of exponential
+				 
+				start_idx = end_idx
+				level += 1
+				 
+			 return weights
+
+		# Attempt to weight higher frequency coefficients as more important to zero out
+		coeffs_weights_W_i = get_level_based_weights(len(f_i))
+		coeffs_weights_W_tb = get_level_based_weights(len(f_tb))
+
+		smooth_f_i_result = cp.multiply(W_i@f_padded[f_i], coeffs_weights_W_i)
+		smooth_f_tb_result = cp.multiply(W_tb@f_padded[f_tb], coeffs_weights_W_tb)
 
 		objective = cp.Minimize(
 
 			# Fitting norm
 			cp.square(cp.pos(cp.norm(elementwise_result))) + 
 
-			# Smoothing norm for it
-			+ self.gamma * cp.sum(cp.abs(smooth_f_i_result))*2#.125
+			# top and bottom branches are 10% longer than initial
+			# initial s doubled, because top and bottom are concatenated for
+			# postg1-c/dg1 smoothing
+			+ self.gamma * cp.sum(cp.abs(smooth_f_i_result))*2.2
 			+ self.gamma * cp.sum(cp.abs(smooth_f_tb_result))
 		)
 

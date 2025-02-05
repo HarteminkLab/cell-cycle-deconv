@@ -840,10 +840,11 @@ def normalize_bins_by_len(replicate, exact_bins, log=True, scaling_mat=None):
 
 
 
-def plot_prediction():
-	predicted_G = dg1_H@F
+def plot_prediction(config, N, F, F_replicate, G, b):
+	predicted_G = config.H@F
 	predicted_G_imgs = predicted_G.reshape((predicted_G.shape[0], 26, -1))
 	G_imgs = G.reshape((G.shape[0], 26, -1))
+	timepoints = config.timepoints
 
 	num_rows = len(timepoints)
 	num_cols = 3
@@ -872,3 +873,4 @@ def plot_prediction():
 
 	plt.suptitle("Predicted vs Raw data bins")
 	plt.subplots_adjust(top=0.95)
+
