@@ -20,7 +20,7 @@ class ChromatinDeconvolveSolver:
 	problem definition"""
 
 	def __init__(self, config, H, G, N, b, f_replication,
-	 	solver=cvxpy.MOSEK, wavelet="Symmlet", padding_type='left'):
+	 	solver=cvxpy.MOSEK, wavelet="Symmlet", padding_type='both'):
 
 		self.config = config
 		self.solver = solver
@@ -32,11 +32,13 @@ class ChromatinDeconvolveSolver:
 		self.f_replication = f_replication
 		self.padding_type = padding_type
 
-		f_i = self.config.get_Hpositions_for_branch('i')
-		f_t = self.config.get_Hpositions_for_branch('t')
+	def compute_predicted_G(self, F=None):
+		N, H, b, f_replication = self.N, self.H, self.b, self.f_replication
 
-		self.f_it = np.concatenate([f_i, f_t])
-		self.W_it = get_wavelet_kernel(len(self.f_it))
+		if F is None: F = self.F
+
+		predicted_G = N@H@np.multiply(F, f_replication[:, None])*b
+		return predicted_G
 
 
 	def deconvolve_G_iteratively(self, gamma, verbose=False, verbose_progress=True):
@@ -54,32 +56,52 @@ class ChromatinDeconvolveSolver:
 		running_rn = 0
 		self.gamma = gamma
 
+		eps_cutoff = 1e-3
+
 		for i in range(m):
 
 			# Set the solver's G value
 			current_g = self.G[:, i]
 
-			from src.deconvolution_solver import DeconvolutionSolver
+			if current_g.max() < eps_cutoff:
+				# Skip
+				pass
 
-			deconvolution_solver = DeconvolutionSolver(self.config, current_g, 
-				self.H, gamma=gamma, padding_type=self.padding_type,
-				N=self.N, f_replication=self.f_replication, b=self.b)
+			else:
 
-			try:
-				current_f, self.sn, self.rn, self.W_it = deconvolution_solver.deconvolve()
-			except cvxpy.error.SolverError:
-				continue
+				from src.deconvolution_solver import DeconvolutionSolver
 
-			deconvolved_f_value[:, i] = current_f
+				deconvolution_solver = DeconvolutionSolver(self.config, current_g, 
+					self.H, gamma=gamma, padding_type=self.padding_type,
+					N=self.N, f_replication=self.f_replication, b=self.b)
 
-			running_rn += self.rn / m
-			running_sn += self.sn / m
+				try:
+					deconvolution_solver.deconvolve()
+					current_f = deconvolution_solver.f
+					current_sn = deconvolution_solver.sn
+					current_rn = deconvolution_solver.rn
+				except cvxpy.error.SolverError:
+					continue
+
+				deconvolved_f_value[:, i] = current_f
+
+				# Keep a running rn and sn, divide by m
+				# such that the final values will be the mean
+				running_rn += current_rn / m
+				running_sn += current_sn / m
 
 			if verbose_progress and i % 500 == 0:
 				timer.print_time(f"{i}/{m}")
 
 		self.deconvolved_f_value = deconvolved_f_value
+		self.F = deconvolved_f_value
 		self.rn = running_rn
 		self.sn = running_sn
+		self.deconvolution_solver = deconvolution_solver
+		self.predicted_G = self.compute_predicted_G()
+
+		if verbose:
+			timer.print_time(f"Completed")
+
 		return self.deconvolved_f_value
 

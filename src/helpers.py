@@ -765,3 +765,15 @@ def downsample_bins(bin_data, new_span, original_span, bin_width, bin_height, ma
 def midpoints(arr):
 	return (arr[:-1] + arr[1:]) / 2
 
+
+def get_level_based_weights(N, scale=2):
+    """Add a weighting system to coefficients, discourage higher frequency coefficients"""
+    weights = np.ones(N)
+    num_levels = int(np.log2(N))
+    
+    for level in range(num_levels):
+        start_idx = 2**level - 1
+        end_idx = min(2**(level+1), N+1)
+        weights[start_idx:end_idx] = scale**level
+
+    return weights

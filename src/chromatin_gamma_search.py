@@ -2,6 +2,117 @@ import numpy as np
 from matplotlib import pyplot as plt
 from src.helpers import get_wavelet_kernel
 from matplotlib.colors import ListedColormap
+from src.chromatin_deconvolution_solver import ChromatinDeconvolveSolver
+
+
+class ChromatinFindOptimalGamma(object):
+	"""Wrapper to find optimal gamma for a window of chromatin reads"""
+
+	def __init__(self, chromatin_solver, gamma_min=1e-6, gamma_max=1e-5, verbose=True):
+
+		# Refactoring of the find optimal gamma code
+		from src.find_gamma_refactor import GammaOptimizer
+			
+		def compute_solution(gamma_value):
+			"""Function to compute the solution, rn, and sn for the optimizer"""
+			F = chromatin_solver.deconvolve_G_iteratively(gamma=gamma_value,
+														 verbose=False,
+														 verbose_progress=False)
+			rn = chromatin_solver.rn
+			sn = chromatin_solver.sn
+			return F, sn, rn
+
+		gamma_optimizer = GammaOptimizer(compute_solution, gamma_min=0.00001, gamma_max=0.001,
+										 verbose=verbose)
+
+		self.chromatin_solver = chromatin_solver
+		self.gamma_optimizer = gamma_optimizer
+
+	def find_optimal_gamma(self):
+
+		from src.timer import Timer
+		timer = Timer()
+		self.gamma_optimizer.calculate_base_error()
+		self.gamma_optimizer.calculate_error_boundaries()
+		self.gamma_optimizer.find_boundary_gammas()
+		self.gamma_optimizer.find_elbow()
+		self.gamma_optimizer.plot_elbow()
+		timer.print_time("Completed.")
+
+	def plot_gamma_sweep(self):
+
+		gamma_optimizer = self.gamma_optimizer
+		optimal_solution_index = int(gamma_optimizer.elbow_results_df.loc[gamma_optimizer.optimal_gamma].solution_index)
+
+		config = self.chromatin_solver.config
+		i_indices = config.get_Hpositions_for_branch('i')
+		t_indices = config.get_Hpositions_for_branch('t')
+
+		num_examples = 5
+		num_cols = 3
+
+		fig, axs = plt.subplots(num_examples, num_cols, figsize=(13, 11))
+
+		gamma_sweep = self.gamma_optimizer.elbow_results_df.index
+		F_gamma_solutions = self.gamma_optimizer.elbow_solutions
+		G = self.chromatin_solver.G
+
+		chromatin_solver = self.chromatin_solver
+		gamma_predicted_Gs = np.array([chromatin_solver.compute_predicted_G(F_gamma_solutions[i]) 
+		 for i in range(F_gamma_solutions.shape[0])])
+
+		cmap = ListedColormap(plt.cm.viridis(np.linspace(0.2, 0.8, 256)))
+
+		for i in range(num_examples):
+
+			ax_row = axs[i]
+
+			if i != num_examples-1:
+				for ax in ax_row:
+					ax.set_xticks([])
+					ax.set_yticks([])
+
+			f_bin_index = i
+
+			ax = ax_row[0]
+
+			for j in range(gamma_predicted_Gs.shape[0]):
+				ax.plot(gamma_predicted_Gs[j, :, f_bin_index].T, c=cmap(j/len(gamma_predicted_Gs)))
+
+			sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=gamma_sweep.min(),
+				vmax=gamma_sweep.max()))
+			cbar = plt.colorbar(sm, ax=ax)
+			cbar.ax.set_ylabel('Smoothness, $\\gamma$', rotation=270, va='bottom')
+
+			ax.plot(G[:, f_bin_index], c='black', lw=3, label="Raw data")
+			ax.plot(gamma_predicted_Gs[optimal_solution_index, :, f_bin_index].T, c='red',
+					lw=3, label="Optimal $\\gamma$ solution")
+			if i == 0: 
+				ax.set_ylim(-0.01, 0.3)
+				ax.set_title("Data vs Fit")
+				ax.legend()
+			ax.set_ylim(-0.01, 0.3)
+
+			ax = ax_row[1]
+			for j in range(F_gamma_solutions.shape[0]):
+				ax.plot(F_gamma_solutions[j, i_indices, f_bin_index].T, c=cmap(j/len(F_gamma_solutions)))
+
+			ax.plot(F_gamma_solutions[optimal_solution_index, i_indices, f_bin_index].T, c='red',
+					lw=3)
+			if i == 0:
+				ax.set_title("Initial branch")
+			ax.set_ylim(-0.01, 0.3)
+
+			ax = ax_row[2]
+			for j in range(F_gamma_solutions.shape[0]):
+				ax.plot(F_gamma_solutions[j, t_indices, f_bin_index].T, c=cmap(j/len(F_gamma_solutions)))
+			ax.plot(F_gamma_solutions[optimal_solution_index, t_indices, f_bin_index].T, c='red',
+					lw=3)
+			ax.set_ylim(-0.01, 0.3)
+			if i == 0: ax.set_title("Top branch")
+
+		return gamma_predicted_Gs
+
 
 def create_gamma_sweep_plots_single_measure(config, N, H, Fs, f_rep, gamma_sweep, G,
 	ylims=(0, 1)):
@@ -51,6 +162,7 @@ def create_gamma_sweep_plots_single_measure(config, N, H, Fs, f_rep, gamma_sweep
 	plt.title("Goodness of fit")
 	plt.ylim(*ylims)
 	plt.xlabel("Experiment time, min")
+	plt.xticks(np.arange(0, config.timepoints[-1], 20))
 	plt.xlim(0, config.timepoints[-1])
 
 	cbar = plt.colorbar(sm)
@@ -75,42 +187,3 @@ def create_gamma_sweep_plots_single_measure(config, N, H, Fs, f_rep, gamma_sweep
 	plt.subplots_adjust(hspace=0.6, top=0.86)
 
 	plt.suptitle("Gamma sweep of single chromatin metric", fontsize=16)
-
-
-import numpy as np
-from scipy.signal import savgol_filter
-
-def find_elbow_point(rn, sn, gamma, window_length=6, polyorder=2):
-    """Compute the optimal elbow in the curve point with smoothed derivatives."""
-    
-    # Normalize values
-    rn_norm = (rn - rn.min()) / (rn.max() - rn.min()) 
-    sn_norm = (sn - sn.min()) / (sn.max() - sn.min())
-    
-    # Apply Savitzky-Golay filter to smooth the normalized data
-    rn_smooth = savgol_filter(rn_norm, window_length, polyorder)
-    sn_smooth = savgol_filter(sn_norm, window_length, polyorder)
-    
-    # Compute first derivatives with smoothing
-    drn = savgol_filter(rn_smooth, window_length, polyorder, deriv=1)
-    dsn = savgol_filter(sn_smooth, window_length, polyorder, deriv=1)
-    
-    # Compute second derivatives with smoothing
-    d2rn = savgol_filter(rn_smooth, window_length, polyorder, deriv=2)
-    d2sn = savgol_filter(sn_smooth, window_length, polyorder, deriv=2)
-    
-    # Compute curvature 
-    numerator = np.abs(drn * d2sn - dsn * d2rn)
-    denominator = (drn**2 + dsn**2)**(3/2)
-    
-    # Avoid division by very small numbers
-    mask = denominator > 1e-10
-    curvature = np.zeros_like(rn)
-    curvature[mask] = numerator[mask] / denominator[mask]
-    
-    optimal_index = np.argmax(curvature)
-    
-    return (rn[optimal_index], sn[optimal_index], 
-            gamma[optimal_index], optimal_index, 
-            curvature)
-
