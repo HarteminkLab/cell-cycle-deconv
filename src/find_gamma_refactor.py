@@ -9,10 +9,17 @@ from matplotlib import pyplot as plt
 
 class GammaOptimizer:
 
+	# LEFT_ERROR_RATIO = 1.05
+	# LEFT_ERROR_OFFSET = 0.04
+	# RIGHT_ERROR_RATIO = 1.40 
+	# RIGHT_ERROR_OFFSET = 0.32
+
 	LEFT_ERROR_RATIO = 1.05
 	LEFT_ERROR_OFFSET = 0.04
-	RIGHT_ERROR_RATIO = 1.40 
-	RIGHT_ERROR_OFFSET = 0.32
+
+	RIGHT_ERROR_RATIO = 4.0
+	RIGHT_ERROR_OFFSET = 11.
+
 	ELBOW_BINS = 20
 
 	def __init__(self, compute_solution, gamma_min=0.00001, gamma_max=0.01, verbose=False):
@@ -46,7 +53,7 @@ class GammaOptimizer:
 			print_fl(f"\t\t\tAbsolute (e0 + 0.04): {absolute_left:.6g}")
 			print_fl(f"\t\t\tChosen: {self.left_error:.6f}")
 			print_fl(f"\t\tRight:")
-			print_fl(f"\t\t\tRelative (1.40 * e0): {relative_right:.6g}")
+			print_fl(f"\t\t\tRelative (4.0 * e0): {relative_right:.6g}")
 			print_fl(f"\t\t\tAbsolute (e0 + 0.32): {absolute_right:.6g}")
 			print_fl(f"\t\t\tChosen: {self.right_error:.6f}")
 			
@@ -142,13 +149,13 @@ class GammaOptimizer:
 
 	def plot_elbow(self):
 
-	    plt.figure(figsize=(11, 2))
-	    plt.subplot(1, 3, 1)
-	    plt.plot(self.elbow_results_df.rn, self.elbow_results_df.sn)
-	    plt.xlabel("Residual norm, rn")
-	    plt.ylabel("Smoothing norm, sn")
+		plt.figure(figsize=(11, 2))
+		plt.subplot(1, 3, 1)
+		plt.plot(self.elbow_results_df.rn, self.elbow_results_df.sn)
+		plt.xlabel("Residual norm, rn")
+		plt.ylabel("Smoothing norm, sn")
 
-	    optimal_gamma = self.optimal_gamma
-	    plt.scatter(self.elbow_results_df.loc[optimal_gamma].rn,
-	                self.elbow_results_df.loc[optimal_gamma].sn,
-	               c='red')
+		optimal_gamma = self.optimal_gamma
+		plt.scatter(self.elbow_results_df.loc[optimal_gamma].rn,
+					self.elbow_results_df.loc[optimal_gamma].sn,
+				   c='red')

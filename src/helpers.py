@@ -766,14 +766,43 @@ def midpoints(arr):
 	return (arr[:-1] + arr[1:]) / 2
 
 
-def get_level_based_weights(N, scale=2):
-    """Add a weighting system to coefficients, discourage higher frequency coefficients"""
-    weights = np.ones(N)
-    num_levels = int(np.log2(N))
-    
-    for level in range(num_levels):
-        start_idx = 2**level - 1
-        end_idx = min(2**(level+1), N+1)
-        weights[start_idx:end_idx] = scale**level
+def get_level_based_weights(N, scale=4):
+	"""Add a weighting system to coefficients, 
+	   discourage higher frequency coefficients for
+	   better smoothness quality"""
 
-    return weights
+	weights = np.ones(N)
+	weights = 2*np.arange(N)
+
+	return weights
+
+
+def compute_branch_lengths(config1):
+	# Compute the length of each of the smoothing terms
+
+	rg1_tps = config1.get_timepoints_for_phase('RG1')
+	cg1_tps = config1.get_timepoints_for_phase('CG1')
+	dg1_tps = config1.get_timepoints_for_phase('DG1')
+	postg1_tps = config1.get_timepoints_for_phase('postG1')
+
+	length_rg1 = rg1_tps[-1]-rg1_tps[0]
+	length_cg1 = cg1_tps[-1]-cg1_tps[0]
+	length_dg1 = dg1_tps[-1]-dg1_tps[0]
+	length_postg1 = postg1_tps[-1]-postg1_tps[0]
+
+	length_rg1, length_cg1, length_dg1, length_postg1
+
+	recovery_smoothing_tps_length = length_rg1+length_postg1
+	top_smoothing_tps_length = length_cg1+length_postg1+length_postg1
+	bottom_smoothing_tps_length = length_dg1+length_postg1+length_postg1
+
+	print("Length of of the padded branches:", 
+	      recovery_smoothing_tps_length,
+	      top_smoothing_tps_length, 
+	      bottom_smoothing_tps_length)
+
+	print("1/Proportion of the daughter branch (longest):", 
+	      bottom_smoothing_tps_length/recovery_smoothing_tps_length,
+	      bottom_smoothing_tps_length/top_smoothing_tps_length, 
+	      bottom_smoothing_tps_length/bottom_smoothing_tps_length)
+

@@ -22,7 +22,7 @@ class ChromatinFindOptimalGamma(object):
 			sn = chromatin_solver.sn
 			return F, sn, rn
 
-		gamma_optimizer = GammaOptimizer(compute_solution, gamma_min=0.00001, gamma_max=0.001,
+		gamma_optimizer = GammaOptimizer(compute_solution, gamma_min=gamma_min, gamma_max=gamma_max,
 										 verbose=verbose)
 
 		self.chromatin_solver = chromatin_solver
@@ -67,8 +67,7 @@ class ChromatinFindOptimalGamma(object):
 		# Select bins with the highest max values
 		import pandas as pd
 		G_max_df = pd.DataFrame({'max_value': G.max(axis=0), 'index': np.arange(G.shape[1])})
-		highest_Gs = G_max_df.sort_values('max_value', ascending=False).head(num_examples)
-		highest_indices = G.argmax(axis=1)
+		highest_Gs = G_max_df.sort_values('max_value', ascending=False).head(num_examples)['index'].values
 
 		for i in range(num_examples):
 
@@ -79,7 +78,7 @@ class ChromatinFindOptimalGamma(object):
 					ax.set_xticks([])
 					ax.set_yticks([])
 
-			f_bin_index = highest_indices[i]
+			f_bin_index = highest_Gs[i]
 
 			ax = ax_row[0]
 
