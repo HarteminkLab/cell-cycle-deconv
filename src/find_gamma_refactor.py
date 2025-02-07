@@ -17,12 +17,29 @@ class GammaOptimizer:
 	LEFT_ERROR_RATIO = 1.05
 	LEFT_ERROR_OFFSET = 0.04
 
-	RIGHT_ERROR_RATIO = 4.0
-	RIGHT_ERROR_OFFSET = 11.
+	# Higher for gene expression to allow for greater smoothing, todo: adjust for chromatin 
+	# which has a smaller error scale
+	EXP_RIGHT_ERROR_RATIO = 4.0
+	EXP_RIGHT_ERROR_OFFSET = 11.
+
+	CHROM_RIGHT_ERROR_RATIO = 1.40 
+	CHROM_RIGHT_ERROR_OFFSET = 0.32
 
 	ELBOW_BINS = 20
 
-	def __init__(self, compute_solution, gamma_min=0.00001, gamma_max=0.01, verbose=False):
+	def __init__(self, compute_solution, gamma_min=0.00001, gamma_max=0.01, verbose=False,
+		mode='expression'):
+
+		self.mode = mode
+		if mode == 'expression':
+			self.RIGHT_ERROR_RATIO = self.EXP_RIGHT_ERROR_RATIO
+			self.RIGHT_ERROR_OFFSET = self.EXP_RIGHT_ERROR_OFFSET
+		elif mode == 'chromatin':
+			self.RIGHT_ERROR_RATIO = self.CHROM_RIGHT_ERROR_RATIO
+			self.RIGHT_ERROR_OFFSET = self.CHROM_RIGHT_ERROR_OFFSET
+		else:
+			raise ValueError("Invalid mode", mode)
+
 		self.compute_solution = compute_solution
 		self.gamma_min = gamma_min
 		self.gamma_max = gamma_max
@@ -49,12 +66,12 @@ class GammaOptimizer:
 		if self.verbose:
 			print_fl(f"\tError boundaries:")
 			print_fl(f"\t\tLeft:")
-			print_fl(f"\t\t\tRelative (1.05 * e0): {relative_left:.6g}")
-			print_fl(f"\t\t\tAbsolute (e0 + 0.04): {absolute_left:.6g}")
+			print_fl(f"\t\t\tRelative ({self.LEFT_ERROR_RATIO:.2f} * e0): {relative_left:.6g}")
+			print_fl(f"\t\t\tAbsolute (e0 + {self.LEFT_ERROR_OFFSET:.2f}): {absolute_left:.6g}")
 			print_fl(f"\t\t\tChosen: {self.left_error:.6f}")
 			print_fl(f"\t\tRight:")
-			print_fl(f"\t\t\tRelative (4.0 * e0): {relative_right:.6g}")
-			print_fl(f"\t\t\tAbsolute (e0 + 0.32): {absolute_right:.6g}")
+			print_fl(f"\t\t\tRelative ({self.RIGHT_ERROR_RATIO:.2f} * e0): {relative_right:.6g}")
+			print_fl(f"\t\t\tAbsolute (e0 + {self.RIGHT_ERROR_OFFSET:.2f}): {absolute_right:.6g}")
 			print_fl(f"\t\t\tChosen: {self.right_error:.6f}")
 			
 		return self.left_error, self.right_error
