@@ -15,7 +15,7 @@ class GammaOptimizer:
 	RIGHT_ERROR_OFFSET = 0.32
 	ELBOW_BINS = 20
 
-	def __init__(self, compute_solution, gamma_min=0.00001, gamma_max=0.0001, verbose=False):
+	def __init__(self, compute_solution, gamma_min=0.00001, gamma_max=0.01, verbose=False):
 		self.compute_solution = compute_solution
 		self.gamma_min = gamma_min
 		self.gamma_max = gamma_max
@@ -24,9 +24,9 @@ class GammaOptimizer:
 	def calculate_base_error(self):
 		base_solution, base_sn, self.base_error = self.compute_solution(0)
 		if self.verbose:
-			print_fl(f"\tBase error (γ=0):")
-			print_fl(f"\t\tRN: {self.base_error:.6f}")
-			print_fl(f"\t\tSN: {base_sn:.6f}")
+			print_fl(f"\tBase error (γ=0):", end="")
+			print_fl(f"\trn: {self.base_error:.6f}", end="")
+			print_fl(f"\tsn: {base_sn:.6f}")
 		return self.base_error
 		
 	def calculate_error_boundaries(self):
@@ -104,7 +104,7 @@ class GammaOptimizer:
 		sn_values = []
 		solutions = []
 		
-		print_fl(f"Computing solutions for gamma values: {gamma_array}")
+		print_fl(f"Finding elbow in the curve, selecting {self.ELBOW_BINS} bins from the left and right boundaries.")
 
 		for gamma in gamma_array:
 			solution, sn, rn = self.compute_solution(gamma)

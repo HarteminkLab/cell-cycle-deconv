@@ -50,8 +50,7 @@ class ChromatinModel:
 		from src.global_config import load_chrom_timepoints
 		self.timepoints = load_chrom_timepoints(self.config.replicate)
 
-
-	def load_mnase_span(self, chrom, mnase_span, log=True, downsample=True):
+	def load_mnase_span(self, chrom, mnase_span, log=True):
 		"""Load the MNase for an arbitrary genomic span"""
 
 		replicate = self.config.replicate
@@ -78,13 +77,12 @@ class ChromatinModel:
 		new_span = self.mnase_span
 
 		# Create the bins for the reads
-		exact_bins = create_exact_bins(locus_reads, new_span, self.timepoints)
-		normalized_bins = normalize_bins_by_len(self.replicate, exact_bins, log=log)
+		exact_bins = create_exact_bins(self.locus_reads, new_span, self.timepoints)
+		normalized_bins = normalize_bins_by_len(self.config.replicate, exact_bins, log=log)
 		self.normalized_bins = normalized_bins
 
-		if downsample:
-			downsampled_bins = self.downsample_bins(self.normalized_bins, new_span)
-			self.new_span = new_span
+		downsampled_bins = self.downsample_bins(self.normalized_bins, new_span)
+		self.new_span = new_span
 
 		exact_extent = [self.mnase_span[0], self.mnase_span[1],
 					0, GlobalConstants.MAX_Y_LEN]
@@ -93,10 +91,9 @@ class ChromatinModel:
 		self.exact_extent = exact_extent
 		self.bin_extents = exact_extent
 
-		if downsample:
-			self.deconv_hist_unflattened = downsampled_bins
-			self.image_shape = self.deconv_hist_unflattened.shape[1:]
-			self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
+		self.deconv_hist_unflattened = downsampled_bins
+		self.image_shape = self.deconv_hist_unflattened.shape[1:]
+		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
 
 	
 	def compute_bin_counts_sample(self, sample, x_bins, y_bins):
@@ -242,30 +239,6 @@ class ChromatinModel:
 		self.f_ranks = m-1 - f_rank
 
 
-	def deconvolve_find_optimal_gamma(self):
-		"""
-		Find the optimal gamma value using a binary search as defined by Xin, 2011
-		"""
-
-		from src.find_gamma_chromatin import FindOptimalGammaChromatin
-
-		timer = Timer()
-
-		# Let's stick to no spatial smoothing for now
-		self.setup_deconv_model()
-		self.setup_solver()
-		self.find_gamma_chromatin = FindOptimalGammaChromatin(self.solver)
-		self.found_optimal_success = self.find_gamma_chromatin.find_optimal(silence=False)
-		self.deconvolved_f_value = self.find_gamma_chromatin.f
-		self.gamma = self.find_gamma_chromatin.gamma
-		self.rn = self.find_gamma_chromatin.rn
-		self.sn = self.find_gamma_chromatin.sn
-
-		print_fl(f"Found optimal gamma in: {timer.get_time()}")
-		print_fl(f"Find optimal success: {self.found_optimal_success}")
-		print_fl(f"The fitting norm is {self.rn:.2f}, "
-			  f"the smoothing norm is: {self.sn:.2f}")
-
 	def create_exact_bins(self):
 		xbins = np.arange(*self.mnase_span)
 		ybins = np.arange(0, 252)
@@ -321,16 +294,13 @@ class ChromatinModel:
 		# Bins are filled up until the last one row and column, so subset
 		downscaled_bins = downscaled_bins[:, :-1, :-1]
 
-		# Mean 1 normalization
-		downscaled_bins = downscaled_bins/downscaled_bins.mean()
-
 		return downscaled_bins
 
 
 	def create_deconvolution_bins(self, log=False):
 		
 		exact_bins = self.create_exact_bins()
-		normalized_bins = normalize_bins(self.replicate, exact_bins, log=log)
+		normalized_bins = normalize_bins(self.config.replicate, exact_bins, log=log)
 		downsampled_bins = self.downsample_bins_gene(normalized_bins)
 		
 		exact_extent = [self.mnase_span[0], self.mnase_span[1],

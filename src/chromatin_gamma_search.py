@@ -47,11 +47,12 @@ class ChromatinFindOptimalGamma(object):
 		config = self.chromatin_solver.config
 		i_indices = config.get_Hpositions_for_branch('i')
 		t_indices = config.get_Hpositions_for_branch('t')
+		b_indices = config.get_Hpositions_for_branch('b')
 
 		num_examples = 5
-		num_cols = 3
+		num_cols = 4
 
-		fig, axs = plt.subplots(num_examples, num_cols, figsize=(13, 11))
+		fig, axs = plt.subplots(num_examples, num_cols, figsize=(16, 11))
 
 		gamma_sweep = self.gamma_optimizer.elbow_results_df.index
 		F_gamma_solutions = self.gamma_optimizer.elbow_solutions
@@ -63,6 +64,12 @@ class ChromatinFindOptimalGamma(object):
 
 		cmap = ListedColormap(plt.cm.viridis(np.linspace(0.2, 0.8, 256)))
 
+		# Select bins with the highest max values
+		import pandas as pd
+		G_max_df = pd.DataFrame({'max_value': G.max(axis=0), 'index': np.arange(G.shape[1])})
+		highest_Gs = G_max_df.sort_values('max_value', ascending=False).head(num_examples)
+		highest_indices = G.argmax(axis=1)
+
 		for i in range(num_examples):
 
 			ax_row = axs[i]
@@ -72,7 +79,7 @@ class ChromatinFindOptimalGamma(object):
 					ax.set_xticks([])
 					ax.set_yticks([])
 
-			f_bin_index = i
+			f_bin_index = highest_indices[i]
 
 			ax = ax_row[0]
 
@@ -110,6 +117,14 @@ class ChromatinFindOptimalGamma(object):
 					lw=3)
 			ax.set_ylim(-0.01, 0.3)
 			if i == 0: ax.set_title("Top branch")
+
+			ax = ax_row[3]
+			for j in range(F_gamma_solutions.shape[0]):
+				ax.plot(F_gamma_solutions[j, b_indices, f_bin_index].T, c=cmap(j/len(F_gamma_solutions)))
+			ax.plot(F_gamma_solutions[optimal_solution_index, b_indices, f_bin_index].T, c='red',
+					lw=3)
+			ax.set_ylim(-0.01, 0.3)
+			if i == 0: ax.set_title("Bottom branch")
 
 		return gamma_predicted_Gs
 
