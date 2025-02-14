@@ -20,7 +20,7 @@ class ChromatinDeconvolveSolver:
 	problem definition"""
 
 	def __init__(self, config, G, N, b, f_replication,
-	 	solver=cvxpy.MOSEK, wavelet="Symmlet", padding_type='both', subsample=-1):
+		solver=cvxpy.MOSEK, wavelet="Symmlet", padding_type='both', subsample=-1):
 
 		self.config = config
 		self.H = config.H
@@ -122,6 +122,86 @@ class ChromatinDeconvolveSolver:
 		return self.deconvolved_f_value
 
 
+
+def plot_branches(chromatin_model, full_deconvolved_F):
+
+	from src.orf_plotter import load_default_orf_plotter
+	from src.sgd import read_nondubious_genes_dataset
+
+	config = chromatin_model.config
+
+	chrom, mnase_span = chromatin_model.chr, chromatin_model.mnase_span
+
+	orf_plotter = load_default_orf_plotter()
+	orf_plotter.set_span_chrom(mnase_span, chrom)
+
+	i_indices = config.get_Hpositions_for_branch('i')
+	t_indices = config.get_Hpositions_for_branch('t')
+	b_indices = config.get_Hpositions_for_branch('b')
+
+	r_indices = config.get_Hpositions_for_phase('RG1')
+	c_indices = config.get_Hpositions_for_phase('CG1')
+	d_indices = config.get_Hpositions_for_phase('DG1')
+
+	full_F_imgs = full_deconvolved_F.reshape((full_deconvolved_F.shape[0], 26, -1))
+	full_F_imgs.shape
+
+	num_imgs_per_branch = 12
+
+	fig, axs = plt.subplots(num_imgs_per_branch+1, 4, figsize=(11, 7))
+	axs = np.array(axs).T
+
+	def plot_branch_imgs(row_axs, t_indices):
+
+		for plot_index, index_in_t in enumerate(np.linspace(0,
+			len(t_indices)-1, num_imgs_per_branch)):
+			image_index = t_indices[int(index_in_t)]
+
+			ax = row_axs[plot_index]
+			ax.imshow(full_F_imgs[image_index], aspect='auto', cmap='magma_r', vmax=0.1,
+					  origin='lower')
+			ax.set_xticks([])
+			ax.set_yticks([])
+			
+			
+	def plot_difference(row_axs, t_indices, b_indices):
+
+		for plot_index, index_in_t in enumerate(np.linspace(0,
+			len(t_indices)-1, num_imgs_per_branch)):
+			
+			image_index_t = t_indices[int(index_in_t)]
+			image_index_b = b_indices[int(index_in_t)]
+
+			img_diff = full_F_imgs[image_index_t]-full_F_imgs[image_index_b]
+			
+			ax = row_axs[plot_index]
+			ax.imshow(img_diff, aspect='auto', cmap='RdBu_r', vmin=-0.05, vmax=0.05,
+					  origin='lower')
+			ax.set_xticks([])
+			ax.set_yticks([])
+
+	axs[0][0].set_title("Recovery\nbranch")
+	axs[1][0].set_title("Mother\nbranch")
+	axs[2][0].set_title("Daughter\nbranch")
+
+	for ax in axs.T[0]:
+		orf_plotter.plot_orf_annotations(ax)
+
+	# Skip first row
+	img_axs = (axs.T[1:]).T
+			
+	plot_branch_imgs(img_axs[0], i_indices)
+	plot_branch_imgs(img_axs[1], t_indices)
+	plot_branch_imgs(img_axs[2], b_indices)
+
+	plot_difference(img_axs[3], t_indices, b_indices)
+
+	plt.suptitle("Deconvolved chromatin")
+	plt.subplots_adjust(top=0.9)
+
+	return fig
+
+
 def example_N_frep_b(config):
 
 	n, m = config.H.shape
@@ -131,9 +211,9 @@ def example_N_frep_b(config):
 	b = 1
 
 	chr4_n = np.array([1.00442364, 1.00347336, 0.97773201, 0.8061213 , 0.66388052,
-	       0.84322967, 0.99955218, 1.00893152, 0.97884289, 0.85742082,
-	       0.75599297, 0.76982516, 0.84182678, 0.97059662, 0.99078551,
-	       0.91119956])
+		   0.84322967, 0.99955218, 1.00893152, 0.97884289, 0.85742082,
+		   0.75599297, 0.76982516, 0.84182678, 0.97059662, 0.99078551,
+		   0.91119956])
 
 	N = np.diag(chr4_n)
 
@@ -146,3 +226,71 @@ def example_N_frep_b(config):
 	f_rep = np.ones(m)
 
 	return N, f_rep, b
+
+
+def plot_example_fits(chromatin_solver):
+
+	config = chromatin_solver.config
+	i_indices = config.get_Hpositions_for_branch('i')
+	t_indices = config.get_Hpositions_for_branch('t')
+	b_indices = config.get_Hpositions_for_branch('b')
+
+	num_examples = 5
+	num_cols = 4
+
+	fig, axs = plt.subplots(num_examples, num_cols, figsize=(23, 11))
+
+	F_gamma_solution = chromatin_solver.F
+	G = chromatin_solver.G
+
+	gamma_predicted_G = chromatin_solver.compute_predicted_G(F_gamma_solution)
+
+	# Select bins with the highest max values
+	import pandas as pd
+	G_max_df = pd.DataFrame({'max_value': G.max(axis=0), 'index': np.arange(G.shape[1])})
+	highest_Gs = G_max_df.sort_values('max_value', ascending=False).head(num_examples)['index'].values
+
+	highest_g = G_max_df.max_value.max()
+	ylims = -highest_g*0.05, highest_g*1.2
+
+	for i in range(num_examples):
+
+		ax_row = axs[i]
+
+		if i != num_examples-1:
+			for ax in ax_row:
+				ax.set_xticks([])
+				ax.set_yticks([])
+
+		f_bin_index = highest_Gs[i]
+
+		ax = ax_row[0]
+
+		ax.plot(G[:, f_bin_index], c='black', lw=3, label="Raw data")
+		ax.plot(gamma_predicted_G[:, f_bin_index].T, c='red',
+				lw=3, label="Optimal $\\gamma$ solution")
+		if i == 0: 
+			ax.set_title("Data vs Fit")
+			ax.legend()
+		ax.set_ylim(*ylims)
+
+		ax = ax_row[1]
+		ax.plot(F_gamma_solution[i_indices, f_bin_index].T, c='red',lw=3)
+		if i == 0:
+			ax.set_title("Initial branch")
+		ax.set_ylim(*ylims)
+
+		ax = ax_row[2]
+		ax.plot(F_gamma_solution[t_indices, f_bin_index].T, c='red',
+				lw=3)
+		ax.set_ylim(*ylims)
+		if i == 0: ax.set_title("Top branch")
+
+		ax = ax_row[3]
+		ax.plot(F_gamma_solution[b_indices, f_bin_index].T, c='red',
+				lw=3)
+		ax.set_ylim(*ylims)
+		if i == 0: ax.set_title("Bottom branch")
+
+	return fig
+

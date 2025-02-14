@@ -128,7 +128,8 @@ class GammaOptimizer:
 		sn_values = []
 		solutions = []
 		
-		print_fl(f"Finding elbow in the curve, selecting {self.ELBOW_BINS} bins from the left and right boundaries.")
+		if self.verbose:
+			print_fl(f"Finding elbow in the curve, selecting {self.ELBOW_BINS} bins from the left and right boundaries.")
 
 		for gamma in gamma_array:
 			solution, sn, rn = self.compute_solution(gamma)

@@ -377,3 +377,10 @@ def plot_gene_annotation(ax, start, end, y_baseline, height, color,
 
 	# plot_TSS_PAS(ax, start, end, TSS, PAS, 
 	# 			y_baseline, height, color, flipped=watson, inset=inset[1])
+
+def load_default_orf_plotter():
+	from src.sgd import read_nondubious_genes_dataset
+
+	geneset = read_nondubious_genes_dataset()
+	orf_plotter = ORFAnnotationPlotter(geneset)
+	return orf_plotter

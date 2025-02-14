@@ -766,13 +766,22 @@ def midpoints(arr):
 	return (arr[:-1] + arr[1:]) / 2
 
 
-def get_level_based_weights(N, scale=4):
-	"""Add a weighting system to coefficients, 
-	   discourage higher frequency coefficients for
-	   better smoothness quality"""
-
+def get_level_based_weights(N, scale=2):
+	
+	# Working gene expression weights
 	weights = np.ones(N)
-	weights = 2*np.arange(N)
+
+	weights = weights*2
+
+	levels = int(np.log2(N))
+
+	for level in range(levels):
+		start_index = 2**(level)
+		end_index= 2**(level+1)
+		weight = scale**(level+1)
+		weights[start_index:end_index] = weight
+	
+	# weights[N//4:] = 1024
 
 	return weights
 
@@ -797,12 +806,12 @@ def compute_branch_lengths(config1):
 	bottom_smoothing_tps_length = length_dg1+length_postg1+length_postg1
 
 	print("Length of of the padded branches:", 
-	      recovery_smoothing_tps_length,
-	      top_smoothing_tps_length, 
-	      bottom_smoothing_tps_length)
+		  recovery_smoothing_tps_length,
+		  top_smoothing_tps_length, 
+		  bottom_smoothing_tps_length)
 
 	print("1/Proportion of the daughter branch (longest):", 
-	      bottom_smoothing_tps_length/recovery_smoothing_tps_length,
-	      bottom_smoothing_tps_length/top_smoothing_tps_length, 
-	      bottom_smoothing_tps_length/bottom_smoothing_tps_length)
+		  bottom_smoothing_tps_length/recovery_smoothing_tps_length,
+		  bottom_smoothing_tps_length/top_smoothing_tps_length, 
+		  bottom_smoothing_tps_length/bottom_smoothing_tps_length)
 

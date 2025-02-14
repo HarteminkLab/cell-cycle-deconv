@@ -149,7 +149,7 @@ class ChromatinModel:
 		nuc_lens = 120, 200
 
 		cur_nuc_reads = cur_reads[(cur_reads['length'] >= nuc_lens[0]) & 
-							      (cur_reads['length'] < nuc_lens[1]) & 
+								  (cur_reads['length'] < nuc_lens[1]) & 
 								  (cur_reads['mid'] >= search_peak_span[0]) &
 								  (cur_reads['mid'] < search_peak_span[1])]
 
@@ -586,26 +586,6 @@ class ChromatinModel:
 		return df
 
 
-	def plot_orf_annotation(self, ax1):
-		from src.orf_plotter import ORFAnnotationPlotter, plot_rect
-
-		gene = self.gene
-		gene_window = self.bin_extents[0],\
-		    self.bin_extents[1]
-
-		geneset = get_deconvolved_geneset()
-		orf_plotter = ORFAnnotationPlotter(geneset)
-		orf_plotter.set_span_chrom(gene_window, gene.chr)
-		orf_plotter.plot_orf_annotations(ax1)
-
-		if gene.strand == '-':
-			ax1.set_xlim(gene_window[1], gene_window[0])
-		else:
-			ax1.set_xlim(*gene_window)
-
-		ax1.set_ylim(-120, 120)
-
-
 	def save_deconvolved_outputs(self, out_dir, index, using_default_flag):
 
 		orf_name = self.gene.name
@@ -792,9 +772,9 @@ def normalize_bins_by_len(replicate, exact_bins, log=True, scaling_mat=None):
 	# todo: examine larger windows and determine if this read depth is logical
 	#
 	def normalize_to_depth(G, target_depth=0.005):
-	    total_bp_area = G.shape[1] * G.shape[2]
-	    scale = (target_depth * total_bp_area)
-	    return G / G.sum(axis=(1, 2))[:, None, None] * scale
+		total_bp_area = G.shape[1] * G.shape[2]
+		scale = (target_depth * total_bp_area)
+		return G / G.sum(axis=(1, 2))[:, None, None] * scale
 
 	normalized_exact_bins = normalize_to_depth(exact_bins)
 
@@ -810,37 +790,54 @@ def normalize_bins_by_len(replicate, exact_bins, log=True, scaling_mat=None):
 
 
 
-def plot_prediction(config, N, F, F_replicate, G, b):
+def plot_prediction(chromatin_model, N, F, F_replicate, b):
+
+	config = chromatin_model.config
+	G = chromatin_model.G
 	predicted_G = config.H@F
 	predicted_G_imgs = predicted_G.reshape((predicted_G.shape[0], 26, -1))
 	G_imgs = G.reshape((G.shape[0], 26, -1))
 	timepoints = config.timepoints
 
-	num_rows = len(timepoints)
+	num_rows = len(timepoints)+1
 	num_cols = 3
 
-	fig = plt.figure(figsize=(5, 13))
-	for i in range(num_rows):
+	fig, axs_rows = plt.subplots(num_rows, num_cols, figsize=(13, 13))
 
-	    plt.subplot(num_rows, num_cols, num_cols*i+1)
-	    plt.imshow(predicted_G_imgs[i], origin='lower', aspect='auto', vmin=0, vmax=0.2,
-	              cmap='magma_r')
-	    plt.xticks([])
-	    plt.yticks([])
-	    plt.ylabel(f"{timepoints[i]}'")
-	    
-	    plt.subplot(num_rows, num_cols, num_cols*i+2)
-	    plt.imshow(G_imgs[i], origin='lower', aspect='auto', vmin=0, vmax=0.2,
-	              cmap='magma_r')
-	    plt.xticks([])
-	    plt.yticks([])
+	from src.orf_plotter import load_default_orf_plotter
+	from src.sgd import read_nondubious_genes_dataset
 
-	    plt.subplot(num_rows, num_cols, num_cols*i+3)
-	    plt.imshow(G_imgs[i]-predicted_G_imgs[i], origin='lower', aspect='auto',
-	              cmap='RdBu_r', vmin=-0.1, vmax=0.1)
-	    plt.xticks([])
-	    plt.yticks([])
+	chrom, mnase_span = chromatin_model.chr, chromatin_model.mnase_span
+
+	orf_plotter = load_default_orf_plotter()
+	orf_plotter.set_span_chrom(mnase_span, chrom)
+
+	for ax in axs_rows[0]:
+		orf_plotter.plot_orf_annotations(ax)
+
+	for i in range(1, num_rows):
+
+		ax_row = axs_rows[i]
+		ax = ax_row[0]
+		ax.imshow(predicted_G_imgs[i-1], origin='lower', aspect='auto', vmin=0, vmax=0.2,
+				  cmap='magma_r')
+		ax.set_xticks([])
+		ax.set_yticks([])
+		ax.set_ylabel(f"{timepoints[i-1]}'")
+		
+		ax = ax_row[1]
+		ax.imshow(G_imgs[i-1], origin='lower', aspect='auto', vmin=0, vmax=0.2,
+				  cmap='magma_r')
+		ax.set_xticks([])
+		ax.set_yticks([])
+
+		ax = ax_row[2]
+		ax.imshow(G_imgs[i-1]-predicted_G_imgs[i-1], origin='lower', aspect='auto',
+				  cmap='RdBu_r', vmin=-0.1, vmax=0.1)
+		ax.set_xticks([])
+		ax.set_yticks([])
 
 	plt.suptitle("Predicted vs Raw data bins")
 	plt.subplots_adjust(top=0.95)
 
+	return fig

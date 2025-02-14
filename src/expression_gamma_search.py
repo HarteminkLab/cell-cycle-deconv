@@ -8,7 +8,7 @@ from src.chromatin_deconvolution_solver import ChromatinDeconvolveSolver
 class GeneExpressionFindOptimalGamma(object):
 	"""Wrapper to find optimal gamma for a window of gene expression reads"""
 
-	def __init__(self, config, gene_expression, gamma_min=1e-6, gamma_max=1e-5, verbose=True):
+	def __init__(self, config, gene_expression, gamma_min=0.001, gamma_max=0.1, verbose=True):
 
 		from src.deconvolution_solver import DeconvolutionSolver
 
@@ -36,10 +36,15 @@ class GeneExpressionFindOptimalGamma(object):
 		self.deconvolution_solver = deconvolution_solver
 		self.gamma_optimizer = gamma_optimizer
 
-	def find_optimal_gamma(self):
+	def find_optimal_gamma(self, plot=True, verbose=True, kappa=None):
 
 		from src.timer import Timer
 		timer = Timer()
+
+		if kappa is not None:
+			self.deconvolution_solver.kappa = kappa
+
+		self.gamma_optimizer.verbose = verbose
 		self.gamma_optimizer.calculate_base_error()
 
 		# todo: finding the left and right gamma limits using 
@@ -54,8 +59,17 @@ class GeneExpressionFindOptimalGamma(object):
 		# self.gamma_optimizer.gamma_right = self.gamma_optimizer.gamma_max
 
 		self.gamma_optimizer.find_elbow()
-		self.gamma_optimizer.plot_elbow()
-		timer.print_time("Completed.")
+
+		if plot:
+			self.gamma_optimizer.plot_elbow()
+
+		if verbose:
+			timer.print_time("Completed.")
+
+	def retrieve_solution(self):
+		optimal_solution_index = int(self.gamma_optimizer.elbow_results_df.loc[self.gamma_optimizer.optimal_gamma].solution_index)
+		self.optimal_F = self.gamma_optimizer.elbow_solutions[optimal_solution_index]
+		return self.optimal_F
 
 	def plot_gamma_sweep(self):
 
@@ -75,7 +89,7 @@ class GeneExpressionFindOptimalGamma(object):
 		f_gamma_solutions = self.gamma_optimizer.elbow_solutions
 		g = self.deconvolution_solver.g
 
-		ylims=(0, 13)
+		ylims=(0, g.max()*1.3)
 
 		deconvolution_solver = self.deconvolution_solver
 

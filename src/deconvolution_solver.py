@@ -6,7 +6,7 @@ from src.helpers import get_wavelet_kernel
 class DeconvolutionSolver(object):
 
 	def __init__(self, config, g, H, gamma, N=None, f_replication=None,
-		b=None, padding_type='both', obj_error_mode='additive'):
+		b=None, padding_type='both', obj_error_mode='additive', kappa=5e-3):
 
 		n, m = H.shape
 
@@ -26,6 +26,7 @@ class DeconvolutionSolver(object):
 		self.N = N
 		self.f_replication = f_replication
 		self.b = b
+		self.kappa = kappa
 
 		self.gamma = gamma
 		self.padding_type = padding_type
@@ -200,17 +201,29 @@ class DeconvolutionSolver(object):
 		smooth_f_t_result = cp.multiply(W_itb@f_padded[f_top_padded_indices], coefficient_weights_itb)
 		smooth_f_b_result = cp.multiply(W_itb@f_padded[f_bottom_padded_indices], coefficient_weights_itb)
 
+		# Regularize top and bottom disimilarity
+		tb_regularization_result = f_padded[f_bottom_padded_indices] - f_padded[f_top_padded_indices]
+
+		kappa = self.kappa
+
 		objective = cp.Minimize(
 
 			# L2 fitting norm
 			cp.square(cp.norm(elementwise_result, 2)) + 
 
 			# Smooth each branch separately
-		    # Balance the lengths of the branches, RG1 is twice as long as 
-		    # DG1, CG1 is 20% longer than DG1
-			+ self.gamma * cp.sum(cp.abs(smooth_f_i_result)) * 2
+			# Balance the lengths of the branches, RG1 is twice as long as 
+			# DG1, CG1 is 20% longer than DG1
+			+ self.gamma * cp.sum(cp.abs(smooth_f_i_result)) * 1.5
 			+ self.gamma * cp.sum(cp.abs(smooth_f_t_result)) * 1.2
-			+ self.gamma * cp.sum(cp.abs(smooth_f_b_result)) 
+			+ self.gamma * cp.sum(cp.abs(smooth_f_b_result)) * 1
+
+			+ kappa * cp.square(cp.norm(tb_regularization_result, 2))
+
+			# Working weights for gene expression
+			# + self.gamma * cp.sum(cp.abs(smooth_f_i_result)) * 2
+			# + self.gamma * cp.sum(cp.abs(smooth_f_t_result)) * 1.2
+			# + self.gamma * cp.sum(cp.abs(smooth_f_b_result)) 
 		)
 
 		# Constraint for halted cells
@@ -309,8 +322,8 @@ def compute_branch_lengths(config1):
 	length_rg1, length_cg1, length_dg1, length_postg1
 
 	recovery_smoothing_tps_length = length_rg1+length_postg1
-	top_smoothing_tps_length = length_cg1+length_postg1+length_postg1
-	bottom_smoothing_tps_length = length_dg1+length_postg1+length_postg1
+	top_smoothing_tps_length = length_cg1+length_postg1
+	bottom_smoothing_tps_length = length_dg1+length_postg1
 
 	print("Length of of the padded branches:", 
 		  recovery_smoothing_tps_length,

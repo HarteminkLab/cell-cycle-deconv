@@ -69,7 +69,12 @@ class ChromatinFindOptimalGamma(object):
 		G_max_df = pd.DataFrame({'max_value': G.max(axis=0), 'index': np.arange(G.shape[1])})
 		highest_Gs = G_max_df.sort_values('max_value', ascending=False).head(num_examples)['index'].values
 
+		highest_g = G_max_df.max_value.max()
+		ylims = -highest_g*0.05, highest_g*1.5
+
 		for i in range(num_examples):
+
+			if i >= len(highest_Gs): break
 
 			ax_row = axs[i]
 
@@ -94,10 +99,9 @@ class ChromatinFindOptimalGamma(object):
 			ax.plot(gamma_predicted_Gs[optimal_solution_index, :, f_bin_index].T, c='red',
 					lw=3, label="Optimal $\\gamma$ solution")
 			if i == 0: 
-				ax.set_ylim(-0.01, 0.3)
 				ax.set_title("Data vs Fit")
 				ax.legend()
-			ax.set_ylim(-0.01, 0.3)
+			ax.set_ylim(*ylims)
 
 			ax = ax_row[1]
 			for j in range(F_gamma_solutions.shape[0]):
@@ -107,14 +111,14 @@ class ChromatinFindOptimalGamma(object):
 					lw=3)
 			if i == 0:
 				ax.set_title("Initial branch")
-			ax.set_ylim(-0.01, 0.3)
+			ax.set_ylim(*ylims)
 
 			ax = ax_row[2]
 			for j in range(F_gamma_solutions.shape[0]):
 				ax.plot(F_gamma_solutions[j, t_indices, f_bin_index].T, c=cmap(j/len(F_gamma_solutions)))
 			ax.plot(F_gamma_solutions[optimal_solution_index, t_indices, f_bin_index].T, c='red',
 					lw=3)
-			ax.set_ylim(-0.01, 0.3)
+			ax.set_ylim(*ylims)
 			if i == 0: ax.set_title("Top branch")
 
 			ax = ax_row[3]
@@ -122,7 +126,7 @@ class ChromatinFindOptimalGamma(object):
 				ax.plot(F_gamma_solutions[j, b_indices, f_bin_index].T, c=cmap(j/len(F_gamma_solutions)))
 			ax.plot(F_gamma_solutions[optimal_solution_index, b_indices, f_bin_index].T, c='red',
 					lw=3)
-			ax.set_ylim(-0.01, 0.3)
+			ax.set_ylim(*ylims)
 			if i == 0: ax.set_title("Bottom branch")
 
 		return gamma_predicted_Gs

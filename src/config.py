@@ -6,8 +6,8 @@ import pandas as pd
 # Number of positions in H devoted to each cell cycle phase
 # G1+PostG1 equals a power of 2 (64)
 # Add 1 because the timepoints are inclusive (?)
-G1_NUM_TPS = 22
-POSTG1_NUM_TPS = 42
+G1_NUM_TPS = 42
+POSTG1_NUM_TPS = 22
 
 
 class RG1Model(object):
