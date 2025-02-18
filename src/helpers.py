@@ -189,13 +189,6 @@ def createF(Hpos, phaseMap):
 
 def get_wavelet_kernel(N, type="Symmlet", par=8):
 	wavelet_kernel = WavMat(MakeONFilter(type, par), N)
-
-	# Create weighting matrix
-	# weights = np.ones(N)
-
-	# D = np.diag(weights)
-
-	# return wavelet_kernel, D
 	return wavelet_kernel
 
 
@@ -767,12 +760,11 @@ def midpoints(arr):
 
 
 def get_level_based_weights(N, scale=2):
+	"""Weight the coefficients by the level of of the wavelet. This
+	discourages high-frequency coefficients. Exponentially increasing
+	weighting based on coefficient level."""
 	
-	# Working gene expression weights
 	weights = np.ones(N)
-
-	weights = weights*2
-
 	levels = int(np.log2(N))
 
 	for level in range(levels):
@@ -781,8 +773,6 @@ def get_level_based_weights(N, scale=2):
 		weight = scale**(level+1)
 		weights[start_index:end_index] = weight
 	
-	# weights[N//4:] = 1024
-
 	return weights
 
 

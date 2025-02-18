@@ -149,9 +149,17 @@ class ORFAnnotationPlotter:
 
 		span = self.span
 		chrom = self.chrom
+
+		# Find genes within this span, pad to handle TSS and PASs
 		genes = orfs[(orfs['chr'] == int(chrom)) & 
-						  (orfs['stop'] > span[0]) & 
-						  (orfs['start'] < span[1]) & 
+
+						  # Either end is within this window:
+						  (((orfs['TSS'] > span[0]) & 
+						   (orfs['TSS'] < span[1])) |
+
+						  ((orfs['PAS'] > span[0]) & 
+						   (orfs['PAS'] < span[1]))) &
+
 						  (orfs.classification.isin(orf_classes))]
 
 		try:

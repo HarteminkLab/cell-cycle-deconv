@@ -102,12 +102,49 @@ class RealDataReplicationDeconvolution():
 		self.rn = result.iterative_update_rns[-1]
 		self.B = result.Bs[-1]
 
-		return result
+		self.F_df = pd.DataFrame(self.F, columns=self.masked_G_df.columns,
+		    index=range(self.F.shape[0]))
+		self.b_df = pd.DataFrame(np.diag(self.B), index=self.masked_G_df.columns,
+		                   columns=['b']).T
 
 	def compute_rn(self):
 		N, H, F, B = self.N, self.H, self.F, self.B
 		G = self.G
 		return compute_rn(N, H, F, B, G)
+
+
+	def save_to_disk(self, out_directory):
+		"""Save the deconvolved replication profiles to disk"""
+		from src.utils import mkdirs_safe
+
+		self.save_dir = out_directory
+
+		mkdirs_safe([out_directory])
+
+		N_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_N.npy'
+		B_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_B.csv'
+		F_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_F.csv'
+		H_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_H.npy'
+
+		parameters_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_parameters.csv'
+		fig_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}.png'
+
+		np.save(N_save_path, self.N)
+		np.save(H_save_path, self.config.H)
+		self.F_df.to_csv(F_save_path)
+		self.b_df.to_csv(B_save_path)
+		pd.DataFrame(self.config.params_dic, index=[0]).to_csv(parameters_save_path)
+
+		fig = self.plot_heatmaps()
+		plt.savefig(fig_path, dpi=200)
+		plt.close(fig)
+
+		print_fl(f"Saved to: {N_save_path}")
+		print_fl(f"Saved to: {B_save_path}")
+		print_fl(f"Saved to: {H_save_path}")
+		print_fl(f"Saved to: {F_save_path}")
+		print_fl(f"Saved to: {parameters_save_path}")
+		print_fl(f"Saved to: {fig_path}")
 
 
 	def update_N_B(self, N, H, G, B, F):
@@ -134,6 +171,7 @@ class RealDataReplicationDeconvolution():
 			full_column_names=self.G_df.columns)
 		plt.suptitle(f"Replication {self.replicate}"
 			f" deconvolution,\nChromosome {self.chrom}")
+
 		return fig
 
 	def plot_B(self):
@@ -496,22 +534,36 @@ def compute_N(config, plot=False):
 def read_n_fr_b(chrom, deconv_span):
 	from src.mnase_10kb_loader import get_bin_for_position
 
-	N = np.load('data/copy_correction/N_combined.npy')
-	B_df = pd.read_csv(f'data/copy_correction/B_chr{chrom}_combined.csv').set_index('start')
-	Fr_df = pd.read_csv(f'data/copy_correction/F_chr{chrom}_combined.csv')
-	B_df.columns = B_df.columns.astype(int)
+	# Trial replication profile from 2/17/25 run
+
+	print_fl(f"Loading trial replication profile, 2/17/25")
+
+	replicate = 1
+
+	directory = 'output/replication_profiles_trial'
+
+	N = np.load(f'{directory}/rep{replicate}_chr{chrom}_N.npy')
+	Fr_df = pd.read_csv(f'{directory}/rep{replicate}_chr{chrom}_F.csv')
+	B_df = pd.read_csv(f'{directory}/rep{replicate}_chr{chrom}_B.csv')
+
+	# Fix the column names
+	Fr_df = Fr_df[Fr_df.columns[1:]]
 	Fr_df.columns = Fr_df.columns.astype(int)
 
-	start_indices = B_df.index
+	B_df = B_df[B_df.columns[1:]]
+	B_df.columns = B_df.columns.astype(int)
+	B_df = B_df.T
+
+	start_indices = Fr_df.columns
 
 	mid_span = (deconv_span[0]+deconv_span[1])/2
+
 	bin_idx, start = get_bin_for_position(mid_span, start_indices)
 
-	# Load the b and f_replication for the span to be deconvolved.
-	b = B_df.loc[start].loc[start]
-	fr = Fr_df[start]
+	fr = Fr_df[start].values
+	b = B_df.loc[start].values[0]
 
-	return N, fr, b
+	return start, N, fr, b
 
 
 def read_no_copy_correction_n_fr_b(H):

@@ -338,8 +338,9 @@ class RG1Model(object):
 			color = color_for_key(phase)
 			mass = H[:, cols].sum(axis=1)
 
-			if phase in ['CG1', 'DG1']:
-				mass = mass/2.
+			if self.config_type == 'shared':
+				if phase in ['CG1', 'DG1']:
+					mass = mass/2.
 
 			y = prev+mass
 

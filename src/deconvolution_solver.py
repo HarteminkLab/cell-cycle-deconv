@@ -195,35 +195,32 @@ class DeconvolutionSolver(object):
 		# Add weight to higher frequency coefficients, to discourage jaggedness
 		coefficient_weights_itb = get_level_based_weights(len(f_recovery_padded_indices))
 
+
 		# Let's use the longer coefficients weights, to enforce smoothing that is consistent between
 		# the two different subsets
 		smooth_f_i_result = cp.multiply(W_itb@f_padded[f_recovery_padded_indices], coefficient_weights_itb)
 		smooth_f_t_result = cp.multiply(W_itb@f_padded[f_top_padded_indices], coefficient_weights_itb)
 		smooth_f_b_result = cp.multiply(W_itb@f_padded[f_bottom_padded_indices], coefficient_weights_itb)
 
+		fit_norm_result = cp.square(cp.norm(elementwise_result, 2))
+
+		# Smooth each branch separately
+		# Balance the lengths of the branches, RG1 is 50% shorter than
+		# DG1, CG1 is 20% shorter than DG1 in time
+		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 1.5 +
+						 cp.sum(cp.abs(smooth_f_t_result)) * 1.2 +
+						 cp.sum(cp.abs(smooth_f_b_result)) * 1)
+
 		# Regularize top and bottom disimilarity
 		tb_regularization_result = f_padded[f_bottom_padded_indices] - f_padded[f_top_padded_indices]
-
-		kappa = self.kappa
+		cg1_dg1_regularization_result = cp.square(cp.norm(tb_regularization_result, 2))
 
 		objective = cp.Minimize(
 
 			# L2 fitting norm
-			cp.square(cp.norm(elementwise_result, 2)) + 
-
-			# Smooth each branch separately
-			# Balance the lengths of the branches, RG1 is twice as long as 
-			# DG1, CG1 is 20% longer than DG1
-			+ self.gamma * cp.sum(cp.abs(smooth_f_i_result)) * 1.5
-			+ self.gamma * cp.sum(cp.abs(smooth_f_t_result)) * 1.2
-			+ self.gamma * cp.sum(cp.abs(smooth_f_b_result)) * 1
-
-			+ kappa * cp.square(cp.norm(tb_regularization_result, 2))
-
-			# Working weights for gene expression
-			# + self.gamma * cp.sum(cp.abs(smooth_f_i_result)) * 2
-			# + self.gamma * cp.sum(cp.abs(smooth_f_t_result)) * 1.2
-			# + self.gamma * cp.sum(cp.abs(smooth_f_b_result)) 
+			fit_norm_result + 
+			self.gamma * smooth_result +
+			self.kappa * cg1_dg1_regularization_result
 		)
 
 		# Constraint for halted cells
@@ -245,12 +242,9 @@ class DeconvolutionSolver(object):
 		self.f_top_padded_indices = f_top_padded_indices
 		self.f_bottom_padded_indices = f_bottom_padded_indices
 
-		sn = (cp.mean(cp.abs(smooth_f_i_result)).value + cp.mean(cp.abs(smooth_f_t_result)).value +
-			  cp.mean(cp.abs(smooth_f_b_result)).value)
-		rn = cp.square(cp.norm(elementwise_result)).value
-
-		self.rn = rn
-		self.sn = sn
+		self.tb_regularization_result = cg1_dg1_regularization_result.value
+		self.sn = smooth_result.value
+		self.rn = fit_norm_result.value
 		self.f = f
 
 	def plot_fit(self):

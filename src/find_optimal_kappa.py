@@ -14,7 +14,12 @@ RIBOSOMAL_GENES = ['RPL1A','RPL1B','RPL2A','RPL2B','RPL3','RPL4A','RPL4B',
 
 
 DSE_GENES = ['DSE1', 'DSE2', 'DSE3', 'DSE4']
-CONTROL_GENES = ['CLB2', 'CLN2', 'MCM6', 'CDC45'] # RIBOSOMAL_GENES[0:4]
+
+# Working control genes
+#CONTROL_GENES = ['CLB2', 'CLN2', 'MCM6', 'CDC45']
+
+# todo: testing adding ribosomal genes
+CONTROL_GENES = ['CLB2', 'CLN2', 'MCM6', 'CDC45'] + RIBOSOMAL_GENES[0:4]
 
 
 def load_gene_expression(gene_name):
@@ -135,6 +140,9 @@ class FindKappaExpression(object):
 		self.avg_dse_ratio = avg_dse_ratio
 		self.avg_control_ratio = avg_control_ratio
 
+		self.l2_tb_eps = 1
+		self.snr_l2 = (self.avg_dse_ratio.l2_tb+self.l2_tb_eps)/(self.avg_control_ratio.l2_tb+self.l2_tb_eps)
+
 	def plot_l2_tb(self):
 
 		plt.figure(figsize=(8, 3))
@@ -152,7 +160,7 @@ class FindKappaExpression(object):
 		eps = 1
 		plt.plot((self.avg_dse_ratio.l2_tb+eps)/(self.avg_control_ratio.l2_tb+eps), label="Ratio (D/C)")
 		xs = self.avg_dse_ratio.index.values
-		plt.scatter(xs, (self.avg_dse_ratio.l2_tb+eps)/(self.avg_control_ratio.l2_tb+eps))
+		plt.scatter(xs, self.snr_l2)
 		plt.xlabel("Kappa, regularization")
 		plt.title(f"Ratio of daughter vs control L2\n(pseudo-count={eps})")
 		plt.legend()
@@ -172,10 +180,20 @@ class FindKappaExpression(object):
 		t_indices = self.config.get_Hpositions_for_branch('t')
 		b_indices = self.config.get_Hpositions_for_branch('b')
 
-		plt.plot(t_tps, dat_df.loc[kappa, t_indices].loc[DSE_GENES].T, c='red')
-		plt.plot(b_tps, dat_df.loc[kappa, b_indices].loc[DSE_GENES].T, c='blue')
+
+		reds = plt.cm.Reds
+		blues = plt.cm.Blues
+
+		for gene_idx in range(len(DSE_GENES)):
+
+			gene_name = DSE_GENES[gene_idx]
+			color_prop = gene_idx/len(DSE_GENES)
+			plt.plot(t_tps, dat_df.loc[kappa, t_indices].loc[gene_name].T, c=reds(color_prop), label=gene_name)
+			plt.plot(b_tps, dat_df.loc[kappa, b_indices].loc[gene_name].T, c=blues(color_prop))
+
 		plt.title("Daughter-specific genes")
 		plt.ylim(0, 20)
+		plt.legend()
 
 		plt.subplot(1, 2, 2)
 		plt.plot(t_tps, dat_df.loc[kappa, t_indices].loc[CONTROL_GENES].T, c='red', 

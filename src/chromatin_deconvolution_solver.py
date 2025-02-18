@@ -57,7 +57,8 @@ class ChromatinDeconvolveSolver:
 		return predicted_G
 
 
-	def deconvolve_G_iteratively(self, gamma, verbose=False, verbose_progress=True):
+	def deconvolve_G_iteratively(self, gamma, verbose=False, verbose_progress=True,
+		kappa=1e-4):
 		"""Iteratively deconvolve columns of G, appears to be more accurate
 		as the optimization can strictly treat each problem independently"""
 
@@ -71,6 +72,7 @@ class ChromatinDeconvolveSolver:
 		running_sn = 0
 		running_rn = 0
 		self.gamma = gamma
+		self.kappa = kappa
 
 		eps_cutoff = 1e-3
 
@@ -89,15 +91,16 @@ class ChromatinDeconvolveSolver:
 
 				deconvolution_solver = DeconvolutionSolver(self.config, current_g, 
 					self.H, gamma=gamma, padding_type=self.padding_type,
-					N=self.N, f_replication=self.f_replication, b=self.b)
+					N=self.N, f_replication=self.f_replication, b=self.b,
+					kappa=kappa)
 
-				try:
-					deconvolution_solver.deconvolve()
-					current_f = deconvolution_solver.f
-					current_sn = deconvolution_solver.sn
-					current_rn = deconvolution_solver.rn
-				except cvxpy.error.SolverError:
-					continue
+				# try:
+				deconvolution_solver.deconvolve()
+				current_f = deconvolution_solver.f
+				current_sn = deconvolution_solver.sn
+				current_rn = deconvolution_solver.rn
+				# except cvxpy.error.SolverError:
+				# 	continue
 
 				deconvolved_f_value[:, i] = current_f
 
@@ -148,7 +151,7 @@ def plot_branches(chromatin_model, full_deconvolved_F):
 
 	num_imgs_per_branch = 12
 
-	fig, axs = plt.subplots(num_imgs_per_branch+1, 4, figsize=(11, 7))
+	fig, axs = plt.subplots(num_imgs_per_branch+1, 4, figsize=(5, 7))
 	axs = np.array(axs).T
 
 	def plot_branch_imgs(row_axs, t_indices):
@@ -158,7 +161,7 @@ def plot_branches(chromatin_model, full_deconvolved_F):
 			image_index = t_indices[int(index_in_t)]
 
 			ax = row_axs[plot_index]
-			ax.imshow(full_F_imgs[image_index], aspect='auto', cmap='magma_r', vmax=0.1,
+			ax.imshow(full_F_imgs[image_index], aspect='auto', cmap='magma_r', vmax=50,
 					  origin='lower')
 			ax.set_xticks([])
 			ax.set_yticks([])
@@ -166,16 +169,17 @@ def plot_branches(chromatin_model, full_deconvolved_F):
 			
 	def plot_difference(row_axs, t_indices, b_indices):
 
+		eps = 2
 		for plot_index, index_in_t in enumerate(np.linspace(0,
 			len(t_indices)-1, num_imgs_per_branch)):
 			
 			image_index_t = t_indices[int(index_in_t)]
 			image_index_b = b_indices[int(index_in_t)]
 
-			img_diff = full_F_imgs[image_index_t]-full_F_imgs[image_index_b]
+			img_diff = np.log2((full_F_imgs[image_index_b]+eps)/(full_F_imgs[image_index_t]+eps))
 			
 			ax = row_axs[plot_index]
-			ax.imshow(img_diff, aspect='auto', cmap='RdBu_r', vmin=-0.05, vmax=0.05,
+			ax.imshow(img_diff, aspect='auto', cmap='RdBu_r', vmin=-5, vmax=5,
 					  origin='lower')
 			ax.set_xticks([])
 			ax.set_yticks([])
@@ -202,27 +206,53 @@ def plot_branches(chromatin_model, full_deconvolved_F):
 	return fig
 
 
-def example_N_frep_b(config):
+def subset_select_highest_G_indices(G, num_examples=5):
+    G_max_df = pd.DataFrame({'max_value': G.max(axis=0), 
+        'index': np.arange(G.shape[1])})
+    highest_Gs = G_max_df.sort_values('max_value', 
+        ascending=False).head(num_examples)['index'].values
+    G_values = G[:, highest_Gs].copy()
+    return G_values, highest_Gs
+
+
+def dummy_N_frep_b(config):
+	"""Example N, f-replication and b for testing, serves as a stand-in for 
+	copy correction specifications. Will be replaced by actual replication timing
+	profile."""
 
 	n, m = config.H.shape
 
-	padding_type = 'both'
-
 	b = 1
 
+	# Example normalization term from chromosome 4
 	chr4_n = np.array([1.00442364, 1.00347336, 0.97773201, 0.8061213 , 0.66388052,
 		   0.84322967, 0.99955218, 1.00893152, 0.97884289, 0.85742082,
 		   0.75599297, 0.76982516, 0.84182678, 0.97059662, 0.99078551,
 		   0.91119956])
 
-	N = np.diag(chr4_n)
+	s_indices = config.get_Hpositions_for_phase('S')
+	repl_idx = s_indices[len(s_indices)//2]
 
-	# f_rep = np.array([1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
-	#        1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
-	#        1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
-	#        1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1., 1.,
-	#        1., 1., 1., 1., 1., 1., 2., 2., 2., 2., 2., 2., 2., 2., 2., 2., 2.,
-	#        2., 1.])
+	N = np.diag(chr4_n)
+	f_rep = np.ones(m)
+	f_rep[repl_idx:-1] =  2
+
+	return N, f_rep, b
+
+
+def dummy_no_copy_correction_N_frep_b(config):
+	"""Example N, f-replication and b for testing, serves as a stand-in for 
+	copy correction specifications. Will be replaced by actual replication timing
+	profile."""
+
+	n, m = config.H.shape
+
+	b = 1
+
+	# Example normalization term from chromosome 4
+	n_diag = np.ones(n)
+
+	N = np.diag(n_diag)
 	f_rep = np.ones(m)
 
 	return N, f_rep, b

@@ -8,7 +8,7 @@ from src.chromatin_deconvolution_solver import ChromatinDeconvolveSolver
 class ChromatinFindOptimalGamma(object):
 	"""Wrapper to find optimal gamma for a window of chromatin reads"""
 
-	def __init__(self, chromatin_solver, gamma_min=1e-6, gamma_max=1e-5, verbose=True):
+	def __init__(self, chromatin_solver, gamma_min=1e-6, gamma_max=1e-5, verbose=True, kappa=None):
 
 		# Refactoring of the find optimal gamma code
 		from src.find_gamma_refactor import GammaOptimizer
@@ -17,7 +17,8 @@ class ChromatinFindOptimalGamma(object):
 			"""Function to compute the solution, rn, and sn for the optimizer"""
 			F = chromatin_solver.deconvolve_G_iteratively(gamma=gamma_value,
 														 verbose=False,
-														 verbose_progress=False)
+														 verbose_progress=False,
+														 kappa=kappa)
 			rn = chromatin_solver.rn
 			sn = chromatin_solver.sn
 			return F, sn, rn

@@ -65,7 +65,6 @@ class MNase10kbLoader:
 		self.all_counts_unnormalized_df.columns = timepoints
 
 		# Normalize to equal samples
-
 		unnormalized_total_occupancy = self.all_counts_unnormalized_df
 		normalized_total_occ = unnormalized_total_occupancy / \
 			unnormalized_total_occupancy.mean(axis=0).values.reshape((1, -1))

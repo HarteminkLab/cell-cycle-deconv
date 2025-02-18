@@ -766,22 +766,14 @@ def normalize_bins_by_len(replicate, exact_bins, log=True, scaling_mat=None):
 		from src.preprocessing import load_scaling_mat
 		scaling_mat = load_scaling_mat(replicate)
 
-	# Normalize to a consistent read depth, this ensures that any window
-	# of any size will have the same read depth per basepair
-	#
-	# todo: examine larger windows and determine if this read depth is logical
-	#
-	def normalize_to_depth(G, target_depth=0.005):
-		total_bp_area = G.shape[1] * G.shape[2]
-		scale = (target_depth * total_bp_area)
-		return G / G.sum(axis=(1, 2))[:, None, None] * scale
-
-	normalized_exact_bins = normalize_to_depth(exact_bins)
+	normalized_exact_bins = exact_bins
 
 	# Normalization that matches
 	# the length distribution across all timepoints and replicates
 	if log: print_fl("Applying a normalization for length distribution")
 
+	# Normalize using the scaling matrix which is a (fragment length x timepoints)
+	# large
 	scaling_T = scaling_mat.T
 	scaling_T = scaling_T.values.reshape((scaling_T.shape[0], scaling_T.shape[1], 1))
 	normalized_bins = normalized_exact_bins * scaling_T
@@ -789,6 +781,43 @@ def normalize_bins_by_len(replicate, exact_bins, log=True, scaling_mat=None):
 	return normalized_bins
 
 
+
+def plot_raw(chromatin_model):
+
+	config = chromatin_model.config
+	G = chromatin_model.G
+	G_imgs = G.reshape((G.shape[0], 26, -1))
+	timepoints = config.timepoints
+
+	num_rows = len(timepoints)+1
+	num_cols = 1
+
+	fig, axs = plt.subplots(num_rows, num_cols, figsize=(2, 7))
+
+	from src.orf_plotter import load_default_orf_plotter
+	from src.sgd import read_nondubious_genes_dataset
+
+	chrom, mnase_span = chromatin_model.chr, chromatin_model.mnase_span
+
+	orf_plotter = load_default_orf_plotter()
+	orf_plotter.set_span_chrom(mnase_span, chrom)
+
+	orf_plotter.plot_orf_annotations(axs[0])
+
+	for i in range(1, num_rows):
+
+		ax = axs[i]
+
+		ax.imshow(G_imgs[i-1], origin='lower', aspect='auto', vmin=0, vmax=0.2,
+				  cmap='magma_r')
+		ax.set_xticks([])
+		ax.set_yticks([])
+
+
+	plt.suptitle("Predicted vs Raw data bins")
+	plt.subplots_adjust(top=0.95)
+
+	return fig
 
 def plot_prediction(chromatin_model, N, F, F_replicate, b):
 
@@ -819,21 +848,21 @@ def plot_prediction(chromatin_model, N, F, F_replicate, b):
 
 		ax_row = axs_rows[i]
 		ax = ax_row[0]
-		ax.imshow(predicted_G_imgs[i-1], origin='lower', aspect='auto', vmin=0, vmax=0.2,
+		ax.imshow(predicted_G_imgs[i-1], origin='lower', aspect='auto', vmin=0, vmax=50,
 				  cmap='magma_r')
 		ax.set_xticks([])
 		ax.set_yticks([])
 		ax.set_ylabel(f"{timepoints[i-1]}'")
 		
 		ax = ax_row[1]
-		ax.imshow(G_imgs[i-1], origin='lower', aspect='auto', vmin=0, vmax=0.2,
+		ax.imshow(G_imgs[i-1], origin='lower', aspect='auto', vmin=0, vmax=50,
 				  cmap='magma_r')
 		ax.set_xticks([])
 		ax.set_yticks([])
 
 		ax = ax_row[2]
 		ax.imshow(G_imgs[i-1]-predicted_G_imgs[i-1], origin='lower', aspect='auto',
-				  cmap='RdBu_r', vmin=-0.1, vmax=0.1)
+				  cmap='RdBu_r', vmin=-10, vmax=10)
 		ax.set_xticks([])
 		ax.set_yticks([])
 
