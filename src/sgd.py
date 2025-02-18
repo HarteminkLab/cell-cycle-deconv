@@ -191,3 +191,80 @@ def read_sgd_w_go():
 		'name','chr','start','stop','length','strand','orf_class', 'ontology']]
 
 	return orfs
+
+
+def get_intergenic_regions(genes_df, buffer_genes=500, buffer_chrom_end=10000,
+		min_threshold_len=500):
+	"""
+	Find intergenic regions meeting buffer criteria from gene annotations.
+	
+	Args:
+		genes_df: DataFrame with columns [orf_name, TSS, PAS]
+		buffer_genes: Buffer distance from genes (bp)
+		buffer_chrom_end: Buffer from chromosome ends (bp)
+	
+	Returns:
+		DataFrame with columns [chromosome, start, end]
+	"""
+	# Extract chromosome from orf_name and add as column
+	genes_df = genes_df.copy()
+	
+	intergenic_regions = []
+	
+	# Process each chromosome
+	for chrom in range(1, 17):
+		# Get chromosome length
+		chrom_length = get_chromosome_length(chrom)
+		
+		# Get genes for this chromosome and sort by position
+		chrom_genes = genes_df[genes_df['chr'] == chrom].copy()
+		
+		# Sort genes by leftmost position (min of TSS/PAS)
+		chrom_genes['left_pos'] = chrom_genes[['TSS', 'PAS']].min(axis=1)
+		chrom_genes = chrom_genes.sort_values('left_pos')
+		
+		# Find gaps between genes
+		for i in range(len(chrom_genes) - 1):
+			current_gene_end = max(chrom_genes.iloc[i]['TSS'], 
+								 chrom_genes.iloc[i]['PAS'])
+			next_gene_start = min(chrom_genes.iloc[i+1]['TSS'],
+								chrom_genes.iloc[i+1]['PAS'])
+			
+			# Calculate potential intergenic region
+			region_start = current_gene_end + buffer_genes
+			region_end = next_gene_start - buffer_genes
+			
+			# Check if region is valid
+			if region_end > region_start:
+				intergenic_regions.append({
+					'chromosome': chrom,
+					'start': region_start,
+					'end': region_end
+				})
+		
+		# Check chromosome ends
+		# Left end
+		first_gene_start = min(chrom_genes.iloc[0]['TSS'], 
+							 chrom_genes.iloc[0]['PAS'])
+		if first_gene_start > (buffer_chrom_end + buffer_genes):
+			intergenic_regions.append({
+				'chromosome': chrom,
+				'start': buffer_chrom_end,
+				'end': first_gene_start - buffer_genes
+			})
+			
+		# Right end
+		last_gene_end = max(chrom_genes.iloc[-1]['TSS'],
+						   chrom_genes.iloc[-1]['PAS'])
+		if (chrom_length - last_gene_end) > (buffer_chrom_end + buffer_genes):
+			intergenic_regions.append({
+				'chromosome': chrom,
+				'start': last_gene_end + buffer_genes,
+				'end': chrom_length - buffer_chrom_end
+			})
+	intergenic_regions_df = pd.DataFrame(intergenic_regions)
+	intergenic_regions_df['length'] = intergenic_regions_df.end - intergenic_regions_df.start
+
+	intergenic_regions_df = intergenic_regions_df[intergenic_regions_df['length'] >= min_threshold_len]
+
+	return intergenic_regions_df

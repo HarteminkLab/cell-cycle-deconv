@@ -50,6 +50,10 @@ class ChromatinModel:
 		from src.global_config import load_chrom_timepoints
 		self.timepoints = load_chrom_timepoints(self.config.replicate)
 
+		# Normalize such that the mean G values center to 1
+		# note: works best with large windows of G
+		self.normalize_mean_1 = True
+
 	def load_mnase_span(self, chrom, mnase_span, log=True):
 		"""Load the MNase for an arbitrary genomic span"""
 
@@ -94,6 +98,10 @@ class ChromatinModel:
 		self.deconv_hist_unflattened = downsampled_bins
 		self.image_shape = self.deconv_hist_unflattened.shape[1:]
 		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
+
+		if self.normalize_mean_1 == True:
+			self.non_mean_centered_G = self.G
+			self.G = self.G / self.G.mean()
 
 	
 	def compute_bin_counts_sample(self, sample, x_bins, y_bins):
@@ -819,11 +827,10 @@ def plot_raw(chromatin_model):
 
 	return fig
 
-def plot_prediction(chromatin_model, N, F, F_replicate, b):
+def plot_prediction(chromatin_model, G, N, F, F_replicate, b):
 
 	config = chromatin_model.config
-	G = chromatin_model.G
-	predicted_G = config.H@F
+	predicted_G = N@config.H@(np.multiply(F, F_replicate[:, None])*b)
 	predicted_G_imgs = predicted_G.reshape((predicted_G.shape[0], 26, -1))
 	G_imgs = G.reshape((G.shape[0], 26, -1))
 	timepoints = config.timepoints
@@ -844,25 +851,29 @@ def plot_prediction(chromatin_model, N, F, F_replicate, b):
 	for ax in axs_rows[0]:
 		orf_plotter.plot_orf_annotations(ax)
 
+	axs_rows[0][0].set_title("Raw")
+	axs_rows[0][1].set_title("Prediction")
+
 	for i in range(1, num_rows):
 
 		ax_row = axs_rows[i]
 		ax = ax_row[0]
-		ax.imshow(predicted_G_imgs[i-1], origin='lower', aspect='auto', vmin=0, vmax=50,
-				  cmap='magma_r')
-		ax.set_xticks([])
-		ax.set_yticks([])
-		ax.set_ylabel(f"{timepoints[i-1]}'")
-		
-		ax = ax_row[1]
 		ax.imshow(G_imgs[i-1], origin='lower', aspect='auto', vmin=0, vmax=50,
 				  cmap='magma_r')
 		ax.set_xticks([])
 		ax.set_yticks([])
 
+		ax = ax_row[1]
+		ax.imshow(predicted_G_imgs[i-1], origin='lower', aspect='auto', vmin=0, vmax=50,
+				  cmap='magma_r')
+		ax.set_xticks([])
+		ax.set_yticks([])
+		ax.set_ylabel(f"{timepoints[i-1]}'")
+
+
 		ax = ax_row[2]
 		ax.imshow(G_imgs[i-1]-predicted_G_imgs[i-1], origin='lower', aspect='auto',
-				  cmap='RdBu_r', vmin=-10, vmax=10)
+				  cmap='RdBu_r', vmin=-50, vmax=50)
 		ax.set_xticks([])
 		ax.set_yticks([])
 
