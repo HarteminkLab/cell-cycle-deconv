@@ -296,8 +296,10 @@ class ChromatinModel:
 					y_start = y_bins[y_ind-1]
 					y_end = y_bins[y_ind]
 					
-					bin_counts = bin_data[t_index][y_start:y_end, x_start:x_end].mean()
-					downscaled_bins[t_index][y_ind-1][x_ind-1] = bin_counts
+					bin_counts = bin_data[t_index][y_start:y_end, x_start:x_end]
+					bin_counts_mean = bin_counts.mean()
+
+					downscaled_bins[t_index][y_ind-1][x_ind-1] = bin_counts_mean
 
 		# Bins are filled up until the last one row and column, so subset
 		downscaled_bins = downscaled_bins[:, :-1, :-1]
