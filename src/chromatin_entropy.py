@@ -50,7 +50,7 @@ def compute_occupancy_entropy(f_images, kernel=None):
             np.apply_along_axis(lambda row: calc_entropy(row+eps), axis=1, 
             arr=occupancy_result[i])
 
-    return occupancy_result, entropy_scores
+    return occupancy_result[:, 0].mean(axis=1), entropy_scores
 
 
 def plot_occupancy_entropy_results(config, occupancy_result, entropy_result):
@@ -60,8 +60,8 @@ def plot_occupancy_entropy_results(config, occupancy_result, entropy_result):
 
 	plt.figure(figsize=(9, 3))
 	plt.subplot(1, 2, 1)
-	plt.plot(occupancy_result[t_indices].mean(axis=2), label="Top")
-	plt.plot(occupancy_result[b_indices].mean(axis=2), label="Bottom")
+	plt.plot(occupancy_result[t_indices], label="Top")
+	plt.plot(occupancy_result[b_indices], label="Bottom")
 	plt.title("Nucleosome occupancy")
 	plt.legend()
 
@@ -74,3 +74,33 @@ def plot_occupancy_entropy_results(config, occupancy_result, entropy_result):
 
 	# Room for suptitle
 	plt.subplots_adjust(top=0.8)
+
+
+def plot_occupancy_entropy_set(config, occupancies, entropies):
+
+	t_indices = config.get_Hpositions_for_branch('t')
+	b_indices = config.get_Hpositions_for_branch('b')
+
+	plt.figure(figsize=(8, 5))
+	plt.subplot(2, 2, 1)
+	plt.plot(occupancies[:, t_indices].T, c='red')
+	plt.plot(occupancies[:, b_indices].T, c='blue')
+	plt.title("Occupancy values")
+
+	plt.subplot(2, 2, 2)
+	plt.plot(entropies[:, t_indices].T, c='red')
+	plt.plot(entropies[:, b_indices].T, c='blue')
+	plt.title("Entropy values")
+	plt.ylim(4.2, 5.6)
+
+	plt.subplot(2, 2, 3)
+	plt.plot(occupancies[:, t_indices].mean(axis=0), c='red')
+	plt.plot(occupancies[:, b_indices].mean(axis=0), c='blue')
+	plt.title("Average occupancy values")
+
+	plt.subplot(2, 2, 4)
+	plt.plot(entropies[:, t_indices].mean(axis=0), c='red', label='Top')
+	plt.plot(entropies[:, b_indices].mean(axis=0), c='blue', label="Bottom")
+	plt.title("Average entropy values")
+	plt.legend()
+	plt.ylim(4.2, 5.6)

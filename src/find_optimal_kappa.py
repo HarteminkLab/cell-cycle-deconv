@@ -130,16 +130,19 @@ class FindKappaExpression(object):
 		self.gene_solutions_df = df
 		summary_df = df.copy()[[]]
 
-		# Compute the top and bottom peak to trough ratios for each solution
+		# Compute the l2 norm of the top and bottom branches for each gene
 		for index, row in df.iterrows():
 		    l2 = np.linalg.norm(row[b_indices].values - row[t_indices].values) / len(t_indices)
 		    summary_df.loc[index, 'l2_tb'] = l2
+
+		# The means will be used for the signal to noise computation
 		avg_dse_ratio = summary_df.loc[DSE_GENES].groupby('kappa').mean()
 		avg_control_ratio = summary_df.loc[CONTROL_GENES].groupby('kappa').mean()
 
 		self.avg_dse_ratio = avg_dse_ratio
 		self.avg_control_ratio = avg_control_ratio
 
+		# Values can get close to zero, so add a pseudo count
 		self.l2_tb_eps = 1
 		self.snr_l2 = (self.avg_dse_ratio.l2_tb+self.l2_tb_eps)/(self.avg_control_ratio.l2_tb+self.l2_tb_eps)
 
@@ -157,12 +160,11 @@ class FindKappaExpression(object):
 		plt.xscale('log')
 
 		plt.subplot(1, 2, 2)
-		eps = 1
-		plt.plot((self.avg_dse_ratio.l2_tb+eps)/(self.avg_control_ratio.l2_tb+eps), label="Ratio (D/C)")
 		xs = self.avg_dse_ratio.index.values
+		plt.plot(xs, self.snr_l2, label="Ratio (D/C)")
 		plt.scatter(xs, self.snr_l2)
 		plt.xlabel("Kappa, regularization")
-		plt.title(f"Ratio of daughter vs control L2\n(pseudo-count={eps})")
+		plt.title(f"Ratio of daughter vs control L2\n(pseudo-count={self.l2_tb_eps})")
 		plt.legend()
 		plt.xscale('log')
 
