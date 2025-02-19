@@ -70,3 +70,7 @@ def plot_occupancy_entropy_results(config, occupancy_result, entropy_result):
 	plt.plot(entropy_result[b_indices], label="Bottom")
 	plt.title("Nucleosome disorganization (entropy)")
 	plt.legend()
+	plt.ylim(4.2, 5.6)
+
+	# Room for suptitle
+	plt.subplots_adjust(top=0.8)
