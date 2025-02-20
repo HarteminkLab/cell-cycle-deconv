@@ -7,6 +7,8 @@ import pandas as pd
 from src.RealDataReplication import read_n_fr_b
 from src.chromatin_model import ChromatinModel
 from src.chromatin_deconvolution_solver import ChromatinDeconvolveSolver
+from src.sgd import get_orfname
+import matplotlib.pyplot as plt
 
 
 # Chromatin find optimal kappa code
@@ -24,19 +26,26 @@ def compute_occupancy_entropy_for_file(filepath):
 	return occupancy_result, entropy_result
 
 
-def compute_occupancies_entropies_directory(config, directory, names):
+def compute_occupancies_entropies_directory(config, directory, names, file_format="{}_F.npy"):
 	m = config.H.shape[1]
 
 	gene_occupancies = np.zeros((len(names), m))
 	gene_entropies = np.zeros((len(names), m))
 
 	for i, name in enumerate(names):
-		filepath = f'{directory}/{name}_F.npy'
-		occupancy_result, entropy_result = compute_occupancy_entropy_for_file(filepath)
+		filepath = file_format.format(name)
+		full_path =  f'{directory}/{filepath}'
+		occupancy_result, entropy_result = compute_occupancy_entropy_for_file(full_path)
 		gene_occupancies[i] = occupancy_result
 		gene_entropies[i] = entropy_result
 
 	return gene_occupancies, gene_entropies
+
+
+def l_norm_t_b(config, arr, norm=2):
+	t_indices = config.get_Hpositions_for_branch('t')
+	b_indices = config.get_Hpositions_for_branch('b')
+	return np.linalg.norm(arr[t_indices]-arr[b_indices])/len(arr)
 
 
 def compute_mean_tb_l2(config, gene_occupancies, gene_entropies):
@@ -53,16 +62,6 @@ def compute_mean_tb_l2(config, gene_occupancies, gene_entropies):
 											   gene_entropies).mean()
 
 	return mean_l2_occ, mean_l2_entropy
-
-
-from src.utils import mkdir_safe
-from src.chromatin_deconvolution_solver import plot_example_fits
-from src.chromatin_deconvolution_solver import plot_branches
-from src.chromatin_model import plot_prediction
-from src.geneset import get_deconvolved_geneset
-from src.sgd import get_orfname
-from src.RealDataReplication import read_n_fr_b
-from src.chromatin_deconvolution_solver import subset_select_highest_G_indices
 
 
 def deconvolve_and_plot_gene(config1, gene_name, gamma, kappa, output_directory, f_savepath=None,
@@ -136,7 +135,7 @@ def deconvolve_and_plot_region(config, chrom, midpoint, gamma, kappa, output_dir
 	np.save(f_savepath, full_deconvolved_F)
 	
 	if save_plots:
-		import matplotlib.pyplot as plt
+
 		fig = plot_branches(chromatin_model, full_deconvolved_F)
 		plt.savefig(f"{output_directory}/{region_name}_branches.png")
 		plt.close(fig)
@@ -152,27 +151,109 @@ def deconvolve_and_plot_region(config, chrom, midpoint, gamma, kappa, output_dir
 	return chromatin_solver
 
 
-# Pseudo-code for kappa sweep.
+def compute_occupancies_entropies_l2s(config1, meta_df):
+
+	# Dataframe of occupancy values
+	occupancy_df = pd.DataFrame(columns=np.arange(config1.H.shape[1]),
+							   index=meta_df.index)
+	entropies_df = pd.DataFrame(columns=np.arange(config1.H.shape[1]),
+							   index=meta_df.index)
+	l2s_df = meta_df.copy()
+
+	for name, row in meta_df.iterrows():
+
+		full_path = row.path
+		gamma = row.gamma
+
+		# Compute the entropy and occupancy scores for each of the runs
+		occupancy_result, entropy_result = compute_occupancy_entropy_for_file(full_path)
+
+		occupancy_df.loc[name, :] = occupancy_result
+		entropies_df.loc[name, :] = entropy_result
+
+		# Compute the tb l2 norm for occupancy and entropy for each run
+		l2_occ = l_norm_t_b(config1, occupancy_result)
+		l2_entropy = l_norm_t_b(config1, entropy_result)
+
+		l2s_df.loc[name, 'entropy_tb_l2'] = l2_entropy
+		l2s_df.loc[name, 'occupancy_tb_l2'] = l2_occ
+
+	return occupancy_df, entropies_df, l2s_df
 
 
-# Loop through genes
-# Loop through intergenic regions, index on "name" and "group"
+def plot_snr(group_mean_l2s_df, key):
+	
+	intergenic_group_vals = group_mean_l2s_df.loc['intergenic']
+	gene_group_vals = group_mean_l2s_df.loc['gene']
 
-# Create a directory for each
-# Define sweep of kappa values (starting with range of values defined in expression)
-# Compute deconvolution for each, save the numpy F's to disk
-#        *** Save F's to disk, this step may take a long time.
-#        *** Save as kappa and gamma values prepended on the filename
+	plt.figure(figsize=(9, 3))
+	plt.subplot(1, 2, 1)
+	plt.plot(gene_group_vals.index, gene_group_vals[key])
+	plt.plot(intergenic_group_vals.index, intergenic_group_vals[key])
+	plt.xscale('log')
 
-# --------
+	eps = 0#np.quantile(group_mean_l2s_df, q=0.1)
+	snr = (gene_group_vals[key]+eps) - (intergenic_group_vals[key]+eps)
+	plt.subplot(1, 2, 2)
+	plt.plot(snr)
+	plt.xscale('log')
+	
+	idx_max = snr.argmax()
+	return (idx_max, snr.index[idx_max], eps)
 
-# Compute c-d l2 occupancy and entropy for each deconvolution run
-# Compute mean c-d l2 ^
-# 
-# Compute signal to noise ratio 
-# Plot against kappa
-#
-# Plot the optimal result
-#
-# aside: Plot arbitraty indices
-# aside: Plot all of the occupancy and entropy curves on one plot colored by kappa
+
+def plot_top_bottom_curves(config1, kappa, meta_df, entropies_df):
+
+	t_indices = config1.get_Hpositions_for_branch('t')
+	b_indices = config1.get_Hpositions_for_branch('b')
+
+	group_entropies = entropies_df.join(meta_df[['group']]).reset_index()
+	group_entropies.kappa = group_entropies.kappa.round(5)
+	group_entropies = group_entropies.set_index(['group', 'kappa', 'name'])
+
+	optim_gene_entropy_mean = group_entropies.loc['gene'].groupby('kappa').mean().loc[kappa]
+	optim_intergenic_entropy_mean = group_entropies.loc['intergenic']\
+		.groupby('kappa').mean().loc[kappa]
+
+	t_tps = config1.get_timepoints_for_branch('t')
+	b_tps = config1.get_timepoints_for_branch('b')
+
+	plt.figure(figsize=(9, 5))
+	plt.subplot(2, 2, 1)
+	plt.plot(t_tps, optim_gene_entropy_mean[t_indices])
+	plt.plot(b_tps, optim_gene_entropy_mean[b_indices])
+	plt.ylim(4.6, 5.5)
+
+	plt.subplot(2, 2, 2)
+	plt.plot(t_tps, optim_intergenic_entropy_mean[t_indices])
+	plt.plot(b_tps, optim_intergenic_entropy_mean[b_indices])
+	plt.ylim(4.6, 5.5)
+
+	plt.subplot(2, 2, 3)
+	plt.plot(t_tps, group_entropies.loc['gene'].loc[kappa][t_indices].T, c='red')
+	plt.plot(b_tps, group_entropies.loc['gene'].loc[kappa][b_indices].T, c='blue')
+	plt.ylim(4.3, 5.7)
+
+	plt.subplot(2, 2, 4)
+	plt.plot(t_tps, group_entropies.loc['intergenic'].loc[kappa][t_indices].T, c='red')
+	plt.plot(b_tps, group_entropies.loc['intergenic'].loc[kappa][b_indices].T, c='blue')
+	plt.ylim(4.3, 5.7)
+
+def plot_summed_rows(config1, F):
+
+	t_indices = config1.get_Hpositions_for_branch('t')
+	b_indices = config1.get_Hpositions_for_branch('b')
+
+	F_imgs = F.reshape((149, 26, -1))
+	F_collapsed_rows = F_imgs.mean(axis=1)
+
+	plt.figure(figsize=(11, 2))
+	plt.subplot(1, 3, 1)
+	plt.imshow(F_collapsed_rows[t_indices], aspect='auto', cmap='magma_r', vmin=0, vmax=5)
+
+	plt.subplot(1, 3, 2)
+	plt.imshow(F_collapsed_rows[b_indices], aspect='auto', cmap='magma_r', vmin=0, vmax=5)
+
+	plt.subplot(1, 3, 3)
+	plt.imshow(F_collapsed_rows[b_indices]-F_collapsed_rows[t_indices], 
+		aspect='auto', cmap='RdBu_r', vmin=-2, vmax=2)

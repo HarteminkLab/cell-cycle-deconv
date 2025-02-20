@@ -145,12 +145,15 @@ class FindKappaExpression(object):
 		avg_dse_ratio = summary_df.loc[DSE_GENES].groupby('kappa').mean()
 		avg_control_ratio = summary_df.loc[CONTROL_GENES].groupby('kappa').mean()
 
-		self.avg_dse_ratio = avg_dse_ratio
-		self.avg_control_ratio = avg_control_ratio
+		# Normalize to std 1
+		ratio_std = np.concatenate([avg_dse_ratio, avg_control_ratio]).std()
 
-		# Values can get close to zero, so add a pseudo count
-		self.l2_tb_eps = 1
-		self.snr_l2 = (self.avg_dse_ratio.l2_tb+self.l2_tb_eps)/(self.avg_control_ratio.l2_tb+self.l2_tb_eps)
+		self.avg_dse_ratio = avg_dse_ratio/ratio_std
+		self.avg_control_ratio = avg_control_ratio/ratio_std
+
+		self.l2_tb_eps = 0
+		self.snr_l2 = ((self.avg_dse_ratio.l2_tb/ratio_std+self.l2_tb_eps)-
+							(self.avg_control_ratio.l2_tb/ratio_std+self.l2_tb_eps))
 
 	def plot_l2_tb(self):
 

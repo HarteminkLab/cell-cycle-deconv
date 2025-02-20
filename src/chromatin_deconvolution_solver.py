@@ -126,14 +126,10 @@ class ChromatinDeconvolveSolver:
 
 
 
-def plot_branches(chromatin_model, full_deconvolved_F):
+def plot_branches(config, chrom, mnase_span, full_deconvolved_F):
 
 	from src.orf_plotter import load_default_orf_plotter
 	from src.sgd import read_nondubious_genes_dataset
-
-	config = chromatin_model.config
-
-	chrom, mnase_span = chromatin_model.chr, chromatin_model.mnase_span
 
 	orf_plotter = load_default_orf_plotter()
 	orf_plotter.set_span_chrom(mnase_span, chrom)
@@ -154,6 +150,9 @@ def plot_branches(chromatin_model, full_deconvolved_F):
 	fig, axs = plt.subplots(num_imgs_per_branch+1, 4, figsize=(5, 7))
 	axs = np.array(axs).T
 
+	vmax = 40
+	vmax_2 = vmax//2
+
 	def plot_branch_imgs(row_axs, t_indices):
 
 		for plot_index, index_in_t in enumerate(np.linspace(0,
@@ -161,7 +160,7 @@ def plot_branches(chromatin_model, full_deconvolved_F):
 			image_index = t_indices[int(index_in_t)]
 
 			ax = row_axs[plot_index]
-			ax.imshow(full_F_imgs[image_index], aspect='auto', cmap='magma_r', vmax=50,
+			ax.imshow(full_F_imgs[image_index], aspect='auto', cmap='magma_r', vmax=vmax,
 					  origin='lower')
 			ax.set_xticks([])
 			ax.set_yticks([])
@@ -176,17 +175,18 @@ def plot_branches(chromatin_model, full_deconvolved_F):
 			image_index_t = t_indices[int(index_in_t)]
 			image_index_b = b_indices[int(index_in_t)]
 
-			img_diff = np.log2((full_F_imgs[image_index_b]+eps)/(full_F_imgs[image_index_t]+eps))
+			#img_diff = np.log2((full_F_imgs[image_index_b]+eps)/(full_F_imgs[image_index_t]+eps))
+			img_diff = ((full_F_imgs[image_index_b]+eps) - (full_F_imgs[image_index_t]+eps))
 			
 			ax = row_axs[plot_index]
-			ax.imshow(img_diff, aspect='auto', cmap='RdBu_r', vmin=-5, vmax=5,
+			ax.imshow(img_diff, aspect='auto', cmap='RdBu_r', vmin=-vmax_2, vmax=vmax_2,
 					  origin='lower')
 			ax.set_xticks([])
 			ax.set_yticks([])
 
-	axs[0][0].set_title("Recovery\nbranch")
-	axs[1][0].set_title("Mother\nbranch")
-	axs[2][0].set_title("Daughter\nbranch")
+	axs[0][0].set_title("Recovery")
+	axs[1][0].set_title("Mother")
+	axs[2][0].set_title("Daughter")
 
 	for ax in axs.T[0]:
 		orf_plotter.plot_orf_annotations(ax)
@@ -201,7 +201,7 @@ def plot_branches(chromatin_model, full_deconvolved_F):
 	plot_difference(img_axs[3], t_indices, b_indices)
 
 	plt.suptitle("Deconvolved chromatin")
-	plt.subplots_adjust(top=0.9)
+	plt.subplots_adjust(top=0.9, hspace=0)
 
 	return fig
 
