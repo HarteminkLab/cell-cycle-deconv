@@ -58,7 +58,7 @@ class ChromatinDeconvolveSolver:
 
 
 	def deconvolve_G_iteratively(self, gamma, verbose=False, verbose_progress=True,
-		kappa=1e-4, dg1_bias_mode='sqrt'):
+		kappa=1e-4):
 		"""Iteratively deconvolve columns of G, appears to be more accurate
 		as the optimization can strictly treat each problem independently"""
 
@@ -92,7 +92,7 @@ class ChromatinDeconvolveSolver:
 				deconvolution_solver = DeconvolutionSolver(self.config, current_g, 
 					self.H, gamma=gamma, padding_type=self.padding_type,
 					N=self.N, f_replication=self.f_replication, b=self.b,
-					kappa=kappa, dg1_bias_mode=dg1_bias_mode)
+					kappa=kappa)
 
 				try:
 					deconvolution_solver.deconvolve()
@@ -175,7 +175,7 @@ def plot_branches(config, chrom, mnase_span, full_deconvolved_F):
 			image_index_t = t_indices[int(index_in_t)]
 			image_index_b = b_indices[int(index_in_t)]
 
-			diff_vmax_2 = 4
+			diff_vmax_2 = 6
 			img_diff = np.log2((full_F_imgs[image_index_b]+eps)/(full_F_imgs[image_index_t]+eps))
 			# img_diff = ((full_F_imgs[image_index_b]+eps) - (full_F_imgs[image_index_t]+eps))
 			

@@ -6,8 +6,7 @@ from src.helpers import get_wavelet_kernel
 class DeconvolutionSolver(object):
 
 	def __init__(self, config, g, H, gamma, N=None, f_replication=None,
-		b=None, padding_type='both', obj_error_mode='additive', kappa=5e-3, 
-		dg1_bias_mode='log'):
+		b=None, padding_type='both', obj_error_mode='additive', kappa=5e-3):
 
 		n, m = H.shape
 
@@ -28,7 +27,6 @@ class DeconvolutionSolver(object):
 		self.f_replication = f_replication
 		self.b = b
 		self.kappa = kappa
-		self.dg1_bias_mode = dg1_bias_mode
 
 		self.gamma = gamma
 		self.padding_type = padding_type
