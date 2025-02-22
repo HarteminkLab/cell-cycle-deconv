@@ -66,8 +66,11 @@ def compute_mean_tb_l2(config, gene_occupancies, gene_entropies):
 
 def deconvolve_and_plot_gene(config1, gene_name, gamma, kappa, output_directory, f_savepath=None,
 					   window=1200, save_plots=True):
-	genes = get_deconvolved_geneset()
 
+	from src.geneset import get_deconvolved_geneset
+	from src.RealDataReplication import read_no_copy_correction_n_fr_b
+
+	genes = get_deconvolved_geneset()
 	orfname = get_orfname(gene_name)
 
 	gene = genes.loc[orfname]
@@ -75,7 +78,12 @@ def deconvolve_and_plot_gene(config1, gene_name, gamma, kappa, output_directory,
 	chrom = gene.chr
 	padding_2 = window//2
 	mnase_span = tss-padding_2, tss+padding_2
-	_, N, frep, b = read_n_fr_b(chrom, mnase_span)
+
+	try:
+		_, N, frep, b = read_n_fr_b(chrom, mnase_span)
+	except KeyErrord:
+		print(f"No replication data for chr{chrom}, {mnase_span}. Reverting to no correction.")
+		N, frep, b = read_no_copy_correction_n_fr_b(config1.H)
 	
 	chromatin_model = ChromatinModel(config1)
 	chromatin_model.load_mnase_span(chrom=chrom, mnase_span=mnase_span)
@@ -113,9 +121,16 @@ def deconvolve_and_plot_gene(config1, gene_name, gamma, kappa, output_directory,
 def deconvolve_and_plot_region(config, chrom, midpoint, gamma, kappa, output_directory,
 					   window=1200, f_savepath=None, save_plots=True):
 
+	from src.RealDataReplication import read_no_copy_correction_n_fr_b
+
 	padding_2 = window//2
 	mnase_span = midpoint-padding_2, midpoint+padding_2
-	_, N, frep, b = read_n_fr_b(chrom, mnase_span)
+
+	try:
+		_, N, frep, b = read_n_fr_b(chrom, mnase_span)
+	except KeyError:
+		print(f"No replication data for chr{chrom}, {mnase_span}. Reverting to no correction.")
+		N, frep, b = read_no_copy_correction_n_fr_b(config.H)
 	
 	chromatin_model = ChromatinModel(config)
 	chromatin_model.load_mnase_span(chrom=chrom, mnase_span=mnase_span)
@@ -204,6 +219,8 @@ def plot_snr(group_mean_l2s_df, key):
 
 def plot_top_bottom_curves(config1, kappa, meta_df, entropies_df):
 
+	from src.expression_chromatin_plots import draw_phase_label_annotations
+
 	t_indices = config1.get_Hpositions_for_branch('t')
 	b_indices = config1.get_Hpositions_for_branch('b')
 
@@ -218,26 +235,39 @@ def plot_top_bottom_curves(config1, kappa, meta_df, entropies_df):
 	t_tps = config1.get_timepoints_for_branch('t')
 	b_tps = config1.get_timepoints_for_branch('b')
 
-	plt.figure(figsize=(9, 5))
-	plt.subplot(2, 2, 1)
-	plt.plot(t_tps, optim_gene_entropy_mean[t_indices])
-	plt.plot(b_tps, optim_gene_entropy_mean[b_indices])
-	plt.ylim(4.6, 5.5)
+	fig = plt.figure(figsize=(11, 4))
 
-	plt.subplot(2, 2, 2)
-	plt.plot(t_tps, optim_intergenic_entropy_mean[t_indices])
-	plt.plot(b_tps, optim_intergenic_entropy_mean[b_indices])
-	plt.ylim(4.6, 5.5)
+	plt.subplot(1, 2, 1)
+	plt.plot(t_tps, group_entropies.loc['gene'].loc[kappa][t_indices].T, c='red', alpha=0.15)
+	plt.plot(b_tps, group_entropies.loc['gene'].loc[kappa][b_indices].T, c='blue', alpha=0.15)
+	plt.plot(t_tps, optim_gene_entropy_mean[t_indices], c='red', label='Mother (mean)', lw=3)
+	plt.plot(b_tps, optim_gene_entropy_mean[b_indices], c='blue', label='Daughter (mean)', lw=3)
+	plt.ylim(4, 5.7)
+	plt.title("Daughter-specific genes")
+	plt.xticks([])
+	plt.ylabel("Entropy,\nnucleosome disorganization")
+	plt.xlabel("Average cell cycle time")
+	plt.legend(ncol=2)
+	plt.xlim(b_tps[0], b_tps[-1])
+	draw_phase_label_annotations(plt.gca(), config1, flip=True, 
+	    annotations_x=4.075, phases=['DG1', 'postG1'], 
+	    phase_names=['G1', 'S/G2/M'])
 
-	plt.subplot(2, 2, 3)
-	plt.plot(t_tps, group_entropies.loc['gene'].loc[kappa][t_indices].T, c='red')
-	plt.plot(b_tps, group_entropies.loc['gene'].loc[kappa][b_indices].T, c='blue')
-	plt.ylim(4.3, 5.7)
+	plt.subplot(1, 2, 2)
+	plt.plot(t_tps, optim_intergenic_entropy_mean[t_indices], c='red', label='Mother (mean)', lw=3)
+	plt.plot(b_tps, optim_intergenic_entropy_mean[b_indices], c='blue', label='Daughter (mean)', lw=4)
+	plt.plot(t_tps, group_entropies.loc['intergenic'].loc[kappa][t_indices].T, c='red',  alpha=0.15)
+	plt.plot(b_tps, group_entropies.loc['intergenic'].loc[kappa][b_indices].T, c='blue', alpha=0.15)
+	plt.ylim(4, 5.7)
+	plt.title("Intergenic regions")
+	plt.xticks([])
+	plt.xlim(b_tps[0], b_tps[-1])
+	plt.yticks([])
 
-	plt.subplot(2, 2, 4)
-	plt.plot(t_tps, group_entropies.loc['intergenic'].loc[kappa][t_indices].T, c='red')
-	plt.plot(b_tps, group_entropies.loc['intergenic'].loc[kappa][b_indices].T, c='blue')
-	plt.ylim(4.3, 5.7)
+	draw_phase_label_annotations(plt.gca(), config1, flip=True, 
+	    annotations_x=4.075, phases=['DG1', 'postG1'], 
+	    phase_names=['G1', 'S/G2/M'])
+	
 
 def plot_summed_rows(config1, F):
 
@@ -257,3 +287,54 @@ def plot_summed_rows(config1, F):
 	plt.subplot(1, 3, 3)
 	plt.imshow(F_collapsed_rows[b_indices]-F_collapsed_rows[t_indices], 
 		aspect='auto', cmap='RdBu_r', vmin=-2, vmax=2)
+
+
+def load_intergenic_chromatin_F_from_sweep_run(config1, meta_df, intergenic_name, kappa, 
+	window):
+	""""Load the chromatin deconvolution data from the kappa sweep run
+	for an intergenic region by name"""
+
+	win_2 = window//2
+	intergenic_name_spl = intergenic_name.split('_')
+	chrom = int(intergenic_name_spl[0])
+	mid = int(intergenic_name_spl[1])
+	mnase_span = mid-win_2, mid+win_2
+
+	selected_meta_rows_df = meta_df.loc[intergenic_name].reset_index()
+	selected_meta_rows_df.kappa = selected_meta_rows_df.kappa.round(5)
+	selected_meta_rows_df = selected_meta_rows_df.set_index('kappa')
+	filepath = selected_meta_rows_df.loc[kappa].path
+
+	chromatin_F = np.load(filepath)
+	F_imgs = chromatin_F.reshape((config1.H.shape[1], 26, -1))
+	return F_imgs, chrom, mnase_span
+
+
+def load_gene_chromatin_F_from_sweep_run(config1, meta_df, gene_name, kappa, window):
+	""""Load the chromatin deconvolution data from the kappa sweep run
+	for a gene"""
+	from src.sgd import get_orfname
+	from src.sgd import read_nondubious_genes_dataset
+
+	orfname = get_orfname(gene_name)
+	genes = read_nondubious_genes_dataset()
+
+	win_2 = window//2
+	gene = genes.loc[orfname]
+	tss = gene.TSS
+	chrom = gene.chr
+	mnase_span = tss-win_2, tss+win_2
+
+	selected_row = meta_df.loc[gene_name]
+	#
+	# todo: currently a single kappa,
+	#       need to reimplement with consistent data frame key
+
+	#selected_meta_rows_df.kappa = selected_meta_rows_df.kappa.round(5)
+	#selected_meta_rows_df = selected_meta_rows_df.set_index('kappa')
+	filepath = selected_row.path
+
+	chromatin_F = np.load(filepath)
+	F_imgs = chromatin_F.reshape((config1.H.shape[1], 26, -1))
+	return F_imgs, chrom, mnase_span
+

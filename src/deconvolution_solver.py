@@ -6,7 +6,8 @@ from src.helpers import get_wavelet_kernel
 class DeconvolutionSolver(object):
 
 	def __init__(self, config, g, H, gamma, N=None, f_replication=None,
-		b=None, padding_type='both', obj_error_mode='additive', kappa=5e-3):
+		b=None, padding_type='both', obj_error_mode='additive', kappa=5e-3, 
+		dg1_bias_mode='log'):
 
 		n, m = H.shape
 
@@ -27,6 +28,7 @@ class DeconvolutionSolver(object):
 		self.f_replication = f_replication
 		self.b = b
 		self.kappa = kappa
+		self.dg1_bias_mode = dg1_bias_mode
 
 		self.gamma = gamma
 		self.padding_type = padding_type
@@ -207,12 +209,13 @@ class DeconvolutionSolver(object):
 		# Smooth each branch separately
 		# Balance the lengths of the branches, RG1 is 50% shorter than
 		# DG1, CG1 is 20% shorter than DG1 in time
-		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 1.5 +
-						 cp.sum(cp.abs(smooth_f_t_result)) * 1.2 +
-						 cp.sum(cp.abs(smooth_f_b_result)) * 1)
+		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 0.9 +
+						 cp.sum(cp.abs(smooth_f_t_result)) * 1 +
+						 cp.sum(cp.abs(smooth_f_b_result)) * 1.4)
 
-		# Regularize top and bottom disimilarity
-		tb_regularization_result = f_padded[f_bottom_padded_indices] - f_padded[f_top_padded_indices]
+		kappa = self.kappa
+
+		tb_regularization_result = f_padded[f_dg1] - f_padded[f_cg1]
 		cg1_dg1_regularization_result = cp.square(cp.norm(tb_regularization_result, 2))
 
 		objective = cp.Minimize(

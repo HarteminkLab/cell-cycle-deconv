@@ -58,7 +58,7 @@ class ChromatinDeconvolveSolver:
 
 
 	def deconvolve_G_iteratively(self, gamma, verbose=False, verbose_progress=True,
-		kappa=1e-4):
+		kappa=1e-4, dg1_bias_mode='sqrt'):
 		"""Iteratively deconvolve columns of G, appears to be more accurate
 		as the optimization can strictly treat each problem independently"""
 
@@ -92,15 +92,15 @@ class ChromatinDeconvolveSolver:
 				deconvolution_solver = DeconvolutionSolver(self.config, current_g, 
 					self.H, gamma=gamma, padding_type=self.padding_type,
 					N=self.N, f_replication=self.f_replication, b=self.b,
-					kappa=kappa)
+					kappa=kappa, dg1_bias_mode=dg1_bias_mode)
 
-				# try:
-				deconvolution_solver.deconvolve()
-				current_f = deconvolution_solver.f
-				current_sn = deconvolution_solver.sn
-				current_rn = deconvolution_solver.rn
-				# except cvxpy.error.SolverError:
-				# 	continue
+				try:
+					deconvolution_solver.deconvolve()
+					current_f = deconvolution_solver.f
+					current_sn = deconvolution_solver.sn
+					current_rn = deconvolution_solver.rn
+				except cvxpy.error.SolverError:
+					continue
 
 				deconvolved_f_value[:, i] = current_f
 
@@ -109,7 +109,7 @@ class ChromatinDeconvolveSolver:
 				running_rn += current_rn / m
 				running_sn += current_sn / m
 
-			if verbose_progress and i % 500 == 0:
+			if verbose and verbose_progress and i % 500 == 0:
 				timer.print_time(f"{i}/{m}")
 
 		self.deconvolved_f_value = deconvolved_f_value
@@ -168,18 +168,19 @@ def plot_branches(config, chrom, mnase_span, full_deconvolved_F):
 			
 	def plot_difference(row_axs, t_indices, b_indices):
 
-		eps = 2
+		eps = 1
 		for plot_index, index_in_t in enumerate(np.linspace(0,
 			len(t_indices)-1, num_imgs_per_branch)):
 			
 			image_index_t = t_indices[int(index_in_t)]
 			image_index_b = b_indices[int(index_in_t)]
 
-			#img_diff = np.log2((full_F_imgs[image_index_b]+eps)/(full_F_imgs[image_index_t]+eps))
-			img_diff = ((full_F_imgs[image_index_b]+eps) - (full_F_imgs[image_index_t]+eps))
+			diff_vmax_2 = 4
+			img_diff = np.log2((full_F_imgs[image_index_b]+eps)/(full_F_imgs[image_index_t]+eps))
+			# img_diff = ((full_F_imgs[image_index_b]+eps) - (full_F_imgs[image_index_t]+eps))
 			
 			ax = row_axs[plot_index]
-			ax.imshow(img_diff, aspect='auto', cmap='RdBu_r', vmin=-vmax_2, vmax=vmax_2,
+			ax.imshow(img_diff, aspect='auto', cmap='RdBu_r', vmin=-diff_vmax_2, vmax=diff_vmax_2,
 					  origin='lower')
 			ax.set_xticks([])
 			ax.set_yticks([])
@@ -281,7 +282,10 @@ def plot_example_fits(chromatin_solver):
 	highest_Gs = G_max_df.sort_values('max_value', ascending=False).head(num_examples)['index'].values
 
 	highest_g = G_max_df.max_value.max()
-	ylims = -highest_g*0.05, highest_g*1.2
+	highest_f = F_gamma_solution[:, highest_Gs].max()
+	highest_val = max(highest_g, highest_f)
+
+	ylims = -highest_val*0.05, highest_val*1.05
 
 	for i in range(num_examples):
 
@@ -305,20 +309,29 @@ def plot_example_fits(chromatin_solver):
 		ax.set_ylim(*ylims)
 
 		ax = ax_row[1]
-		ax.plot(F_gamma_solution[i_indices, f_bin_index].T, c='red',lw=3)
+		ax.plot(F_gamma_solution[b_indices, f_bin_index].T, c='blue',
+				lw=3, alpha=0.25)
+		ax.plot(F_gamma_solution[t_indices, f_bin_index].T, c='red',
+				lw=3, alpha=0.25)
+		ax.plot(F_gamma_solution[i_indices, f_bin_index].T, c='black',lw=3)
 		if i == 0:
 			ax.set_title("Initial branch")
 		ax.set_ylim(*ylims)
 
 		ax = ax_row[2]
+		ax.plot(F_gamma_solution[b_indices, f_bin_index].T, c='blue',
+				lw=3, alpha=0.25)
 		ax.plot(F_gamma_solution[t_indices, f_bin_index].T, c='red',
 				lw=3)
 		ax.set_ylim(*ylims)
 		if i == 0: ax.set_title("Top branch")
 
 		ax = ax_row[3]
-		ax.plot(F_gamma_solution[b_indices, f_bin_index].T, c='red',
+		ax.plot(F_gamma_solution[t_indices, f_bin_index].T, c='red',
+				lw=3, alpha=0.25)
+		ax.plot(F_gamma_solution[b_indices, f_bin_index].T, c='blue',
 				lw=3)
+
 		ax.set_ylim(*ylims)
 		if i == 0: ax.set_title("Bottom branch")
 

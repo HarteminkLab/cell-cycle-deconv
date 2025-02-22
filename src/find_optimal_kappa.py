@@ -5,9 +5,6 @@ import pandas as pd
 
 
 # Expression find optimal kappa code
-
-
-
 from src.expression_gamma_search import GeneExpressionFindOptimalGamma
 from src.gene_expression import read_yl_vst_data_rep
 from src.sgd import read_sgd_genes, get_orfname
@@ -18,14 +15,15 @@ import matplotlib.pyplot as plt
 RIBOSOMAL_GENES = ['RPL1A','RPL1B','RPL2A','RPL2B','RPL3','RPL4A','RPL4B',
    'RPL5','RPL16A','RPL16B','RPL17A','RPL17B','RPL18A','RPL18B']
 
-
 DSE_GENES = ['DSE1', 'DSE2', 'DSE3', 'DSE4']
 
 # Working control genes
 #CONTROL_GENES = ['CLB2', 'CLN2', 'MCM6', 'CDC45']
 
-# todo: testing adding ribosomal genes
 CONTROL_GENES = ['CLB2', 'CLN2', 'MCM6', 'CDC45'] + RIBOSOMAL_GENES[0:4]
+
+# DSE_GENES = ['DSE1']
+# CONTROL_GENES = RIBOSOMAL_GENES[0:1]
 
 
 def load_gene_expression(gene_name):
@@ -191,16 +189,12 @@ class FindKappaExpression(object):
 		t_indices = self.config.get_Hpositions_for_branch('t')
 		b_indices = self.config.get_Hpositions_for_branch('b')
 
+		from src.plot_helpers import create_sub_colormap
+		reds = create_sub_colormap('Reds', 0.1, 0.9, 'Reds_smaller')
+		blues = create_sub_colormap('Blues', 0.1, 0.9, 'Blues_smaller')
 
-		reds = plt.cm.Reds
-		blues = plt.cm.Blues
-
-		for gene_idx in range(len(DSE_GENES)):
-
-			gene_name = DSE_GENES[gene_idx]
-			color_prop = gene_idx/len(DSE_GENES)
-			plt.plot(t_tps, dat_df.loc[kappa, t_indices].loc[gene_name].T, c=reds(color_prop), label=gene_name)
-			plt.plot(b_tps, dat_df.loc[kappa, b_indices].loc[gene_name].T, c=blues(color_prop))
+		plt.plot(t_tps, dat_df.loc[kappa, t_indices].loc[DSE_GENES].T, c='red')
+		plt.plot(b_tps, dat_df.loc[kappa, b_indices].loc[DSE_GENES].T, c='blue')
 
 		plt.title("Daughter-specific genes")
 		plt.ylim(0, 20)

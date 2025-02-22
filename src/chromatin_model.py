@@ -651,57 +651,6 @@ def read_chromosome_mnase_reads(replicate, chr):
 	return chr_reads
 
 
-def draw_phase_label_annotations(ax, config=None, 
-		phases = ['CG1', 'S', 'G2M'], 
-		flip=False, annotations_x=0, offset=False):
-
-	from src.model import color_for_key
-
-	tp_set = []
-	for phase in phases:
-		tps = config.get_timepoints_for_phase(phase)
-		tp_set.append(tps)
-
-	if offset:
-		offset_by = -tp_set[0][0]
-
-	last_tp = None
-	for i in range(len(tp_set)):
-		tps = tp_set[i]
-
-		if len(tps) == 0: continue
-
-		if offset: tps = tps + offset_by
-
-		phase = phases[i]
-
-		if last_tp is None:
-			last_tp = tps[0]
-
-		tp_start, tp_end = last_tp, tps[-1]
-
-		last_tp = tps[-1]
-
-		tp_mid = (tp_start + tp_end)/2
-
-		xs = [annotations_x, annotations_x]
-		ys = [tp_start, tp_end]
-
-		text_x = annotations_x
-		text_y = tp_mid
-		rotation = 90
-
-		if flip:
-			xs, ys = ys, xs
-			text_x, text_y = text_y, text_x
-			rotation = 0
-
-		ax.plot(xs, ys, c=color_for_key(phase), lw=20, solid_capstyle='butt')
-
-		ax.text(text_x, text_y, phase, va='center', ha='center', fontsize=10,
-			color='white', rotation=rotation)
-
-
 def create_exact_bins(locus_reads, mnase_span, timepoints):
 	xbins = np.arange(*mnase_span)
 	ybins = np.arange(0, 252)
