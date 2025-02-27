@@ -109,7 +109,7 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 		if epoch % 10 == 0 or epoch == num_epochs-1:
 
 			if output_directory is not None:
-				print_fl(f"[{epohc}]Saving to output_directory...")
+				print_fl(f"[{epoch}]Saving to output_directory...")
 				replication_deconvolver.save_to_disk(output_directory)
 				update_params_df.to_csv(f"{output_directory}/parameter_updates_rep{replicate}_chr{chrom}.csv")
 
