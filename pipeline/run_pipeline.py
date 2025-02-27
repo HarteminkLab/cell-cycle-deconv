@@ -3,7 +3,7 @@ import sys
 sys.path.append('.')
 
 import sys
-from src.utils import mkdirs_safe
+from src.utils import mkdirs_safe, parse_bool
 
 
 def main():
@@ -15,10 +15,11 @@ def main():
 
 	if command == 'replication':
 
-		(_, command, output_directory, replicate, chrom, num_epochs) = system_args
+		(_, command, output_directory, replicate, chrom, num_epochs, cold_start) = system_args
 
 		mkdirs_safe([output_directory])
 
+		cold_start = parse_bool(cold_start)
 		chrom = int(chrom)
 		replicate = int(replicate)
 		num_epochs = int(num_epochs)
@@ -26,7 +27,7 @@ def main():
 		# 1. Compute replication profiles for each replicate using chromosome 4
 		from pipeline.fit_replication_profiles import main as fit_replication_profile
 		fit_replication_profile(chrom=chrom, replicate=replicate, num_epochs=num_epochs, 
-			output_directory=output_directory)
+			output_directory=output_directory, from_CLOCCS=cold_start)
 
 	else:
 		raise ValueError(f"Invalid command" + command)
