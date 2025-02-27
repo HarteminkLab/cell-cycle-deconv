@@ -74,7 +74,7 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 	# Load the default replication chrom configuration from disk
 	# use the posterios from the CLOCCS fits to initialize
 	print_fl("Loading initial cell cycle parameters from CLOCCS fits.")
-	config1, config2 = load_default_chrom_configs(from_CLOCCS=False)
+	config1, config2 = load_default_chrom_configs(from_CLOCCS=True)
 	config = config1 if replicate == 1 else config2
 
 	replication_deconvolver = RealDataReplicationDeconvolution(config, replicate=replicate, chr=chrom)
