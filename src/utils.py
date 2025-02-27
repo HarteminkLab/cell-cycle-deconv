@@ -3,6 +3,9 @@ import sys
 import os
 
 
+def parse_bool(s): return s.lower() in ['true', '1', 't', 'y', 'yes']
+
+
 def print_fl(val='', end='\n', log=True):
 	contents = str(val) + end
 	sys.stdout.write(contents)

@@ -67,14 +67,15 @@ def run_epochs(replication_deconvolver, optimizer, num_epochs, function_update=N
 	return update_params_df, Hs, Fs, Ns, Bs
 
 
-def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_directory=None):
+def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_directory=None,
+	from_CLOCCS=True):
 
 	np.random.seed(123)
 
 	# Load the default replication chrom configuration from disk
 	# use the posterios from the CLOCCS fits to initialize
 	print_fl("Loading initial cell cycle parameters from CLOCCS fits.")
-	config1, config2 = load_default_chrom_configs(from_CLOCCS=True)
+	config1, config2 = load_default_chrom_configs(from_CLOCCS=from_CLOCCS)
 	config = config1 if replicate == 1 else config2
 
 	replication_deconvolver = RealDataReplicationDeconvolution(config, replicate=replicate, chr=chrom)
