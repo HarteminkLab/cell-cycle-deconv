@@ -38,7 +38,7 @@ def run_epochs(replication_deconvolver, optimizer, num_epochs, function_update=N
 			
 		replication_deconvolver.iterative_deconvolution_updates(
 			total_iterations=num_iterations_N_B, timer=timer,
-			initial_B=B, initial_N=N, verbose=True)
+			initial_B=B, initial_N=N, verbose=False)
 		timer.print_time()
 		
 		params_row = pd.DataFrame([optimizer.params_df['value']], index=[epoch])
@@ -102,20 +102,20 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 
 	# Parameter updates df
 	print_fl(f"Running {num_epochs} epochs...")
-	update_params_df, Hs, Fs, Ns, Bs = run_epochs(replication_deconvolver, optimizer, 
-		num_epochs)
-
 	def epoch_updates(epoch, update_params_df, Hs, Fs, Ns, Bs):
 		"""Update function"""
 
 		# Periodic saving to disk
 		if epoch % 10 == 0 or epoch == num_epochs-1:
+
 			if output_directory is not None:
+				print_fl(f"[{epohc}]Saving to output_directory...")
 				replication_deconvolver.save_to_disk(output_directory)
 				update_params_df.to_csv(f"{output_directory}/parameter_updates_rep{replicate}_chr{chrom}.csv")
 
 	# Run the optimizer
-	run_epochs(replication_deconvolver, optimizer, num_epochs, function_update=epoch_updates)
+	update_params_df, Hs, Fs, Ns, Bs = run_epochs(replication_deconvolver, 
+		optimizer, num_epochs, function_update=epoch_updates)
 
 	print_fl("Done")
 
