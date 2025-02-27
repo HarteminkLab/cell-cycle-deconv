@@ -92,9 +92,15 @@ class RealDataReplicationDeconvolution():
 		initial_N=None, initial_B=None, verbose=True):
 		"""Iteratively deconvolve for the replication curve F."""
 
+		# If first run, use the initalized N and B from setup
+		if initial_N is None:
+			initial_N = self.initial_N
+		if initial_B is None:
+			initial_B = self.initial_B
+
 		result = iterative_deconvolution_updates(
-			config=self.config, H=self.H, G=self.G, initial_N=self.initial_N, 
-			initial_B=self.initial_B, total_iterations=total_iterations, 
+			config=self.config, H=self.H, G=self.G, initial_N=initial_N, 
+			initial_B=initial_B, total_iterations=total_iterations, 
 			timer=timer, verbose=verbose)
 
 		self.N = result.Ns[-1]
@@ -646,13 +652,13 @@ def iterative_deconvolution_updates(
 	for iteration in range(total_iterations):
 		if verbose:
 			print_fl(f"Iteration {iteration}")
-			
+
 		# Perform deconvolution step
 		F, rn = deconvolve_replication_brute_force(
 			config, H, G, current_N, current_B,
 			timer=timer, verbose=verbose
-		)
-		
+		)		
+
 		# Store the solutions
 		Fs[iteration] = F
 		iterative_update_rns[iteration] = rn

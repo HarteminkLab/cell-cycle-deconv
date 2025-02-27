@@ -30,8 +30,10 @@ class ParameterOptimizer:
 
 		# Keep track of the paramater values to update in this dataframe
 		self.params_df = init_params_df.copy()
-		self.params_df['param_index'] = self.parameter_indices
-		self.params_df = self.params_df.sort_values('param_index')
+
+		# As long as the indices are not resorted they should
+		# be indexed by their position in the dataframe
+		self.params_df['param_index'] = np.arange(len(self.params_df))
 
 		self.update_config_parameters(self.params_df)
 
@@ -121,7 +123,7 @@ class ParameterOptimizer:
 			ITERATION += 1
 
 			return loss
-		
+
 		# Run optimization
 		result = minimize(
 			objective_function,
@@ -146,14 +148,14 @@ def create_bounds_params_from_config(config):
 	init_params_df = pd.DataFrame(initial_values, index=['value']).T
 	init_params_df = init_params_df.drop('alpha')
 	bounds_dic = {
-	    'mu0': (-30, 30),
-	    'lambda': (40, 80),
-	    'delta': (0, 24),
-	    'sigma0': (1, 14),
-	    'sigmav': (0.01, 1.),
-	    'gamma1': (0., 1.),
-	    'gamma2': (0., 1.),
-	    'halted': (0.0, 1.),
+		'mu0': (-30, 30),
+		'lambda': (40, 80),
+		'delta': (0, 24),
+		'sigma0': (1, 14),
+		'sigmav': (0.01, 1.),
+		'gamma1': (0., 1.),
+		'gamma2': (0., 1.),
+		'halted': (0.0, 1.),
 	}
 
 	bounds_params_df = pd.DataFrame(bounds_dic, index=['min', 'max']).T

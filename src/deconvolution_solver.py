@@ -256,9 +256,9 @@ class DeconvolutionSolver(object):
 			self.kappa * cg1_dg1_regularization_result
 		)
 
-		# Constraint for halted cells
+		# Constraint for halted cells, non-negativity, and upper bounds to improve speed
 		constraints = [f_padded_variation >= 0, f_padded_variation[f_i[0]] == f_padded_variation[f_t[-1]+1],
-			f_baseline >= 0]
+			f_baseline >= 0, f_padded_variation <= 1000, f_baseline <= 1000]
 
 		prob = cp.Problem(objective, constraints)
 		result = prob.solve(solver=cp.MOSEK)

@@ -3,6 +3,7 @@ import sys
 sys.path.append('.')
 
 import sys
+from src.utils import mkdirs_safe
 
 
 def main():
@@ -15,6 +16,8 @@ def main():
 	if command == 'replication':
 
 		(_, command, output_directory, replicate, chrom, num_epochs) = system_args
+
+		mkdirs_safe([output_directory])
 
 		chrom = int(chrom)
 		replicate = int(replicate)
