@@ -131,7 +131,8 @@ class ParameterOptimizer:
 			options={
 				'maxiter': maxiter,
 				'disp': verbose,
-				'xatol': tol
+				'xatol': tol,
+				'adaptive': True
 			}
 		)
 

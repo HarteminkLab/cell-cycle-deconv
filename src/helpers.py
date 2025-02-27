@@ -767,7 +767,7 @@ def get_level_based_weights(N, scale=2):
 	weights = np.ones(N)
 	levels = int(np.log2(N))
 
-	for level in range(levels):
+	for level in range(1, levels):
 		start_index = 2**(level)
 		end_index= 2**(level+1)
 		weight = scale**(level+1)

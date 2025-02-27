@@ -81,7 +81,7 @@ def deconvolve_and_plot_gene(config1, gene_name, gamma, kappa, output_directory,
 
 	try:
 		_, N, frep, b = read_n_fr_b(chrom, mnase_span)
-	except KeyErrord:
+	except KeyError:
 		print(f"No replication data for chr{chrom}, {mnase_span}. Reverting to no correction.")
 		N, frep, b = read_no_copy_correction_n_fr_b(config1.H)
 	
@@ -118,13 +118,10 @@ def deconvolve_and_plot_gene(config1, gene_name, gamma, kappa, output_directory,
 	return chromatin_solver
 
 
-def deconvolve_and_plot_region(config, chrom, midpoint, gamma, kappa, output_directory,
-					   window=1200, f_savepath=None, save_plots=True):
+def deconvolve_and_plot_region(config, chrom, mnase_span, gamma, kappa, 
+		f_savepath=None, save_plots=True):
 
 	from src.RealDataReplication import read_no_copy_correction_n_fr_b
-
-	padding_2 = window//2
-	mnase_span = midpoint-padding_2, midpoint+padding_2
 
 	try:
 		_, N, frep, b = read_n_fr_b(chrom, mnase_span)
@@ -133,7 +130,7 @@ def deconvolve_and_plot_region(config, chrom, midpoint, gamma, kappa, output_dir
 		N, frep, b = read_no_copy_correction_n_fr_b(config.H)
 	
 	chromatin_model = ChromatinModel(config)
-	chromatin_model.load_mnase_span(chrom=chrom, mnase_span=mnase_span)
+	chromatin_model.load_mnase_span(chrom=chrom, mnase_span=mnase_span, log=False)
 
 	G_values = chromatin_model.G
 	
@@ -142,12 +139,8 @@ def deconvolve_and_plot_region(config, chrom, midpoint, gamma, kappa, output_dir
 	full_deconvolved_F = chromatin_solver.deconvolve_G_iteratively(gamma=gamma, 
 		kappa=kappa, verbose=False)
 
-	region_name = f"{chrom}_{midpoint}"
-	
-	if f_savepath is None:	
-		f_savepath = f"{output_directory}/{region_name}_F.npy"
-
-	np.save(f_savepath, full_deconvolved_F)
+	if f_savepath is not None:
+		np.save(f_savepath, full_deconvolved_F)
 	
 	if save_plots:
 
@@ -177,11 +170,13 @@ def compute_occupancies_entropies_l2s(config1, meta_df):
 
 	for name, row in meta_df.iterrows():
 
-		full_path = row.path
-		gamma = row.gamma
+		full_path = row.save_path
 
 		# Compute the entropy and occupancy scores for each of the runs
-		occupancy_result, entropy_result = compute_occupancy_entropy_for_file(full_path)
+		try:
+			occupancy_result, entropy_result = compute_occupancy_entropy_for_file(full_path)
+		except FileNotFoundError:
+			continue
 
 		occupancy_df.loc[name, :] = occupancy_result
 		entropies_df.loc[name, :] = entropy_result
@@ -200,20 +195,50 @@ def plot_snr(group_mean_l2s_df, key):
 	
 	intergenic_group_vals = group_mean_l2s_df.loc['intergenic']
 	gene_group_vals = group_mean_l2s_df.loc['gene']
+	kappa_values = gene_group_vals.index
 
-	plt.figure(figsize=(9, 3))
+	plt.figure(figsize=(11, 3))
 	plt.subplot(1, 2, 1)
-	plt.plot(gene_group_vals.index, gene_group_vals[key])
-	plt.plot(intergenic_group_vals.index, intergenic_group_vals[key])
+	plt.plot(kappa_values, gene_group_vals[key], lw=2, 
+		label="Daughter-specific")
+	plt.plot(kappa_values, intergenic_group_vals[key], lw=2,
+		label="Intergenic")
 	plt.xscale('log')
+	plt.legend()
+	plt.xlabel("$\\kappa$")
+	plt.xlim(kappa_values[0], kappa_values[-1])
+	plt.title("L2 norm of [DG1 - CG1]")
 
-	eps = 0#np.quantile(group_mean_l2s_df, q=0.1)
-	snr = (gene_group_vals[key]+eps) - (intergenic_group_vals[key]+eps)
+	eps = 1e-3
+	snr = (gene_group_vals[key]+eps) / (intergenic_group_vals[key]+eps)
+
 	plt.subplot(1, 2, 2)
-	plt.plot(snr)
+	plt.plot(snr, lw=2, color='black')
 	plt.xscale('log')
+	plt.title("Signal-to-noise ratio (Daughter-specific / Intergenic)")
+	plt.xlabel("$\\kappa$")
 	
-	idx_max = snr.argmax()
+	offset = 0
+
+	print(snr)
+	idx_max = snr.iloc[offset:].argmax()+offset
+
+	# Plot optimal and neighbors for comparison
+	indices = [idx_max]#[idx_max-5, idx_max, idx_max+4]
+
+	import matplotlib.patheffects as patheffects
+
+	for i in indices:
+		plt.axvline(kappa_values[i], c='red', alpha=1)
+		plt.text(kappa_values[i], 1.7, f"{kappa_values[i]:.5f}", color='red', alpha=1.0,
+			ha='center', fontsize=9, path_effects=[patheffects.withStroke(linewidth=2, 
+				foreground='white')])
+
+	plt.xlim(kappa_values[0], kappa_values[-1])
+
+	plt.suptitle("Selection of optimal L2 regularization weight, $\\kappa$", fontsize=16)
+	plt.subplots_adjust(top=0.77)
+
 	return (idx_max, snr.index[idx_max], eps)
 
 
@@ -221,52 +246,90 @@ def plot_top_bottom_curves(config1, kappa, meta_df, entropies_df):
 
 	from src.expression_chromatin_plots import draw_phase_label_annotations
 
+	entropies_df = entropies_df.copy()
+	entropies_df['name'] = meta_df['name']
+	entropies_df['kappa'] = meta_df['kappa']
+	entropies_df['group'] = meta_df['group']
+
 	t_indices = config1.get_Hpositions_for_branch('t')
 	b_indices = config1.get_Hpositions_for_branch('b')
 
-	group_entropies = entropies_df.join(meta_df[['group']]).reset_index()
+	group_entropies = entropies_df
 	group_entropies.kappa = group_entropies.kappa.round(5)
 	group_entropies = group_entropies.set_index(['group', 'kappa', 'name'])
 
-	optim_gene_entropy_mean = group_entropies.loc['gene'].groupby('kappa').mean().loc[kappa]
-	optim_intergenic_entropy_mean = group_entropies.loc['intergenic']\
-		.groupby('kappa').mean().loc[kappa]
 
 	t_tps = config1.get_timepoints_for_branch('t')
 	b_tps = config1.get_timepoints_for_branch('b')
+	b_tps = t_tps
 
-	fig = plt.figure(figsize=(11, 4))
+	fig = plt.figure(figsize=(7, 9))
 
-	plt.subplot(1, 2, 1)
-	plt.plot(t_tps, group_entropies.loc['gene'].loc[kappa][t_indices].T, c='red', alpha=0.15)
-	plt.plot(b_tps, group_entropies.loc['gene'].loc[kappa][b_indices].T, c='blue', alpha=0.15)
+	num_examples = 4
+	plt.subplot(1+num_examples, 2, 1)
+
+	normed = (group_entropies.values - group_entropies.mean(axis=1).values[:, None])
+	normed_df = group_entropies.copy()
+	normed_df.loc[:] = normed
+
+	optim_gene_entropy_mean = normed_df.loc['gene'].groupby('kappa').mean().loc[kappa]
+	optim_intergenic_entropy_mean = normed_df.loc['intergenic']\
+		.groupby('kappa').mean().loc[kappa]
+
+	plt.axhline(0, c='black', lw=0.5, ls='solid')
+
+	plt.plot(t_tps, normed_df.loc['gene'].loc[kappa][t_indices].T, c='red', alpha=0.15)
+	plt.plot(b_tps, normed_df.loc['gene'].loc[kappa][b_indices].T, c='blue', alpha=0.15)
+
 	plt.plot(t_tps, optim_gene_entropy_mean[t_indices], c='red', label='Mother (mean)', lw=3)
 	plt.plot(b_tps, optim_gene_entropy_mean[b_indices], c='blue', label='Daughter (mean)', lw=3)
-	plt.ylim(4, 5.7)
+	# plt.ylim(4, 5.7)
+
 	plt.title("Daughter-specific genes")
 	plt.xticks([])
-	plt.ylabel("Entropy,\nnucleosome disorganization")
-	plt.xlabel("Average cell cycle time")
-	plt.legend(ncol=2)
+	plt.ylabel("Mean normalized\nnucleosome entropy")
+	# plt.legend(ncol=2)
 	plt.xlim(b_tps[0], b_tps[-1])
 	draw_phase_label_annotations(plt.gca(), config1, flip=True, 
-	    annotations_x=4.075, phases=['DG1', 'postG1'], 
-	    phase_names=['G1', 'S/G2/M'])
+		annotations_x=-0.4, phases=['CG1', 'postG1'], 
+		phase_names=['CG1/DG1', 'S,G2,M'])
+	plt.ylim(-0.5, 0.5)
 
-	plt.subplot(1, 2, 2)
+	plt.subplot(5, 2, 2)
+	plt.axhline(0, c='black', lw=0.5, ls='solid')
 	plt.plot(t_tps, optim_intergenic_entropy_mean[t_indices], c='red', label='Mother (mean)', lw=3)
 	plt.plot(b_tps, optim_intergenic_entropy_mean[b_indices], c='blue', label='Daughter (mean)', lw=4)
-	plt.plot(t_tps, group_entropies.loc['intergenic'].loc[kappa][t_indices].T, c='red',  alpha=0.15)
-	plt.plot(b_tps, group_entropies.loc['intergenic'].loc[kappa][b_indices].T, c='blue', alpha=0.15)
-	plt.ylim(4, 5.7)
+	plt.plot(t_tps, normed_df.loc['intergenic'].loc[kappa][t_indices].T, c='red',  alpha=0.15)
+	plt.plot(b_tps, normed_df.loc['intergenic'].loc[kappa][b_indices].T, c='blue', alpha=0.15)
 	plt.title("Intergenic regions")
 	plt.xticks([])
 	plt.xlim(b_tps[0], b_tps[-1])
 	plt.yticks([])
+	plt.ylim(-0.5, 0.5)
 
 	draw_phase_label_annotations(plt.gca(), config1, flip=True, 
-	    annotations_x=4.075, phases=['DG1', 'postG1'], 
-	    phase_names=['G1', 'S/G2/M'])
+		annotations_x=-0.4, phases=['CG1', 'postG1'], 
+		phase_names=['CG1/G1', 'S,G2,M'])
+
+	for i in range(num_examples):
+		plt.subplot(5, 2, 3+i*2)
+		plt.axhline(0, c='black', lw=0.5, ls='solid')
+		plt.plot(t_tps, normed_df.loc['gene'].loc[kappa].iloc[i][t_indices], c='red')
+		plt.plot(b_tps, normed_df.loc['gene'].loc[kappa].iloc[i][b_indices], c='blue')
+		plt.ylim(-0.5, 0.5)
+		plt.xticks([])
+		plt.xlim(b_tps[0], b_tps[-1])
+		plt.title(normed_df.loc['gene'].loc[kappa].iloc[i].name)
+
+		plt.subplot(5, 2, 4+i*2)
+		plt.axhline(0, c='black', lw=0.5, ls='solid')
+		plt.plot(t_tps, normed_df.loc['intergenic'].loc[kappa].iloc[i][t_indices], c='red')
+		plt.plot(b_tps, normed_df.loc['intergenic'].loc[kappa].iloc[i][b_indices], c='blue')
+		plt.ylim(-0.5, 0.5)
+		plt.yticks([])
+		plt.xlim(b_tps[0], b_tps[-1])
+		plt.xticks([])
+		plt.title(normed_df.loc['intergenic'].loc[kappa].iloc[i].name)
 	
 
 def plot_summed_rows(config1, F):

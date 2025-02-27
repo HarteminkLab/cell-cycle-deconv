@@ -2,6 +2,62 @@
 import numpy as np
 import matplotlib.pyplot as plt
 
+
+
+
+
+#-------------- Experiment with bias corretion on RPL1A
+
+def test():
+	# Chose a handlful of different kappa values to determine what bias correction
+	# value would cause CG1 and DG1 to be equivalent in RPL1A, then fit a power curve to it
+
+	# Curious how this bias correction affects other genes.....
+	# may not be relevant to use this.... unless there is a broader idea to 
+	# perform this fitting to a larger set of control genes...
+
+	import numpy as np
+	import matplotlib.pyplot as plt
+	from scipy.optimize import curve_fit
+
+	# Data
+	kappas = [0.0037, 0.001, 0.01, 0.1, 0.0001, 0.0008]
+	bias_values = [1.1, 1.3, 1.01, 1, 3, 1.4]
+
+	# Model that goes to 1 as kappa -> large
+	# y = 1 + a * kappa^(-b)
+	def model(kappa, a, b):
+	    return 1.0 + a * kappa**(-b)
+
+	# Initial guesses can matter if data is spread over many orders of magnitude
+	p0 = (1.0, 1.0)  # a=1, b=1 is a mild guess
+	popt, pcov = curve_fit(model, kappas, bias_values, p0=p0)
+	a_opt, b_opt = popt
+
+	print("Unweighted fit parameters:")
+	print(f"a = {a_opt:.6f}, b = {b_opt:.6f}")
+
+	# Plot the fit
+	kappa_fit = np.logspace(-4, -1, 200)  # a smooth range from 1e-6 to 1e-1
+	bias_fit  = model(kappa_fit, a_opt, b_opt)
+
+	plt.figure(figsize=(6,4))
+	plt.scatter(kappas, bias_values, color='blue', label='Data')
+	plt.plot(kappa_fit, bias_fit, 'r-', label=f'Fit: 1 + {a_opt:.3f}·k^(-{b_opt:.3f})')
+
+	# Show x on a log scale, but keep y on a linear scale
+	plt.xscale('log')
+	plt.xlabel('kappa (log scale)')
+	plt.ylabel('bias (linear scale)')
+	plt.legend()
+	plt.tight_layout()
+	plt.show()
+
+	print(a_opt, b_opt)
+
+#--------------
+
+
 # Deprecated: Around for posterity.
 #  a previous attempt to scale the CG1 DG1 regularization term when reads were allocating to DG1
 #  more than CG1. Resolved with additional smoothing weight on DG1, and removal of padding regularization.

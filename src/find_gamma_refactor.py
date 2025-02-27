@@ -27,7 +27,7 @@ class GammaOptimizer:
 
 	ELBOW_BINS = 20
 
-	def __init__(self, compute_solution, gamma_min=0.00001, gamma_max=0.01, verbose=False,
+	def __init__(self, compute_solution, gamma_min=0.00001, gamma_max=0.001, verbose=False,
 		mode='expression'):
 
 		self.mode = mode

@@ -618,11 +618,12 @@ def iterative_deconvolution_updates(
 	initial_B: np.ndarray,
 	total_iterations: int,
 	timer=None,
-	verbose: bool = True
+	verbose: bool = False
 ) -> DeconvolutionResult:
 	"""Iteratively deconvolve for the replication curve F and update N and B.
 		DeconvolutionResult containing iteration history and final values
 	"""
+
 	if timer is None:
 		timer = Timer()
 
@@ -671,3 +672,23 @@ def iterative_deconvolution_updates(
 		Fs=Fs,
 		iterative_update_rns=iterative_update_rns,
 	)
+
+def plot_average_replication_time(real_deconv1):
+
+	from src.chromatin_model import draw_phase_label_annotations
+	config = real_deconv1.config
+
+	fig = plt.figure(figsize=(4, 3))
+	t_indices = config.get_Hpositions_for_branch('t')
+	t_tps = config.get_timepoints_for_branch('t')
+	plt.plot(t_tps, real_deconv1.F.mean(axis=1)[t_indices])
+	draw_phase_label_annotations(plt.gca(), config, flip=True, annotations_x=0.85)
+	plt.xlim(t_tps[0], t_tps[-1])
+	plt.ylim(0.8, 2.1)
+	plt.suptitle("Average single cell copy number, replicate 1, chrIV")
+
+	# Plot when 95% of the genome has been replicated
+	x, y = t_tps, real_deconv1.F.mean(axis=1)[t_indices]
+	g2m_start = t_tps[y > 1.95][0]
+	plt.axvline(g2m_start)
+	config.params_dic['lambda'] - g2m_start

@@ -17,13 +17,9 @@ RIBOSOMAL_GENES = ['RPL1A','RPL1B','RPL2A','RPL2B','RPL3','RPL4A','RPL4B',
 
 DSE_GENES = ['DSE1', 'DSE2', 'DSE3', 'DSE4']
 
-# Working control genes
-#CONTROL_GENES = ['CLB2', 'CLN2', 'MCM6', 'CDC45']
+# HOUSEKEEPING_TFs = ['CBF1', 'ABF1', 'REB1']
 
-CONTROL_GENES = ['CLB2', 'CLN2', 'MCM6', 'CDC45'] + RIBOSOMAL_GENES[0:4]
-
-# DSE_GENES = ['DSE1']
-# CONTROL_GENES = RIBOSOMAL_GENES[0:1]
+CONTROL_GENES = ['CLB2', 'CLN2', 'MCM6', 'CDC45', 'SSK22'] + RIBOSOMAL_GENES[0:4]
 
 
 def load_gene_expression(gene_name):
@@ -80,16 +76,17 @@ class FindKappaExpression(object):
 	def sweep_kappas(self):
 
 		from src.timer import Timer
-		k_min, k_max = 1e-4, 1e-1
+		k_min, k_max = 1e-6, 1e-2
+		num_kappas = 21
 
-		logks = np.linspace(np.log10(k_min), np.log10(k_max), 20)
+		logks = np.linspace(np.log10(k_min), np.log10(k_max), num_kappas)
 		kappas = 10**logks
 		# kappas = np.linspace(k_min, k_max, 20)
 
 		timer = Timer()
 		gene_sums_df = pd.DataFrame()
 
-		gene_names = DSE_GENES + CONTROL_GENES
+		gene_names = DSE_GENES+CONTROL_GENES
 
 		gene_f_solutions = {}
 
@@ -121,10 +118,16 @@ class FindKappaExpression(object):
 		from src.peak_to_trough import compute_quantile_ptr
 		from scipy.stats import pearsonr
 
+		dse_genes = DSE_GENES
+		control_genes = CONTROL_GENES#RIBOSOMAL_GENES[0:4]
+
 		config = self.config
 
 		t_indices = config.get_Hpositions_for_branch('t')
 		b_indices = config.get_Hpositions_for_branch('b')
+
+		cg1_indices = config.get_Hpositions_for_phase('CG1')
+		dg1_indices = config.get_Hpositions_for_phase('DG1')
 
 		gene_f_solutions = self.gene_f_solutions
 
@@ -136,26 +139,30 @@ class FindKappaExpression(object):
 
 		# Compute the l2 norm of the top and bottom branches for each gene
 		for index, row in df.iterrows():
+
 		    l2 = np.linalg.norm(row[b_indices].values - row[t_indices].values) / len(t_indices)
+		    ptr = np.quantile(row[dg1_indices].values, q=0.9) / np.quantile(row[cg1_indices].values, q=0.1)
+
 		    summary_df.loc[index, 'l2_tb'] = l2
+		    summary_df.loc[index, 'ptr'] = ptr
 
 		# The means will be used for the signal to noise computation
-		avg_dse_ratio = summary_df.loc[DSE_GENES].groupby('kappa').mean()
-		avg_control_ratio = summary_df.loc[CONTROL_GENES].groupby('kappa').mean()
+		avg_dse_ratio = summary_df.loc[dse_genes].groupby('kappa').mean()
+		avg_control_ratio = summary_df.loc[control_genes].groupby('kappa').mean()
 
 		# Normalize to std 1
-		ratio_std = np.concatenate([avg_dse_ratio, avg_control_ratio]).std()
+		ratio_std = 1#np.concatenate([avg_dse_ratio, avg_control_ratio]).std()
 
 		self.avg_dse_ratio = avg_dse_ratio/ratio_std
 		self.avg_control_ratio = avg_control_ratio/ratio_std
 
-		self.l2_tb_eps = 0
-		self.snr_l2 = ((self.avg_dse_ratio.l2_tb/ratio_std+self.l2_tb_eps)-
+		self.l2_tb_eps = 1
+		self.snr_l2 = ((self.avg_dse_ratio.l2_tb/ratio_std+self.l2_tb_eps)/
 							(self.avg_control_ratio.l2_tb/ratio_std+self.l2_tb_eps))
 
 	def plot_l2_tb(self):
 
-		plt.figure(figsize=(8, 3))
+		plt.figure(figsize=(6, 3))
 		plt.subplot(1, 2, 1)
 		plt.plot(self.avg_dse_ratio.l2_tb, label="Daughter-specific genes")
 		plt.plot(self.avg_control_ratio.l2_tb, label="Control genes")
@@ -176,37 +183,49 @@ class FindKappaExpression(object):
 		plt.xscale('log')
 
 
-	def plot_example_kappa(self, kappa_idx):
-		dat_df = self.gene_solutions_df.reset_index().set_index(['kappa', 'gene'])
+	def plot_top_bottom_curves(self, kappa_idx):
 
+		from src.expression_chromatin_plots import draw_phase_label_annotations
+
+		dse_genes = DSE_GENES
+		control_genes = CONTROL_GENES #RIBOSOMAL_GENES[:4]
+
+		dat_df = self.gene_solutions_df.reset_index().set_index(['kappa', 'gene'])
 		kappa = dat_df.index.levels[0][kappa_idx]
 
-		plt.figure(figsize=(8, 3))
-		plt.subplot(1, 2, 1)
+		# dat_df.loc[:] = dat_df.values - dat_df.mean(axis=1).values[:, None]
 
-		t_tps = self.config.get_timepoints_for_branch('t')
-		b_tps = self.config.get_timepoints_for_branch('b')
-		t_indices = self.config.get_Hpositions_for_branch('t')
-		b_indices = self.config.get_Hpositions_for_branch('b')
+		config = self.config
+		t_tps = config.get_timepoints_for_branch('t')
+		b_tps = config.get_timepoints_for_branch('b')
+		t_indices = config.get_Hpositions_for_branch('t')
+		b_indices = config.get_Hpositions_for_branch('b')
 
-		from src.plot_helpers import create_sub_colormap
-		reds = create_sub_colormap('Reds', 0.1, 0.9, 'Reds_smaller')
-		blues = create_sub_colormap('Blues', 0.1, 0.9, 'Blues_smaller')
+		fig = plt.figure(figsize=(4, 13))
 
-		plt.plot(t_tps, dat_df.loc[kappa, t_indices].loc[DSE_GENES].T, c='red')
-		plt.plot(b_tps, dat_df.loc[kappa, b_indices].loc[DSE_GENES].T, c='blue')
+		num_examples = 12
+		plt.subplot(1+num_examples, 2, 1)
 
+		plt.plot(t_tps, dat_df.loc[kappa, t_indices].loc[dse_genes].T, c='red', alpha=0.15)
+		plt.plot(t_tps, dat_df.loc[kappa, b_indices].loc[dse_genes].T, c='blue', alpha=0.15)
 		plt.title("Daughter-specific genes")
-		plt.ylim(0, 20)
-		plt.legend()
+		plt.xticks([])
 
-		plt.subplot(1, 2, 2)
-		plt.plot(t_tps, dat_df.loc[kappa, t_indices].loc[CONTROL_GENES].T, c='red', 
-		    label="Top branch")
-		plt.plot(b_tps, dat_df.loc[kappa, b_indices].loc[CONTROL_GENES].T, c='blue',
-		        label="Bottom branch")
-		plt.title("Control genes")
-		plt.ylim(0, 20)
+		for i in range(len(dse_genes)):
+			plt.subplot(1+num_examples, 2, 3+i*2)
+			plt.plot(t_tps, dat_df.loc[kappa, t_indices].loc[dse_genes].iloc[i], c='red')
+			plt.plot(t_tps, dat_df.loc[kappa, b_indices].loc[dse_genes].iloc[i], c='blue')
+			plt.xticks([])
+			plt.xlim(t_tps[0], t_tps[-1])
+			plt.ylim(-0.1, 15)
+			plt.title(dse_genes[i])
 
-		plt.subplots_adjust(top=0.8)
-		plt.suptitle(f"Kappa={kappa:.3g}")
+		for i in range(len(control_genes)):
+			plt.subplot(1+num_examples, 2, 4+i*2)
+			plt.plot(t_tps, dat_df.loc[kappa, t_indices].loc[control_genes].iloc[i], c='red')
+			plt.plot(t_tps, dat_df.loc[kappa, b_indices].loc[control_genes].iloc[i], c='blue')
+			plt.yticks([])
+			plt.xlim(t_tps[0], t_tps[-1])
+			plt.xticks([])
+			plt.ylim(-0.1, 15)
+			plt.title(control_genes[i])

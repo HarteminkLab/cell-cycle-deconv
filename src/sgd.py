@@ -79,6 +79,10 @@ def get_gene_title_name(orf_name, genes=read_sgd_genes()):
 	return gene_title
 
 
+def get_orfnames(gene_names):
+	return [get_orfname(g) for g in gene_names]
+	
+
 def get_orfname(gene_name):
 	gene = get_gene(gene_name)
 	return gene.name

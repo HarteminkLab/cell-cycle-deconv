@@ -58,7 +58,9 @@ class ChromatinModel:
 		"""Load the MNase for an arbitrary genomic span"""
 
 		replicate = self.config.replicate
-		self.mnase_span = mnase_span
+
+		# convert to integers
+		self.mnase_span = int(mnase_span[0]), int(mnase_span[1])
 
 		if not self.chr == chrom:
 

@@ -126,7 +126,7 @@ class ChromatinDeconvolveSolver:
 
 
 
-def plot_branches(config, chrom, mnase_span, full_deconvolved_F):
+def plot_branches(config, chrom, mnase_span, full_deconvolved_F, figsize=(5, 7)):
 
 	from src.orf_plotter import load_default_orf_plotter
 	from src.sgd import read_nondubious_genes_dataset
@@ -147,7 +147,7 @@ def plot_branches(config, chrom, mnase_span, full_deconvolved_F):
 
 	num_imgs_per_branch = 12
 
-	fig, axs = plt.subplots(num_imgs_per_branch+1, 4, figsize=(5, 7))
+	fig, axs = plt.subplots(num_imgs_per_branch+1, 4, figsize=figsize)
 	axs = np.array(axs).T
 
 	vmax = 40
@@ -168,14 +168,14 @@ def plot_branches(config, chrom, mnase_span, full_deconvolved_F):
 			
 	def plot_difference(row_axs, t_indices, b_indices):
 
-		eps = 1
+		eps = 2
 		for plot_index, index_in_t in enumerate(np.linspace(0,
 			len(t_indices)-1, num_imgs_per_branch)):
 			
 			image_index_t = t_indices[int(index_in_t)]
 			image_index_b = b_indices[int(index_in_t)]
 
-			diff_vmax_2 = 6
+			diff_vmax_2 = 3
 			img_diff = np.log2((full_F_imgs[image_index_b]+eps)/(full_F_imgs[image_index_t]+eps))
 			# img_diff = ((full_F_imgs[image_index_b]+eps) - (full_F_imgs[image_index_t]+eps))
 			

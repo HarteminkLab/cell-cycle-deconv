@@ -100,7 +100,6 @@ class DeconvolutionSolver(object):
 			initial_padding = initial_total_padded_len-len(f_recovery_smoothing_indices)
 			initial_padding_2 = initial_padding//2
 
-
 			# Now we will designate how much to extend the f vector and where to place the new padded indices
 			# We will need 32 for the right side of postG1 for initial 
 			# (11 of which can be repeated for the top and bottom padding of postG1)
@@ -121,7 +120,7 @@ class DeconvolutionSolver(object):
 			# Thus we can calculate how much padding we will need for the final padded f vector
 			number_of_unique_padding = initial_padding + tb_padding_2
 
-			f_padded = cp.Variable(m+number_of_unique_padding)
+			f_padded_variation = cp.Variable(m+number_of_unique_padding)
 
 			# Now let's designate which indices belong to which of the padding assignments from above
 			f_padding_indices = np.arange(m, m+number_of_unique_padding)
@@ -160,7 +159,7 @@ class DeconvolutionSolver(object):
 			padding_2 = 0
 
 			f_padding_indices = np.arange(m, m+padding)
-			f_padded = cp.Variable(m+padding)
+			f_padded_variation = cp.Variable(m+padding)
 
 			f_i_padded = f_i
 			f_tb_padded = f_tb
@@ -171,7 +170,12 @@ class DeconvolutionSolver(object):
 		# All of the wavelets should be the same size
 		W_itb = get_wavelet_kernel(len(f_recovery_padded_indices))
 
-		f_non_replicative = f_padded[f_non_padded_indices]
+		# Model a baseline value, so smoothing constraints are applied to
+		# variations on the baseline
+		f_baseline = cp.Variable(1)
+		f_non_replicative = (f_padded_variation[f_non_padded_indices]+f_baseline)
+		self.f_baseline = f_baseline
+
 		f_replication = self.f_replication
 
 		f_combined = cp.multiply(f_non_replicative, f_replication)
@@ -195,25 +199,53 @@ class DeconvolutionSolver(object):
 		# Add weight to higher frequency coefficients, to discourage jaggedness
 		coefficient_weights_itb = get_level_based_weights(len(f_recovery_padded_indices))
 
-
-		# Let's use the longer coefficients weights, to enforce smoothing that is consistent between
-		# the two different subsets
-		smooth_f_i_result = cp.multiply(W_itb@f_padded[f_recovery_padded_indices], coefficient_weights_itb)
-		smooth_f_t_result = cp.multiply(W_itb@f_padded[f_top_padded_indices], coefficient_weights_itb)
-		smooth_f_b_result = cp.multiply(W_itb@f_padded[f_bottom_padded_indices], coefficient_weights_itb)
+		# Smooth against variations of the baseline
+		smooth_f_i_result = cp.multiply(W_itb@(f_padded_variation[f_recovery_padded_indices]-f_baseline), coefficient_weights_itb)
+		smooth_f_t_result = cp.multiply(W_itb@(f_padded_variation[f_top_padded_indices]-f_baseline), coefficient_weights_itb)
+		smooth_f_b_result = cp.multiply(W_itb@(f_padded_variation[f_bottom_padded_indices]-f_baseline), coefficient_weights_itb)
 
 		fit_norm_result = cp.square(cp.norm(elementwise_result, 2))
 
-		# Smooth each branch separately
-		# Balance the lengths of the branches, RG1 is 50% shorter than
-		# DG1, CG1 is 20% shorter than DG1 in time
-		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 0.9 +
-						 cp.sum(cp.abs(smooth_f_t_result)) * 1 +
-						 cp.sum(cp.abs(smooth_f_b_result)) * 1.4)
+		# Smooth each branch separately and weigh by the proportional length of the
+		# branch relative to the bottom branch (the longest)
 
+
+		# Testing adjustments to smoothing weights of the three branches
+		# They appear to have minimal effect on gene expression.
+
+
+		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 0.9 +
+						 cp.sum(cp.abs(smooth_f_t_result)) * 1. +
+						 cp.sum(cp.abs(smooth_f_b_result)) * 1.4)
 		kappa = self.kappa
 
-		tb_regularization_result = f_padded[f_dg1] - f_padded[f_cg1]
+		# There is a bias in the deconvolution with DG1 longer than CG1, we can handle this
+		# by applying a regularization term that approximates CG1 and DG1 to be more equivalent
+		# in read allocation, while also penalizing too far of a deviation from each other
+		dg1_bias = 1.
+
+		dg1_bias_vector = np.array([1.06558274e-05, 2.22472416e-05, 4.51753399e-05, 8.92201505e-05,
+	       1.71380237e-04, 3.20180434e-04, 5.81788463e-04, 1.02818600e-03,
+	       1.76731730e-03, 2.95456561e-03, 4.80406651e-03, 7.59732402e-03,
+	       1.16855337e-02, 1.74812594e-02, 2.54350823e-02, 3.59939777e-02,
+	       4.95407757e-02, 6.63180925e-02, 8.63450638e-02, 1.09340050e-01,
+	       1.34665790e-01, 1.61313816e-01, 1.87941250e-01, 2.12965337e-01,
+	       2.34710218e-01, 2.51588818e-01, 2.62293144e-01, 2.65961520e-01,
+	       2.62293144e-01, 2.51588818e-01, 2.34710218e-01, 2.12965337e-01,
+	       1.87941250e-01, 1.61313816e-01, 1.34665790e-01, 1.09340050e-01,
+	       8.63450638e-02, 6.63180925e-02, 4.95407757e-02, 3.59939777e-02,
+	       2.54350823e-02, 1.74812594e-02, 1.16855337e-02, 7.59732402e-03,
+	       4.80406651e-03, 2.95456561e-03, 1.76731730e-03, 1.02818600e-03,
+	       5.81788463e-04, 3.20180434e-04, 1.71380237e-04, 8.92201505e-05,
+	       4.51753399e-05, 2.22472416e-05, 1.06558274e-05, 4.96403058e-06,
+	       2.24914774e-06, 9.91146343e-07, 4.24809135e-07, 1.77086794e-07,
+	       7.17984003e-08, 2.83125916e-08, 1.08587728e-08, 4.05058857e-09])
+		dg1_bias_vector = dg1_bias_vector[np.arange(len(f_dg1))]
+
+		# tb_regularization_result = cp.multiply(f_padded_variation[f_dg1], dg1_bias_vector) - \
+		# 	f_padded_variation[f_cg1]
+
+		tb_regularization_result = f_padded_variation[f_dg1] - f_padded_variation[f_cg1]
 		cg1_dg1_regularization_result = cp.square(cp.norm(tb_regularization_result, 2))
 
 		objective = cp.Minimize(
@@ -225,17 +257,18 @@ class DeconvolutionSolver(object):
 		)
 
 		# Constraint for halted cells
-		constraints = [f_padded >= 0, f_padded[f_i[0]] == f_padded[f_t[-1]+1]]
+		constraints = [f_padded_variation >= 0, f_padded_variation[f_i[0]] == f_padded_variation[f_t[-1]+1],
+			f_baseline >= 0]
 
 		prob = cp.Problem(objective, constraints)
 		result = prob.solve(solver=cp.MOSEK)
 
 		# Convert it into a numpy array
-		f = f_padded[f_non_padded_indices].value
+		f = f_padded_variation[f_non_padded_indices].value+f_baseline.value
 
 		self.f_non_padded_indices = f_non_padded_indices
 		self.f = f
-		self.f_padded = f_padded.value
+		self.f_padded_variation = f_padded_variation.value
 
 		self.W_itb = W_itb
 		self.coefficient_weights_itb = coefficient_weights_itb
@@ -288,45 +321,17 @@ class DeconvolutionSolver(object):
 		ax.set_ylim(*ylims)
 
 		ax = ax_row[2]
+		ax.plot(f[b_indices], c='blue',
+				lw=3, alpha=0.25)
 		ax.plot(f[t_indices], c='red',
 				lw=3)
 		ax.set_ylim(*ylims)
 		ax.set_title("Top branch")
 
 		ax = ax_row[3]
-		ax.plot(f[b_indices], c='red',
+		ax.plot(f[t_indices], c='red',
+				lw=3, alpha=0.25)
+		ax.plot(f[b_indices], c='blue',
 				lw=3)
 		ax.set_ylim(*ylims)
 		ax.set_title("Bottom branch")
-
-
-
-def compute_branch_lengths(config1):
-	"""Compute the branch lengths to determine the distribution of weights for smoothing"""
-
-	rg1_tps = config1.get_timepoints_for_phase('RG1')
-	cg1_tps = config1.get_timepoints_for_phase('CG1')
-	dg1_tps = config1.get_timepoints_for_phase('DG1')
-	postg1_tps = config1.get_timepoints_for_phase('postG1')
-
-	length_rg1 = rg1_tps[-1]-rg1_tps[0]
-	length_cg1 = cg1_tps[-1]-cg1_tps[0]
-	length_dg1 = dg1_tps[-1]-dg1_tps[0]
-	length_postg1 = postg1_tps[-1]-postg1_tps[0]
-
-	length_rg1, length_cg1, length_dg1, length_postg1
-
-	recovery_smoothing_tps_length = length_rg1+length_postg1
-	top_smoothing_tps_length = length_cg1+length_postg1
-	bottom_smoothing_tps_length = length_dg1+length_postg1
-
-	print("Length of of the padded branches:", 
-		  recovery_smoothing_tps_length,
-		  top_smoothing_tps_length, 
-		  bottom_smoothing_tps_length)
-
-	print("1/Proportion of the daughter branch (longest):", 
-		  bottom_smoothing_tps_length/recovery_smoothing_tps_length,
-		  bottom_smoothing_tps_length/top_smoothing_tps_length, 
-		  bottom_smoothing_tps_length/bottom_smoothing_tps_length)
-

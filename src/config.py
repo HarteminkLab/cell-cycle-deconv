@@ -15,7 +15,7 @@ class RG1Model(object):
 
 	This model will aim to replace the create_models and config classes....
 	"""
-	def __init__(self, config_type='shared'):
+	def __init__(self, config_type='distinct'):
 		# single or distinct mother and daughter g1s
 		self.config_type = config_type
 
@@ -184,6 +184,15 @@ class RG1Model(object):
 
 		self.branch_Hpos_df = branch_Hpos_df
 
+	# Helper functions for common getters
+	def i_indices(self):
+		return self.get_Hpositions_for_branch('i')
+
+	def t_indices(self):
+		return self.get_Hpositions_for_branch('t')
+
+	def b_indices(self):
+		return self.get_Hpositions_for_branch('b')
 
 	def get_Hpositions_for_phase(self, phase):
 
@@ -431,6 +440,36 @@ class RG1Model(object):
 		self.alpha = 0
 		self.update_timepoints()
 
+	def compute_branch_lengths(self):
+		"""Compute the branch lengths to determine the distribution of weights for smoothing"""
+
+		rg1_tps = self.get_timepoints_for_phase('RG1')
+		cg1_tps = self.get_timepoints_for_phase('CG1')
+		dg1_tps = self.get_timepoints_for_phase('DG1')
+		postg1_tps = self.get_timepoints_for_phase('postG1')
+
+		length_rg1 = rg1_tps[-1]-rg1_tps[0]
+		length_cg1 = cg1_tps[-1]-cg1_tps[0]
+		length_dg1 = dg1_tps[-1]-dg1_tps[0]
+		length_postg1 = postg1_tps[-1]-postg1_tps[0]
+
+		length_rg1, length_cg1, length_dg1, length_postg1
+
+		recovery_smoothing_tps_length = length_rg1+length_postg1
+		top_smoothing_tps_length = length_cg1+length_postg1
+		bottom_smoothing_tps_length = length_dg1+length_postg1
+
+		print("Length of of each of the branches:")
+		print("Recovery: ", recovery_smoothing_tps_length)
+		print("Mother: ", top_smoothing_tps_length)
+		print("Daughter: ", bottom_smoothing_tps_length)
+
+		print("1/Proportion of the daughter branch (longest):")
+		print("Recovery: ", bottom_smoothing_tps_length/recovery_smoothing_tps_length)
+		print("Mother: ", bottom_smoothing_tps_length/top_smoothing_tps_length)
+		print("Daughter: ", bottom_smoothing_tps_length/bottom_smoothing_tps_length)
+
+
 
 def read_cloccs_posteriors(posteriors_filepath):
 	params = {}
@@ -443,98 +482,75 @@ def read_cloccs_posteriors(posteriors_filepath):
 	return params
 
 
-def load_default_gene_expression_configs(config_type='shared'):
+def load_default_configs(config_type='distinct', from_CLOCCS=False,
+	mode='chromatin'):
 
 	from src.global_config import GlobalConstants
 
 	config1 = RG1Model(config_type=config_type)
-	# config1.load_from_posteriors('data/2019_cloccs_fits/yl_2019_replicate1/posteriors.txt',
-	# 						  GlobalConstants.CHROM_WT1_TIMEPOINTS, alpha=22)
-	#config.shift_parameters_for_alpha()
-	print("todo: Loading testing config from replication deconvolution")
-	config1.alpha = 0
-	config1.timepoints = GlobalConstants.EXPRESSION_WT1_TIMEPOINTS
+
+	if from_CLOCCS:
+		config1.load_from_posteriors('data/2019_cloccs_fits/yl_2019_replicate1/posteriors.txt',
+								  GlobalConstants.CHROM_WT1_TIMEPOINTS, alpha=22)
+	else:
+		print("todo: Loading testing config from replication deconvolution")
+		config1.alpha = 0
+		config1.params_dic = {
+		    'mu0': 9.361663,
+		    'lambda': 60.397553,
+		    'delta': 14.577271,
+		    'sigma0': 5.884135,
+		    'sigmav': 0.044401,
+		    'gamma1': 0.586077,
+		    'gamma2': 1.000000,
+		    'halted': 0.000050, 
+		    'alpha': 0,
+		}
+
 	config1.replicate = 1
-	config1.params_dic = {
-	    'mu0': 9.361663,
-	    'lambda': 60.397553,
-	    'delta': 14.577271,
-	    'sigma0': 5.884135,
-	    'sigmav': 0.044401,
-	    'gamma1': 0.586077,
-	    'gamma2': 1.000000,
-	    'halted': 0.000050, 
-	    'alpha': 0,
-	}
-	config1.update_timepoints()
-	config1.calculate_H()
 
 	config2 = RG1Model(config_type=config_type)
-	#config2.load_from_posteriors('data/2019_cloccs_fits/yl_2019_replicate2/posteriors.txt',
-	#						  GlobalConstants.CHROM_WT2_TIMEPOINTS, alpha=20)
-	config2.alpha = 0
+
+	if from_CLOCCS:
+		config2.load_from_posteriors('data/2019_cloccs_fits/yl_2019_replicate2/posteriors.txt',
+								  GlobalConstants.CHROM_WT2_TIMEPOINTS, alpha=20)
+	else:
+		config2.alpha = 0
+		config2.params_dic = {
+			'mu0': 20.0238,
+			'delta': 9.154,
+			'sigma0': 3.919,
+			'sigmav': 0.115,
+			'lambda': 60.00,
+			'gamma1': 0.663,
+			'gamma2': 1.0,
+			'halted': 1.7984e-06,
+			'alpha': 0}
 	config2.replicate = 2
-	config2.timepoints = GlobalConstants.EXPRESSION_WT2_TIMEPOINTS
-	config2.params_dic = {
-		'mu0': 20.0238,
-		'delta': 9.154,
-		'sigma0': 3.919,
-		'sigmav': 0.115,
-		'lambda': 60.00,
-		'gamma1': 0.663,
-		'gamma2': 1.0,
-		'halted': 1.7984e-06,
-		'alpha': 0}
+
+	if from_CLOCCS:
+		print("Shifting mu0, gamma1, and gamma2, for alpha...")
+		config1.shift_parameters_for_alpha()
+		config2.shift_parameters_for_alpha()
+
+	if mode == "expression":
+		config1.timepoints = GlobalConstants.EXPRESSION_WT1_TIMEPOINTS
+		config2.timepoints = GlobalConstants.EXPRESSION_WT2_TIMEPOINTS
+	else:
+		config1.timepoints = GlobalConstants.CHROM_WT1_TIMEPOINTS
+		config2.timepoints = GlobalConstants.CHROM_WT2_TIMEPOINTS
+
+	# Generate H for each replicate
+	config1.update_timepoints()
+	config1.calculate_H()
 	config2.update_timepoints()
 	config2.calculate_H()
 
 	return config1, config2
 
-def load_default_chrom_configs(config_type='shared'):
 
-	from src.global_config import GlobalConstants
+def load_default_expression_configs(config_type='distinct', from_CLOCCS=False):
+	return load_default_configs(config_type=config_type, mode='expression', from_CLOCCS=from_CLOCCS)
 
-	config1 = RG1Model(config_type=config_type)
-	# config1.load_from_posteriors('data/2019_cloccs_fits/yl_2019_replicate1/posteriors.txt',
-	# 						  GlobalConstants.CHROM_WT1_TIMEPOINTS, alpha=22)
-	#config.shift_parameters_for_alpha()
-
-	print("todo: Loading testing config from replication deconvolution")
-	config1.alpha = 0
-	config1.timepoints = GlobalConstants.CHROM_WT1_TIMEPOINTS
-	config1.replicate = 1
-	config1.params_dic = {
-	    'mu0': 9.361663,
-	    'lambda': 60.397553,
-	    'delta': 14.577271,
-	    'sigma0': 5.884135,
-	    'sigmav': 0.044401,
-	    'gamma1': 0.586077,
-	    'gamma2': 1.000000,
-	    'halted': 0.000050, 
-	    'alpha': 0,
-	}
-	config1.update_timepoints()
-	config1.calculate_H()
-
-	config2 = RG1Model(config_type=config_type)
-	#config2.load_from_posteriors('data/2019_cloccs_fits/yl_2019_replicate2/posteriors.txt',
-	#						  GlobalConstants.CHROM_WT2_TIMEPOINTS, alpha=20)
-	config2.alpha = 0
-	config2.replicate = 2
-	config2.timepoints = GlobalConstants.CHROM_WT2_TIMEPOINTS
-	config2.params_dic = {
-		'mu0': 20.0238,
-		'delta': 9.154,
-		'sigma0': 3.919,
-		'sigmav': 0.115,
-		'lambda': 60.00,
-		'gamma1': 0.663,
-		'gamma2': 1.0,
-		'halted': 1.7984e-06,
-		'alpha': 0}
-	config2.update_timepoints()
-	config2.calculate_H()
-
-	return config1, config2
-
+def load_default_chrom_configs(config_type='distinct', from_CLOCCS=False):
+	return load_default_configs(config_type=config_type, mode='chromatin', from_CLOCCS=from_CLOCCS)

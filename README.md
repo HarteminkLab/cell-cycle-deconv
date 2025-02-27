@@ -1,58 +1,49 @@
-# Readme documentation for cell cycle deconvolution
+# Expression and Chromatin Cell cycle deconvolution
 
 
-## Introduction: 
+## Abstract
 
-The primary purpose of this document is to better convey and explain the cell cycle deconvolution matlab code, and eventually the python code.
+## Data
 
-There are multiple components to the project.
 
-First, we will define the inputs and outputs and the algorithm.
+## Prequisites
 
-## Outline:
-1. Inputs
-2. The model/algorithm
-   1. Objective
-   2. Smoothing/wavelet regularization
-   3. Gamma regularization term
-3. Outputs
-4. Installation 
-5. Usage
-6. Code/Model structure
-## 1. Inputs:
-- **Genes:** List of all genes we plan to deconvolve, this will match up row-wise the input data
-- **Data:** experimental time course, such as the gene expression of a population of cells going through the cell cycle.
-- **Model:** we have different cell cycle parameters. This is fed in through a run of another model called CLOCCS (*to expand), in which we estimate parameters that define the parameters of the cell cycle from a parallel flow cytometry or budding index data set that corresponds with the experimental data set.
-- **Configuration:** A file that defines the file locations for the data, model, and any other parameterization that isn't strictly defined as cell cycle parameters that the model file contains.
+1. CLOCCS fits
 
-## 2. The model/algorithm
+## Generate Replication Profiles
 
-(Brief overview of branching process, and branches to define H and f, refer to Orlando paper for details).
+1. Fit Replication Profiles for each replicate with MNase-seq:
+   - Initialize with CLOCCS fits
+   - Replicate 1 and Replicate 2
+   - Outputs H1, H2, N1, N2, Fr1, Fr2, B
+      - Fr1, Fr2 and B are genome-wide (per chromosome)
+   - `src/fit_replication_profile.py <1/2> <output_directory>`
 
-The model is set up as a convex optimization problem in which we define a convolution kernel from the cell cycle parameters to deconvolve the experimental input data:
+2. Fit Combined Replication Profile
+   - Fit with combined model
+   - Outputs H1, H2, N1, N2, Fr, B
+      - Fr and B are genome-wide (per chromosome)
+   - `src/fit_combined_replication_profile.py <output_directory>`
 
-g = H * f
+## Deconvolve Gene Expression (combined model)
 
-The model aims to minimize:
+1. Deconvolve the gene expression for all genes
+   - `src/deconvolve_gene_expression.py gene_name`
 
-()
+## Deconvolve Chromatin
 
-Additionally, we also add smoothing constraints using wavelet regularization:
+2. Deconvolve the chromatin for genome-wide (combined model)
+   - `src/deconvolve_chromatin.py chrom start end`
 
-()
+## Analysis
 
-Find Gamma
-## 3. Output
+1. Chromatin dynamics with Gene expression 
+2. Copy correction analysis
+3. Origins of replication analysis
+4. Transcription factor binding analysis
+5. Daughter-specific gene expression dynamics
 
-The final output will be a matrix of deconvolved f values for each gene. As well as the optimal gamma value.
 
-## 4. Installation
 
-Currently the project is written in Matlab. It requires the cvx library to run. Run setup.m to install cvx for the first time. 
 
-## 5. Usage
 
-`mainSingleGene.m` - Runs the deconvolution for a single gene, and finds the optimal gamma for that gene.
-`main.m` - Runs the deconvolution for all genes
-
-(TODO: Expand the algorithm explanation more, add references, write out the important code files and API structure of the model)

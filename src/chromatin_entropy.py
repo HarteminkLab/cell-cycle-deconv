@@ -50,7 +50,7 @@ def compute_occupancy_entropy(f_images, kernel=None):
             np.apply_along_axis(lambda row: calc_entropy(row+eps), axis=1, 
             arr=occupancy_result[i])
 
-    return occupancy_result[:, 0].mean(axis=1), entropy_scores
+    return occupancy_result[:, 0].mean(axis=1), entropy_scores / len(entropy_scores)
 
 
 def plot_occupancy_entropy_results(config, occupancy_result, entropy_result):
