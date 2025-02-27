@@ -25,6 +25,9 @@ def main():
 		fit_replication_profile(chrom=chrom, replicate=replicate, num_epochs=num_epochs, 
 			output_directory=output_directory)
 
+	else:
+		raise ValueError(f"Invalid command" + command)
+
 	# 2. Compute combined replication profiles
 	# from src.fit_combined_replication_profiles import main as fit_combined_replication_profile
 
