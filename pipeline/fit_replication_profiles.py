@@ -9,21 +9,28 @@ import matplotlib.pyplot as plt
 from src.RealDataReplication import RealDataReplicationDeconvolution
 from src.config import load_default_chrom_configs
 from src.optimize_H import create_bounds_params_from_config, ParameterOptimizer
+from src.timer import Timer
+from src.utils import print_fl
 
 
-def run_epochs(optimizer, replication_deconvolver, num_epochs, num_iterations_N_B):
-	from src.timer import Timer
+def run_epochs(replication_deconvolver, optimizer, num_epochs, function_update=None):
 
 	timer = Timer()
 
+	num_iterations_N_B = 20
 	update_params_df = pd.DataFrame()
 
-	# Initial N and B
 	N = replication_deconvolver.N
 	B = replication_deconvolver.B
 
+	Hs = np.zeros((num_epochs, *replication_deconvolver.config.H.shape))
+	Ns = np.zeros((num_epochs, *N.shape))
+	Bs = np.zeros((num_epochs, *B.shape))
+	Fs = np.zeros((num_epochs, *replication_deconvolver.F.shape))
+
 	for epoch in range(num_epochs):
-		print("Epoch: ", epoch)
+
+		print_fl(f"Epoch: {epoch}")
 		
 		optimizer.optimize(maxiter=1000, verbose=True)
 
@@ -43,13 +50,21 @@ def run_epochs(optimizer, replication_deconvolver, num_epochs, num_iterations_N_
 		optimizer.N = replication_deconvolver.N
 		optimizer.B = replication_deconvolver.B
 		optimizer.F = replication_deconvolver.F
+
+		Hs[epoch] = replication_deconvolver.H
+		Fs[epoch] = replication_deconvolver.F
+		Ns[epoch] = replication_deconvolver.N
+		Bs[epoch] = replication_deconvolver.B
 		
 		N = replication_deconvolver.N
 		B = replication_deconvolver.B
 
-		print(update_params_df.iloc[-1])
+		print_fl(update_params_df.iloc[-1])
 
-	return update_params_df
+		if function_update is not None:
+			function_update(epoch, update_params_df, Hs, Fs, Ns, Bs)
+
+	return update_params_df, Hs, Fs, Ns, Bs
 
 
 def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_directory=None):
@@ -58,34 +73,20 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 
 	# Load the default replication chrom configuration from disk
 	# use the posterios from the CLOCCS fits to initialize
-	print("Loading initial cell cycle parameters from CLOCCS fits.")
+	print_fl("Loading initial cell cycle parameters from CLOCCS fits.")
 	config1, config2 = load_default_chrom_configs(from_CLOCCS=True)
 	config = config1 if replicate == 1 else config2
-
-
-
-
-	config.params_dic['mu0'] = 5
-	config.params_dic['gamma1'] = 0.7
-	config.params_dic['gamma2'] = 1.
-	config.update_timepoints()
-	config.calculate_H()
-
 
 	replication_deconvolver = RealDataReplicationDeconvolution(config, replicate=replicate, chr=chrom)
 
 	# Generate initial parameters and boundaries for optimization
 	bounds_df = create_bounds_params_from_config(config)
 
-	# todo: Testing speedup of optimization
-	print("To do: testing speed of mu0, gamma1, gamma2 search first")
-	bounds_df = bounds_df.loc[['mu0', 'gamma1', 'gamma2']]
-
 	# First iteration to settle N, Fr, and B
-	print("Running initial iterations...")
+	print_fl("Running initial iterations...")
 	replication_deconvolver.setup_deconvolution(config)
 	replication_deconvolver.iterative_deconvolution_updates(num_iterations_N_B, verbose=False)
-	print("Done.")
+	print_fl("Done.")
 
 	print("Initial config parameters: ", bounds_df)
 
@@ -100,16 +101,25 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 	)
 
 	# Parameter updates df
-	print(f"Running {num_epochs} epochs...")
-	parameter_updates_df = run_epochs(optimizer, replication_deconvolver, 
-		num_epochs, num_iterations_N_B)
-	print("Done")
+	print_fl(f"Running {num_epochs} epochs...")
+	update_params_df, Hs, Fs, Ns, Bs = run_epochs(replication_deconvolver, optimizer, 
+		num_epochs)
 
-	if output_directory is not None:
-		replication_deconvolver.save_to_disk(output_directory)
-		parameter_updates_df.to_csv(f"{output_directory}/parameter_updates_rep{replicate}_chr{chrom}.csv")
+	def epoch_updates(epoch, update_params_df, Hs, Fs, Ns, Bs):
+		"""Update function"""
 
-	return parameter_updates_df, optimizer, replication_deconvolver
+		# Periodic saving to disk
+		if epoch % 10 == 0 or epoch == num_epochs-1:
+			if output_directory is not None:
+				replication_deconvolver.save_to_disk(output_directory)
+				update_params_df.to_csv(f"{output_directory}/parameter_updates_rep{replicate}_chr{chrom}.csv")
+
+	# Run the optimizer
+	run_epochs(replication_deconvolver, optimizer, num_epochs, function_update=epoch_updates)
+
+	print_fl("Done")
+
+	return update_params_df, optimizer, replication_deconvolver
 
 	
 if __name__ == '__main__':

@@ -1,28 +1,39 @@
 
+import sys
+sys.path.append('.')
+
+import sys
+
 
 def main():
 
+	system_args = tuple(sys.argv)
+	command = system_args[1]
+
 	# Run pipeline from start to finish
 
-	output_directory = "output/pipeline/"
+	if command == 'replication':
 
-	# 1. Compute replication profiles for each replicate using chromosome 4
-	from src.fit_replication_profiles import main as fit_replication_profile
-	fit_replication_profile(chrom=4, replicate=1, num_epochs=1, output_directory=output_directory)
-	fit_replication_profile(chrom=4, replicate=2, num_epochs=1, output_directory=output_directory)
+		(_, command, output_directory, replicate, chrom, num_epochs) = system_args
+
+		chrom = int(chrom)
+		replicate = int(replicate)
+		num_epochs = int(num_epochs)
+
+		# 1. Compute replication profiles for each replicate using chromosome 4
+		from pipeline.fit_replication_profiles import main as fit_replication_profile
+		fit_replication_profile(chrom=chrom, replicate=replicate, num_epochs=num_epochs, 
+			output_directory=output_directory)
 
 	# 2. Compute combined replication profiles
-	from src.fit_combined_replication_profiles import main as fit_combined_replication_profile
+	# from src.fit_combined_replication_profiles import main as fit_combined_replication_profile
 
 	# Fit the cell cycle parameters using the previous individual replicate fits
 	# as initial parameters
-	fit_combined_replication_profile(chrom=4, num_epochs=1)
+	# fit_combined_replication_profile(chrom=4, num_epochs=1)
 
 	# Generate replication profiles for all chromosomes
-	generate_replication_profiles()
-
-
-
+	# generate_replication_profiles()
 
 
 
