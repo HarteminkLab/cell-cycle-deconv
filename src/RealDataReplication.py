@@ -8,6 +8,7 @@ from src.utils import print_fl
 from matplotlib import pyplot as plt
 from src.replication_deconvolution_solver import deconvolve_replication_brute_force
 from typing import Tuple, Optional, NamedTuple
+from src.expression_chromatin_plots import draw_phase_label_annotations
 
 early_color = plt.get_cmap('Oranges')(0.75)
 late_color = plt.get_cmap('Purples')(0.75)
@@ -259,7 +260,6 @@ class RealDataReplicationDeconvolution():
 
 	def plot_F(self):
 		from src.sgd import get_chromosome_length
-		from src.chromatin_model import draw_phase_label_annotations
 
 		chrom = self.chrom
 		chrom_len = get_chromosome_length(chrom)
@@ -299,8 +299,6 @@ class RealDataReplicationDeconvolution():
 
 	def compute_replication_profile(self):
 
-		from src.chromatin_model import draw_phase_label_annotations
-
 		config = self.config
 		t_indices = config.get_Hpositions_for_branch('t')
 		t_tps = config.get_timepoints_for_branch('t')
@@ -324,8 +322,6 @@ class RealDataReplicationDeconvolution():
 			index=start_indices, columns=t_tps)
 
 	def plot_example_f_curves(self):
-
-		from src.chromatin_model import draw_phase_label_annotations
 
 		config = self.config
 		t_indices = config.get_Hpositions_for_branch('t')
@@ -448,6 +444,7 @@ def plot_heatmaps(N, F, H, B, G, column_names, full_column_names):
 	plt.xticks([])
 	plt.colorbar()
 	plt.title("$F$")
+	plt.ylim(F.shape[0], 100)
 
 	plt.subplot(6, 1, 2)
 	plt.imshow(HF, cmap=RdBu_cmap, vmin=0, vmax=2, interpolation='none', aspect='auto')
@@ -681,7 +678,6 @@ def iterative_deconvolution_updates(
 
 def plot_average_replication_time(real_deconv1):
 
-	from src.chromatin_model import draw_phase_label_annotations
 	config = real_deconv1.config
 
 	fig = plt.figure(figsize=(4, 3))

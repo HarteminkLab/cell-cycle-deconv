@@ -94,7 +94,7 @@ class ParameterOptimizer:
 		return loss
 
 
-	def optimize(self, method='Nelder-Mead', maxiter=1000, verbose=True, tol=1e-2):
+	def optimize(self, method='Nelder-Mead', maxiter=1000, verbose=True, tol=1e-5):
 		"""
 		Optimize parameters to minimize ||NHFB - G||.
 		
