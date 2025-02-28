@@ -81,7 +81,11 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 	replication_deconvolver = RealDataReplicationDeconvolution(config, replicate=replicate, chr=chrom)
 
 	# Generate initial parameters and boundaries for optimization
+	# Subset the parameters to learn
+	subset_parameters = ['mu0', 'gamma1', 'gamma2', 'sigma0']
 	bounds_df = create_bounds_params_from_config(config)
+	bounds_df = bounds_df.loc[subset_parameters]
+	print(f"Subsetting the cell cycle parameters to learn: ", subset_parameters)
 
 	# First iteration to settle N, Fr, and B
 	print_fl("Running initial iterations...")

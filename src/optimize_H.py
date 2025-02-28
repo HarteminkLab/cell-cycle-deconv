@@ -37,6 +37,7 @@ class ParameterOptimizer:
 
 		self.update_config_parameters(self.params_df)
 
+
 	def update_params_df(self, parameter_values):
 		# Parameters will update through optimization as a vector, so translate
 		# changes to the data frame object
@@ -94,7 +95,7 @@ class ParameterOptimizer:
 		return loss
 
 
-	def optimize(self, method='Nelder-Mead', maxiter=1000, verbose=True, tol=1e-2):
+	def optimize(self, method='Nelder-Mead', maxiter=1000, verbose=True, tol=1e-5):
 		"""
 		Optimize parameters to minimize ||NHFB - G||.
 		
