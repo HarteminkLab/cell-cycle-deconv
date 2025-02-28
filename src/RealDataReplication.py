@@ -43,7 +43,7 @@ class RealDataReplicationDeconvolution():
 	
 		# Setup regions to threshold, 
 		# regions with low occupancy will be omitted when needed
-		print_fl("Threshold windows with less than 75% read coverage.")
+		print_fl("Omit windows with less than 75% read coverage.")
 		self.selected_threshold_region = self.normalized_occupancy.T.mean(axis=0) > 0.75
 
 	def setup_deconvolution(self, config=None, initial_N=None, initial_B=None):
@@ -65,7 +65,16 @@ class RealDataReplicationDeconvolution():
 		self.H = self.config.H
 
 		# Mask out the low coverage regions
-		keep_column_indices = self.selected_threshold_region[self.selected_threshold_region].index
+
+		all_indices = self.selected_threshold_region.index
+
+		# Selected on adequate occupancy and non-alpha affected regions
+		# Mask out high occupancy regions during alpha-release (RG1)
+		#self.mask_G_df_on_early_timepoints()
+		keep_column_indices = all_indices[self.selected_threshold_region]# & ~self.mask_alpha]
+
+		print(f"Deconvolving {len(keep_column_indices)} regions")
+
 		self.masked_G_df = self.G_df[keep_column_indices]
 
 		self.masked_start_indices = keep_column_indices
@@ -82,6 +91,28 @@ class RealDataReplicationDeconvolution():
 		else:
 			self.initial_B = initial_B
 
+
+	def mask_G_df_on_early_timepoints(self, proportion_above=0.05):
+	    G_df = self.G_df
+
+	    # Select the indices in which the first three timepoints have a greater number
+	    # of reads at any point than the average of the remaining.
+
+	    timepoints = G_df.index
+	    alpha_tps = timepoints[:2]
+	    remaining_tps = timepoints[2:]
+
+	    max_occ_alpha_tps = G_df.loc[alpha_tps].mean(axis=0)
+	    avg_occ_remaining_tps = G_df.loc[remaining_tps].mean(axis=0)
+
+	    mask_alpha = (avg_occ_remaining_tps * (1+proportion_above) < max_occ_alpha_tps)
+
+	    print(f"Todo: Testing a mask of regions with high occupancy in the first two timepoints. "
+	    	  f"Threshold: {1+proportion_above} for the first two timepoints compared to the remainder.")
+
+	    mask_indices = G_df.columns[mask_alpha].values
+	    self.mask_alpha = mask_alpha
+	        
 
 	def deconvolve(self):
 		self.setup_deconvolution(self.config)
@@ -694,3 +725,36 @@ def plot_average_replication_time(real_deconv1):
 	g2m_start = t_tps[y > 1.95][0]
 	plt.axvline(g2m_start)
 	config.params_dic['lambda'] - g2m_start
+
+
+
+def plot_masks():
+    """todo: Plot the mask for low coverage and regions with high occupancy during alpha-factor
+    these regions appear to be difficult to converge with. 
+    
+    Show that the occupancy at these regions to justify the masking.
+    """
+    plt.figure(figsize=(13, 4))
+    plt.subplot(2, 1, 1)
+
+    masked_alpha_G_df = masked_G_df[masked_G_df.columns[mask_alpha]]
+
+    plt.imshow(masked_alpha_G_df,
+              vmin=0, vmax=2, cmap='RdBu_r', aspect='auto')
+    plt.title("Masked Regions")
+    plt.xticks([])
+
+    plt.subplot(2, 1, 2)
+    plt.imshow(masked_G_df[masked_G_df.columns[~mask_alpha]],
+              vmin=0, vmax=2, cmap='RdBu_r', aspect='auto')
+    plt.title("Unmasked Regions")
+    plt.xticks([])
+    plt.subplots_adjust(hspace=0.45)
+
+    num_masked = mask_alpha.sum()
+    num_total = masked_G_df.shape[1]
+
+    print(f"There are {num_masked}/{num_total} ({num_masked/num_total*100:.1f}%)"
+          f"windows with >{proportion_above*100}% occupancy "
+          f"during alpha factor release compared to any other timepoint")
+

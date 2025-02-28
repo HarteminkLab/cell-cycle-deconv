@@ -37,6 +37,7 @@ class ParameterOptimizer:
 
 		self.update_config_parameters(self.params_df)
 
+
 	def update_params_df(self, parameter_values):
 		# Parameters will update through optimization as a vector, so translate
 		# changes to the data frame object
