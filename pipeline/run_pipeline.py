@@ -11,8 +11,7 @@ def main():
 	system_args = tuple(sys.argv)
 	command = system_args[1]
 
-	# Run pipeline from start to finish
-
+	# 1. Deconvolve individual replication profiles, learn cell cycle parameters from MNase-seq
 	if command == 'replication':
 
 		(_, command, output_directory, replicate, chrom, num_epochs, cold_start) = system_args
@@ -29,11 +28,15 @@ def main():
 		fit_replication_profile(chrom=chrom, replicate=replicate, num_epochs=num_epochs, 
 			output_directory=output_directory, from_CLOCCS=cold_start)
 
+
+	# 2. Compute combined replication profiles
+	elif command == 'combined_replication':
+
+		from src.fit_combined_replication_profiles import main as fit_combined_replication_profile
+
 	else:
 		raise ValueError(f"Invalid command" + command)
 
-	# 2. Compute combined replication profiles
-	# from src.fit_combined_replication_profiles import main as fit_combined_replication_profile
 
 	# Fit the cell cycle parameters using the previous individual replicate fits
 	# as initial parameters

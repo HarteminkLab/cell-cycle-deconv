@@ -11,9 +11,6 @@ from matplotlib import pyplot as plt
 from src.replication_deconvolution_solver import deconvolve_replication_brute_force
 from src.RealDataReplication import RealDataReplicationDeconvolution
 
-early_color = plt.get_cmap('Oranges')(0.75)
-late_color = plt.get_cmap('Purples')(0.75)
-
 
 class CombinedReplicationDeconvolution():
 	"""This model deconvolve the replication timing using the data from both replicates.
@@ -27,6 +24,9 @@ class CombinedReplicationDeconvolution():
 		# Load the MNase data for each replicate for the relevant chromosome
 		self.real_deconv1 = RealDataReplicationDeconvolution(config1, chr=chr, replicate=1)
 		self.real_deconv2 = RealDataReplicationDeconvolution(config2, chr=chr, replicate=2)
+
+		# Disable H optimization for the combined model
+		self.disable_H_optimization = True
 
 		# Handle thresholding, each will threshold different regions, 
 		# so union the regions that are thresholded...
@@ -149,12 +149,14 @@ class CombinedReplicationDeconvolution():
 
 			print_fl(f"Epoch: {epoch}")
 			
-			# Run the optimizer on each of the replicate Hs
-			print_fl(f"[{epoch}]: Running H optimizer for replicate 1")
-			optimizer1.optimize(maxiter=1000, verbose=True)
-			print_fl(f"[{epoch}]: Running H optimizer for replicate 2")
-			optimizer2.optimize(maxiter=1000, verbose=True)
-			print_fl(f"[{epoch}]: Done.")
+
+			if not self.disable_H_optimization:
+				# Run the optimizer on each of the replicate Hs
+				print_fl(f"[{epoch}]: Running H optimizer for replicate 1")
+				optimizer1.optimize(maxiter=1000, verbose=True)
+				print_fl(f"[{epoch}]: Running H optimizer for replicate 2")
+				optimizer2.optimize(maxiter=1000, verbose=True)
+				print_fl(f"[{epoch}]: Done.")
 
 			# Combine the Hs
 			self.H = np.concatenate([optimizer1.current_H, optimizer2.current_H], axis=0)

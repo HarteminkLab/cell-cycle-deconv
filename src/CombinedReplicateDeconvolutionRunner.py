@@ -5,11 +5,11 @@ sys.path.append('.')
 import numpy as np
 from src.utils import print_fl
 from src.CombinedReplicationDeconvolution import CombinedReplicationDeconvolution
-from src.rg1_refactor import load_default_chrom_configs
+from src.config import load_default_chrom_configs
 import matplotlib.pyplot as plt
 
 
-def main():
+def main(chrom, num_epochs, out_dir):
 	"""
 	Run the combined deconvolution of the replication profile for a chromosome
 
@@ -20,13 +20,6 @@ def main():
 		python src.SingleReplicateDeconvolutionRunner.py output/replication_deconv 1 20
 
 	"""
-
-	system_args = tuple(sys.argv)
-	(_, out_dir, chrom, num_epochs) = system_args
-	chrom = int(chrom)
-	num_epochs = int(num_epochs)
-
-	print_fl(("Arguments: ", system_args))
 
 	# Start runner
 	runner = CombinedReplicateDeconvolutionRunner(chrom, out_dir)
@@ -53,8 +46,6 @@ class CombinedReplicateDeconvolutionRunner():
 		self.deconvolution = CombinedReplicationDeconvolution(config1, config2, chr=chrom)
 
 	def start_runs(self, num_epochs):
-
-		from src.optimize_H import create_bounds_params_from_config, run_epochs
 
 		# Setup runs
 		self.deconvolution.setup_deconvolution()
@@ -86,12 +77,12 @@ class CombinedReplicateDeconvolutionRunner():
 
 		mkdirs_safe([self.save_dir])
 
-		N_save_path = f'{self.save_dir}/chr{self.chrom}_N.npy'
-		B_save_path = f'{self.save_dir}/chr{self.chrom}_B.npy'
-		F_save_path = f'{self.save_dir}/chr{self.chrom}_F.npy'
-		H_save_path = f'{self.save_dir}/chr{self.chrom}_H.npy'
-		parameters_save_path = f'{self.save_dir}/chr{self.chrom}_parameters.csv'
-		fig_path = f'{self.save_dir}/chr{self.chrom}.png'
+		N_save_path = f'{self.save_dir}/combined_chr{self.chrom}_N.npy'
+		B_save_path = f'{self.save_dir}/combined_chr{self.chrom}_B.npy'
+		F_save_path = f'{self.save_dir}/combined_chr{self.chrom}_F.npy'
+		H_save_path = f'{self.save_dir}/combined_chr{self.chrom}_H.npy'
+		parameters_save_path = f'{self.save_dir}/combined_chr{self.chrom}_parameters.csv'
+		fig_path = f'{self.save_dir}/combined_chr{self.chrom}.png'
 
 		np.save(N_save_path, self.Ns[self.current_epoch])
 		np.save(B_save_path, self.Bs[self.current_epoch])

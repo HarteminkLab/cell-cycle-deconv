@@ -22,6 +22,12 @@ class ParameterOptimizer:
 		self.B = B
 		self.G = G
 
+		# Initiialize H with config's H
+		self.current_H = config.calculate_H()
+
+		# Compute initial loss 
+		self.compute_loss(params=None)
+
 		# Get the indices of the parameters to be updated
 		# this is needed because both config and the optimizer require
 		# the parameters to be in the form of a list, we will keep track of
@@ -36,7 +42,6 @@ class ParameterOptimizer:
 		self.params_df['param_index'] = np.arange(len(self.params_df))
 
 		self.update_config_parameters(self.params_df)
-
 
 	def update_params_df(self, parameter_values):
 		# Parameters will update through optimization as a vector, so translate
@@ -90,6 +95,7 @@ class ParameterOptimizer:
 		self.current_params = params
 		self.current_H = H
 		self.current_loss = loss
+		self.rn = loss
 
 		# Squared error loss
 		return loss
