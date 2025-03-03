@@ -85,8 +85,8 @@ class RealDataReplicationDeconvolution():
 		else:
 			self.initial_N = initial_N
 
-		print_fl("Initializing B using timepoint 0")
 		if initial_B is None:
+			print_fl("Initializing B using timepoint 0")
 			self.initial_B = np.diag(self.G[0])
 		else:
 			self.initial_B = initial_B
@@ -450,7 +450,7 @@ def plot_heatmaps(N, F, H, B, G, column_names, full_column_names):
 	HF = H@F
 	Ninv_G_B_inv = (np.linalg.inv(N)@G@inv_B)
 	predicted_G = N@H@F@B
-	residual_diff = (N@H@F@B) - (G)
+	residual_diff = G-(N@H@F@B)
 
 	def create_df_and_full_cols(dat, column_names, full_column_names):
 		"""Insert back in the nan columns for plotting"""
@@ -503,7 +503,7 @@ def plot_heatmaps(N, F, H, B, G, column_names, full_column_names):
 	plt.subplot(6, 1, 6)
 	plt.imshow(residual_diff, vmin=-1, vmax=1, cmap=RdBu_cmap, interpolation='none', aspect='auto')
 	plt.colorbar()
-	plt.title("$NHFB - G$")
+	plt.title("$G - NHFB$")
 	plt.subplots_adjust(hspace=0.5, top=0.9)
 
 	return fig
@@ -678,13 +678,11 @@ def iterative_deconvolution_updates(
 	current_B = initial_B
 	
 	for iteration in range(total_iterations):
-		if verbose:
-			print_fl(f"Iteration {iteration}")
 
 		# Perform deconvolution step
 		F, rn = deconvolve_replication_brute_force(
 			config, H, G, current_N, current_B,
-			timer=timer, verbose=verbose
+			timer=timer, verbose=False
 		)		
 
 		# Store the solutions
@@ -698,7 +696,7 @@ def iterative_deconvolution_updates(
 			Bs[iteration + 1] = current_B
 			
 		if verbose:
-			print_fl(f"Iteration completed {timer.get_time()}, rn={rn}")
+			print_fl(f"[{iteration}] {timer.get_time()}, rn={rn}")
 
 	return DeconvolutionResult(
 		Ns=Ns,
@@ -758,3 +756,16 @@ def plot_masks():
           f"windows with >{proportion_above*100}% occupancy "
           f"during alpha factor release compared to any other timepoint")
 
+
+def load_from_save(output_dir, replicate, chrom):
+
+    F = pd.read_csv(f'{output_dir}/rep{replicate}_chr{chrom}_F.csv')
+    F_values = F[F.columns[1:]].values
+    F_values.shape
+
+    N = np.load(f'{output_dir}/rep{replicate}_chr{chrom}_N.npy')
+    B = pd.read_csv(f'{output_dir}/rep{replicate}_chr{chrom}_B.csv')
+    B = np.diag(B[B.columns[1:]].values[0])
+    F_values.shape, N.shape, B.shape
+    
+    return F_values, N, B

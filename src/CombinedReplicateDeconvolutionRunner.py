@@ -9,7 +9,7 @@ from src.config import load_default_chrom_configs
 import matplotlib.pyplot as plt
 
 
-def main(chrom, num_epochs, out_dir):
+def main(chrom, num_epochs, out_dir, config1, config2):
 	"""
 	Run the combined deconvolution of the replication profile for a chromosome
 
@@ -22,33 +22,36 @@ def main(chrom, num_epochs, out_dir):
 	"""
 
 	# Start runner
-	runner = CombinedReplicateDeconvolutionRunner(chrom, out_dir)
-	runner.start_runs(num_epochs=num_epochs)
+	runner = CombinedReplicateDeconvolutionRunner(chrom, out_dir, config1, config2)
+	runner.start_runs(num_epochs=num_epochs, output_directory=out_dir)
 	runner.save_to_disk()
+
+	return runner
 
 
 class CombinedReplicateDeconvolutionRunner():
 	"""Run the deconvolution and save to disk"""
 
 
-	def __init__(self, chrom, save_dir):
+	def __init__(self, chrom, save_dir, config1=None, config2=None):
 
 		self.chrom = chrom
 		self.save_dir = save_dir
 
-		print_fl("Loading initial parameters from CLOCCS runs")
-		config1, config2 = load_default_chrom_configs()
+		if config1 is None and config2 is None:
+			print_fl("Loading initial parameters from CLOCCS runs")
+			config1, config2 = load_default_chrom_configs()
 
-		print_fl("Shifting mu0, gamma1, and gamma2 for the alpha parameter")
-		config1.shift_parameters_for_alpha()
-		config2.shift_parameters_for_alpha()
+			print_fl("Shifting mu0, gamma1, and gamma2 for the alpha parameter")
+			config1.shift_parameters_for_alpha()
+			config2.shift_parameters_for_alpha()
 
 		self.deconvolution = CombinedReplicationDeconvolution(config1, config2, chr=chrom)
 
-	def start_runs(self, num_epochs):
+	def start_runs(self, num_epochs, output_directory):
 
 		# Setup runs
-		self.deconvolution.setup_deconvolution()
+		self.deconvolution.setup_deconvolution(output_directory)
 
 		print("Running initial combined deconvolution for F, N, and B")
 		result = self.deconvolution.iterative_deconvolution_updates(20, verbose=False)

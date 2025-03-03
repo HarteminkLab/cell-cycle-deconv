@@ -37,11 +37,16 @@ class CombinedReplicationDeconvolution():
 		self.real_deconv2.selected_threshold_region = union_threshold
 
 
-	def setup_deconvolution(self):
+	def setup_deconvolution(self, output_directory):
 		# Setup deconvolution for each to initialize H, N, B, and G
 
-		self.real_deconv1.setup_deconvolution()
-		self.real_deconv2.setup_deconvolution()
+		from src.RealDataReplication import load_from_save
+
+		F1, N1, B1 = load_from_save(output_directory, 1, self.chr)
+		F2, N2, B2 = load_from_save(output_directory, 2, self.chr)
+
+		self.real_deconv1.setup_deconvolution(initial_B=None, initial_N=N1)
+		self.real_deconv2.setup_deconvolution(initial_B=None, initial_N=N2)
 		self.combine_replicate_data_structures()
 
 
@@ -51,12 +56,21 @@ class CombinedReplicationDeconvolution():
 		self.G = np.concatenate([self.real_deconv1.G, self.real_deconv2.G], axis=0)
 
 		# Construct N as average DNA from replicate 1 and 2 concatenated
-		self.average_DNA = np.concatenate([self.real_deconv1.average_DNA, self.real_deconv2.average_DNA])
-		self.N = np.linalg.inv(np.diag(self.average_DNA))
+		# self.average_DNA = np.concatenate([self.real_deconv1.average_DNA, self.real_deconv2.average_DNA])
+		#self.N = np.linalg.inv(np.diag(self.average_DNA))
+		n1 = np.diag(self.real_deconv1.initial_N)
+		n2 = np.diag(self.real_deconv2.initial_N)
+
+		combined_n = np.concatenate([n1, n2])
+		self.N = np.diag(combined_n)
 
 		# Construct B as the average of replicate 1 and 2
-		self.B = (self.real_deconv1.initial_B + self.real_deconv2.initial_B)/2.
+		b1 = np.diag(self.real_deconv1.initial_B)
+		b2 = np.diag(self.real_deconv2.initial_B)
+		combined_b = (b1+b2)/2.
+		self.B = np.diag(combined_b)
 
+		print("H, G, N, B shapes:", self.H.shape, self.G.shape, self.N.shape, self.B.shape)
 
 	def deconvolve(self):
 		"""Deconvolve the replication by combining the Ns, Gs, Hs, and Bs"""
@@ -78,9 +92,9 @@ class CombinedReplicationDeconvolution():
 		config = self.real_deconv1.config
 
 		result = iterative_deconvolution_updates(
-		    config=config, H=self.H, G=self.G, initial_N=self.N, 
-		    initial_B=self.B, total_iterations=total_iterations, 
-		    timer=timer, verbose=verbose)
+			config=config, H=self.H, G=self.G, initial_N=self.N, 
+			initial_B=self.B, total_iterations=total_iterations, 
+			timer=timer, verbose=verbose)
 
 		# Store the final result items
 		self.F = result.Fs[-1]
@@ -211,3 +225,44 @@ class CombinedReplicationDeconvolution():
 		fig = plot_heatmaps(self.N, self.F, self.H, self.B, self.G, column_names=masked_columns,
 			full_column_names=full_columns)
 		return fig
+
+
+def load_config_from_replication_runs(output_director, chrom):
+
+	from src.config import load_default_chrom_configs
+	config1, config2 = load_default_chrom_configs()
+
+	# Load the replicate 1 and 2 parameters and deconvolve combined
+	params_rep1 = pd.read_csv(f'{output_directory}/parameter_updates_rep1_chr{chrom}.csv')
+	parameters = params_rep1.iloc[-1]
+
+	mu0, gamma1, gamma2, sigma0 = parameters.mu0, parameters.gamma1, \
+		parameters.gamma2, parameters.sigma0
+	mu0, gamma1, gamma2, sigma0
+
+	config1.params_dic['mu0'] = mu0
+	config1.params_dic['gamma1'] = gamma1
+	config1.params_dic['gamma2'] = gamma2
+	config1.params_dic['sigma0'] = sigma0
+	config1.params_dic['alpha'] = 0
+	config1.update_timepoints()
+	H1 = config1.calculate_H()
+
+	# Load the replicate 1 and 2 parameters and deconvolve combined
+	params_rep2 = pd.read_csv(f'{output_directory}/parameter_updates_rep2_chr{chrom}.csv')
+	parameters = params_rep2.iloc[-1]
+
+	mu0, gamma1, gamma2, sigma0 = parameters.mu0, parameters.gamma1, \
+		parameters.gamma2, parameters.sigma0
+	mu0, gamma1, gamma2, sigma0
+
+	config2.params_dic['mu0'] = mu0
+	config2.params_dic['gamma1'] = gamma1
+	config2.params_dic['gamma2'] = gamma2
+	config2.params_dic['sigma0'] = sigma0
+	config2.params_dic['alpha'] = 0
+	config2.update_timepoints()
+	H2 = config2.calculate_H()
+	
+	return config1, config2
+
