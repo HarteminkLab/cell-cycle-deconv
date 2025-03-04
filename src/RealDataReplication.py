@@ -49,7 +49,7 @@ class RealDataReplicationDeconvolution():
 		self.selected_threshold_region = self.normalized_occupancy.T.mean(axis=0) > 0.75
 
 	def setup_deconvolution(self, config=None, initial_N=None, initial_B=None,
-		warm_start_output_directory=None):
+		warm_start_output_directory=None, warm_start_chrom=None):
 		"""Setup the deconvolution:
 		1. H from the config parameters
 		2. G from the normalized data, masked out for low coverage regions
@@ -70,7 +70,7 @@ class RealDataReplicationDeconvolution():
 		if warm_start_output_directory is not None:
 			print_fl(f"Warm start config, N, F, and B from directory: {warm_start_output_directory}")
 			self.config = modify_config_from_run(self.config, warm_start_output_directory, self.replicate,
-				self.chrom)
+				warm_start_chrom)
 		else:
 			self.config.calculate_H()
 
@@ -108,7 +108,7 @@ class RealDataReplicationDeconvolution():
 		if warm_start_output_directory is not None:
 			# N is the most important to load from disk, F, and B will converge properly on the
 			# first set of N, F, B iterations
-			F, N, B = load_N_F_B_from_save(warm_start_output_directory, self.replicate, self.chrom)
+			F, N, B = load_N_F_B_from_save(warm_start_output_directory, self.replicate, warm_start_chrom)
 			initial_N = N
 
 			# todo: using G[0], as B is easier to update

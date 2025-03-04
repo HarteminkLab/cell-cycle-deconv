@@ -9,7 +9,7 @@ from src.config import load_default_chrom_configs
 import matplotlib.pyplot as plt
 
 
-def main(chrom, num_epochs, out_dir, config1, config2):
+def main(chrom, num_epochs, out_dir, warm_start_chrom, config1, config2):
 	"""
 	Run the combined deconvolution of the replication profile for a chromosome
 
@@ -23,7 +23,7 @@ def main(chrom, num_epochs, out_dir, config1, config2):
 
 	# Start runner
 	runner = CombinedReplicateDeconvolutionRunner(chrom, out_dir, config1, config2)
-	runner.start_runs(num_epochs=num_epochs, output_directory=out_dir)
+	runner.start_runs(num_epochs=num_epochs, warm_start_output_directory=out_dir, warm_start_chrom=warm_start_chrom)
 	runner.save_to_disk(save_FB_only=True)
 
 	return runner
@@ -48,10 +48,10 @@ class CombinedReplicateDeconvolutionRunner():
 
 		self.deconvolution = CombinedReplicationDeconvolution(config1, config2, chr=chrom)
 
-	def start_runs(self, num_epochs, output_directory):
+	def start_runs(self, num_epochs, warm_start_output_directory, warm_start_chrom):
 
 		# Setup runs
-		self.deconvolution.setup_deconvolution(output_directory)
+		self.deconvolution.setup_deconvolution(warm_start_output_directory, warm_start_chrom)
 
 		print("Running initial combined deconvolution for F, N, and B")
 		result = self.deconvolution.iterative_deconvolution_updates(20, verbose=False)
