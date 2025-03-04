@@ -53,6 +53,7 @@ def main():
 	elif command == 'deconvolve_expression':
 
 		from src.geneset import get_deconvolved_geneset
+		from pipeline.CombinedDeconvolveGeneExpressionRunner import CombinedDeconvolveGeneExpressionRunner
 
 		genes = get_deconvolved_geneset()
 
@@ -75,16 +76,16 @@ def main():
 
 			gene_name = gene['gene']
 
-			print(f"[{index}/{len(genes)}] Deconvolving {gene_name}", end="...")
+			print_fl(f"[{index}/{len(genes)}] Deconvolving {gene_name}", end="...")
 			
 			try: 
 				expression_find_gamma = runner.deconvolve_gene(gene_name)
 			except:
-				print(f"  Failed. Skipping.")
+				print_fl(f"  Failed. Skipping.")
 				continue
 
 			runner.save_to_disk(save_genes_directory)
-			print(f"Done. {timer.get_time()}")
+			print_fl(f"Done. {timer.get_time()}")
 
 	else:
 		raise ValueError(f"Invalid command" + command)
