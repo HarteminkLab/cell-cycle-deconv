@@ -28,8 +28,9 @@ def load_deconvolved_gene_expression(output_directory):
 
     return expression_Fs_df
 
-
 def plot_volcano_cg1_dg1(expression_Fs_df, config1):
+
+    from scipy.stats.distributions import norm
 
     cg1_dg1_avg_occ = (expression_Fs_df[config1.cg1_indices()].mean(axis=1) + 
         expression_Fs_df[config1.dg1_indices()].mean(axis=1))/2.
@@ -37,10 +38,17 @@ def plot_volcano_cg1_dg1(expression_Fs_df, config1):
     cg1_dg1_max_ratio = np.log2(expression_Fs_df[config1.cg1_indices()].max(axis=1) / \
         expression_Fs_df[config1.dg1_indices()].max(axis=1))
 
-    plt.scatter(cg1_dg1_max_ratio, cg1_dg1_avg_occ, s=4)
+    plot_data = pd.DataFrame({'avg_occ': cg1_dg1_avg_occ, 'max_ratio': cg1_dg1_max_ratio})
+
+    plt.figure(figsize=(4, 3))
+    plt.scatter(cg1_dg1_max_ratio + norm.rvs(0, 0.005, len(cg1_dg1_max_ratio)), 
+        cg1_dg1_avg_occ, s=4)
     plt.xlabel("Ratio CG1/DG1")
     plt.xlim(-2, 2)
     plt.ylim(-1, 15)
     plt.xlabel("Ratio CG1/DG1")
     plt.ylabel("Mean expression level")
     plt.title("Mother/Daughter-specific gene expression")
+
+    return plot_data
+

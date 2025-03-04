@@ -30,7 +30,6 @@ def main():
 		fit_replication_profile(chrom=chrom, replicate=replicate, num_epochs=num_epochs, 
 			output_directory=output_directory, from_CLOCCS=cold_start)
 
-
 	# 2. Compute combined replication profiles for all chromosomes
 	elif command == 'combined_replication':
 
