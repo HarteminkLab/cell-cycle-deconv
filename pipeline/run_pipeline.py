@@ -11,6 +11,8 @@ def main():
 	system_args = tuple(sys.argv)
 	command = system_args[1]
 
+	print_fl("Pipeline arguments: " , system_args)
+
 	# 1. Deconvolve individual replication profiles, learn cell cycle parameters from MNase-seq
 	if command == 'replication':
 
@@ -32,10 +34,12 @@ def main():
 	# 2. Compute combined replication profiles for all chromosomes
 	elif command == 'combined_replication':
 
+        print_fl(f"Generating replication profiles for all chromosomes")
+
 		(_, command, output_directory) = system_args
 
 		from src.CombinedReplicateDeconvolutionRunner import main as fit_combined_replication
-		from src.config import load_default_configs
+		from src.CombinedReplicationDeconvolution import load_config_from_replication_runs
 
 		# Load the replicate 1 and 2 configs from the individual runs, these should
 		# have been fit on chromosome 4
@@ -43,11 +47,11 @@ def main():
 
 		# For each chromosome, create the replication profiles for each of the chromosomes and save to disk
 		for chrom in range(1, 17):
+            print_fl(f"Chromosome {chrom}")
 			combined_runner = fit_combined_replication(chrom, 1, out_dir, config1, config2)
 
 	else:
 		raise ValueError(f"Invalid command" + command)
-
 
 	# Fit the cell cycle parameters using the previous individual replicate fits
 	# as initial parameters
