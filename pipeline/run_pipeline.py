@@ -66,7 +66,7 @@ def main():
 		save_genes_directory = f"{output_directory}/genes_deconvolution/"
 		mkdirs_safe([save_genes_directory])
 
-        runner = CombinedDeconvolveGeneExpressionRunner(output_directory)
+		runner = CombinedDeconvolveGeneExpressionRunner(output_directory)
 
 		index = 0
 		for _, gene in genes.iterrows():
