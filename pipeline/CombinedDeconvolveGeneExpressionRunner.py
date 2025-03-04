@@ -19,10 +19,12 @@ class CombinedDeconvolveGeneExpressionRunner:
 	def deconvolve_gene(self, gene_name):
 
 		from src.gene_expression import load_gene_expression
+		from src.sgd import get_orfname
 		from src.CombinedReplicationDeconvolution import concatenate_H_G
 		from src.expression_gamma_search import GeneExpressionFindOptimalGamma
 
 		self.gene_name = gene_name
+		self.orf_name = get_orfname(gene_name)
 		gene_expression_replicate1 = load_gene_expression(gene_name, 1)
 		gene_expression_replicate2 = load_gene_expression(gene_name, 2)
 
@@ -46,8 +48,8 @@ class CombinedDeconvolveGeneExpressionRunner:
 		expression_F = self.expression_find_gamma.retrieve_solution()
 		optimal_gamma = self.expression_find_gamma.gamma_optimizer.optimal_gamma
 
-		F_savepath = f"{output_directory}/{self.gene_name}_{optimal_gamma:.6f}.npy"
-		fig_savepath = f"{output_directory}/{self.gene_name}.png"
+		F_savepath = f"{output_directory}/{self.orf_name}_{self.gene_name}_{optimal_gamma:.6f}.npy"
+		fig_savepath = f"{output_directory}/{self.orf_name}_{self.gene_name}.png"
 
 		np.save(F_savepath, expression_F)
 
