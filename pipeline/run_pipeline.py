@@ -48,7 +48,7 @@ def main():
 		# For each chromosome, create the replication profiles for each of the chromosomes and save to disk
 		for chrom in range(1, 17):
 			print_fl(f"Chromosome {chrom}")
-			combined_runner = fit_combined_replication(chrom, 1, output_directory, config1, config2)
+			combined_runner = fit_combined_replication(chrom, 1, out_dir, 4, config1, config2)
 
 	else:
 		raise ValueError(f"Invalid command" + command)
