@@ -63,7 +63,6 @@ def main():
 
 		timer = Timer()
 
-		output_directory = 'output/prototype_pipeline_subset/'
 		save_genes_directory = f"{output_directory}/genes_deconvolution/"
 		mkdirs_safe([save_genes_directory])
 
