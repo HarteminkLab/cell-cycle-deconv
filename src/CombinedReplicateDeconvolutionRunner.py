@@ -68,7 +68,9 @@ class CombinedReplicateDeconvolutionRunner():
 				self.Fs = Fs
 				self.Ns = Ns
 				self.Bs = Bs
-				self.save_to_disk()
+
+				if not self.disable_H_optimization:
+					self.save_to_disk()
 
 		# Run the deconvolution updates
 		self.update_params_df, self.Hs, self.Fs, self.Ns, self.Bs = \
