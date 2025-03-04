@@ -24,7 +24,7 @@ def main(chrom, num_epochs, out_dir, config1, config2):
 	# Start runner
 	runner = CombinedReplicateDeconvolutionRunner(chrom, out_dir, config1, config2)
 	runner.start_runs(num_epochs=num_epochs, output_directory=out_dir)
-	runner.save_to_disk()
+	runner.save_to_disk(save_FB_only=True)
 
 	return runner
 
@@ -74,7 +74,7 @@ class CombinedReplicateDeconvolutionRunner():
 		self.update_params_df, self.Hs, self.Fs, self.Ns, self.Bs = \
 			self.deconvolution.run_epochs(num_epochs=num_epochs, function_update=update_function)
 
-	def save_to_disk(self):
+	def save_to_disk(self, save_FB_only=False):
 
 		from src.utils import mkdirs_safe
 
@@ -87,11 +87,14 @@ class CombinedReplicateDeconvolutionRunner():
 		parameters_save_path = f'{self.save_dir}/combined_chr{self.chrom}_parameters.csv'
 		fig_path = f'{self.save_dir}/combined_chr{self.chrom}.png'
 
-		np.save(N_save_path, self.Ns[self.current_epoch])
+		if not save_FB_only:
+			np.save(N_save_path, self.Ns[self.current_epoch])
+			np.save(F_save_path, self.Fs[self.current_epoch])
+			self.update_params_df.to_csv(parameters_save_path)
+
 		np.save(B_save_path, self.Bs[self.current_epoch])
 		np.save(H_save_path, self.Hs[self.current_epoch])
-		np.save(F_save_path, self.Fs[self.current_epoch])
-		self.update_params_df.to_csv(parameters_save_path)
+
 
 		fig = self.deconvolution.plot_heatmaps()
 		plt.suptitle(f"Combined replicate"
@@ -99,11 +102,13 @@ class CombinedReplicateDeconvolutionRunner():
 		plt.savefig(fig_path, dpi=150)
 		plt.close(fig)
 
-		print_fl(f"Saved to: {N_save_path}")
+		if not save_FB_only:
+			print_fl(f"Saved to: {N_save_path}")
+			print_fl(f"Saved to: {H_save_path}")
+			print_fl(f"Saved to: {parameters_save_path}")
+
 		print_fl(f"Saved to: {B_save_path}")
-		print_fl(f"Saved to: {H_save_path}")
 		print_fl(f"Saved to: {F_save_path}")
-		print_fl(f"Saved to: {parameters_save_path}")
 		print_fl(f"Saved to: {fig_path}")
 
 if __name__ == '__main__':

@@ -37,14 +37,20 @@ class CombinedReplicationDeconvolution():
 		self.real_deconv2.selected_threshold_region = union_threshold
 
 
-	def setup_deconvolution(self, output_directory):
+	def setup_deconvolution(self, warm_start_output_directory=None):
 		# Setup deconvolution for each to initialize H, N, B, and G
 
-		from src.RealDataReplication import load_from_save
+		from src.RealDataReplication import load_N_F_B_from_save
 
-		F1, N1, B1 = load_from_save(output_directory, 1, self.chr)
-		F2, N2, B2 = load_from_save(output_directory, 2, self.chr)
+		# Load the F, N, and B from disk
+		if warm_start_output_directory is not None:	
+			# Load the F, N, and B from disk
+			print_fl(f"Warm start load F N and B from disk {warm_start_output_directory}")
+			F1, N1, B1 = load_N_F_B_from_save(warm_start_output_directory, 1, self.chr)
+			F2, N2, B2 = load_N_F_B_from_save(warm_start_output_directory, 2, self.chr)
 
+		# Load just N, more important than B. And we can deconvolve other chromosomes easily
+		# First set of iterations will provide a consistent replication profile
 		self.real_deconv1.setup_deconvolution(initial_B=None, initial_N=N1)
 		self.real_deconv2.setup_deconvolution(initial_B=None, initial_N=N2)
 		self.combine_replicate_data_structures()
@@ -52,7 +58,7 @@ class CombinedReplicationDeconvolution():
 
 	def combine_replicate_data_structures(self):
 
-		self.H = np.concatenate([self.real_deconv1.H, self.real_deconv2.H], axis=0)
+		self.H = np.concatenate([self.real_deconv1.config.H, self.real_deconv2.config.H], axis=0)
 		self.G = np.concatenate([self.real_deconv1.G, self.real_deconv2.G], axis=0)
 
 		# Construct N as average DNA from replicate 1 and 2 concatenated
@@ -227,42 +233,14 @@ class CombinedReplicationDeconvolution():
 		return fig
 
 
-def load_config_from_replication_runs(output_director, chrom):
+def load_config_from_replication_runs(output_directory, chrom):
+	"""Load configs from the output directory of previously run replicates"""
 
 	from src.config import load_default_chrom_configs
+	from src.RealDataReplication import modify_config_from_run
+
 	config1, config2 = load_default_chrom_configs()
+	config1 = modify_config_from_run(config1, output_directory, 1, chrom)
+	config2 = modify_config_from_run(config2, output_directory, 2, chrom)
 
-	# Load the replicate 1 and 2 parameters and deconvolve combined
-	params_rep1 = pd.read_csv(f'{output_directory}/parameter_updates_rep1_chr{chrom}.csv')
-	parameters = params_rep1.iloc[-1]
-
-	mu0, gamma1, gamma2, sigma0 = parameters.mu0, parameters.gamma1, \
-		parameters.gamma2, parameters.sigma0
-	mu0, gamma1, gamma2, sigma0
-
-	config1.params_dic['mu0'] = mu0
-	config1.params_dic['gamma1'] = gamma1
-	config1.params_dic['gamma2'] = gamma2
-	config1.params_dic['sigma0'] = sigma0
-	config1.params_dic['alpha'] = 0
-	config1.update_timepoints()
-	H1 = config1.calculate_H()
-
-	# Load the replicate 1 and 2 parameters and deconvolve combined
-	params_rep2 = pd.read_csv(f'{output_directory}/parameter_updates_rep2_chr{chrom}.csv')
-	parameters = params_rep2.iloc[-1]
-
-	mu0, gamma1, gamma2, sigma0 = parameters.mu0, parameters.gamma1, \
-		parameters.gamma2, parameters.sigma0
-	mu0, gamma1, gamma2, sigma0
-
-	config2.params_dic['mu0'] = mu0
-	config2.params_dic['gamma1'] = gamma1
-	config2.params_dic['gamma2'] = gamma2
-	config2.params_dic['sigma0'] = sigma0
-	config2.params_dic['alpha'] = 0
-	config2.update_timepoints()
-	H2 = config2.calculate_H()
-	
 	return config1, config2
-

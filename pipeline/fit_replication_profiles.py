@@ -13,7 +13,17 @@ from src.timer import Timer
 from src.utils import print_fl
 
 
-def run_epochs(replication_deconvolver, optimizer, num_epochs, function_update=None):
+def run_epochs(replication_deconvolver, bounds_df, num_epochs, function_update=None):
+
+	# Parameter Optimizer
+	optimizer = ParameterOptimizer(
+		init_params_df=bounds_df,
+		config=replication_deconvolver.config,
+		N=replication_deconvolver.N,
+		F=replication_deconvolver.F,
+		B=replication_deconvolver.B,
+		G=replication_deconvolver.G
+	)
 
 	timer = Timer()
 
@@ -97,16 +107,6 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 
 	print("Initial config parameters: ", bounds_df)
 
-	# Parameter Optimizer
-	optimizer = ParameterOptimizer(
-		init_params_df=bounds_df,
-		config=config,
-		N=replication_deconvolver.N,
-		F=replication_deconvolver.F,
-		B=replication_deconvolver.B,
-		G=replication_deconvolver.G
-	)
-
 	# Parameter updates df
 	print_fl(f"Running {num_epochs} epochs...")
 	def epoch_updates(epoch, update_params_df, Hs, Fs, Ns, Bs):
@@ -122,7 +122,7 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 
 	# Run the optimizer
 	update_params_df, Hs, Fs, Ns, Bs = run_epochs(replication_deconvolver, 
-		optimizer, num_epochs, function_update=epoch_updates)
+		bounds_df, num_epochs, function_update=epoch_updates)
 
 	print_fl("Done")
 

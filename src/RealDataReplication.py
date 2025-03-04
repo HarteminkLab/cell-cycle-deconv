@@ -23,6 +23,8 @@ class RealDataReplicationDeconvolution():
 		self.replicate = replicate
 		self.config = config
 		self.load_replicate_data(chr, replicate)
+		self.std_q_threshold = 0.75
+		self.enable_std_thresholding = False
 
 
 	def load_replicate_data(self, chr, replicate):
@@ -46,12 +48,17 @@ class RealDataReplicationDeconvolution():
 		print_fl("Omit windows with less than 75% read coverage.")
 		self.selected_threshold_region = self.normalized_occupancy.T.mean(axis=0) > 0.75
 
-	def setup_deconvolution(self, config=None, initial_N=None, initial_B=None):
+	def setup_deconvolution(self, config=None, initial_N=None, initial_B=None,
+		warm_start_output_directory=None):
 		"""Setup the deconvolution:
 		1. H from the config parameters
 		2. G from the normalized data, masked out for low coverage regions
 		3. N from the cell cycle parameters as defined in the config
 		4. B from the first timepoint in G
+
+		If loading from a warm start, we will load N, F, and the config parameters
+		from disk. From the output directory: warm_start_output_directory
+
 		"""
 
 		if config is None and self.config is None:
@@ -60,25 +67,51 @@ class RealDataReplicationDeconvolution():
 		elif config is not None:
 			self.config = config
 
-		print_fl("Initializing N using config H.")
-		self.config.calculate_H()
-		self.H = self.config.H
+		if warm_start_output_directory is not None:
+			print_fl(f"Warm start config, N, F, and B from directory: {warm_start_output_directory}")
+			self.config = modify_config_from_run(self.config, warm_start_output_directory, self.replicate,
+				self.chrom)
+		else:
+			self.config.calculate_H()
 
 		# Mask out the low coverage regions
-
 		all_indices = self.selected_threshold_region.index
+
+		# Two stages of masking
+
+		# ---- 1. Mask indices of low coverage based on threshold region -------
 
 		# Selected on adequate occupancy and non-alpha affected regions
 		# Mask out high occupancy regions during alpha-release (RG1)
-		#self.mask_G_df_on_early_timepoints()
-		keep_column_indices = all_indices[self.selected_threshold_region]# & ~self.mask_alpha]
-
-		print(f"Deconvolving {len(keep_column_indices)} regions")
+		keep_column_indices = all_indices[self.selected_threshold_region]
 
 		self.masked_G_df = self.G_df[keep_column_indices]
-
 		self.masked_start_indices = keep_column_indices
-		self.G = self.masked_G_df.values
+		self.full_start_indices = all_indices
+
+		# ---- 2. Mask indices of high variation, and randomly subsample to increase convergence speed ----
+
+		if self.enable_std_thresholding:
+			std_cutoff_start_indices = self.randomly_subset_windows_to_deconvolve(self.masked_G_df, 
+				quantile=self.std_q_threshold,
+				k=None, plot_std=False)
+		else:
+			std_cutoff_start_indices = keep_column_indices
+
+		self.G = self.G_df[std_cutoff_start_indices].values
+		self.deconvolve_start_indices = std_cutoff_start_indices
+
+		# ---------------------------------------------------------
+
+		print(f"Deconvolving {len(self.deconvolve_start_indices)} regions")
+
+		if warm_start_output_directory is not None:
+			# N is the most important to load from disk, F, and B will converge properly on the
+			# first set of N, F, B iterations
+			F, N, B = load_N_F_B_from_save(warm_start_output_directory, self.replicate, self.chrom)
+			initial_N = N
+
+			# todo: using G[0], as B is easier to update
 
 		if initial_N is None:
 			self.average_DNA, self.initial_N = compute_N(self.config)
@@ -91,34 +124,22 @@ class RealDataReplicationDeconvolution():
 		else:
 			self.initial_B = initial_B
 
+	def randomly_subset_windows_to_deconvolve(self, G_df, quantile=0.75, k=None, plot_std=False):
+		
+		std_df, under_cutoff_windows, \
+		quantile, cutoff = self.compute_std_cutoffs_G(G_df, quantile=quantile, plot=plot_std)
 
-	def mask_G_df_on_early_timepoints(self, proportion_above=0.05):
-	    G_df = self.G_df
+		under_cutoff_start_indices = sorted(under_cutoff_windows.index.values)
 
-	    # Select the indices in which the first three timepoints have a greater number
-	    # of reads at any point than the average of the remaining.
+		# Randomly subset to try and speed up convergence
+		if k is not None:
+			np.random.seed(123)
+			ret_indices = np.random.choice(under_cutoff_start_indices, k)
+		else:
+			ret_indices = under_cutoff_start_indices
 
-	    timepoints = G_df.index
-	    alpha_tps = timepoints[:2]
-	    remaining_tps = timepoints[2:]
-
-	    max_occ_alpha_tps = G_df.loc[alpha_tps].mean(axis=0)
-	    avg_occ_remaining_tps = G_df.loc[remaining_tps].mean(axis=0)
-
-	    mask_alpha = (avg_occ_remaining_tps * (1+proportion_above) < max_occ_alpha_tps)
-
-	    print(f"Todo: Testing a mask of regions with high occupancy in the first two timepoints. "
-	    	  f"Threshold: {1+proportion_above} for the first two timepoints compared to the remainder.")
-
-	    mask_indices = G_df.columns[mask_alpha].values
-	    self.mask_alpha = mask_alpha
-	        
-
-	def deconvolve(self):
-		self.setup_deconvolution(self.config)
-		self.F, self.rn = deconvolve_replication_brute_force(self.config, 
-			self.H, self.G, self.N, self.B)
-
+		return ret_indices
+		
 
 	def iterative_deconvolution_updates(self, total_iterations, timer=None,
 		initial_N=None, initial_B=None, verbose=True):
@@ -131,7 +152,7 @@ class RealDataReplicationDeconvolution():
 			initial_B = self.initial_B
 
 		result = iterative_deconvolution_updates(
-			config=self.config, H=self.H, G=self.G, initial_N=initial_N, 
+			config=self.config, H=self.config.H, G=self.G, initial_N=initial_N, 
 			initial_B=initial_B, total_iterations=total_iterations, 
 			timer=timer, verbose=verbose)
 
@@ -140,13 +161,13 @@ class RealDataReplicationDeconvolution():
 		self.rn = result.iterative_update_rns[-1]
 		self.B = result.Bs[-1]
 
-		self.F_df = pd.DataFrame(self.F, columns=self.masked_G_df.columns,
-		    index=range(self.F.shape[0]))
-		self.b_df = pd.DataFrame(np.diag(self.B), index=self.masked_G_df.columns,
-		                   columns=['b']).T
+		self.F_df = pd.DataFrame(self.F, columns=self.deconvolve_start_indices,
+			index=range(self.F.shape[0]))
+		self.b_df = pd.DataFrame(np.diag(self.B), index=self.deconvolve_start_indices,
+						   columns=['b']).T
 
 	def compute_rn(self):
-		N, H, F, B = self.N, self.H, self.F, self.B
+		N, H, F, B = self.N, self.config.H, self.F, self.B
 		G = self.G
 		return compute_rn(N, H, F, B, G)
 
@@ -203,9 +224,9 @@ class RealDataReplicationDeconvolution():
 
 
 	def plot_heatmaps(self):
-		N, F, G, B, H = self.N, self.F, self.G, self.B, self.H
+		N, F, G, B, H = self.N, self.F, self.G, self.B, self.config.H
 
-		fig = plot_heatmaps(N, F, H, B, G, column_names=self.masked_G_df.columns,
+		fig = plot_heatmaps(N, F, H, B, G, column_names=self.deconvolve_start_indices,
 			full_column_names=self.G_df.columns)
 		plt.suptitle(f"Replication {self.replicate}"
 			f" deconvolution,\nChromosome {self.chrom}")
@@ -252,7 +273,7 @@ class RealDataReplicationDeconvolution():
 
 	def plot_predicted_G(self):
 
-		predicted_G = self.N@self.H@self.F@self.B
+		predicted_G = self.N@self.config.H@self.F@self.B
 
 		tps = self.config.timepoints
 		start_indices = self.unnormalized_total_occupancy.index.values
@@ -271,7 +292,7 @@ class RealDataReplicationDeconvolution():
 
 	def plot_residual(self):
 
-		predicted_G = self.N@self.H@self.F@self.B
+		predicted_G = self.N@self.config.H@self.F@self.B
 		residual = predicted_G - self.G
 
 		tps = self.config.timepoints
@@ -393,24 +414,48 @@ class RealDataReplicationDeconvolution():
 		self.config.params_dic.update(updated_parameters)
 		self.config.update_timepoints()
 		self.config.calculate_H()
-		self.H = self.config.H
 
-# def threshold_selection(dat, threshold_selection, fill=1.,
-# 	renormalize=False):
-# 	new_dat = dat.copy()
-# 	new_dat[:, ~threshold_selection] = fill
 
-# 	# If thresholded to fill with nans, we can renormalize such
-# 	# that the non-thresholded out regions mean to 1
-# 	if renormalize:
+	def compute_std_cutoffs_G(self, G_df, quantile=0.9, plot=True):
+		"""Compute the quantile cutoff for standard deviation of G. High standard deviation
+		windows typically are more difficult to deconvolve"""
 
-# 		# Get the current mean of the good rows
-# 		row_means = np.nanmean(new_dat, axis=1)
+		start_indices = G_df.columns
 
-# 		# Divide the data by these mean
-# 		new_dat = new_dat / row_means.reshape((-1, 1))
+		std_df = pd.DataFrame({'std': np.std(G_df, axis=0), 
+			'window_index': np.arange(G_df.shape[1])},
+			index=start_indices)
 
-# 	return new_dat
+		std_df = std_df.sort_values('std')
+		reordering = std_df.window_index
+
+		cutoff = np.quantile(std_df['std'], q=quantile)
+
+		if plot:
+			plt.figure(figsize=(6, 2))
+			plt.subplot(1, 2, 1)
+			plt.plot(std_df['std'], np.arange(G_df.shape[1]))
+			plt.axvline(cutoff, c='red', alpha=0.2)
+			plt.ylabel("Sorted window index")
+			plt.xlabel("Window standard deviation, $\\sigma$")
+
+			plt.subplot(1, 2, 2)
+			plt.hist(std_df['std'], bins=20)
+			plt.axvline(cutoff, c='red', alpha=0.2)
+			plt.xlabel("Window standard deviation, $\\sigma$")
+			plt.ylabel("Number of windows")
+
+			plt.suptitle("Distribution of G standard deviation")
+			plt.subplots_adjust(top=0.85, wspace=0.3)
+
+		under_cutoff_windows = std_df[std_df['std'] < cutoff]
+		sorted_window_number_cutoff = len(under_cutoff_windows)
+
+		print(f"Quantile for cutoff: {quantile:.2f}")
+		print(f"Cutoff for threshold: {cutoff:.2f}")
+		print(f"Number of windows to include: ", sorted_window_number_cutoff)
+
+		return std_df, under_cutoff_windows, quantile, cutoff
 
 
 def plot_histogram_occupancies_G(config, G):
@@ -438,7 +483,6 @@ def plot_histogram_occupancies_G(config, G):
 	plt.suptitle("Distribution of normalized G data per timepoint")
 	plt.subplots_adjust(hspace=0.5)
 
-	# This shoes the data for G is normal-ish and centered around 1.
 
 def plot_heatmaps(N, F, H, B, G, column_names, full_column_names):
 
@@ -453,12 +497,14 @@ def plot_heatmaps(N, F, H, B, G, column_names, full_column_names):
 	residual_diff = G-(N@H@F@B)
 
 	def create_df_and_full_cols(dat, column_names, full_column_names):
-		"""Insert back in the nan columns for plotting"""
-		complete_dat = pd.DataFrame(dat, columns=column_names)
-		for c in full_column_names:
-			if c not in column_names:
-				complete_dat[c] = np.nan
-		complete_dat = complete_dat[sorted(complete_dat.columns)]
+		"""Insert back in the nan columns for plotting using reindex"""
+		# Create the initial dataframe with existing data
+		existing_df = pd.DataFrame(dat, columns=column_names)
+		
+		# Use reindex to add all missing columns at once
+		# This automatically fills new columns with NaN values
+		complete_dat = existing_df.reindex(columns=sorted(full_column_names))
+		
 		return complete_dat
 
 	F = create_df_and_full_cols(F, column_names, full_column_names)
@@ -725,47 +771,69 @@ def plot_average_replication_time(real_deconv1):
 	config.params_dic['lambda'] - g2m_start
 
 
-
 def plot_masks():
-    """todo: Plot the mask for low coverage and regions with high occupancy during alpha-factor
-    these regions appear to be difficult to converge with. 
-    
-    Show that the occupancy at these regions to justify the masking.
-    """
-    plt.figure(figsize=(13, 4))
-    plt.subplot(2, 1, 1)
+	"""todo: Plot the mask for low coverage and regions with high occupancy during alpha-factor
+	these regions appear to be difficult to converge with. 
+	
+	Show that the occupancy at these regions to justify the masking.
+	"""
+	plt.figure(figsize=(13, 4))
+	plt.subplot(2, 1, 1)
 
-    masked_alpha_G_df = masked_G_df[masked_G_df.columns[mask_alpha]]
+	masked_alpha_G_df = masked_G_df[masked_G_df.columns[mask_alpha]]
 
-    plt.imshow(masked_alpha_G_df,
-              vmin=0, vmax=2, cmap='RdBu_r', aspect='auto')
-    plt.title("Masked Regions")
-    plt.xticks([])
+	plt.imshow(masked_alpha_G_df,
+			  vmin=0, vmax=2, cmap='RdBu_r', aspect='auto')
+	plt.title("Masked Regions")
+	plt.xticks([])
+	plt.subplot(2, 1, 2)
+	plt.imshow(masked_G_df[masked_G_df.columns[~mask_alpha]],
+			  vmin=0, vmax=2, cmap='RdBu_r', aspect='auto')
+	plt.title("Unmasked Regions")
+	plt.xticks([])
+	plt.subplots_adjust(hspace=0.45)
 
-    plt.subplot(2, 1, 2)
-    plt.imshow(masked_G_df[masked_G_df.columns[~mask_alpha]],
-              vmin=0, vmax=2, cmap='RdBu_r', aspect='auto')
-    plt.title("Unmasked Regions")
-    plt.xticks([])
-    plt.subplots_adjust(hspace=0.45)
+	num_masked = mask_alpha.sum()
+	num_total = masked_G_df.shape[1]
 
-    num_masked = mask_alpha.sum()
-    num_total = masked_G_df.shape[1]
-
-    print(f"There are {num_masked}/{num_total} ({num_masked/num_total*100:.1f}%)"
-          f"windows with >{proportion_above*100}% occupancy "
-          f"during alpha factor release compared to any other timepoint")
+	print(f"There are {num_masked}/{num_total} ({num_masked/num_total*100:.1f}%)"
+		  f"windows with >{proportion_above*100}% occupancy "
+		  f"during alpha factor release compared to any other timepoint")
 
 
-def load_from_save(output_dir, replicate, chrom):
+def load_N_F_B_from_save(output_dir, replicate, chrom):
+	"""Load the F, N, and B from disk from a previous run."""
 
-    F = pd.read_csv(f'{output_dir}/rep{replicate}_chr{chrom}_F.csv')
-    F_values = F[F.columns[1:]].values
-    F_values.shape
+	F = pd.read_csv(f'{output_dir}/rep{replicate}_chr{chrom}_F.csv')
+	F_values = F[F.columns[1:]].values
+	F_values.shape
 
-    N = np.load(f'{output_dir}/rep{replicate}_chr{chrom}_N.npy')
-    B = pd.read_csv(f'{output_dir}/rep{replicate}_chr{chrom}_B.csv')
-    B = np.diag(B[B.columns[1:]].values[0])
-    F_values.shape, N.shape, B.shape
-    
-    return F_values, N, B
+	N = np.load(f'{output_dir}/rep{replicate}_chr{chrom}_N.npy')
+	B = pd.read_csv(f'{output_dir}/rep{replicate}_chr{chrom}_B.csv')
+	B = np.diag(B[B.columns[1:]].values[0])
+	
+	return F_values, N, B
+
+
+def modify_config_from_run(config, output_directory, replicate, chrom):
+	"""To warm start, modify a config using the output directory parameters from
+	a previously run instance, the last item in the parameters csv will be used to update
+	the config parameters"""
+
+	# Load the replicate 1 and 2 parameters and deconvolve combined
+	parameters_df = pd.read_csv(f'{output_directory}/parameter_updates_rep{replicate}_chr{chrom}.csv')
+	parameters = parameters_df.iloc[-1]
+
+	mu0, gamma1, gamma2, sigma0 = parameters.mu0, parameters.gamma1, \
+		parameters.gamma2, parameters.sigma0
+
+	# todo: load all parameters in the parameters csv, when we deconvolve all parameters
+	config.params_dic['mu0'] = mu0
+	config.params_dic['gamma1'] = gamma1
+	config.params_dic['gamma2'] = gamma2
+	config.params_dic['sigma0'] = sigma0
+	config.params_dic['alpha'] = 0
+	config.update_timepoints()
+	config.calculate_H()
+
+	return config
