@@ -52,6 +52,10 @@ def main():
 	# 3. Deconvolve the gene expression for all genes
 	elif command == 'deconvolve_expression':
 
+		from src.geneset import get_deconvolved_geneset
+
+		genes = get_deconvolved_geneset()
+
 		print_fl(f"Deconvolve gene expression for all genes")
 		(_, command, output_directory) = system_args
 
@@ -74,7 +78,7 @@ def main():
 			
 			try: 
 				expression_find_gamma = runner.deconvolve_gene(gene_name)
-			except
+			except:
 				print(f"  Failed. Skipping.")
 				continue
 
