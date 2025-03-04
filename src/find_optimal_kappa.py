@@ -22,22 +22,6 @@ DSE_GENES = ['DSE1', 'DSE2', 'DSE3', 'DSE4']
 CONTROL_GENES = ['CLB2', 'CLN2', 'MCM6', 'CDC45', 'SSK22'] + RIBOSOMAL_GENES[0:4]
 
 
-def load_gene_expression(gene_name):
-
-	gene_expression_data = read_yl_vst_data_rep(1)
-	orf_name = get_orfname(gene_name)
-	gene_expression = gene_expression_data.loc[orf_name]
-	gene_expressions_tpm = pd.read_csv(
-		'datasets/yl_cell_cycle/replicate1_gene_expression_TPM.csv')
-	gene_expressions_tpm = gene_expressions_tpm.set_index('orf_name')
-
-
-	gene_expression_tpm = gene_expressions_tpm.loc[orf_name]
-	g = np.log2(gene_expression_tpm.values+1)
-	return g
-
-
-
 class FindKappaExpression(object):
 	"""Find the optimal kappa that balances daughter-specific expression
 	signal and controls for false-positive signal of non-daughter-specific

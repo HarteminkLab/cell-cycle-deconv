@@ -301,7 +301,7 @@ class DeconvolutionSolver(object):
 		max_value = np.concatenate([g, f]).max()
 		ylims = -((max_value*0.05)), (max_value*1.05)
 
-		gamma_predicted_g = config.H@f
+		gamma_predicted_g = self.H@f
 
 		ax_row = axs
 

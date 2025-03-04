@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
 from src.plot_helpers import hide_spines
-from src.model import color_for_key
+from src.plot_helpers import color_for_key
 from src.config_utils import get_sample_indices
 from src.orf_plotter import load_default_orf_plotter
 
@@ -366,7 +366,7 @@ def draw_phase_label_annotations(ax, config=None,
 		phase_names = ['CG1', 'S', 'GSM'],
 		flip=False, annotations_x=0, offset=False):
 
-	from src.model import color_for_key
+	from src.plot_helpers import color_for_key
 
 	tp_set = []
 	for phase in phases:

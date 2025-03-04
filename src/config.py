@@ -306,7 +306,7 @@ class RG1Model(object):
 
 	def plot_H(self):
 
-		from src.model import color_for_key
+		from src.plot_helpers import color_for_key
 		import matplotlib.pyplot as plt
 		from src.figure_configs import FiguresConfig
 

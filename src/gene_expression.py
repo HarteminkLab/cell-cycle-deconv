@@ -1,6 +1,23 @@
 
-
+import numpy as np
 import pandas as pd
+
+
+def load_gene_expression(gene_name, replicate):
+
+	from src.sgd import get_orfname
+
+	gene_expression_data = read_yl_vst_data_rep(replicate)
+	orf_name = get_orfname(gene_name)
+	gene_expression = gene_expression_data.loc[orf_name]
+	gene_expressions_tpm = pd.read_csv(
+		f'datasets/yl_cell_cycle/replicate{replicate}_gene_expression_TPM.csv')
+	gene_expressions_tpm = gene_expressions_tpm.set_index('orf_name')
+
+	gene_expression_tpm = gene_expressions_tpm.loc[orf_name]
+	g = np.log2(gene_expression_tpm.values+1)
+
+	return g
 
 
 def read_yl_vst_data_rep(replicate, drop_rep2_70=True):

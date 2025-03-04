@@ -556,7 +556,7 @@ def plot_heatmaps(N, F, H, B, G, column_names, full_column_names):
 
 
 def compute_N(config, plot=False):
-	from src.model import color_for_key
+	from src.plot_helpers import color_for_key
 
 	config.calculate_H()
 	H = config.H

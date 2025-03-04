@@ -58,8 +58,8 @@ class CombinedReplicationDeconvolution():
 
 	def combine_replicate_data_structures(self):
 
-		self.H = np.concatenate([self.real_deconv1.config.H, self.real_deconv2.config.H], axis=0)
-		self.G = np.concatenate([self.real_deconv1.G, self.real_deconv2.G], axis=0)
+		self.H, self.G = concatenate_H_G(self.real_deconv1.config.H, self.real_deconv2.config.H,
+										 self.real_deconv1.G, self.real_deconv2.G)
 
 		# Construct N as average DNA from replicate 1 and 2 concatenated
 		# self.average_DNA = np.concatenate([self.real_deconv1.average_DNA, self.real_deconv2.average_DNA])
@@ -233,14 +233,26 @@ class CombinedReplicationDeconvolution():
 		return fig
 
 
-def load_config_from_replication_runs(output_directory, chrom):
+def load_config_from_replication_runs(output_directory, chrom, mode='chromatin'):
 	"""Load configs from the output directory of previously run replicates"""
 
-	from src.config import load_default_chrom_configs
+	from src.config import load_default_configs
 	from src.RealDataReplication import modify_config_from_run
 
-	config1, config2 = load_default_chrom_configs()
+	config1, config2 = load_default_configs(mode=mode)
 	config1 = modify_config_from_run(config1, output_directory, 1, chrom)
 	config2 = modify_config_from_run(config2, output_directory, 2, chrom)
 
 	return config1, config2
+
+
+def concatenate_H_G(H1, H2, G1, G2):
+	H = np.concatenate([H1, H2], axis=0)
+
+	if len(G1.shape) == 2:
+		G = np.concatenate([G1, G2], axis=0)
+	else:
+		G = np.concatenate([G1, G2])
+
+	return H, G
+

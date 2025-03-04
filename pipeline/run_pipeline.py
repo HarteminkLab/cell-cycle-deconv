@@ -35,7 +35,6 @@ def main():
 	elif command == 'combined_replication':
 
 		print_fl(f"Generating replication profiles for all chromosomes")
-
 		(_, command, output_directory) = system_args
 
 		from src.CombinedReplicateDeconvolutionRunner import main as fit_combined_replication
@@ -49,6 +48,38 @@ def main():
 		for chrom in range(1, 17):
 			print_fl(f"Chromosome {chrom}")
 			combined_runner = fit_combined_replication(chrom, 1, output_directory, 4, config1, config2)
+
+	# 3. Deconvolve the gene expression for all genes
+	elif command == 'deconvolve_expression':
+
+		print_fl(f"Deconvolve gene expression for all genes")
+		(_, command, output_directory) = system_args
+
+		from src.timer import Timer
+
+		timer = Timer()
+
+		output_directory = 'output/prototype_pipeline_subset/'
+		save_genes_directory = f"{output_directory}/genes_deconvolution/"
+		mkdirs_safe([save_genes_directory])
+
+		index = 0
+		for _, gene in genes.iterrows():
+
+		    index += 1
+
+		    gene_name = gene['gene']
+
+		    print(f"[{index}/{len(genes)}] Deconvolving {gene_name}", end="...")
+		    
+		    try: 
+		    	expression_find_gamma = runner.deconvolve_gene(gene_name)
+	    	except
+	    		print(f"  Failed. Skipping.")
+	    		continue
+
+		    runner.save_to_disk(save_genes_directory)
+		    print(f"Done. {timer.get_time()}")
 
 	else:
 		raise ValueError(f"Invalid command" + command)

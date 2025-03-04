@@ -6,7 +6,7 @@ import math
 import numpy as np
 import pandas as pd
 
-from src.model import color_for_key
+from src.plot_helpers import color_for_key
 from matplotlib import pyplot as plt
 from src.chromatin_model import read_chromosome_mnase_reads
 from src.reference_data import load_spellman_orfs, load_analysis_genes

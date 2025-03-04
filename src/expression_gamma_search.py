@@ -8,18 +8,18 @@ from src.chromatin_deconvolution_solver import ChromatinDeconvolveSolver
 class GeneExpressionFindOptimalGamma(object):
 	"""Wrapper to find optimal gamma for a window of gene expression reads"""
 
-	def __init__(self, config, gene_expression, gamma_min=0.001, gamma_max=0.01, verbose=True):
+	def __init__(self, config, H, gene_expression, gamma_min=0.001, gamma_max=0.01, verbose=True):
 
 		from src.deconvolution_solver import DeconvolutionSolver
 
-		H = config.H
-
+		# config will be used for indices, so the combined model can use either replicate's config
+		# for the combined model, gene expressn and H are assumed to be concatenated properly
 		deconvolution_solver = DeconvolutionSolver(config, g=gene_expression, H=H, gamma=0.0,
 		                                          obj_error_mode='additive')
 
-
 		# Refactoring of the find optimal gamma code
 		from src.find_gamma_refactor import GammaOptimizer
+		self.H = H
 			
 		def compute_solution(gamma_value):
 			"""Function to compute the solution, rn, and sn for the optimizer"""
@@ -91,10 +91,13 @@ class GeneExpressionFindOptimalGamma(object):
 
 		ylims=(0, g.max()*1.3)
 
+		if g.max() == 0:
+			ylims = -0.1, 1
+
 		deconvolution_solver = self.deconvolution_solver
 
 		def compute_predicted_g(f):
-			return config.H@f
+			return self.H@f
 
 		gamma_predicted_gs = np.array([compute_predicted_g(f_gamma_solutions[i]) 
 			for i in range(f_gamma_solutions.shape[0])])
@@ -147,6 +150,7 @@ class GeneExpressionFindOptimalGamma(object):
 		ax.set_ylim(*ylims)
 		ax.set_title("Bottom branch")
 
+		return fig
 
 
 def create_gamma_sweep_plots_single_measure(config, N, H, Fs, f_rep, gamma_sweep, G,
@@ -190,7 +194,7 @@ def create_gamma_sweep_plots_single_measure(config, N, H, Fs, f_rep, gamma_sweep
 
 	plt.subplot(2, 2, 2)
 	for i in range(Fs.shape[0]):
-		prediction = N@config.H@np.multiply(Fs[i], f_rep)
+		prediction = N@self.H@np.multiply(Fs[i], f_rep)
 		plt.plot(config.timepoints, prediction, c=cmap(i/len(Fs)))
 	plt.plot(config.timepoints, G, c='black', lw=4, label="Raw data")
 	plt.legend()

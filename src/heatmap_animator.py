@@ -98,7 +98,7 @@ class FHeatmapAnimator:
 
 		# ----------- cell cycle chart ---------------
 
-		from src.model import color_for_key
+		from src.plot_helpers import color_for_key
 		
 		last_h_position_end = 0
 		for _, boundary in boundaries.iterrows():

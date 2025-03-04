@@ -5,7 +5,6 @@ import scipy
 
 
 def plot_phase_stack(tp, prev_vec, cur_vec, name):
-	from src.model import color_for_key
 
 	if prev_vec is None:
 		prev_vec = np.zeros_like(cur_vec)
@@ -276,3 +275,31 @@ def plot_heatmap_cell_cycle_tps(ax, config, plt_data, vmin, vmax, cmap,
 		ax.set_ylim(n+ylim_offset, 0)
 
 	return im1, im2
+
+
+def color_for_key(key):
+	"""Predefined colors for phases and keys for gene plots"""
+
+	color_map = {
+		 "raw": np.array([158, 50, 50])/255.,
+		 "fit": np.array([145, 180, 98])/255.,
+		 "R": np.array([199, 148, 144])/255.,
+		 "RG1": np.array([199, 148, 144])/255.,
+
+		 "CG1": np.array([147, 168, 198])/255.,
+		 "DG1": np.array([157, 190, 201])/255.,
+
+		 "Delta": np.array([227, 194, 163])/255.,
+		 "postG1": np.array([214, 170, 129])/255.,
+		 "RpostG1": np.array([200, 170, 140])/255.,
+
+		 "G2M": np.array([147, 168, 198])/255.,
+		 "S": np.array([158, 189, 140])/255.,
+
+		 "H": np.array([100, 100, 100])/255.
+	}
+
+	color_map['G2/M'] = color_map['G2M']
+
+	return color_map[key]
+

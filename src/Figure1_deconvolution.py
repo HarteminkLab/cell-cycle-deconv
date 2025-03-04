@@ -27,7 +27,7 @@ class Figure1Deconvolution(object):
 	def plot_H_fill_betweens(self):
 
 		from src.helpers import combine_with_bins
-		from src.model import color_for_key
+		from src.plot_helpers import color_for_key
 
 		H = self.H
 		fig = plt.figure(figsize=(6, 6))
@@ -246,7 +246,7 @@ class Figure1Deconvolution(object):
 		# Flip the vertical indices such that we are plotting top to bottom
 		phases = list(reversed(phases))
 
-		from src.model import color_for_key
+		from src.plot_helpers import color_for_key
 		flip = chrom_model.gene.strand == '-'
 
 		for i in range(n):

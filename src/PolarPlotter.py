@@ -5,7 +5,7 @@ import pandas as pd
 from src.config import load_yl_rg1_vst_config
 from src.reference_data import load_spellman_orfs, load_analysis_genes
 from matplotlib import pyplot as plt
-from src.model import color_for_key
+from src.plot_helpers import color_for_key
 
 
 

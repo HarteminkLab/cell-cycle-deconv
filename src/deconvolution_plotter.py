@@ -67,7 +67,7 @@ class DeconvolutionPlotter():
 
 	def plot_gene_expression(self, initial_axes, top_axes, bottom_axes, ymax=None):
 
-		from src.model import color_for_key
+		from src.plot_helpers import color_for_key
 		from src.orf_plotter import plot_rect
 		
 		branches = ['i', 't', 'b']

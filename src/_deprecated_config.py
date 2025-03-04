@@ -617,7 +617,7 @@ def get_yl2019_chromatin_timepoints(replicate):
 
 
 def plot_H(config, H=None):
-	from src.model import color_for_key
+	from src.plot_helpers import color_for_key
 	import matplotlib.pyplot as plt
 	from src.figure_configs import FiguresConfig
 
