@@ -13,7 +13,17 @@ from src.timer import Timer
 from src.utils import print_fl
 
 
-def run_epochs(replication_deconvolver, optimizer, num_epochs, function_update=None):
+def run_epochs(replication_deconvolver, bounds_df, num_epochs, function_update=None):
+
+	# Parameter Optimizer
+	optimizer = ParameterOptimizer(
+		init_params_df=bounds_df,
+		config=replication_deconvolver.config,
+		N=replication_deconvolver.N,
+		F=replication_deconvolver.F,
+		B=replication_deconvolver.B,
+		G=replication_deconvolver.G
+	)
 
 	timer = Timer()
 
@@ -68,15 +78,17 @@ def run_epochs(replication_deconvolver, optimizer, num_epochs, function_update=N
 
 
 def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_directory=None,
-	from_CLOCCS=True):
+	from_CLOCCS=True, config=None):
 
 	np.random.seed(123)
 
 	# Load the default replication chrom configuration from disk
 	# use the posterios from the CLOCCS fits to initialize
-	print_fl("Loading initial cell cycle parameters from CLOCCS fits.")
-	config1, config2 = load_default_chrom_configs(from_CLOCCS=from_CLOCCS)
-	config = config1 if replicate == 1 else config2
+
+	if config is None:
+		print_fl("Loading initial cell cycle parameters from CLOCCS fits.")
+		config1, config2 = load_default_chrom_configs(from_CLOCCS=from_CLOCCS)
+		config = config1 if replicate == 1 else config2
 
 	replication_deconvolver = RealDataReplicationDeconvolution(config, replicate=replicate, chr=chrom)
 
@@ -95,16 +107,6 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 
 	print("Initial config parameters: ", bounds_df)
 
-	# Parameter Optimizer
-	optimizer = ParameterOptimizer(
-		init_params_df=bounds_df,
-		config=config,
-		N=replication_deconvolver.N,
-		F=replication_deconvolver.F,
-		B=replication_deconvolver.B,
-		G=replication_deconvolver.G
-	)
-
 	# Parameter updates df
 	print_fl(f"Running {num_epochs} epochs...")
 	def epoch_updates(epoch, update_params_df, Hs, Fs, Ns, Bs):
@@ -120,12 +122,70 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 
 	# Run the optimizer
 	update_params_df, Hs, Fs, Ns, Bs = run_epochs(replication_deconvolver, 
-		optimizer, num_epochs, function_update=epoch_updates)
+		bounds_df, num_epochs, function_update=epoch_updates)
 
 	print_fl("Done")
 
 	return update_params_df, optimizer, replication_deconvolver
 
 	
+def plot_parameter_updates(output_directory, replicate, chrom):
+	filepath = f'{output_directory}/parameter_updates_rep{replicate}_chr{chrom}.csv'
+	rep1_updates = pd.read_csv(filepath)
+
+	rows, cols = 1, 5
+
+
+	rename_parameters = {
+		'mu0': "$\\mu_0$",
+		'gamma1': "$\\gamma_1$",
+		'gamma2': "$\\gamma_2$",
+		'sigma0': "$\\sigma_0$",
+		'F_rn': "Loss",
+	}
+
+	skip_parameters = ['opt_H_loss']
+
+	ylabels = [
+		"Recovery offset, min",
+		"S start, proportion",
+		"S end, proportion",
+		"Initial population variation",
+		"",
+		"Residual norm, ($\\times$1e-4)",
+	]
+
+	plt.figure(figsize=(16, 3))
+
+	plot_index = 1
+	for i, col in enumerate(rep1_updates.columns[1:]):
+
+		if col in skip_parameters: continue
+
+		values = rep1_updates[col][10:]
+		xs = np.arange(len(values))
+
+		if col == 'F_rn':
+			values = values * 1000
+
+		plt.subplot(rows, cols, plot_index)
+		plt.plot(xs, values)
+
+		plt.ylabel(ylabels[i])
+
+		# Rename the parameter for the title
+		if col in rename_parameters.keys():
+			plt.title(rename_parameters[col])
+		else:
+			plt.title(col)
+
+		plt.xlabel("Epoch")
+
+		plot_index += 1
+
+	plt.subplots_adjust(hspace=0.5, wspace=0.45, top=0.77)
+	plt.suptitle(f"Parameter convergence, replicate {replicate}, chrom {chrom}", fontsize=16)
+
+
 if __name__ == '__main__':
 	main()

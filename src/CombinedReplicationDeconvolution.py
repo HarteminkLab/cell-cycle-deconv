@@ -11,9 +11,6 @@ from matplotlib import pyplot as plt
 from src.replication_deconvolution_solver import deconvolve_replication_brute_force
 from src.RealDataReplication import RealDataReplicationDeconvolution
 
-early_color = plt.get_cmap('Oranges')(0.75)
-late_color = plt.get_cmap('Purples')(0.75)
-
 
 class CombinedReplicationDeconvolution():
 	"""This model deconvolve the replication timing using the data from both replicates.
@@ -28,6 +25,9 @@ class CombinedReplicationDeconvolution():
 		self.real_deconv1 = RealDataReplicationDeconvolution(config1, chr=chr, replicate=1)
 		self.real_deconv2 = RealDataReplicationDeconvolution(config2, chr=chr, replicate=2)
 
+		# Disable H optimization for the combined model
+		self.disable_H_optimization = True
+
 		# Handle thresholding, each will threshold different regions, 
 		# so union the regions that are thresholded...
 		# todo: is union the most appropriate?
@@ -37,26 +37,46 @@ class CombinedReplicationDeconvolution():
 		self.real_deconv2.selected_threshold_region = union_threshold
 
 
-	def setup_deconvolution(self):
+	def setup_deconvolution(self, warm_start_output_directory=None):
 		# Setup deconvolution for each to initialize H, N, B, and G
 
-		self.real_deconv1.setup_deconvolution()
-		self.real_deconv2.setup_deconvolution()
+		from src.RealDataReplication import load_N_F_B_from_save
+
+		# Load the F, N, and B from disk
+		if warm_start_output_directory is not None:	
+			# Load the F, N, and B from disk
+			print_fl(f"Warm start load F N and B from disk {warm_start_output_directory}")
+			F1, N1, B1 = load_N_F_B_from_save(warm_start_output_directory, 1, self.chr)
+			F2, N2, B2 = load_N_F_B_from_save(warm_start_output_directory, 2, self.chr)
+
+		# Load just N, more important than B. And we can deconvolve other chromosomes easily
+		# First set of iterations will provide a consistent replication profile
+		self.real_deconv1.setup_deconvolution(initial_B=None, initial_N=N1)
+		self.real_deconv2.setup_deconvolution(initial_B=None, initial_N=N2)
 		self.combine_replicate_data_structures()
 
 
 	def combine_replicate_data_structures(self):
 
-		self.H = np.concatenate([self.real_deconv1.H, self.real_deconv2.H], axis=0)
+		self.H = np.concatenate([self.real_deconv1.config.H, self.real_deconv2.config.H], axis=0)
 		self.G = np.concatenate([self.real_deconv1.G, self.real_deconv2.G], axis=0)
 
 		# Construct N as average DNA from replicate 1 and 2 concatenated
-		self.average_DNA = np.concatenate([self.real_deconv1.average_DNA, self.real_deconv2.average_DNA])
-		self.N = np.linalg.inv(np.diag(self.average_DNA))
+		# self.average_DNA = np.concatenate([self.real_deconv1.average_DNA, self.real_deconv2.average_DNA])
+		#self.N = np.linalg.inv(np.diag(self.average_DNA))
+		n1 = np.diag(self.real_deconv1.initial_N)
+		n2 = np.diag(self.real_deconv2.initial_N)
+
+		combined_n = np.concatenate([n1, n2])
+		self.N = np.diag(combined_n)
 
 		# Construct B as the average of replicate 1 and 2
-		self.B = (self.real_deconv1.initial_B + self.real_deconv2.initial_B)/2.
+		b1 = np.diag(self.real_deconv1.initial_B)
+		b2 = np.diag(self.real_deconv2.initial_B)
+		combined_b = (b1+b2)/2.
+		self.B = np.diag(combined_b)
 
+		print("H, G, N, B shapes:", self.H.shape, self.G.shape, self.N.shape, self.B.shape)
 
 	def deconvolve(self):
 		"""Deconvolve the replication by combining the Ns, Gs, Hs, and Bs"""
@@ -78,9 +98,9 @@ class CombinedReplicationDeconvolution():
 		config = self.real_deconv1.config
 
 		result = iterative_deconvolution_updates(
-		    config=config, H=self.H, G=self.G, initial_N=self.N, 
-		    initial_B=self.B, total_iterations=total_iterations, 
-		    timer=timer, verbose=verbose)
+			config=config, H=self.H, G=self.G, initial_N=self.N, 
+			initial_B=self.B, total_iterations=total_iterations, 
+			timer=timer, verbose=verbose)
 
 		# Store the final result items
 		self.F = result.Fs[-1]
@@ -149,12 +169,14 @@ class CombinedReplicationDeconvolution():
 
 			print_fl(f"Epoch: {epoch}")
 			
-			# Run the optimizer on each of the replicate Hs
-			print_fl(f"[{epoch}]: Running H optimizer for replicate 1")
-			optimizer1.optimize(maxiter=1000, verbose=True)
-			print_fl(f"[{epoch}]: Running H optimizer for replicate 2")
-			optimizer2.optimize(maxiter=1000, verbose=True)
-			print_fl(f"[{epoch}]: Done.")
+
+			if not self.disable_H_optimization:
+				# Run the optimizer on each of the replicate Hs
+				print_fl(f"[{epoch}]: Running H optimizer for replicate 1")
+				optimizer1.optimize(maxiter=1000, verbose=True)
+				print_fl(f"[{epoch}]: Running H optimizer for replicate 2")
+				optimizer2.optimize(maxiter=1000, verbose=True)
+				print_fl(f"[{epoch}]: Done.")
 
 			# Combine the Hs
 			self.H = np.concatenate([optimizer1.current_H, optimizer2.current_H], axis=0)
@@ -209,3 +231,16 @@ class CombinedReplicationDeconvolution():
 		fig = plot_heatmaps(self.N, self.F, self.H, self.B, self.G, column_names=masked_columns,
 			full_column_names=full_columns)
 		return fig
+
+
+def load_config_from_replication_runs(output_directory, chrom):
+	"""Load configs from the output directory of previously run replicates"""
+
+	from src.config import load_default_chrom_configs
+	from src.RealDataReplication import modify_config_from_run
+
+	config1, config2 = load_default_chrom_configs()
+	config1 = modify_config_from_run(config1, output_directory, 1, chrom)
+	config2 = modify_config_from_run(config2, output_directory, 2, chrom)
+
+	return config1, config2

@@ -5,11 +5,11 @@ sys.path.append('.')
 import numpy as np
 from src.utils import print_fl
 from src.CombinedReplicationDeconvolution import CombinedReplicationDeconvolution
-from src.rg1_refactor import load_default_chrom_configs
+from src.config import load_default_chrom_configs
 import matplotlib.pyplot as plt
 
 
-def main():
+def main(chrom, num_epochs, out_dir, config1, config2):
 	"""
 	Run the combined deconvolution of the replication profile for a chromosome
 
@@ -21,43 +21,37 @@ def main():
 
 	"""
 
-	system_args = tuple(sys.argv)
-	(_, out_dir, chrom, num_epochs) = system_args
-	chrom = int(chrom)
-	num_epochs = int(num_epochs)
-
-	print_fl(("Arguments: ", system_args))
-
 	# Start runner
-	runner = CombinedReplicateDeconvolutionRunner(chrom, out_dir)
-	runner.start_runs(num_epochs=num_epochs)
-	runner.save_to_disk()
+	runner = CombinedReplicateDeconvolutionRunner(chrom, out_dir, config1, config2)
+	runner.start_runs(num_epochs=num_epochs, output_directory=out_dir)
+	runner.save_to_disk(save_FB_only=True)
+
+	return runner
 
 
 class CombinedReplicateDeconvolutionRunner():
 	"""Run the deconvolution and save to disk"""
 
 
-	def __init__(self, chrom, save_dir):
+	def __init__(self, chrom, save_dir, config1=None, config2=None):
 
 		self.chrom = chrom
 		self.save_dir = save_dir
 
-		print_fl("Loading initial parameters from CLOCCS runs")
-		config1, config2 = load_default_chrom_configs()
+		if config1 is None and config2 is None:
+			print_fl("Loading initial parameters from CLOCCS runs")
+			config1, config2 = load_default_chrom_configs()
 
-		print_fl("Shifting mu0, gamma1, and gamma2 for the alpha parameter")
-		config1.shift_parameters_for_alpha()
-		config2.shift_parameters_for_alpha()
+			print_fl("Shifting mu0, gamma1, and gamma2 for the alpha parameter")
+			config1.shift_parameters_for_alpha()
+			config2.shift_parameters_for_alpha()
 
 		self.deconvolution = CombinedReplicationDeconvolution(config1, config2, chr=chrom)
 
-	def start_runs(self, num_epochs):
-
-		from src.optimize_H import create_bounds_params_from_config, run_epochs
+	def start_runs(self, num_epochs, output_directory):
 
 		# Setup runs
-		self.deconvolution.setup_deconvolution()
+		self.deconvolution.setup_deconvolution(output_directory)
 
 		print("Running initial combined deconvolution for F, N, and B")
 		result = self.deconvolution.iterative_deconvolution_updates(20, verbose=False)
@@ -80,24 +74,27 @@ class CombinedReplicateDeconvolutionRunner():
 		self.update_params_df, self.Hs, self.Fs, self.Ns, self.Bs = \
 			self.deconvolution.run_epochs(num_epochs=num_epochs, function_update=update_function)
 
-	def save_to_disk(self):
+	def save_to_disk(self, save_FB_only=False):
 
 		from src.utils import mkdirs_safe
 
 		mkdirs_safe([self.save_dir])
 
-		N_save_path = f'{self.save_dir}/chr{self.chrom}_N.npy'
-		B_save_path = f'{self.save_dir}/chr{self.chrom}_B.npy'
-		F_save_path = f'{self.save_dir}/chr{self.chrom}_F.npy'
-		H_save_path = f'{self.save_dir}/chr{self.chrom}_H.npy'
-		parameters_save_path = f'{self.save_dir}/chr{self.chrom}_parameters.csv'
-		fig_path = f'{self.save_dir}/chr{self.chrom}.png'
+		N_save_path = f'{self.save_dir}/combined_chr{self.chrom}_N.npy'
+		B_save_path = f'{self.save_dir}/combined_chr{self.chrom}_B.npy'
+		F_save_path = f'{self.save_dir}/combined_chr{self.chrom}_F.npy'
+		H_save_path = f'{self.save_dir}/combined_chr{self.chrom}_H.npy'
+		parameters_save_path = f'{self.save_dir}/combined_chr{self.chrom}_parameters.csv'
+		fig_path = f'{self.save_dir}/combined_chr{self.chrom}.png'
 
-		np.save(N_save_path, self.Ns[self.current_epoch])
+		if not save_FB_only:
+			np.save(N_save_path, self.Ns[self.current_epoch])
+			np.save(F_save_path, self.Fs[self.current_epoch])
+			self.update_params_df.to_csv(parameters_save_path)
+
 		np.save(B_save_path, self.Bs[self.current_epoch])
 		np.save(H_save_path, self.Hs[self.current_epoch])
-		np.save(F_save_path, self.Fs[self.current_epoch])
-		self.update_params_df.to_csv(parameters_save_path)
+
 
 		fig = self.deconvolution.plot_heatmaps()
 		plt.suptitle(f"Combined replicate"
@@ -105,11 +102,13 @@ class CombinedReplicateDeconvolutionRunner():
 		plt.savefig(fig_path, dpi=150)
 		plt.close(fig)
 
-		print_fl(f"Saved to: {N_save_path}")
+		if not save_FB_only:
+			print_fl(f"Saved to: {N_save_path}")
+			print_fl(f"Saved to: {H_save_path}")
+			print_fl(f"Saved to: {parameters_save_path}")
+
 		print_fl(f"Saved to: {B_save_path}")
-		print_fl(f"Saved to: {H_save_path}")
 		print_fl(f"Saved to: {F_save_path}")
-		print_fl(f"Saved to: {parameters_save_path}")
 		print_fl(f"Saved to: {fig_path}")
 
 if __name__ == '__main__':
