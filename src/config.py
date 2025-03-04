@@ -194,6 +194,15 @@ class RG1Model(object):
 	def b_indices(self):
 		return self.get_Hpositions_for_branch('b')
 
+	def cg1_indices(self):
+		return self.get_Hpositions_for_phase('CG1')
+
+	def rg1_indices(self):
+		return self.get_Hpositions_for_phase('RG1')
+
+	def dg1_indices(self):
+		return self.get_Hpositions_for_phase('DG1')
+
 	def get_Hpositions_for_phase(self, phase):
 
 		if phase == 'H' or phase == 'Halted':
