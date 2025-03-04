@@ -66,20 +66,20 @@ def main():
 		index = 0
 		for _, gene in genes.iterrows():
 
-		    index += 1
+			index += 1
 
-		    gene_name = gene['gene']
+			gene_name = gene['gene']
 
-		    print(f"[{index}/{len(genes)}] Deconvolving {gene_name}", end="...")
-		    
-		    try: 
-		    	expression_find_gamma = runner.deconvolve_gene(gene_name)
-	    	except
-	    		print(f"  Failed. Skipping.")
-	    		continue
+			print(f"[{index}/{len(genes)}] Deconvolving {gene_name}", end="...")
+			
+			try: 
+				expression_find_gamma = runner.deconvolve_gene(gene_name)
+			except
+				print(f"  Failed. Skipping.")
+				continue
 
-		    runner.save_to_disk(save_genes_directory)
-		    print(f"Done. {timer.get_time()}")
+			runner.save_to_disk(save_genes_directory)
+			print(f"Done. {timer.get_time()}")
 
 	else:
 		raise ValueError(f"Invalid command" + command)
