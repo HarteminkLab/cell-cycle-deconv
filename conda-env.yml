@@ -17,4 +17,5 @@ dependencies:
     - pysam
     - PyWavelets
     - Mosek
+    - kneed==0.8.5
 
