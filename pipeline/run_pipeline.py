@@ -34,7 +34,7 @@ def main():
 	# 2. Compute combined replication profiles for all chromosomes
 	elif command == 'combined_replication':
 
-        print_fl(f"Generating replication profiles for all chromosomes")
+		print_fl(f"Generating replication profiles for all chromosomes")
 
 		(_, command, output_directory) = system_args
 
@@ -47,7 +47,7 @@ def main():
 
 		# For each chromosome, create the replication profiles for each of the chromosomes and save to disk
 		for chrom in range(1, 17):
-            print_fl(f"Chromosome {chrom}")
+			print_fl(f"Chromosome {chrom}")
 			combined_runner = fit_combined_replication(chrom, 1, out_dir, config1, config2)
 
 	else:
