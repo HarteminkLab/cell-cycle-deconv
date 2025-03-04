@@ -61,6 +61,7 @@ def main():
 		(_, command, output_directory) = system_args
 
 		from src.timer import Timer
+		import cvxpy as cp
 
 		timer = Timer()
 
@@ -78,11 +79,11 @@ def main():
 
 			print_fl(f"[{index}/{len(genes)}] Deconvolving {gene_name}", end="...")
 			
-			#try: 
-			expression_find_gamma = runner.deconvolve_gene(gene_name)
-			#except:
-			#	print_fl(f"  Failed. Skipping.")
-			#	continue
+			try: 
+				expression_find_gamma = runner.deconvolve_gene(gene_name)
+			except cp.error.SolverError:
+				print_fl(f"  Failed. Skipping.")
+				continue
 
 			runner.save_to_disk(save_genes_directory)
 			print_fl(f"Done. {timer.get_time()}")
