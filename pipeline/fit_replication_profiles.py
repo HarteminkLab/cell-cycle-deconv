@@ -96,6 +96,15 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 	replication_deconvolver = RealDataReplicationDeconvolution(config, replicate=replicate, chr=chrom)
 	replication_deconvolver.deconvolve_stage = deconvolve_stage
 
+	# First iteration to settle N, Fr, and B
+	print_fl("Running initial iterations...")
+
+	if deconvolve_stage == 1:
+		replication_deconvolver.setup_deconvolution(config)
+	elif deconvolve_stage == 2:
+		replication_deconvolver.setup_deconvolution(config,
+			warm_start_output_directory=output_directory, warm_start_chrom=4)
+
 	# Generate initial parameters and boundaries for optimization
 	bounds_df = create_bounds_params_from_config(config)
 
@@ -107,19 +116,12 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 	elif deconvolve_stage == 2:
 		print(f"No subset, full parameter updates")
 
-	# First iteration to settle N, Fr, and B
-	print_fl("Running initial iterations...")
-
-	if deconvolve_stage == 1:
-		replication_deconvolver.setup_deconvolution(config)
-	elif deconvolve_stage == 2:
-		replication_deconvolver.setup_deconvolution(config,
-			warm_start_output_directory=output_directory, warm_start_chrom=4)
-
 	# Initial convergence of N, F, B
 	replication_deconvolver.iterative_deconvolution_updates(20, verbose=True)
 
 	print("Initial config parameters: ", bounds_df)
+
+	# todo: debugging optimizer
 
 	return replication_deconvolver
 	print_fl("Done.")

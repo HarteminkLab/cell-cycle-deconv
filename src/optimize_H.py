@@ -69,9 +69,6 @@ class ParameterOptimizer:
 			H = self.config.H
 		else:
 
-			print(params)
-			raise ValueError()
-
 			# Update dataframe from vector of parameters
 			self.update_params_df(params)
 
