@@ -25,6 +25,7 @@ class RealDataReplicationDeconvolution():
 		self.load_replicate_data(chr, replicate)
 		self.std_q_threshold = 0.75
 		self.enable_std_thresholding = False
+		self.deconvolve_stage = 1
 
 
 	def load_replicate_data(self, chr, replicate):
@@ -111,8 +112,6 @@ class RealDataReplicationDeconvolution():
 			F, N, B = load_N_F_B_from_save(warm_start_output_directory, self.replicate, warm_start_chrom)
 			initial_N = N
 
-			# todo: using G[0], as B is easier to update
-
 		if initial_N is None:
 			self.average_DNA, self.initial_N = compute_N(self.config)
 		else:
@@ -185,7 +184,11 @@ class RealDataReplicationDeconvolution():
 		F_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_F.csv'
 		H_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_H.npy'
 
-		parameters_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_parameters.csv'
+		if self.deconvolve_stage == 1:
+			parameters_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_parameters.csv'
+		else:
+			parameters_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_parameters_stage2.csv'
+
 		fig_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}.png'
 
 		np.save(N_save_path, self.N)

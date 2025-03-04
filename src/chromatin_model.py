@@ -10,7 +10,6 @@ from src.mnase_plotting import plot_mnase_density
 from src.origins import load_origins_w_replication
 from src.figure_configs import FiguresConfig
 
-from src.model import Model
 from src.timer import Timer
 from src.utils import print_fl
 from src.global_config import GlobalConstants
