@@ -482,7 +482,7 @@ def read_cloccs_posteriors(posteriors_filepath):
 	return params
 
 
-def load_default_configs(config_type='distinct', from_CLOCCS=False,
+def load_default_configs(config_type='distinct', from_CLOCCS=True,
 	mode='chromatin'):
 
 	from src.global_config import GlobalConstants
