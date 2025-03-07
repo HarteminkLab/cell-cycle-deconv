@@ -55,20 +55,32 @@ class CombinedChromatinModel:
 		self.chrom2_model.load_mnase_orc(orc_or_ars)
 
 
+	def load_copy_correction_data(self):
+		from src.RealDataReplication import read_n_fr_b
+		chrom = self.chrom1_model.chr
+		mnase_span = self.chrom1_model.mnase_span
+
+		_, N1, self.f_replication, self.b = read_n_fr_b(chrom, mnase_span, 1)
+		_, N2, self.f_replication, self.b = read_n_fr_b(chrom, mnase_span, 2)
+		self.N = np.diag(np.concatenate([np.diag(N1), np.diag(N2)]))
+
+
 	def	setup_deconv_model(self, gamma=0.007, G=None, G1=None, G2=None, wavelet="Symmlet",
-			padding_type='left', N=None, f_replication=None, b=None):
-		from src.single_G1_config import Config as Config_single_G1
-		from src.model import Model
+			padding_type='both'):
 
 		chrom1_model = self.chrom1_model
 		chrom2_model = self.chrom2_model
+
+		# Load N, freplication and b replication data for correction
+		self.load_copy_correction_data()
+		N = self.N
+		f_replication = self.f_replication
+		b = self.b
 
 		self.gamma = gamma
 
 		# Next we will need to setup the deconvolution model to combine the H
 		# and the deconvolution G data
-
-		calcH_function = self.chrom1_model.config.calcH_function
 
 		if G1 is None:
 			self.G1 = chrom1_model.G
@@ -92,31 +104,22 @@ class CombinedChromatinModel:
 			self.G = self.G+self.G_deconvolution_offset
 
 		# Create the first replicates model and H
-		self.deconv1_model = Model(chrom1_model.config, None, chrom1_model.gamma, for_chromatin_deconv=True)
-		self.H1, self.H1pos = calcH_function(chrom1_model.config.intervals_wt1, chrom1_model.timepoints)
+		self.H1 = chrom1_model.config.calculate_H()
 
 		# And the second
-		self.deconv2_model = Model(chrom2_model.config, None, chrom2_model.gamma, for_chromatin_deconv=True)
-		self.H2, self.H2pos = calcH_function(chrom2_model.config.intervals_wt1, chrom2_model.timepoints)
+		self.H2 = chrom2_model.config.calculate_H()
 
 		# Combine the H matrices
 		self.H = np.concatenate([self.H1, self.H2])
 
-		# Use the deconv1 model for deconvolution
-		# We shouldn't need anything from model2 at this point
-		self.deconv_model = self.deconv1_model
-		self.deconv_model.gamma = self.gamma
-
-		self.solver = ChromatinDeconvolveSolver(self.deconv1_model.config, self.H, self.G,
-			wavelet=wavelet, padding_type=padding_type, N=N, f_replication=f_replication,
+		self.solver = ChromatinDeconvolveSolver(self.chrom1_model.config, self.G, self.N,
+			wavelet=wavelet, padding_type=padding_type, f_replication=f_replication,
 			b=b)
-		self.solver.define_deconvolution_problem(self.G)
+		self.solver.H = self.H
 
 		# For plotting results
 		self.chrom1_model.solver = self.solver
 		self.chrom2_model.solver = self.solver
-		self.chrom1_model.deconv_model = self.deconv_model
-		self.chrom2_model.deconv_model = self.deconv_model
 
 		self.found_optimal_success = None
 		self.deconvolved_f_value = None
@@ -214,15 +217,10 @@ class CombinedChromatinModel:
 		self.chrom2_model.compute_ptr()
 
 
-	def create_deconvolution_plots_abbreviated_flipped(self, ge_model=None, vmax=50, num_rows=4, zoom=None,
-		show_rg1=True, figsize=None, should_smooth_data=False, normalized_f=False):
-		"""Create the deconvolution plot defined in chromatin_model.py
-		"""
-
-		fig = self.chrom1_model.create_deconvolution_plots_abbreviated_flipped(ge_model=ge_model, vmax=vmax,
-			show_origin_down_nuc=True, zoom=zoom, num_rows=num_rows, show_rg1=show_rg1, figsize=figsize, 
-			should_smooth_data=should_smooth_data, normalized_f=normalized_f)
-		return fig
+	def plot_branches(self):
+		from src.chromatin_deconvolution_solver import plot_branches
+		plot_branches(self.chrom1_model.config, self.chrom1_model.chr,
+			self.chrom1_model.mnase_span, self.solver.F, figsize=(5, 7))
 
 	def plot_raw_prediction(self, replicate, vmax=20):
 		"""Plot the resulting comparison between the raw and predicted data"""
@@ -282,23 +280,23 @@ class CombinedChromatinModel:
 		f_imgs = self.chrom1_model.get_f_images()
 
 		select_nuc_frag_bins = ((GlobalConstants.Y_LEN_DEFINITIONS > 120) & \
-		                        (GlobalConstants.Y_LEN_DEFINITIONS < 170))[:-1]
+								(GlobalConstants.Y_LEN_DEFINITIONS < 170))[:-1]
 		select_small_frag_bins = (GlobalConstants.Y_LEN_DEFINITIONS <= 100)[:-1]
 
 		def select_bins_sum(f_imgs, selected_bins_indices):
-		    selected_bins = f_imgs[:, selected_bins_indices, :]
-		    selected_bins_sum = selected_bins.mean(axis=1)[t_indices]
-		    return selected_bins_sum
+			selected_bins = f_imgs[:, selected_bins_indices, :]
+			selected_bins_sum = selected_bins.mean(axis=1)[t_indices]
+			return selected_bins_sum
 
 		def plot_frag_bins_hm(selected_bins_sum, vmin=0, vmax=10, cmap='magma_r'):
-		    plt.imshow(selected_bins_sum, vmax=vmax, vmin=vmin, 
-		        extent=[self.chrom1_model.bin_extents[0],
-		                self.chrom1_model.bin_extents[1],
-		               0, selected_bins_sum.shape[0]], aspect='auto', interpolation='none',
-		               origin='lower', cmap=cmap)
-		    plt.xlim(*xlims)
-		    plt.ylim(selected_bins_sum.shape[0], 0)
-		    
+			plt.imshow(selected_bins_sum, vmax=vmax, vmin=vmin, 
+				extent=[self.chrom1_model.bin_extents[0],
+						self.chrom1_model.bin_extents[1],
+					   0, selected_bins_sum.shape[0]], aspect='auto', interpolation='none',
+					   origin='lower', cmap=cmap)
+			plt.xlim(*xlims)
+			plt.ylim(selected_bins_sum.shape[0], 0)
+			
 		fig = plt.figure(figsize=(16, 4))
 		small_frags_sum = select_bins_sum(f_imgs, select_small_frag_bins)
 

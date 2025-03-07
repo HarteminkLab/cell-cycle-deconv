@@ -86,7 +86,7 @@ class CombinedReplicateDeconvolutionRunner():
 
 		N_save_path = f'{self.save_dir}/combined_chr{self.chrom}_N.npy'
 		B_save_path = f'{self.save_dir}/combined_chr{self.chrom}_B.npy'
-		F_save_path = f'{self.save_dir}/combined_chr{self.chrom}_F.npy'
+		F_save_path = f'{self.save_dir}/combined_chr{self.chrom}_F.csv'
 		H_save_path = f'{self.save_dir}/combined_chr{self.chrom}_H.npy'
 
 		G1_save_path = f'{self.save_dir}/rep1_chr{self.chrom}_G.csv'
@@ -100,7 +100,6 @@ class CombinedReplicateDeconvolutionRunner():
 			np.save(H_save_path, self.Hs[self.current_epoch])
 
 		np.save(N_save_path, self.Ns[self.current_epoch])
-		np.save(F_save_path, self.Fs[self.current_epoch])
 		np.save(B_save_path, self.Bs[self.current_epoch])
 
 		fig = self.deconvolution.plot_heatmaps()
@@ -112,6 +111,8 @@ class CombinedReplicateDeconvolutionRunner():
 		if not include_H_and_params:
 			print_fl(f"Saved to: {H_save_path}")
 			print_fl(f"Saved to: {parameters_save_path}")
+
+		self.deconvolution.F_df.to_csv(F_save_path)
 
 		# Save G1 and G2 to disk for normalization
 		self.deconvolution.real_deconv1.G_df.to_csv(G1_save_path)

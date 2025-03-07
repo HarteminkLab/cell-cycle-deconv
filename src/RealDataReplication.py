@@ -652,17 +652,17 @@ def read_n_fr_b(chrom, deconv_span, replicate):
 	combined_directory = 'output/prototype_pipeline_subset/combined_replication'
 
 	print_fl("Trial N, need to use combined N curve")
-	N = np.load(f'{single_directory}/rep{1}_chr{4}_N.npy')
+
+	N = np.load(f'{single_directory}/rep{replicate}_chr{4}_N.npy')
+
 	Fr_df = pd.read_csv(f'{combined_directory}/combined_chr{chrom}_F.csv')
-	B_df = pd.read_csv(f'{combined_directory}/rep{replicate}_chr{chrom}_B.csv')
+	B = np.load(f'{combined_directory}/combined_chr{chrom}_B.npy')
 
 	# Fix the column names
 	Fr_df = Fr_df[Fr_df.columns[1:]]
 	Fr_df.columns = Fr_df.columns.astype(int)
 
-	B_df = B_df[B_df.columns[1:]]
-	B_df.columns = B_df.columns.astype(int)
-	B_df = B_df.T
+	B_df = pd.DataFrame(np.diag(B), index=Fr_df.columns)
 
 	start_indices = Fr_df.columns
 

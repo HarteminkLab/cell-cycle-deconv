@@ -78,16 +78,6 @@ class CombinedReplicationDeconvolution():
 
 		print("H, G, N, B shapes:", self.H.shape, self.G.shape, self.N.shape, self.B.shape)
 
-	def deconvolve(self):
-		"""Deconvolve the replication by combining the Ns, Gs, Hs, and Bs"""
-
-		# Config of the first replicate (using the indices for deconvolution, so either config
-		# will work)
-		config = self.real_deconv1.config
-
-		self.F, self.rn = deconvolve_replication_brute_force(config, 
-			self.H, self.G, self.N, self.B)
-
 
 	def iterative_deconvolution_updates(self, total_iterations, verbose=True, timer=None):
 
@@ -107,6 +97,12 @@ class CombinedReplicationDeconvolution():
 		self.B = result.Bs[-1]
 		self.N = result.Ns[-1]
 		self.rn = result.iterative_update_rns[-1]
+
+		# Use the G df's full column set, may need to handle the thresholding and
+		# masking of the individual replicates...
+
+		self.F_df = pd.DataFrame(self.F, columns=self.real_deconv1.masked_start_indices,
+			index=range(self.F.shape[0]))
 
 		return result
 
