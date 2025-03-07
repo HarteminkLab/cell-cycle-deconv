@@ -65,7 +65,7 @@ def compute_mean_tb_l2(config, gene_occupancies, gene_entropies):
 
 
 def deconvolve_and_plot_gene(config1, gene_name, gamma, kappa, output_directory, f_savepath=None,
-					   window=1200, save_plots=True):
+					   window=1200, save_plots=True, verbose=False):
 
 	from src.geneset import get_deconvolved_geneset
 	from src.RealDataReplication import read_no_copy_correction_n_fr_b
@@ -93,13 +93,23 @@ def deconvolve_and_plot_gene(config1, gene_name, gamma, kappa, output_directory,
 	
 	chromatin_solver = ChromatinDeconvolveSolver(config1, 
 		G_values, N, b, frep)
-	full_deconvolved_F = chromatin_solver.deconvolve_G_iteratively(gamma=gamma, 
-		kappa=kappa, verbose=False)
 
-	if f_savepath is None:
+	# Todo testing, model without deconv
+	print("todo: testing do not run solver yet")
+	return chromatin_model, chromatin_solver
+
+
+	# -------------
+	
+
+	full_deconvolved_F = chromatin_solver.deconvolve_G_iteratively(gamma=gamma, 
+		kappa=kappa, verbose=verbose)
+
+	if f_savepath is None and output_directory is not None:
 		f_savepath = f"{output_directory}/{gene_name}_F.npy"
 
-	np.save(f_savepath, full_deconvolved_F)
+	if f_savepath is not None:
+		np.save(f_savepath, full_deconvolved_F)
 
 	if save_plots:
 		import matplotlib.pyplot as plt

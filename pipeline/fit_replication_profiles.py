@@ -74,11 +74,11 @@ def run_epochs(replication_deconvolver, bounds_df, num_epochs, function_update=N
 		if function_update is not None:
 			function_update(epoch, update_params_df, Hs, Fs, Ns, Bs)
 
-	return update_params_df, Hs, Fs, Ns, Bs
+	return update_params_df, Hs, Fs, Ns, Bs, optimizer
 
 
 def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_directory=None,
-	deconvolve_stage=1, config=None):
+	deconvolve_stage=1, config=None, save=True):
 
 	np.random.seed(123)
 
@@ -115,15 +115,16 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 		print(f"Subsetting the cell cycle parameters to learn: ", subset_parameters)
 	elif deconvolve_stage == 2:
 		print(f"No subset, full parameter updates")
+		print(f"** todo: testing learning only delta and lambda **")
+
+		# bounds_df = freeze_params_bounds_df(bounds_df,  ['delta'])
+		bounds_df = bounds_df.loc[['delta', 'lambda', 'sigmav']].copy()
 
 	# Initial convergence of N, F, B
 	replication_deconvolver.iterative_deconvolution_updates(20, verbose=True)
 
 	print("Initial config parameters: ", bounds_df)
 
-	# todo: debugging optimizer
-
-	return replication_deconvolver
 	print_fl("Done.")
 
 	# Parameter updates df
@@ -134,22 +135,23 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 		# Periodic saving to disk
 		if epoch % 10 == 0 or epoch == num_epochs-1:
 
-			if output_directory is not None:
-				print_fl(f"[{epoch}]Saving to output_directory...")
-				replication_deconvolver.save_to_disk(output_directory)
+			if save:
+				if output_directory is not None:
+					print_fl(f"[{epoch}]Saving to output_directory...")
+					replication_deconvolver.save_to_disk(output_directory)
 
-				if deconvolve_stage == 1:
-					update_params_df.to_csv(f"{output_directory}/parameter_updates_rep{replicate}_chr{chrom}.csv")
-				else:
-					update_params_df.to_csv(f"{output_directory}/parameter_updates_rep{replicate}_chr{chrom}_stage2.csv")
+					if deconvolve_stage == 1:
+						update_params_df.to_csv(f"{output_directory}/parameter_updates_rep{replicate}_chr{chrom}.csv")
+					else:
+						update_params_df.to_csv(f"{output_directory}/parameter_updates_rep{replicate}_chr{chrom}_stage2.csv")
 
 	# Run the optimizer
-	update_params_df, Hs, Fs, Ns, Bs = run_epochs(replication_deconvolver, bounds_df,
+	update_params_df, Hs, Fs, Ns, Bs, optimizer = run_epochs(replication_deconvolver, bounds_df,
 		num_epochs, function_update=epoch_updates)
 
 	print_fl("Done")
 
-	return update_params_df, replication_deconvolver
+	return update_params_df, replication_deconvolver, optimizer
 
 	
 def plot_parameter_updates(output_directory, replicate, chrom):
@@ -209,6 +211,18 @@ def plot_parameter_updates(output_directory, replicate, chrom):
 	plt.subplots_adjust(hspace=0.5, wspace=0.45, top=0.77)
 	plt.suptitle(f"Parameter convergence, replicate {replicate}, chrom {chrom}", fontsize=16)
 
+
+# try and freeze all parameters but delta
+def freeze_params_bounds_df(bounds_df, learn_parameters):
+	bounds_df = bounds_df.copy()
+	def _freeze_param_bounds_df(bounds_df, param):
+		bounds_df.loc[param, 'min'] = bounds_df.loc[param, 'value']
+		bounds_df.loc[param, 'max'] = bounds_df.loc[param, 'value']
+		return bounds_df
+	for param, row in bounds_df.iterrows():
+		if param not in learn_parameters:
+			_freeze_param_bounds_df(bounds_df, param)
+	return bounds_df
 
 if __name__ == '__main__':
 	main()

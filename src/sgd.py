@@ -83,6 +83,10 @@ def get_orfnames(gene_names):
 	return [get_orfname(g) for g in gene_names]
 	
 
+def get_genenames(orfnames):
+	return [get_gene_name_orf_name(o)[1] for o in orfnames]
+
+
 def get_orfname(gene_name):
 	gene = get_gene(gene_name)
 	return gene.name

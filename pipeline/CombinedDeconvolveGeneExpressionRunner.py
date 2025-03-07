@@ -35,7 +35,7 @@ class CombinedDeconvolveGeneExpressionRunner:
 
 		expression_find_gamma = GeneExpressionFindOptimalGamma(config=self.config1, H=H, 
 			gene_expression=G)
-		expression_find_gamma.find_optimal_gamma(plot=False, verbose=False, kappa=0)
+		expression_find_gamma.find_optimal_gamma(plot=False, verbose=False, kappa=0.0)
 		self.expression_find_gamma = expression_find_gamma
 
 		return expression_find_gamma

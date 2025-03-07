@@ -209,41 +209,13 @@ class DeconvolutionSolver(object):
 		# Smooth each branch separately and weigh by the proportional length of the
 		# branch relative to the bottom branch (the longest)
 
-
 		# Testing adjustments to smoothing weights of the three branches
 		# They appear to have minimal effect on gene expression.
-
-
-		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 0.9 +
-						 cp.sum(cp.abs(smooth_f_t_result)) * 1. +
+		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 1 +
+						 cp.sum(cp.abs(smooth_f_t_result)) * 1 +
 						 cp.sum(cp.abs(smooth_f_b_result)) * 1.4)
+
 		kappa = self.kappa
-
-		# There is a bias in the deconvolution with DG1 longer than CG1, we can handle this
-		# by applying a regularization term that approximates CG1 and DG1 to be more equivalent
-		# in read allocation, while also penalizing too far of a deviation from each other
-		dg1_bias = 1.
-
-		dg1_bias_vector = np.array([1.06558274e-05, 2.22472416e-05, 4.51753399e-05, 8.92201505e-05,
-	       1.71380237e-04, 3.20180434e-04, 5.81788463e-04, 1.02818600e-03,
-	       1.76731730e-03, 2.95456561e-03, 4.80406651e-03, 7.59732402e-03,
-	       1.16855337e-02, 1.74812594e-02, 2.54350823e-02, 3.59939777e-02,
-	       4.95407757e-02, 6.63180925e-02, 8.63450638e-02, 1.09340050e-01,
-	       1.34665790e-01, 1.61313816e-01, 1.87941250e-01, 2.12965337e-01,
-	       2.34710218e-01, 2.51588818e-01, 2.62293144e-01, 2.65961520e-01,
-	       2.62293144e-01, 2.51588818e-01, 2.34710218e-01, 2.12965337e-01,
-	       1.87941250e-01, 1.61313816e-01, 1.34665790e-01, 1.09340050e-01,
-	       8.63450638e-02, 6.63180925e-02, 4.95407757e-02, 3.59939777e-02,
-	       2.54350823e-02, 1.74812594e-02, 1.16855337e-02, 7.59732402e-03,
-	       4.80406651e-03, 2.95456561e-03, 1.76731730e-03, 1.02818600e-03,
-	       5.81788463e-04, 3.20180434e-04, 1.71380237e-04, 8.92201505e-05,
-	       4.51753399e-05, 2.22472416e-05, 1.06558274e-05, 4.96403058e-06,
-	       2.24914774e-06, 9.91146343e-07, 4.24809135e-07, 1.77086794e-07,
-	       7.17984003e-08, 2.83125916e-08, 1.08587728e-08, 4.05058857e-09])
-		dg1_bias_vector = dg1_bias_vector[np.arange(len(f_dg1))]
-
-		# tb_regularization_result = cp.multiply(f_padded_variation[f_dg1], dg1_bias_vector) - \
-		# 	f_padded_variation[f_cg1]
 
 		tb_regularization_result = f_padded_variation[f_dg1] - f_padded_variation[f_cg1]
 		cg1_dg1_regularization_result = cp.square(cp.norm(tb_regularization_result, 2))

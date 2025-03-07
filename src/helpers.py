@@ -5,6 +5,7 @@ from math import comb
 from scipy.stats import norm
 from scipy.signal import windows
 import pandas as pd
+import numpy as np
 
 # The initial population mass, used in the Qr and Mgr calculations
 START = 1000
@@ -714,47 +715,6 @@ def smooth_transitions_custom(data, window_size=3, sigma=0.5, power=1, axis=-1):
 	return np.apply_along_axis(smooth_1d, axis, data)
 
 
-
-def downsample_bins(bin_data, new_span, original_span, bin_width, bin_height, max_y_len):
-	""" 
-	Downsample bins, generic form of the chromatin downsampling process. This is used
-	for the smoothing kernels. todo: refactor the chromatin kernels to use this method
-	"""
-	# Define the bin positions
-	x_bins = np.arange(new_span[0], new_span[1] + bin_width, bin_width)
-	y_bins = np.arange(0, max_y_len + bin_height, bin_height)
-	
-	# Initialize output array
-	downscaled_bins = np.zeros((bin_data.shape[0], len(y_bins), len(x_bins)))
-	
-	# Create coordinate translation function
-	def translate_coordinate(coord):
-		"""Translate from selected span to array index space"""
-		span_width = original_span[1] - original_span[0]
-		return int((coord - original_span[0]) * (bin_data.shape[2] / span_width))
-	
-	# Perform downsampling
-	for t_index in range(bin_data.shape[0]):  # timepoints
-		for x_ind in range(1, len(x_bins)):
-			for y_ind in range(1, len(y_bins)):
-				x_start = translate_coordinate(x_bins[x_ind-1])
-				x_end = translate_coordinate(x_bins[x_ind])
-				y_start = int(y_bins[y_ind-1])
-				y_end = int(y_bins[y_ind])
-				
-				# Ensure indices are within bounds
-				x_start = max(0, min(x_start, bin_data.shape[2]))
-				x_end = max(0, min(x_end, bin_data.shape[2]))
-				y_start = max(0, min(y_start, bin_data.shape[1]))
-				y_end = max(0, min(y_end, bin_data.shape[1]))
-				
-				bin_counts = bin_data[t_index][y_start:y_end, x_start:x_end].sum()
-				downscaled_bins[t_index][y_ind-1][x_ind-1] = bin_counts
-	
-	# Remove last row and column of bins
-	return downscaled_bins[:, :-1, :-1]
-
-
 def midpoints(arr):
 	return (arr[:-1] + arr[1:]) / 2
 
@@ -772,7 +732,7 @@ def get_level_based_weights(N, scale=2):
 		end_index= 2**(level+1)
 		weight = scale**(level+1)
 		weights[start_index:end_index] = weight
-	
+
 	return weights
 
 
@@ -805,3 +765,49 @@ def compute_branch_lengths(config1):
 		  bottom_smoothing_tps_length/top_smoothing_tps_length, 
 		  bottom_smoothing_tps_length/bottom_smoothing_tps_length)
 
+
+def downsample_bins(bin_data, bin_size=(10, 10)):
+	"""
+	Parameters:
+	bin_data (numpy.ndarray): Input 3D array with shape (time_points, height, width)
+	bin_size (tuple): Size of each bin as (y_bin_size, x_bin_size), default is (10, 10)
+	
+	Returns:
+	numpy.ndarray: Downsampled array with preserved mean values
+	"""
+
+	num_timepoints, y_dim, x_dim = bin_data.shape
+	y_bin_size, x_bin_size = bin_size
+	
+	# Calculate padding needed
+	y_padding = (y_bin_size - (y_dim % y_bin_size)) % y_bin_size
+	x_padding = (x_bin_size - (x_dim % x_bin_size)) % x_bin_size
+	
+	# Target dimensions after padding
+	padded_y_dim = y_dim + y_padding
+	padded_x_dim = x_dim + x_padding
+	
+	# Calculate output dimensions
+	target_y_dim = padded_y_dim // y_bin_size
+	target_x_dim = padded_x_dim // x_bin_size
+	
+	# Create padded array with mean padding if needed
+	if y_padding > 0 or x_padding > 0:
+		pad_value = np.mean(bin_data)
+		padded_data = np.full((num_timepoints, padded_y_dim, padded_x_dim), pad_value, dtype=bin_data.dtype)
+		padded_data[:, :y_dim, :x_dim] = bin_data
+	else:
+		padded_data = bin_data
+	
+	# Reshape and compute mean in one go
+	# First reshape to separate bins: (time, target_y, bin_y, target_x, bin_x)
+	reshaped = padded_data.reshape(
+		num_timepoints,
+		target_y_dim, y_bin_size,
+		target_x_dim, x_bin_size
+	)
+	
+	# Then take mean over bin dimensions
+	downsampled = reshaped.mean(axis=(2, 4))
+	
+	return downsampled

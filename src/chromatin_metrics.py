@@ -149,181 +149,9 @@ class ChromatinMetrics:
 
 		return ret
 
-
-	def plot_mnase_gene(self, gene, annotate_occupancies=False, annotate_entropies=False):
-		"""
-		Plot the MNase-seq for a gene
-		"""
-
-		gene_window = gene['TSS']-1000, gene['TSS']+1000
-		
-		fig, (ax1, ax2) = plt.subplots(2, 1, figsize=(12, 4))
-		
-		from src.orf_plotter import ORFAnnotationPlotter, plot_rect
-
-		orf_plotter = ORFAnnotationPlotter(self.geneset)
-		orf_plotter.set_span_chrom(gene_window, 1)
-		orf_plotter.plot_orf_annotations(ax1)
-		
-		gene_window_reads = self.mnase_sel_region_lens(self.chrom_reads, 
-																   gene_window)
-
-		ax2.scatter(gene_window_reads['mid'], gene_window_reads['length'], s=1, alpha=0.25, c='orange')
-
-		
-		prom_span = gene.promoter_start, gene.promoter_end
-		gb_span = gene.gene_body_start, gene.gene_body_end
-
-		for ax in [ax1, ax2]:
-			ax.axvline(gene.TSS, c='black', lw=1, alpha=0.5)    
-			plot_rect(ax, prom_span[0], -250, prom_span[1]-prom_span[0], 500, zorder=0, 
-				color='#eef', fill_alpha=0.5)
-			plot_rect(ax, gb_span[0], -250, gb_span[1]-gb_span[0], 500, zorder=0, 
-				color='#eee', fill_alpha=0.5)
-
-		# annotate the counts for each region
-		if annotate_occupancies:
-
-			# If plotting text for annotations, here are the x positions
-			# for each region
-			xs = [
-				(prom_span[0]+prom_span[1])/2,
-				(prom_span[0]+prom_span[1])/2,
-				(prom_span[0]+prom_span[1])/2,
-				(gb_span[0]+gb_span[1])/2,
-				(gb_span[0]+gb_span[1])/2,
-				(gb_span[0]+gb_span[1])/2,
-			]
-
-			gene_counts = self.compute_counts(gene, log=True)
-
-			# Define the y position for where the counts will be placed
-			# TODO: hard-coded based on yl2 data
-			ys = [
-				50, 120, 167,
-				50, 120, 167,
-			]
-
-			for i in range(len(gene_counts)):
-				gene_count = gene_counts[i]
-				plt.text(xs[i], ys[i], str(gene_count), fontsize=12, weight='normal', 
-				color='black', va='center', ha='center', zorder=10)
-
-		if annotate_entropies:
-
-			# If plotting text for annotations, here are the x positions
-			# for each region
-			xs = [
-				(prom_span[0]+prom_span[1])/2,
-				(gb_span[0]+gb_span[1])/2,
-			]
-
-			prom_sm_entropy, gb_nuc_entropy = self.compute_gene_entropies(gene)
-
-			# Define the y position for where the counts will be placed
-			# TODO: hard-coded based on yl2 data
-			ys = [
-				50, 167,
-			]
-
-			entropies = [prom_sm_entropy, gb_nuc_entropy]
-
-			for i in range(len(entropies)):
-				cur_entropy = entropies[i]
-				plt.text(xs[i], ys[i], f"{cur_entropy:.02f}", fontsize=12, weight='normal', 
-				color='black', va='center', ha='center', zorder=10)
-
-		ax2.set_ylim(0, 250)
-		ax2.set_xlim(gene_window[0], gene_window[1])
-		ax1.set_xlim(gene_window[0], gene_window[1])
-		ax1.set_xticks([])
-		
-		ax2.axhline(self.nucleosome_len_span[0], c='red', lw=1, ls='dotted', alpha=0.5)
-		ax2.axhline(self.nucleosome_len_span[1], c='red', lw=1, ls='dotted', alpha=0.5)
-		ax2.axhline(self.small_frag_span[1], c='green', lw=1, ls='dotted', alpha=0.5)
-		plt.suptitle(f"{gene.gene} - chr {gene.chr}: {gene_window[0]}-{gene_window[1]}")
-
-	def compute_all_gene_entropies(self):
-		"""Compute the gene entropies for all chromosomes for the current gene set (chromosome)"""
-
-		# Create a gene counts data frame that will collect the entropies for each gene
-		# at the time point
-		gene_entropies = self.geneset[['chr']].copy()
-
-		gene_entropies['prom_sm_occ'] = 0
-		gene_entropies['gb_nuc_occ'] = 0
-
-		self.timer.start()
-
-		# For each chromosome
-		print(f"Computing gene entropies for all chromosomes...")
-		for chrom in self.chroms:    
-
-			# Set the chromosome number to filter the mnase reads and the genes
-			self.set_chrom(chrom)    
-			for orf_name, gene_row in self.chrom_genes.iterrows():
-				
-				# Compute the counts and set them in the data frame
-				(entropy_p_sm, entropy_gb_nuc) = self.compute_gene_entropies(gene_row)
-				
-				gene_entropies.loc[orf_name, 'prom_sm_occ'] = entropy_p_sm
-				gene_entropies.loc[orf_name, 'gb_nuc_occ'] = entropy_gb_nuc
-
-			# Progress logging
-			print(f"Done with chromosome {chrom} - {self.timer.get_time()}")
-
-		self.gene_entropies = gene_entropies
-		return gene_entropies
-
-
-	def compute_all_gene_counts(self):
-
-		# Create a gene counts data frame that will collect the occupancy for each gene
-		# at the time point
-		gene_counts = self.geneset[['chr']].copy()
-
-		gene_counts['prom_sm_occ'] = 0
-		gene_counts['prom_mid_occ'] = 0
-		gene_counts['prom_nuc_occ'] = 0
-
-		gene_counts['gb_sm_occ'] = 0
-		gene_counts['gb_mid_occ'] = 0
-		gene_counts['gb_nuc_occ'] = 0
-
-		self.timer.start()
-
-		# For each chromosome
-		print(f"Computing metrics...")
-		for chrom in self.chroms:    
-
-			# Set the chromosome number to filter the mnase reads and the genes
-			self.set_chrom(chrom)    
-			for orf_name, gene_row in self.chrom_genes.iterrows():
-				
-				# Compute the counts and set them in the data frame
-				(num_p_sm, num_p_mid, num_p_nuc, 
-				 num_gb_sm, num_gb_mid, num_gb_nuc) = self.compute_counts(gene_row, log=False)
-				
-				gene_counts.loc[orf_name, 'prom_sm_occ'] = num_p_sm
-				gene_counts.loc[orf_name, 'prom_mid_occ'] = num_p_mid
-				gene_counts.loc[orf_name, 'prom_nuc_occ'] = num_p_nuc
-				
-				gene_counts.loc[orf_name, 'gb_sm_occ'] = num_gb_sm
-				gene_counts.loc[orf_name, 'gb_mid_occ'] = num_gb_mid
-				gene_counts.loc[orf_name, 'gb_nuc_occ'] = num_gb_nuc
-
-			# Progress logging
-			print(f"Done with chromosome {chrom} - {self.timer.get_time()}")
-
-		self.gene_counts = gene_counts
-		return gene_counts
-
 	def compute_length_hist(self, sample, len_span=(0, 250)):
 		mnase_reads = self.chrom_reads
 		sample_reads = mnase_reads[mnase_reads['sample'] == sample]
-
-		# For chromosome 12, filter out the 
-		mn_min, mn_max = len_span
 
 		# Add 2 because we want to include the last length count, and 1 more to create bins that:
 		# encompass the length read:
@@ -331,6 +159,11 @@ class ChromatinMetrics:
 		#   bins:        |       ...           |             |
 		#                mn_min                mn_max    mn_max+1
 		#
+		return self.compute_length_hist_reads(sample_reads, len_span)
+
+	def compute_length_hist_reads(self, sample_reads, len_span=(0, 250)):
+
+		mn_min, mn_max = len_span
 
 		# Range add one to include last value, add one more to create bin edge greater than last value:
 		bins = np.arange(mn_min, mn_max+1+1)

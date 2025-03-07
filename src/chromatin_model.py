@@ -86,7 +86,9 @@ class ChromatinModel:
 		normalized_bins = normalize_bins_by_len(self.config.replicate, exact_bins, log=log)
 		self.normalized_bins = normalized_bins
 
-		downsampled_bins = self.downsample_bins(self.normalized_bins, new_span)
+		from src.helpers import downsample_bins
+
+		downsampled_bins = downsample_bins(self.normalized_bins)
 		self.new_span = new_span
 
 		exact_extent = [self.mnase_span[0], self.mnase_span[1],
@@ -267,66 +269,6 @@ class ChromatinModel:
 			hist = hist.T
 			exact_bins[time_idx] = hist
 		return exact_bins
-		
-
-	def downsample_bins(self, bin_data, new_span):
-
-		bin_width = self.bin_width
-		bin_height = self.bin_height
-		self.new_span = new_span
-
-		# Define the bin positions and the fragment lengths, these will define
-		# the lower bound of the bin (the last bin will be truncated)
-		x_bins = np.arange(new_span[0], new_span[1]+bin_width, bin_width)
-		y_bins = np.arange(0, self.max_y_len+bin_height, bin_height)
-
-		# Now we will loop through each x and y bin to aggregate the counts to 
-		# create our new downsampled histogram
-		downscaled_bins = np.zeros((bin_data.shape[0], len(y_bins), len(x_bins)))
-
-		from src.coordinate_translator import CoordinateTranslator
-
-		# Translate from the selected mnase span to np array space
-		coord_translator = CoordinateTranslator(self.mnase_span)
-
-		for t_index in range(len(self.timepoints)):
-			for x_ind in range(1, len(x_bins)):
-				for y_ind in range(1, len(y_bins)):
-					x_start = coord_translator.translate(x_bins[x_ind-1])
-					x_end = coord_translator.translate(x_bins[x_ind])
-					y_start = y_bins[y_ind-1]
-					y_end = y_bins[y_ind]
-					
-					bin_counts = bin_data[t_index][y_start:y_end, x_start:x_end]
-					bin_counts_mean = bin_counts.mean()
-
-					downscaled_bins[t_index][y_ind-1][x_ind-1] = bin_counts_mean
-
-		# Bins are filled up until the last one row and column, so subset
-		downscaled_bins = downscaled_bins[:, :-1, :-1]
-
-		return downscaled_bins
-
-
-	def create_deconvolution_bins(self, log=False):
-		
-		exact_bins = self.create_exact_bins()
-		normalized_bins = normalize_bins(self.config.replicate, exact_bins, log=log)
-		downsampled_bins = self.downsample_bins_gene(normalized_bins)
-		
-		exact_extent = [self.mnase_span[0], self.mnase_span[1],
-					0, GlobalConstants.MAX_Y_LEN]
-		gene_extent = [self.new_span[0], self.new_span[1],
-						0, GlobalConstants.MAX_Y_LEN]
-		
-		self.exact_extent = exact_extent
-		self.bin_extents = gene_extent
-		self.deconv_hist_unflattened = downsampled_bins
-		self.image_shape = self.deconv_hist_unflattened.shape[1:]
-		self.normalized_bins = normalized_bins
-
-		self.exact_bins = exact_bins
-		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
 
 
 	def plot_bin_comparison(self):
@@ -682,40 +624,6 @@ def compute_bin_counts_sample(locus_reads, sample, x_bins, y_bins):
 	return plotting_reads, hist, x_edges, y_edges
 
 
-def downsample_bins(bin_data, mnase_span, bin_width, bin_height,
-	max_y_len, timepoints):
-
-	# Define the bin positions and the fragment lengths, these will define
-	# the lower bound of the bin (the last bin will be truncated)
-	x_bins = np.arange(mnase_span[0], mnase_span[1]+bin_width, bin_width)
-	y_bins = np.arange(0, max_y_len+bin_height, bin_height)
-
-	# Now we will loop through each x and y bin to aggregate the counts to 
-	# create our new downsampled histogram
-	downscaled_bins = np.zeros((bin_data.shape[0], len(y_bins), len(x_bins)))
-
-	from src.coordinate_translator import CoordinateTranslator
-
-	# Translate from the selected mnase span to np array space
-	coord_translator = CoordinateTranslator(mnase_span)
-
-	for t_index in range(len(timepoints)):
-		for x_ind in range(1, len(x_bins)):
-			for y_ind in range(1, len(y_bins)):
-				x_start = coord_translator.translate(x_bins[x_ind-1])
-				x_end = coord_translator.translate(x_bins[x_ind])
-				y_start = y_bins[y_ind-1]
-				y_end = y_bins[y_ind]
-				
-				bin_counts = bin_data[t_index][y_start:y_end, x_start:x_end].mean()
-				downscaled_bins[t_index][y_ind-1][x_ind-1] = bin_counts
-
-	# Bins are filled up until the last one row and column, so subset
-	downscaled_bins = downscaled_bins[:, :-1, :-1]
-
-	return downscaled_bins
-
-
 def normalize_bins_by_len(replicate, exact_bins, log=True, scaling_mat=None):
 	"""Normalize the histogram of exact length, position counts"""
 
@@ -743,21 +651,26 @@ def normalize_bins_by_len(replicate, exact_bins, log=True, scaling_mat=None):
 
 
 def plot_raw(chromatin_model):
-
 	config = chromatin_model.config
 	G = chromatin_model.G
+	chrom, mnase_span = chromatin_model.chr, chromatin_model.mnase_span
+	return plot_raw_G(G, config, chrom, mnase_span)
+
+
+def plot_raw_G(G, config, chrom, mnase_span, figsize=(2, 7),
+	vmin=0, vmax=40, cmap='magma_r'):
+
 	G_imgs = G.reshape((G.shape[0], 26, -1))
 	timepoints = config.timepoints
 
 	num_rows = len(timepoints)+1
 	num_cols = 1
 
-	fig, axs = plt.subplots(num_rows, num_cols, figsize=(2, 7))
+	fig, axs = plt.subplots(num_rows, num_cols, figsize=figsize)
 
 	from src.orf_plotter import load_default_orf_plotter
 	from src.sgd import read_nondubious_genes_dataset
 
-	chrom, mnase_span = chromatin_model.chr, chromatin_model.mnase_span
 
 	orf_plotter = load_default_orf_plotter()
 	orf_plotter.set_span_chrom(mnase_span, chrom)
@@ -768,8 +681,8 @@ def plot_raw(chromatin_model):
 
 		ax = axs[i]
 
-		ax.imshow(G_imgs[i-1], origin='lower', aspect='auto', vmin=0, vmax=0.2,
-				  cmap='magma_r')
+		ax.imshow(G_imgs[i-1], origin='lower', aspect='auto', vmin=vmin, vmax=vmax,
+				  cmap=cmap)
 		ax.set_xticks([])
 		ax.set_yticks([])
 
@@ -833,3 +746,4 @@ def plot_prediction(chromatin_model, G, N, F, F_replicate, b):
 	plt.subplots_adjust(top=0.95)
 
 	return fig
+

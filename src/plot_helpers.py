@@ -2,6 +2,7 @@
 from matplotlib import pyplot as plt
 import numpy as np
 import scipy
+import matplotlib.patheffects as patheffects
 
 
 def plot_phase_stack(tp, prev_vec, cur_vec, name):
@@ -303,3 +304,84 @@ def color_for_key(key):
 
 	return color_map[key]
 
+
+def annotate_points(xs, ys, texts, 
+				   marker='D', 
+				   marker_size=20,
+				   marker_color='red',
+				   marker_fill='none',
+				   linewidth=1,
+				   text_offset=(0.05, 0.05),
+				   fontsize=8,
+				   text_color='black',
+				   ax=None,
+				   use_adjust_text=True,
+				   bbox_props=None,
+				   adjust_text_kwargs=None):
+	"""
+	Annotate scatter plot points with custom markers and text labels.
+	Uses adjustText library to prevent label overlaps when use_adjust_text=True.
+	"""
+	if ax is None:
+		ax = plt.gca()
+	
+	# Plot markers
+	scatter = ax.scatter(xs, ys, 
+						 marker=marker, 
+						 s=marker_size, 
+						 edgecolor=marker_color,
+						 facecolors=marker_fill,
+						 linewidth=linewidth)
+	
+	# Default parameters for adjust_text
+	default_adjust_kwargs = {
+		'expand_points': (1.5, 1.5),
+		'force_points': (0.1, 0.2),
+		'arrowprops': {'arrowstyle': '-', 'color': marker_color, 'lw': 0.5},
+		'ax': ax
+	}
+	
+	# Update with user-provided parameters
+	if adjust_text_kwargs:
+		default_adjust_kwargs.update(adjust_text_kwargs)
+	
+	# Add text labels
+	text_objects = []
+	
+	if use_adjust_text:
+
+		try:
+			from adjustText import adjust_text
+			
+			# Create text objects (initially at point positions)
+			for x, y, text in zip(xs, ys, texts):
+				text_obj = ax.text(x, y, text,
+								fontsize=fontsize,
+								color=text_color,
+								bbox=bbox_props,
+
+								path_effects=[patheffects.withStroke(linewidth=2,
+									foreground='white')])
+				text_objects.append(text_obj)
+			
+			# Use adjustText to prevent overlaps
+			adjust_text(text_objects, **default_adjust_kwargs)
+			
+		except ImportError:
+			print("Warning: adjustText library not found. Using basic text placement instead.")
+			use_adjust_text = False
+	
+	# Fall back to basic text placement if not using adjustText
+	if not use_adjust_text:
+		for x, y, text in zip(xs, ys, texts):
+			offset_x, offset_y = text_offset
+			text_obj = ax.annotate(text, 
+							xy=(x, y),
+							xytext=(x + offset_x, y + offset_y),
+							fontsize=fontsize,
+							color=text_color,
+							bbox=bbox_props)
+			text_objects.append(text_obj)
+	
+	return text_objects
+	

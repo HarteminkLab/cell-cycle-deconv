@@ -9,6 +9,8 @@ from matplotlib import pyplot as plt
 from src.replication_deconvolution_solver import deconvolve_replication_brute_force
 from typing import Tuple, Optional, NamedTuple
 from src.expression_chromatin_plots import draw_phase_label_annotations
+from src.chromatin_metrics import fragment_lengths_definitions
+
 
 early_color = plt.get_cmap('Oranges')(0.75)
 late_color = plt.get_cmap('Purples')(0.75)
@@ -17,26 +19,28 @@ late_color = plt.get_cmap('Purples')(0.75)
 class RealDataReplicationDeconvolution():
 	"""This model deconvolve the replication timing.
 	"""
-	def __init__(self, config, chr, replicate):
+	def __init__(self, config, chr, replicate, len_span=None):
 
 		self.chrom = chr
 		self.replicate = replicate
 		self.config = config
-		self.load_replicate_data(chr, replicate)
+		self.load_replicate_data(chr, replicate, len_span)
 		self.std_q_threshold = 0.75
 		self.enable_std_thresholding = False
 		self.deconvolve_stage = 1
 
 
-	def load_replicate_data(self, chr, replicate):
+	def load_replicate_data(self, chr, replicate, len_span=None):
 
 		from src.mnase_10kb_loader import MNase10kbLoader
-		from src.chromatin_metrics import fragment_lengths_definitions
 		small_span, med_span, nuc_span = fragment_lengths_definitions()
+
+		if len_span is None:
+			len_span = nuc_span
 
 		mnase_loader = MNase10kbLoader()
 		mnase_loader.load_mnase_data(replicate=replicate, chromosome=chr,
-			fragment_lengths_span=nuc_span)
+			fragment_lengths_span=len_span)
 		mnase_loader.compute_sliding_window_counts_all_times()
 
 		self.mnase_loader = mnase_loader

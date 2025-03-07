@@ -74,7 +74,8 @@ class ChromatinDeconvolveSolver:
 		self.gamma = gamma
 		self.kappa = kappa
 
-		eps_cutoff = 1e-3
+		eps_cutoff = 1e-5
+		deconvolution_solver = None
 
 		for i in range(m):
 
@@ -153,6 +154,8 @@ def plot_branches(config, chrom, mnase_span, full_deconvolved_F, figsize=(5, 7))
 	vmax = 40
 	vmax_2 = vmax//2
 
+	extent = [mnase_span[0], mnase_span[1], 0, 250]
+
 	def plot_branch_imgs(row_axs, t_indices):
 
 		for plot_index, index_in_t in enumerate(np.linspace(0,
@@ -161,7 +164,7 @@ def plot_branches(config, chrom, mnase_span, full_deconvolved_F, figsize=(5, 7))
 
 			ax = row_axs[plot_index]
 			ax.imshow(full_F_imgs[image_index], aspect='auto', cmap='magma_r', vmax=vmax,
-					  origin='lower')
+					  origin='lower', extent=extent)
 			ax.set_xticks([])
 			ax.set_yticks([])
 			
@@ -181,7 +184,7 @@ def plot_branches(config, chrom, mnase_span, full_deconvolved_F, figsize=(5, 7))
 			
 			ax = row_axs[plot_index]
 			ax.imshow(img_diff, aspect='auto', cmap='RdBu_r', vmin=-diff_vmax_2, vmax=diff_vmax_2,
-					  origin='lower')
+					  origin='lower', extent=extent)
 			ax.set_xticks([])
 			ax.set_yticks([])
 
