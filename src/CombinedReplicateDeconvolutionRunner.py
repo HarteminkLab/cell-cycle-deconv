@@ -99,9 +99,9 @@ class CombinedReplicateDeconvolutionRunner():
 			np.save(N_save_path, self.Ns[self.current_epoch])
 			np.save(F_save_path, self.Fs[self.current_epoch])
 			self.update_params_df.to_csv(parameters_save_path)
+			np.save(H_save_path, self.Hs[self.current_epoch])
 
 		np.save(B_save_path, self.Bs[self.current_epoch])
-		np.save(H_save_path, self.Hs[self.current_epoch])
 
 		fig = self.deconvolution.plot_heatmaps()
 		plt.suptitle(f"Combined replicate"
