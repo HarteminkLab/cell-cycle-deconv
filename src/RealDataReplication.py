@@ -10,6 +10,7 @@ from src.replication_deconvolution_solver import deconvolve_replication_brute_fo
 from typing import Tuple, Optional, NamedTuple
 from src.expression_chromatin_plots import draw_phase_label_annotations
 from src.chromatin_metrics import fragment_lengths_definitions
+from src.mnase_10kb_loader import get_bin_for_position
 
 
 early_color = plt.get_cmap('Oranges')(0.75)
@@ -113,7 +114,7 @@ class RealDataReplicationDeconvolution():
 		if warm_start_output_directory is not None:
 			# N is the most important to load from disk, F, and B will converge properly on the
 			# first set of N, F, B iterations
-			F, N, B = load_N_F_B_from_save(warm_start_output_directory, self.replicate, warm_start_chrom)
+			F, N, B = load_N_F_B_for_replication_deconv_from_save(warm_start_output_directory, self.replicate, warm_start_chrom)
 			initial_N = N
 
 		if initial_N is None:
@@ -187,6 +188,7 @@ class RealDataReplicationDeconvolution():
 		B_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_B.csv'
 		F_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_F.csv'
 		H_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_H.npy'
+		G_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_G.csv'
 
 		if self.deconvolve_stage == 1:
 			parameters_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_parameters.csv'
@@ -198,6 +200,7 @@ class RealDataReplicationDeconvolution():
 		np.save(N_save_path, self.N)
 		np.save(H_save_path, self.config.H)
 		self.F_df.to_csv(F_save_path)
+		self.G_df.to_csv(G_save_path)
 		self.b_df.to_csv(B_save_path)
 		pd.DataFrame(self.config.params_dic, index=[0]).to_csv(parameters_save_path)
 
@@ -209,6 +212,7 @@ class RealDataReplicationDeconvolution():
 		print_fl(f"Saved to: {B_save_path}")
 		print_fl(f"Saved to: {H_save_path}")
 		print_fl(f"Saved to: {F_save_path}")
+		print_fl(f"Saved to: {G_save_path}")
 		print_fl(f"Saved to: {parameters_save_path}")
 		print_fl(f"Saved to: {fig_path}")
 
@@ -618,16 +622,34 @@ def compute_N(config, plot=False):
 	return average_DNA, N
 
 
+def read_g(chrom, deconv_span, replicate):
+
+	print_fl(f"Loading single replication profile g, 3/1/25")
+
+	directory = 'output/prototype_pipeline_subset'
+
+	G_df = pd.read_csv(f'{directory}/rep{replicate}_chr{chrom}_G.csv')
+	G_df = G_df[G_df.columns[1:]]	
+	G_df.columns = G_df.columns.astype(int)
+	
+	start_indices = G_df.columns
+
+	mid_span = (deconv_span[0]+deconv_span[1])/2
+	bin_idx, start = get_bin_for_position(mid_span, start_indices)
+
+	g = G_df[start]
+
+	return g
+
+
 def read_n_fr_b(chrom, deconv_span):
-	from src.mnase_10kb_loader import get_bin_for_position
 
 	# Trial replication profile from 2/17/25 run
 
-	print_fl(f"Loading trial replication profile, 2/17/25")
+	print_fl(f"Loading single replication profile, 3/1/25")
 
 	replicate = 1
-
-	directory = 'output/replication_profiles_trial'
+	directory = 'output/prototype_pipeline_subset'
 
 	N = np.load(f'{directory}/rep{replicate}_chr{chrom}_N.npy')
 	Fr_df = pd.read_csv(f'{directory}/rep{replicate}_chr{chrom}_F.csv')
@@ -808,7 +830,7 @@ def plot_masks():
 		  f"during alpha factor release compared to any other timepoint")
 
 
-def load_N_F_B_from_save(output_dir, replicate, chrom):
+def load_N_F_B_for_replication_deconv_from_save(output_dir, replicate, chrom):
 	"""Load the F, N, and B from disk from a previous run."""
 
 	F = pd.read_csv(f'{output_dir}/rep{replicate}_chr{chrom}_F.csv')

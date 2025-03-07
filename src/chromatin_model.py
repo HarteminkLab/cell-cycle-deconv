@@ -53,7 +53,7 @@ class ChromatinModel:
 		# note: works best with large windows of G
 		self.normalize_mean_1 = True
 
-	def load_mnase_span(self, chrom, mnase_span, log=True):
+	def load_mnase_span(self, chrom, mnase_span, verbose=True):
 		"""Load the MNase for an arbitrary genomic span"""
 
 		replicate = self.config.replicate
@@ -63,14 +63,14 @@ class ChromatinModel:
 
 		if not self.chr == chrom:
 
-			if log:
+			if verbose:
 				print_fl(f"Loading chromosome reads: {chrom}")
 
 			self.chr_reads = read_chromosome_mnase_reads(replicate, chrom)
 			self.chr = chrom
 
 		else:
-			if log:
+			if verbose:
 				print_fl(f"Already loaded chromosome reads for {self.chr}. Using cache.")
 
 		self.locus_reads = self.chr_reads[(self.chr_reads.mid > self.mnase_span[0]) & 
@@ -83,23 +83,47 @@ class ChromatinModel:
 
 		# Create the bins for the reads
 		exact_bins = create_exact_bins(self.locus_reads, new_span, self.timepoints)
-		normalized_bins = normalize_bins_by_len(self.config.replicate, exact_bins, log=log)
-		self.normalized_bins = normalized_bins
+
+		# Load target length distribution
+		from src.mnase_normalization import load_target_distribution
+		target_distribution = load_target_distribution()
+
+		# Load target total sums g from replication profile
+		from src.RealDataReplication import read_g
+		g = read_g(chrom, mnase_span, replicate)
+
+		# Normalize to mean 1, to target length distribution, 
+		# to expected sums as defined from the 10kb windows from replication deconvolution
+		# then downsample
+		if verbose:
+			print("Normalizing to mean 1, to target length distribution, to target 10kb occupancy sums.")
+
+		# Perform the normalization and downsampling steps
+		from src.mnase_normalization import normalize_and_downsample
+		exact_bins_normalized1, length_normalized, length_normalized_target_sums, downsampled_bins = \
+			normalize_and_downsample(exact_bins, target_distribution, g)
+
+		if verbose:
+			print(f"And downsampling from {exact_bins_normalized1.shape} to {downsampled_bins.shape}")
+
+		self.length_normalized = length_normalized
+		self.length_normalized_target_sums = length_normalized_target_sums
+		self.downsampled_bins = downsampled_bins
 
 		from src.helpers import downsample_bins
 
-		downsampled_bins = downsample_bins(self.normalized_bins)
 		self.new_span = new_span
 
 		exact_extent = [self.mnase_span[0], self.mnase_span[1],
 					0, GlobalConstants.MAX_Y_LEN]
 		
-		self.exact_bins = exact_bins
+		self.exact_bins = exact_bins_normalized1
 		self.exact_extent = exact_extent
 		self.bin_extents = exact_extent
 
-		self.deconv_hist_unflattened = downsampled_bins
-		self.image_shape = self.deconv_hist_unflattened.shape[1:]
+		self.G_imgs = downsampled_bins
+		self.image_shape = self.G_imgs.shape[1:]
+		self.original_shape = self.G_imgs.shape
 		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
 
 		if self.normalize_mean_1 == True:
@@ -288,7 +312,7 @@ class ChromatinModel:
 			plt.axvline(self.computed_plus_one, c='gray', lw=1)
 
 			plt.subplot(rows, cols, row*cols+2)
-			plt.imshow(self.deconv_hist_unflattened[row], cmap='magma_r', vmax=20, origin='lower', aspect='auto',
+			plt.imshow(self.G_imgs[row], cmap='magma_r', vmax=20, origin='lower', aspect='auto',
 					  extent=self.bin_extents)
 			
 			plt.xlim(self.bin_extents[0], self.bin_extents[1])
@@ -552,14 +576,14 @@ class ChromatinModel:
 
 		# ------- Reshape f ---------
 
-		shape = self.deconv_hist_unflattened[0].shape
+		shape = self.G_imgs[0].shape
 		reshaped_f = f.reshape((-1, shape[0], shape[1]))
 		reshaped_ptrs = self.f_ptrs.reshape(*shape)
 
 		#---------- Save to disk -------------
 
 		# Save the g to disk
-		np.save(g_save_path, self.deconv_hist_unflattened)
+		np.save(g_save_path, self.G_imgs)
 
 		# Save the f to disk
 		np.save(f_save_path, reshaped_f)
@@ -624,32 +648,6 @@ def compute_bin_counts_sample(locus_reads, sample, x_bins, y_bins):
 	return plotting_reads, hist, x_edges, y_edges
 
 
-def normalize_bins_by_len(replicate, exact_bins, log=True, scaling_mat=None):
-	"""Normalize the histogram of exact length, position counts"""
-
-	# Load the scaling matrix for the replicate, this matrix
-	# contains the length distribution scalar for each replicate for each
-	# length at each timepoint.
-	if scaling_mat is None:
-		from src.preprocessing import load_scaling_mat
-		scaling_mat = load_scaling_mat(replicate)
-
-	normalized_exact_bins = exact_bins
-
-	# Normalization that matches
-	# the length distribution across all timepoints and replicates
-	if log: print_fl("Applying a normalization for length distribution")
-
-	# Normalize using the scaling matrix which is a (fragment length x timepoints)
-	# large
-	scaling_T = scaling_mat.T
-	scaling_T = scaling_T.values.reshape((scaling_T.shape[0], scaling_T.shape[1], 1))
-	normalized_bins = normalized_exact_bins * scaling_T
-
-	return normalized_bins
-
-
-
 def plot_raw(chromatin_model):
 	config = chromatin_model.config
 	G = chromatin_model.G
@@ -685,6 +683,7 @@ def plot_raw_G(G, config, chrom, mnase_span, figsize=(2, 7),
 				  cmap=cmap)
 		ax.set_xticks([])
 		ax.set_yticks([])
+		ax.set_ylabel(f"{timepoints[i-1]}'")
 
 
 	plt.suptitle("Predicted vs Raw data bins")

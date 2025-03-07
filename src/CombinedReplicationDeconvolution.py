@@ -40,14 +40,14 @@ class CombinedReplicationDeconvolution():
 	def setup_deconvolution(self, warm_start_output_directory=None, warm_start_chrom=None):
 		# Setup deconvolution for each to initialize H, N, B, and G
 
-		from src.RealDataReplication import load_N_F_B_from_save
+		from src.RealDataReplication import load_N_F_B_for_replication_deconv_from_save
 
 		# Load the F, N, and B from disk
 		if warm_start_output_directory is not None:	
 			# Load the F, N, and B from disk
 			print_fl(f"Warm start load F N and B from disk {warm_start_output_directory}")
-			F1, N1, B1 = load_N_F_B_from_save(warm_start_output_directory, 1, warm_start_chrom)
-			F2, N2, B2 = load_N_F_B_from_save(warm_start_output_directory, 2, warm_start_chrom)
+			F1, N1, B1 = load_N_F_B_for_replication_deconv_from_save(warm_start_output_directory, 1, warm_start_chrom)
+			F2, N2, B2 = load_N_F_B_for_replication_deconv_from_save(warm_start_output_directory, 2, warm_start_chrom)
 
 		# Load just N, more important than B. And we can deconvolve other chromosomes easily
 		# First set of iterations will provide a consistent replication profile
