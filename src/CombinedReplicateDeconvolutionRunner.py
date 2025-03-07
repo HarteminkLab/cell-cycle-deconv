@@ -9,7 +9,8 @@ from src.config import load_default_chrom_configs
 import matplotlib.pyplot as plt
 
 
-def main(chrom, num_epochs, out_dir, warm_start_chrom, config1, config2):
+def main(chrom, num_epochs, warm_start_directory, save_dir,
+		warm_start_chrom, config1, config2):
 	"""
 	Run the combined deconvolution of the replication profile for a chromosome
 
@@ -22,9 +23,10 @@ def main(chrom, num_epochs, out_dir, warm_start_chrom, config1, config2):
 	"""
 
 	# Start runner
-	runner = CombinedReplicateDeconvolutionRunner(chrom, out_dir, config1, config2)
-	runner.start_runs(num_epochs=num_epochs, warm_start_output_directory=out_dir, warm_start_chrom=warm_start_chrom)
-	runner.save_to_disk(save_FB_only=True)
+	runner = CombinedReplicateDeconvolutionRunner(chrom, save_dir, config1, config2)
+	runner.start_runs(num_epochs=num_epochs, warm_start_output_directory=warm_start_directory, 
+		warm_start_chrom=warm_start_chrom)
+	runner.save_to_disk(save_FBG_only=True)
 
 	return runner
 
@@ -69,14 +71,14 @@ class CombinedReplicateDeconvolutionRunner():
 				self.Ns = Ns
 				self.Bs = Bs
 
-				if not self.disable_H_optimization:
+				if not self.deconvolution.disable_H_optimization:
 					self.save_to_disk()
 
 		# Run the deconvolution updates
 		self.update_params_df, self.Hs, self.Fs, self.Ns, self.Bs = \
 			self.deconvolution.run_epochs(num_epochs=num_epochs, function_update=update_function)
 
-	def save_to_disk(self, save_FB_only=False):
+	def save_to_disk(self, save_FBG_only=False):
 
 		from src.utils import mkdirs_safe
 
@@ -86,10 +88,14 @@ class CombinedReplicateDeconvolutionRunner():
 		B_save_path = f'{self.save_dir}/combined_chr{self.chrom}_B.npy'
 		F_save_path = f'{self.save_dir}/combined_chr{self.chrom}_F.npy'
 		H_save_path = f'{self.save_dir}/combined_chr{self.chrom}_H.npy'
+
+		G1_save_path = f'{self.save_dir}/rep1_chr{self.chrom}_G.csv'
+		G2_save_path = f'{self.save_dir}/rep2_chr{self.chrom}_G.csv'
+
 		parameters_save_path = f'{self.save_dir}/combined_chr{self.chrom}_parameters.csv'
 		fig_path = f'{self.save_dir}/combined_chr{self.chrom}.png'
 
-		if not save_FB_only:
+		if not save_FBG_only:
 			np.save(N_save_path, self.Ns[self.current_epoch])
 			np.save(F_save_path, self.Fs[self.current_epoch])
 			self.update_params_df.to_csv(parameters_save_path)
@@ -97,18 +103,23 @@ class CombinedReplicateDeconvolutionRunner():
 		np.save(B_save_path, self.Bs[self.current_epoch])
 		np.save(H_save_path, self.Hs[self.current_epoch])
 
-
 		fig = self.deconvolution.plot_heatmaps()
 		plt.suptitle(f"Combined replicate"
 			f" deconvolution,\nChromosome {self.chrom}, epoch={self.current_epoch}")
 		plt.savefig(fig_path, dpi=150)
 		plt.close(fig)
 
-		if not save_FB_only:
+		if not save_FBG_only:
 			print_fl(f"Saved to: {N_save_path}")
 			print_fl(f"Saved to: {H_save_path}")
 			print_fl(f"Saved to: {parameters_save_path}")
 
+		# Save G1 and G2 to disk for normalization
+		self.deconvolution.real_deconv1.G_df.to_csv(G1_save_path)
+		self.deconvolution.real_deconv2.G_df.to_csv(G2_save_path)
+
+		print_fl(f"Saved to: {G1_save_path}")
+		print_fl(f"Saved to: {G2_save_path}")
 		print_fl(f"Saved to: {B_save_path}")
 		print_fl(f"Saved to: {F_save_path}")
 		print_fl(f"Saved to: {fig_path}")

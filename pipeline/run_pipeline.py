@@ -18,7 +18,8 @@ def main():
 
 		(_, command, output_directory, replicate, chrom, num_epochs, cold_start) = system_args
 
-		mkdirs_safe([output_directory])
+		single_replication_directory = f"{output_directory}/single_replication"
+		mkdirs_safe([output_directory, single_replication_directory])
 
 		cold_start = parse_bool(cold_start)
 		chrom = int(chrom)
@@ -28,13 +29,13 @@ def main():
 		# 1. Compute replication profiles for each replicate using chromosome 4
 		from pipeline.fit_replication_profiles import main as fit_replication_profile
 		fit_replication_profile(chrom=chrom, replicate=replicate, num_epochs=num_epochs, 
-			output_directory=output_directory, cold_start=cold_start)
+			output_directory=single_replication_directory, cold_start=cold_start)
 
 	elif command == 'replication_second_stage':
 
 		(_, command, output_directory, replicate, chrom, num_epochs, cold_start) = system_args
 
-		mkdirs_safe([output_directory])
+		single_replication_directory = f"{output_directory}/single_replication"
 
 		cold_start = parse_bool(cold_start)
 		chrom = int(chrom)
@@ -44,7 +45,7 @@ def main():
 		# 1. Compute replication profiles for each replicate using chromosome 4
 		from pipeline.fit_replication_profiles import main as fit_replication_profile
 		fit_replication_profile(chrom=chrom, replicate=replicate, num_epochs=num_epochs, 
-			output_directory=output_directory, cold_start=cold_start)
+			output_directory=single_replication_directory, cold_start=cold_start)
 
 
 	# 2. Compute combined replication profiles for all chromosomes
@@ -53,17 +54,24 @@ def main():
 		print_fl(f"Generating replication profiles for all chromosomes")
 		(_, command, output_directory) = system_args
 
+		single_replication_directory = f"{output_directory}/single_replication"
+		combined_replication_directory = f"{output_directory}/combined_replication"
+		mkdirs_safe([combined_replication_directory])
+
 		from src.CombinedReplicateDeconvolutionRunner import main as fit_combined_replication
 		from src.CombinedReplicationDeconvolution import load_config_from_replication_runs
 
 		# Load the replicate 1 and 2 configs from the individual runs, these should
 		# have been fit on chromosome 4
-		config1, config2 = load_config_from_replication_runs(output_directory, chrom=4)
+		config1, config2 = load_config_from_replication_runs(single_replication_directory, chrom=4)
 
 		# For each chromosome, create the replication profiles for each of the chromosomes and save to disk
+		num_epochs = 1
+		warm_start_chrom = 4
 		for chrom in range(1, 17):
 			print_fl(f"Chromosome {chrom}")
-			combined_runner = fit_combined_replication(chrom, 1, output_directory, 4, config1, config2)
+			combined_runner = fit_combined_replication(chrom, num_epochs, single_replication_directory,
+				combined_replication_directory, warm_start_chrom, config1, config2)
 
 	# 3. Deconvolve the gene expression for all genes
 	elif command == 'deconvolve_expression':
