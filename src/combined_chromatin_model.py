@@ -37,9 +37,9 @@ class CombinedChromatinModel:
 		self.G_deconvolution_offset = 1
 
 
-	def load_mnase_span(self, chrom, mnase_span, log=True, downsample=True):
-		self.chrom1_model.load_mnase_span(chrom, mnase_span, log=log, downsample=downsample)
-		self.chrom2_model.load_mnase_span(chrom, mnase_span, log=log, downsample=downsample)
+	def load_mnase_span(self, chrom, mnase_span, verbose=True):
+		self.chrom1_model.load_mnase_span(chrom, mnase_span, verbose=verbose)
+		self.chrom2_model.load_mnase_span(chrom, mnase_span, verbose=verbose)
 
 
 	def load_combined_mnase_gene(self, gene_name):

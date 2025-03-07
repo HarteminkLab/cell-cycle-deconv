@@ -13,7 +13,14 @@ def normalize_to_target_distribution(data, target_distribution):
 	current_distributions = data.sum(axis=2)  # shape: (16, 251)
 	
 	epsilon = 1e-10
-	scaling_factors = target_distribution / ((current_distributions[:, :, None]) + epsilon)
+
+	# Calculate scaling factors by broadcasting target distributions along the time axis
+	# Target distribution will be: (251, 1)
+	# Divide by [16, 251, 1]
+	target_distribution_reshaped = target_distribution.T[None, :] 
+
+	denom = ((current_distributions[:, :]) + epsilon)
+	scaling_factors = (target_distribution_reshaped /denom )[:, :, None]
 	
 	# Apply scaling factors to the data
 	normalized_data = data * scaling_factors
@@ -34,7 +41,7 @@ def normalize_to_target_sums(data, target_sums):
 	scaling_factors = target_sums / (current_sums + epsilon)  # shape: (16,)
 	
 	# Reshape for broadcasting
-	scaling_factors = scaling_factors.reshape(16, 1, 1)
+	scaling_factors = scaling_factors.reshape(target_sums.shape[0], 1, 1)
 	
 	# Apply scaling to maintain the relative proportions within each timepoint
 	# while scaling to the target sum
@@ -66,11 +73,17 @@ def plot_normalization_sanity(normalized_1, length_normalized, length_normalized
 	plt.figure(figsize=(13, 3))
 
 	plt.subplot(1, 3, 1)
-	plt.plot(normalized_1.mean(axis=2).T, alpha=0.05, color='blue')
-	plt.plot(normalized_1.mean(axis=2).T[0], alpha=0.05, color='blue', label="Raw")
-	plt.plot(target_distribution, label="Target", color='red')
-	plt.plot(length_normalized.mean(axis=2).T, color='black', ls='dotted')
-	plt.plot(length_normalized.mean(axis=2).T[0], color='black', ls='dotted', label='Normalized')
+	# plt.plot(normalized_1.mean(axis=2).T, alpha=0.05, color='blue')
+	# plt.plot(normalized_1.mean(axis=2).T[0], alpha=0.05, color='blue', label="Raw")
+	# plt.plot(target_distribution, label="Target", color='red')
+	# plt.plot(length_normalized.mean(axis=2).T, color='black', ls='dotted')
+	
+	print(length_normalized.mean(axis=2).shape)
+
+	plt.plot(length_normalized.mean(axis=2)[0])
+
+	#plt.plot(length_normalized.mean(axis=2), color='black', ls='dotted', label='Normalized')
+	#plt.plot(length_normalized.mean(axis=2), color='black', ls='dotted', label='Normalized')
 	plt.legend()
 	plt.title("Length normalization")
 
@@ -91,7 +104,7 @@ def plot_normalization_sanity(normalized_1, length_normalized, length_normalized
 
 
 def load_target_distribution():
-	print("todo: Trial target distribution")
-	target_distribution = pd.read_csv(
-		'datasets/computed_mnase/target_length_distribution_rep1.csv').set_index('length')
-	return target_distribution
+	path = 'datasets/computed_mnase/target_length_distribution.csv'
+	print("Loading target length distribution: ", path)
+	target_distribution = pd.read_csv(path).set_index('fragment_length')
+	return target_distribution['combined']

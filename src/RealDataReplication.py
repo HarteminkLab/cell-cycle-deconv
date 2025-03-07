@@ -626,7 +626,7 @@ def read_g(chrom, deconv_span, replicate):
 
 	print_fl(f"Loading single replication profile g, 3/1/25")
 
-	directory = 'output/prototype_pipeline_subset'
+	directory = 'output/prototype_pipeline_subset/combined_replication'
 
 	G_df = pd.read_csv(f'{directory}/rep{replicate}_chr{chrom}_G.csv')
 	G_df = G_df[G_df.columns[1:]]	
@@ -642,18 +642,19 @@ def read_g(chrom, deconv_span, replicate):
 	return g
 
 
-def read_n_fr_b(chrom, deconv_span):
+def read_n_fr_b(chrom, deconv_span, replicate):
 
 	# Trial replication profile from 2/17/25 run
 
 	print_fl(f"Loading single replication profile, 3/1/25")
 
-	replicate = 1
-	directory = 'output/prototype_pipeline_subset'
+	single_directory = 'output/prototype_pipeline_subset/single_replication'
+	combined_directory = 'output/prototype_pipeline_subset/combined_replication'
 
-	N = np.load(f'{directory}/rep{replicate}_chr{chrom}_N.npy')
-	Fr_df = pd.read_csv(f'{directory}/rep{replicate}_chr{chrom}_F.csv')
-	B_df = pd.read_csv(f'{directory}/rep{replicate}_chr{chrom}_B.csv')
+	print_fl("Trial N, need to use combined N curve")
+	N = np.load(f'{single_directory}/rep{1}_chr{4}_N.npy')
+	Fr_df = pd.read_csv(f'{combined_directory}/combined_chr{chrom}_F.csv')
+	B_df = pd.read_csv(f'{combined_directory}/rep{replicate}_chr{chrom}_B.csv')
 
 	# Fix the column names
 	Fr_df = Fr_df[Fr_df.columns[1:]]

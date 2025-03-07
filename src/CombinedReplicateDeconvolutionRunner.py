@@ -26,7 +26,7 @@ def main(chrom, num_epochs, warm_start_directory, save_dir,
 	runner = CombinedReplicateDeconvolutionRunner(chrom, save_dir, config1, config2)
 	runner.start_runs(num_epochs=num_epochs, warm_start_output_directory=warm_start_directory, 
 		warm_start_chrom=warm_start_chrom)
-	runner.save_to_disk(save_FBG_only=True)
+	runner.save_to_disk(include_H_and_params=True)
 
 	return runner
 
@@ -78,7 +78,7 @@ class CombinedReplicateDeconvolutionRunner():
 		self.update_params_df, self.Hs, self.Fs, self.Ns, self.Bs = \
 			self.deconvolution.run_epochs(num_epochs=num_epochs, function_update=update_function)
 
-	def save_to_disk(self, save_FBG_only=False):
+	def save_to_disk(self, include_H_and_params=False):
 
 		from src.utils import mkdirs_safe
 
@@ -95,12 +95,12 @@ class CombinedReplicateDeconvolutionRunner():
 		parameters_save_path = f'{self.save_dir}/combined_chr{self.chrom}_parameters.csv'
 		fig_path = f'{self.save_dir}/combined_chr{self.chrom}.png'
 
-		if not save_FBG_only:
-			np.save(N_save_path, self.Ns[self.current_epoch])
-			np.save(F_save_path, self.Fs[self.current_epoch])
+		if not include_H_and_params:
 			self.update_params_df.to_csv(parameters_save_path)
 			np.save(H_save_path, self.Hs[self.current_epoch])
 
+		np.save(N_save_path, self.Ns[self.current_epoch])
+		np.save(F_save_path, self.Fs[self.current_epoch])
 		np.save(B_save_path, self.Bs[self.current_epoch])
 
 		fig = self.deconvolution.plot_heatmaps()
@@ -109,8 +109,7 @@ class CombinedReplicateDeconvolutionRunner():
 		plt.savefig(fig_path, dpi=150)
 		plt.close(fig)
 
-		if not save_FBG_only:
-			print_fl(f"Saved to: {N_save_path}")
+		if not include_H_and_params:
 			print_fl(f"Saved to: {H_save_path}")
 			print_fl(f"Saved to: {parameters_save_path}")
 
@@ -118,6 +117,7 @@ class CombinedReplicateDeconvolutionRunner():
 		self.deconvolution.real_deconv1.G_df.to_csv(G1_save_path)
 		self.deconvolution.real_deconv2.G_df.to_csv(G2_save_path)
 
+		print_fl(f"Saved to: {N_save_path}")
 		print_fl(f"Saved to: {G1_save_path}")
 		print_fl(f"Saved to: {G2_save_path}")
 		print_fl(f"Saved to: {B_save_path}")
