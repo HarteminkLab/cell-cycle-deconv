@@ -63,7 +63,7 @@ def main():
 
 
 	# 1. Deconvolve individual replication profiles, learn cell cycle parameters from MNase-seq
-	if command == 'replication':
+	elif command == 'replication':
 
 		(_, command, output_directory, replicate, chrom, num_epochs, cold_start) = system_args
 
