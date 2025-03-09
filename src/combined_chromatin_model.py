@@ -60,9 +60,13 @@ class CombinedChromatinModel:
 		chrom = self.chrom1_model.chr
 		mnase_span = self.chrom1_model.mnase_span
 
-		_, N1, self.f_replication, self.b = read_n_fr_b(chrom, mnase_span, 1)
-		_, N2, self.f_replication, self.b = read_n_fr_b(chrom, mnase_span, 2)
-		self.N = np.diag(np.concatenate([np.diag(N1), np.diag(N2)]))
+		# Loads the combined N and f replication
+		# todo: refactor for single vs combined replicate model
+		combined_dir = 'output/prototype_pipeline_subset/combined_replication'
+		combined_N = np.load(f'{combined_dir}/N.npy')
+		_, _, self.f_replication, self.b = read_n_fr_b(chrom, mnase_span, 1)
+
+		self.N = combined_N
 
 
 	def	setup_deconv_model(self, gamma=0.007, G=None, G1=None, G2=None, wavelet="Symmlet",
@@ -217,10 +221,14 @@ class CombinedChromatinModel:
 		self.chrom2_model.compute_ptr()
 
 
-	def plot_branches(self):
+	def plot_branches(self, F=None, figsize=(20, 7)):
+		if F is None: F = self.solver.F
+
+		F = F/F.mean()
+
 		from src.chromatin_deconvolution_solver import plot_branches
 		plot_branches(self.chrom1_model.config, self.chrom1_model.chr,
-			self.chrom1_model.mnase_span, self.solver.F, figsize=(5, 7))
+			self.chrom1_model.mnase_span, F, figsize=figsize, vmax=30)
 
 	def plot_raw_prediction(self, replicate, vmax=20):
 		"""Plot the resulting comparison between the raw and predicted data"""

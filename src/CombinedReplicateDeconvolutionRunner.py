@@ -80,6 +80,10 @@ class CombinedReplicateDeconvolutionRunner():
 
 	def save_to_disk(self, include_H_and_params=False):
 
+		if self.save_dir is None:
+			print_fl("No save directory, skipping save.")
+			return
+
 		from src.utils import mkdirs_safe
 
 		mkdirs_safe([self.save_dir])
@@ -100,6 +104,11 @@ class CombinedReplicateDeconvolutionRunner():
 			np.save(H_save_path, self.Hs[self.current_epoch])
 
 		np.save(N_save_path, self.Ns[self.current_epoch])
+
+		# save only the chromosome 4 N
+		if self.chrom == 4:
+			np.save(f"{self.save_dir}/N.npy", self.deconvolution.N)		
+
 		np.save(B_save_path, self.Bs[self.current_epoch])
 
 		fig = self.deconvolution.plot_heatmaps()

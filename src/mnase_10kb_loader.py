@@ -34,6 +34,8 @@ class MNase10kbLoader:
 		# Compute read counts
 		chrom_read_counts = self.mnase_reads.groupby(['sample', 'mid']).count()
 		self.chrom_read_counts = chrom_read_counts[['start']].rename(columns={'start': 'count'})
+		return self.mnase_reads
+
 
 	def compute_sliding_window_counts_all_times(self, window_size=GlobalConstants.REPL_DECONV_BIN_WIDTH,
 			step=GlobalConstants.REPL_DECONV_BIN_STEP, min_count_thresh = 0.7):
@@ -72,17 +74,7 @@ class MNase10kbLoader:
 
 	def get_bin_for_position(self, position):
 		"""Get the bin in which the position is the closest to the center of the bin"""
-
-		start_indices = self.start_indices
-		win = self.window_size
-		win_2 = win//2
-		step = self.step
-
-		position_bin_idx = np.argmin((position - win_2) > start_indices)
-		bin_start = position_bin_idx * step
-		bin_end = bin_start + win
-
-		return position_bin_idx, bin_start
+		return get_bin_for_position(position, self.start_indices)
 
 	def compute_sliding_window_counts(self, time, window_size, step):
 		"""Compute the sliding window counts"""
@@ -116,14 +108,18 @@ def compute_sliding_window(data, window_size, step):
 	return result
 
 
-def get_bin_for_position(position, start_indices, window_size=10000, step=2000):
+def get_bin_for_position(position, start_indices, win=10000, step=2000):
 	"""Get the bin in which the position is the closest to the center of the bin"""
-
-	win = window_size
 	win_2 = win//2
-
-	position_bin_idx = np.argmin((position - win_2) > start_indices)
-	bin_start = position_bin_idx * step
+	
+	# Calculate the center of each bin
+	bin_centers = start_indices + win_2
+	
+	# Find the bin with center closest to the position
+	position_bin_idx = np.argmin(np.abs(bin_centers - position))
+	
+	bin_start = start_indices[position_bin_idx]
 	bin_end = bin_start + win
-
+	
 	return position_bin_idx, bin_start
+

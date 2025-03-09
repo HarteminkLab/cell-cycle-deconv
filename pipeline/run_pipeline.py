@@ -13,6 +13,55 @@ def main():
 
 	print(f"Pipeline arguments: " , system_args)
 
+	# 0. Create target length distribution
+	if command == 'length_distribution':
+
+		import pandas as pd
+		import matplotlib.pyplot as plt
+
+		(_, command, output_directory) = system_args
+
+		length_replication_directory = f"{output_directory}/length_distribution"
+		mkdirs_safe([output_directory, length_replication_directory])
+
+		from src.length_distribution import LengthDistributionCalculator, \
+			plot_fragment_length_distributions
+
+		# Compute the length distributions for replicate 1
+		length_dist_calculator1 = LengthDistributionCalculator(replicate=1)
+		length_dist_calculator1.compute_length_distributions_for_all_chroms()
+		rep1_length_distribution = length_dist_calculator1.create_rep_distribution()
+
+		# Compute the length distributions for replicate 2
+		length_dist_calculator2 = LengthDistributionCalculator(replicate=2)
+		length_dist_calculator2.compute_length_distributions_for_all_chroms()
+		rep2_length_distribution = length_dist_calculator2.create_rep_distribution()
+
+		# Create a target distribution to normalize each window to
+		combined_target_distribution = (rep1_length_distribution + rep2_length_distribution)/2.
+		target_distribution_df = pd.DataFrame({'combined': combined_target_distribution,
+             'rep1': rep1_length_distribution,
+             'rep2': rep2_length_distribution})
+		target_distribution_df.index.name = 'fragment_length'
+		target_distribution_df.to_csv(f'{length_replication_directory}/target_length_distribution.csv')
+
+		# Plot replicate 1 and 2 distributions for each sample to show similarity
+
+		# Save the plot to disk
+		plt.figure(figsize=(4, 3))
+		plt.plot(target_distribution_df['rep1'], alpha=0.25, lw=3, label="Replicate 1")
+		plt.plot(target_distribution_df['rep2'], alpha=0.25, lw=3, label="Replicate 2")
+		plt.plot(target_distribution_df['combined'], c='black', lw=1, label="Target/Combined")
+		plt.title("Target length distribution")
+		plt.legend()
+		plt.savefig(f"{length_replication_directory}/target_distribution.png")
+
+		# Plot the raw data replication distribution
+		plot_fragment_length_distributions(length_dist_calculator1.all_length_dists, 
+    		length_dist_calculator2.all_length_dists)
+		plt.savefig(f"{length_replication_directory}/raw_distributions.png")
+
+
 	# 1. Deconvolve individual replication profiles, learn cell cycle parameters from MNase-seq
 	if command == 'replication':
 

@@ -127,7 +127,7 @@ class ChromatinDeconvolveSolver:
 
 
 
-def plot_branches(config, chrom, mnase_span, full_deconvolved_F, figsize=(5, 7)):
+def plot_branches(config, chrom, mnase_span, full_deconvolved_F, vmax=40, figsize=(5, 7)):
 
 	from src.orf_plotter import load_default_orf_plotter
 	from src.sgd import read_nondubious_genes_dataset
@@ -151,7 +151,6 @@ def plot_branches(config, chrom, mnase_span, full_deconvolved_F, figsize=(5, 7))
 	fig, axs = plt.subplots(num_imgs_per_branch+1, 4, figsize=figsize)
 	axs = np.array(axs).T
 
-	vmax = 40
 	vmax_2 = vmax//2
 
 	extent = [mnase_span[0], mnase_span[1], 0, 250]
