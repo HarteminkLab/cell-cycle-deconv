@@ -232,9 +232,9 @@ class DeconvolutionSolver(object):
 		)
 
 		# Constraint for halted cells, non-negativity, and upper bounds to improve speed
-		constraints = [f_padded_variation >= 0, f_baseline >= 0 # non-negativity
+		constraints = [f_padded_variation >= 0, f_baseline >= 0, # non-negativity
 			f_padded_variation[f_i[0]] == f_padded_variation[f_t[-1]+1], # halted cells
-			]
+		]
 
 		prob = cp.Problem(objective, constraints)
 		result = prob.solve(solver=cp.MOSEK)

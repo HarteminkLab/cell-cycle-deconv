@@ -114,7 +114,7 @@ def create_windows_to_deconvolve(round_window=2000):
 			'group': group,
 			'name': gene_name
 		}, index=[orfname])
-		
+	
 	early_set_df = create_df_for_set(chr4_early_random_indices, 4, 'early_chr4')
 	late_set_df = create_df_for_set(chr4_late_random_indices, 4, 'late_chr4')
 
