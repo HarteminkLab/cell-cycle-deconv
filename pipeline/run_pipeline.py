@@ -229,7 +229,7 @@ def main():
 
 		print_fl(f"Deconvolving index:{index}, chr{chrom}, {span[0], span[1]}")
 
-		deconv_and_save(chrom, mnase_span, chromatin_save_directory)
+		deconv_and_save(chrom, span, chromatin_save_directory)
 
 	else:
 		raise ValueError(f"Invalid command" + command)
