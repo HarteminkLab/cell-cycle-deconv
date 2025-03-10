@@ -179,7 +179,6 @@ def plot_branches(config, chrom, mnase_span, full_deconvolved_F, vmax=40, figsiz
 
 			diff_vmax_2 = 3
 			img_diff = np.log2((full_F_imgs[image_index_b]+eps)/(full_F_imgs[image_index_t]+eps))
-			# img_diff = ((full_F_imgs[image_index_b]+eps) - (full_F_imgs[image_index_t]+eps))
 			
 			ax = row_axs[plot_index]
 			ax.imshow(img_diff, aspect='auto', cmap='RdBu_r', vmin=-diff_vmax_2, vmax=diff_vmax_2,

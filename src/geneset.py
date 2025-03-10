@@ -98,9 +98,13 @@ def create_windows_to_deconvolve(round_window=2000):
 		win_2 = 5000
 
 		gene = genes.loc[orfname]
+
+		# Round the position to center on to the nearest 2 or 10kb
 		rounded_position = (gene.TSS//round_window)*round_window
+
+		# Then create the span based on the 10kb window
 		rounded_start = rounded_position-win_2
-		rounded_start = max(rounded_position, 0)
+		rounded_start = max(rounded_start, 0)
 		mnase_span = rounded_start, rounded_start+window
 		
 		return pd.DataFrame({

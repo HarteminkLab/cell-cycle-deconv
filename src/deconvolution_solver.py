@@ -211,9 +211,12 @@ class DeconvolutionSolver(object):
 
 		# Testing adjustments to smoothing weights of the three branches
 		# They appear to have minimal effect on gene expression.
-		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 1.25 +
+		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 1 +
 						 cp.sum(cp.abs(smooth_f_t_result)) * 1 +
-						 cp.sum(cp.abs(smooth_f_b_result)) * 0.9)
+						 cp.sum(cp.abs(smooth_f_b_result)) * 1)
+
+		# todo: These weights may be too low for the bottom branch, and introduces the
+		#       DG1 bias which depicts a greater amount of variability.
 
 		kappa = self.kappa
 
@@ -229,8 +232,9 @@ class DeconvolutionSolver(object):
 		)
 
 		# Constraint for halted cells, non-negativity, and upper bounds to improve speed
-		constraints = [f_padded_variation >= 0, f_padded_variation[f_i[0]] == f_padded_variation[f_t[-1]+1],
-			f_baseline >= 0, f_padded_variation <= 1000, f_baseline <= 1000]
+		constraints = [f_padded_variation >= 0, f_baseline >= 0 # non-negativity
+			f_padded_variation[f_i[0]] == f_padded_variation[f_t[-1]+1], # halted cells
+			]
 
 		prob = cp.Problem(objective, constraints)
 		result = prob.solve(solver=cp.MOSEK)

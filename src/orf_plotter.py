@@ -150,17 +150,22 @@ class ORFAnnotationPlotter:
 		span = self.span
 		chrom = self.chrom
 
+
+		orfs = orfs.copy()
+		orfs['left_end'] = orfs.TSS
+		orfs['right_end'] = orfs.PAS
+
+		is_crick = orfs.strand == '-'
+		orfs.loc[is_crick, 'left_end'] = orfs.TSS
+		orfs.loc[is_crick, 'right_end'] = orfs.PAS
+
 		# Find genes within this span, pad to handle TSS and PASs
 		genes = orfs[(orfs['chr'] == int(chrom)) & 
 
-						  # Either end is within this window:
-						  (((orfs['TSS'] > span[0]) & 
-						   (orfs['TSS'] < span[1])) |
+                     ((orfs['right_end'] <= span[1]) & 
+                      (orfs['left_end'] >= span[0])) &
 
-						  ((orfs['PAS'] > span[0]) & 
-						   (orfs['PAS'] < span[1]))) &
-
-						  (orfs.classification.isin(orf_classes))]
+					 (orfs.classification.isin(orf_classes))]
 
 		try:
 			genes = genes.sort_values(['strand', 'start']).reset_index()
