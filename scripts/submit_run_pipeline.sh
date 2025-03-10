@@ -26,5 +26,16 @@ sbatch -D ./slurm-logs/ --job-name="rep" -p compsci --export="PYFILE=pipeline/ru
 
 # ----------------------------------------------------
 
-ARGS="deconvolve_chromatin_staging ${OUTDIR} 0"
-sbatch -D ./slurm-logs/ --job-name="chrom" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+# ARGS="deconvolve_chromatin_staging ${OUTDIR} 0"
+# sbatch -D ./slurm-logs/ --job-name="chrom" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+
+for i in {1..23}; do
+
+    # Set the arguments with the current number
+    ARGS="deconvolve_chromatin_staging ${OUTDIR} $i"
+    
+    # Submit the job
+    sbatch -D ./slurm-logs/ --job-name="chrom_$i" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+done
+
+# output/prototype_pipeline_subset/chromatin_deconvolution/test_window_set.csv
