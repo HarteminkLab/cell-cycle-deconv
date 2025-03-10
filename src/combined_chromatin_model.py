@@ -104,9 +104,9 @@ class CombinedChromatinModel:
 		else:
 			self.G = G
 
-		if self.G_deconvolution_offset > 0:
-			print_fl(f"Adding a deconvolution offset to G: {self.G_deconvolution_offset}")
-			self.G = self.G+self.G_deconvolution_offset
+		#if self.G_deconvolution_offset > 0:
+		#	print_fl(f"Adding a deconvolution offset to G: {self.G_deconvolution_offset}")
+		#	self.G = self.G+self.G_deconvolution_offset
 
 		# Create the first replicates model and H
 		self.H1 = chrom1_model.config.calculate_H()
