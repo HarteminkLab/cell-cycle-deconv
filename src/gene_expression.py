@@ -5,34 +5,77 @@ import pandas as pd
 
 def load_gene_expression(gene_name, replicate):
 
+	orf_name = get_orfname(gene_name)
+	gene_expressions_tpm = load_gene_expression_data(replicate)
+	gene_expression_tpm = gene_expressions_tpm.loc[orf_name]
+
+	return gene_expression_tpm
+
+def load_gene_expression_data(replicate):
+
 	from src.sgd import get_orfname
 
-	gene_expression_data = read_yl_vst_data_rep(replicate)
-	orf_name = get_orfname(gene_name)
-	gene_expression = gene_expression_data.loc[orf_name]
 	gene_expressions_tpm = pd.read_csv(
 		f'datasets/yl_cell_cycle/replicate{replicate}_gene_expression_TPM.csv')
 	gene_expressions_tpm = gene_expressions_tpm.set_index('orf_name')
+	gene_expressions_tpm.loc[:] = np.log2(gene_expressions_tpm.values+1)
 
-	gene_expression_tpm = gene_expressions_tpm.loc[orf_name]
-	g = np.log2(gene_expression_tpm.values+1)
-
-	return g
+	return gene_expressions_tpm
 
 
-def read_yl_vst_data_rep(replicate, drop_rep2_70=True):
-	wt_data = pd.read_csv(f'datasets/yl_cell_cycle/replicate{replicate}_deseq2_vst_counts.csv')
-	wt_data = wt_data.rename(columns={"Unnamed: 0": "orf_name"}).set_index('orf_name')
-	wt_data.columns = [int(s.replace('X', '')) for s in wt_data.columns.values]
+def load_expression_data_summary():
+	# Let's add to the geneset to select genes that are pretty much off like FLO9
 
-	# Replicate 2, timepoint 70 appears to be low quality
-	# Checking if removing this timepoint improves the fit quality.
-	if replicate == 2 and drop_rep2_70:
-		# Remove timepoint 70 for replicate 2
-		wt_data = wt_data[wt_data.columns[(wt_data.columns != 70)]]
+	from src.gene_expression import load_gene_expression_data
 
-	# Normalize such that all timepoints are equal
-	target_read_counts = 60000 # (approximate read counts prior to normalization)
-	wt_data.loc[:] = wt_data.values / wt_data.values.sum(axis=0).reshape((1, -1)) * target_read_counts
+	repl1_expression = load_gene_expression_data(1)
+	repl2_expression = load_gene_expression_data(2)
 
-	return wt_data
+	expression_summary = repl1_expression[[]].copy()
+	expression_summary['mean_repl1'] = repl1_expression.mean(axis=1)
+	expression_summary['mean_repl2'] = repl2_expression.mean(axis=1)
+
+	expression_summary['std_repl1'] = repl2_expression.std(axis=1)
+	expression_summary['std_repl2'] = repl2_expression.std(axis=1)
+
+	expression_summary['combined_mean'] = (expression_summary.mean_repl1 + \
+		expression_summary.mean_repl2)/2.
+	expression_summary['combined_std'] = (expression_summary.std_repl1 + \
+		expression_summary.std_repl2)/2.
+
+	return expression_summary
+
+def select_low_tx_genes(expression_summary, min_length=500, cutoffs=(0.1, 0.5),
+	plot=False):
+	"""Select verified genes with a minimum length with no expression"""
+
+	from src.sgd import read_nondubious_genes_dataset
+	import matplotlib.pyplot as plt
+
+	genes = read_nondubious_genes_dataset()
+
+	if plot:
+		plt.figure(figsize=(5, 3))
+		plt.scatter(expression_summary.combined_std, expression_summary.combined_mean,
+			s=2, alpha=0.25)
+		plt.title("Variation and Mean of Raw Expression")
+		plt.xlabel("$\\sigma$")
+		plt.ylabel("$\\mu$")
+
+		plt.axvline(cutoffs[0], c='red')
+		plt.axhline(cutoffs[1], c='red')
+
+	# Select the lowest expressed and lowest variance genes
+	low_tx_genes = expression_summary[(expression_summary.combined_mean < cutoffs[1]) & 
+					   (expression_summary.combined_std < cutoffs[0])]
+
+	selected_genes = genes[['gene', 'length', 'classification']].join(low_tx_genes, how='inner')
+	selected_genes = selected_genes[(selected_genes['length'] > min_length) & 
+	  (selected_genes['classification'] == 'Verified')]
+
+	print(f"Criteria for gene selection: Verified genes greater than {min_length} long," 
+		  f"less than {cutoffs[1]} mean expression, less than {cutoffs[0]} std expression")
+	print("Number of verified genes with low expression:", len(selected_genes))
+
+	return selected_genes
+

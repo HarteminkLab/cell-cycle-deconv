@@ -624,7 +624,8 @@ def compute_N(config, plot=False):
 
 def read_g(chrom, deconv_span, replicate):
 
-	print_fl(f"Loading single replication profile g, 3/1/25")
+	print_fl(f"Loading G data from combined replication run, 3/10/25")
+	print_fl(f"Refactor to use the output directory, of the replication deconvolution run")
 
 	directory = 'output/prototype_pipeline_subset/combined_replication'
 
