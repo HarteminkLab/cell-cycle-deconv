@@ -67,40 +67,33 @@ def normalize_and_downsample(exact_bins, target_distribution, g):
 	downsampled_bins = downsample_bins(length_normalized_target_sums)
 	return normalized_1, length_normalized, length_normalized_target_sums, downsampled_bins
 
-def plot_normalization_sanity(normalized_1, length_normalized, length_normalized_target_sums, downsampled_bins,
-	target_distribution, g):
+def plot_normalization_sanity(normalized_1, length_normalized, length_normalized_target_sums, 
+	downsampled_bins, target_distribution, g, axs=None):
 
-	plt.figure(figsize=(13, 3))
+	if axs is None:
+		fig, axs = plt.subplots(3, 1, figsize=(13, 3))
+		plt.subplots_adjust(top=0.8)
+		plt.suptitle("Normalization verification")
 
-	plt.subplot(1, 3, 1)
-	# plt.plot(normalized_1.mean(axis=2).T, alpha=0.05, color='blue')
-	# plt.plot(normalized_1.mean(axis=2).T[0], alpha=0.05, color='blue', label="Raw")
-	# plt.plot(target_distribution, label="Target", color='red')
-	# plt.plot(length_normalized.mean(axis=2).T, color='black', ls='dotted')
-	
-	print(length_normalized.mean(axis=2).shape)
-
-	plt.plot(length_normalized.mean(axis=2)[0])
-
-	#plt.plot(length_normalized.mean(axis=2), color='black', ls='dotted', label='Normalized')
-	#plt.plot(length_normalized.mean(axis=2), color='black', ls='dotted', label='Normalized')
+	ax = axs[0]
+	ax.plot(normalized_1.mean(axis=2).T, alpha=0.05, color='blue')
+	ax.plot(normalized_1.mean(axis=2).T[0], alpha=0.05, color='blue', label="Raw")
+	ax.plot(target_distribution, label="Target", color='red')
+	ax.plot(length_normalized.mean(axis=2).T, color='black', ls='dotted')
+	ax.plot(length_normalized.mean(axis=2)[0])
 	plt.legend()
-	plt.title("Length normalization")
+	ax.set_title("Length normalization")
 
-	plt.subplot(1, 3, 2)
-	plt.plot(g.index, g.values, label="Original sums")
-	plt.plot(g.index, length_normalized_target_sums.mean((1,2)), label="Length normalized sums")
-	plt.plot(g.index, downsampled_bins.mean((1,2)), label="Downsampled sums")
-
-	plt.title("Per sample normalizaiton")
+	ax = axs[1]
+	ax.plot(g.index, g.values, label="Original sums")
+	ax.plot(g.index, length_normalized_target_sums.mean((1,2)), label="Length normalized sums")
+	ax.plot(g.index, downsampled_bins.mean((1,2)), label="Downsampled sums")
+	ax.set_title("Per sample normalizaiton")
 	plt.legend()
 
-	plt.subplot(1, 3, 3)
-	plt.plot(np.arange(0, 260, 10), downsampled_bins.mean(axis=2).T, color='black', alpha=0.1)
-	plt.title("Post-normalizatio+downsamplng\nlength distributions")
-
-	plt.suptitle("Normalization verification")
-	plt.subplots_adjust(top=0.8)
+	ax = axs[2]
+	ax.plot(np.arange(0, 260, 10), downsampled_bins.mean(axis=2).T, color='black', alpha=0.1)
+	ax.set_title("Post-normalizatio+downsamplng\nlength distributions")
 
 
 def load_target_distribution():

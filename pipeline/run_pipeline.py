@@ -40,8 +40,8 @@ def main():
 		# Create a target distribution to normalize each window to
 		combined_target_distribution = (rep1_length_distribution + rep2_length_distribution)/2.
 		target_distribution_df = pd.DataFrame({'combined': combined_target_distribution,
-             'rep1': rep1_length_distribution,
-             'rep2': rep2_length_distribution})
+			 'rep1': rep1_length_distribution,
+			 'rep2': rep2_length_distribution})
 		target_distribution_df.index.name = 'fragment_length'
 		target_distribution_df.to_csv(f'{length_replication_directory}/target_length_distribution.csv')
 
@@ -58,7 +58,7 @@ def main():
 
 		# Plot the raw data replication distribution
 		plot_fragment_length_distributions(length_dist_calculator1.all_length_dists, 
-    		length_dist_calculator2.all_length_dists)
+			length_dist_calculator2.all_length_dists)
 		plt.savefig(f"{length_replication_directory}/raw_distributions.png")
 
 
@@ -160,6 +160,76 @@ def main():
 
 			runner.save_to_disk(save_genes_directory)
 			print_fl(f"Done. {timer.get_time()}")
+
+	elif command == 'deconvolve_chromatin_staging':
+
+		import matplotlib.pyplot as plt
+		import numpy as np
+		import pandas as pd
+
+		from src.combined_chromatin_model import CombinedChromatinModel
+		from src.chromatin_model import ChromatinModel
+		from src.CombinedReplicationDeconvolution import load_config_from_replication_runs
+
+		# Deconvolve the initial set of chromatin windows for testing,
+		# priority over deconvolving the most important windows first
+	
+		(_, command, output_directory, index) = system_args
+		chromatin_save_directory = f"{output_directory}/chromatin_deconvolution/"
+		index = int(index)
+
+		# Load the configs from disk
+		# todo: Refactor this config loading as it is a bit clunky
+		config1, config2 = load_config_from_replication_runs(
+			f'{output_directory}/single_replication/', chrom=4)
+
+		def deconv_and_save(chrom, mnase_span, chromatin_save_directory):
+
+			data_directory = f"{output_directory}/chromatin_deconvolution/deconvolution_data/chr{chrom}"
+			raw_plots_directory = f"{output_directory}/chromatin_deconvolution/raw_plots_directory/chr{chrom}"
+			deconv_plots_directory = f"{output_directory}/chromatin_deconvolution/deconv_plots_directory/chr{chrom}"
+
+			mkdirs_safe([data_directory, raw_plots_directory, deconv_plots_directory])
+			combined_model = CombinedChromatinModel(config1=config1, config2=config2)
+
+			# Load window to deconvolve
+			combined_model.load_mnase_span(chrom, mnase_span)
+
+			save_title = f"chr{chrom}_{mnase_span[0]}_{mnase_span[1]}"
+
+			# Plot normalization check
+			fig = combined_model.plot_normalization_sanity_check()
+			plt.savefig(f"{raw_plots_directory}/normalization_{save_title}.png")
+			plt.close(fig)
+
+			# Plot raw data
+			fig = combined_model.chrom1_model.plot_raw_data(figsize=(11, 11))
+			plt.savefig(f"{raw_plots_directory}/raw_rep1_{save_title}.png")
+			plt.close(fig)
+
+			fig = combined_model.chrom2_model.plot_raw_data(figsize=(11, 11))
+			plt.savefig(f"{raw_plots_directory}/raw_rep2_{save_title}.png")
+			plt.close(fig)
+		
+			combined_model.setup_deconv_model()
+			combined_model.deconvolve(gamma=0.01, kappa=0, verbose=True)	
+
+			np.save(f"{data_directory}/{save_title}_F.npy", combined_model.F)
+
+			combined_model.plot_branches(figsize=(50, 11))
+			plt.savefig(f"{deconv_plots_directory}/deconv_{save_title}.png")
+			plt.close(fig)
+
+
+		window_set = pd.read_csv("output/prototype_pipeline_subset/chromatin_deconvolution/test_window_set.csv")
+		row = window_set.iloc[index]
+
+		chrom = row.chr
+		span = row.start, row.end
+
+		print_fl(f"Deconvolving index:{index}, chr{chrom}, {span[0], span[1]}")
+
+		deconv_and_save(chrom, mnase_span, chromatin_save_directory)
 
 	else:
 		raise ValueError(f"Invalid command" + command)

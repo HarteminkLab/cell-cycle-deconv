@@ -62,6 +62,7 @@ class CombinedChromatinModel:
 
 		# Loads the combined N and f replication
 		# todo: refactor for single vs combined replicate model
+		print(f"todo: Loading copy correction N, Fr, B, testing with prototype replication data")
 		combined_dir = 'output/prototype_pipeline_subset/combined_replication'
 		combined_N = np.load(f'{combined_dir}/N.npy')
 		_, _, self.f_replication, self.b = read_n_fr_b(chrom, mnase_span, 1)
@@ -129,34 +130,9 @@ class CombinedChromatinModel:
 		self.deconvolved_f_value = None
 
 
-	def deconvolve(self, verbose=False, gamma=0.007, G=None, G1=None, G2=None,
-			wavelet="Symmlet", verbose_progress=True, padding_type='both',
-			N=None, f_replication=None, b=None):
+	def deconvolve(self, gamma, kappa, verbose=True):
+		self.F = self.solver.deconvolve_G_iteratively(gamma=gamma, kappa=kappa, verbose=verbose)
 
-		from src.timer import Timer
-
-		timer = Timer()
-		self.setup_deconv_model(gamma, G=G, G1=G1, G2=G2, wavelet=wavelet, 
-			padding_type=padding_type, N=N, f_replication=f_replication, b=b)
-
-		print_fl(f"Deconvolving combined model with gamma={self.gamma}")
-		print_fl(f"Deconvolving bin size: {self.chrom1_model.bin_width}x{self.chrom1_model.bin_height}")
-		print_fl(f"of G shape: {self.G.shape}")
-		print_fl(f"Padding type: {padding_type}")
-		print_fl(f"Deconvolving with gamma={self.gamma}")
-
-		self.deconvolved_f_value = self.solver.deconvolve_G_iteratively(self.gamma,
-			verbose=verbose, verbose_progress=verbose_progress)
-		self.rn = self.solver.rn
-		self.sn = self.solver.sn
-
-		print_fl(f"Deconvolved in : {timer.get_time()}")
-		print_fl(f"The fitting norm is {self.rn:.2f}, "
-			  f"the smoothing norm is: {self.sn:.2f}")
-
-		self.set_results(self.deconvolved_f_value, 
-						  self.rn, self.sn,
-						  self.solver.gamma)
 
 	def find_origin_p1_and_m1_nucleosome_position(self):
 		self.chrom1_model.find_origin_p1_and_m1_nucleosome_position()
@@ -230,17 +206,38 @@ class CombinedChromatinModel:
 		plot_branches(self.chrom1_model.config, self.chrom1_model.chr,
 			self.chrom1_model.mnase_span, F, figsize=figsize, vmax=30)
 
-	def plot_raw_prediction(self, replicate, vmax=20):
-		"""Plot the resulting comparison between the raw and predicted data"""
+	# def plot_raw_prediction(self, replicate, vmax=20):
+	# 	"""Plot the resulting comparison between the raw and predicted data"""
 
-		if replicate == 1:
-			title = self.chrom1_model.define_title().replace("Combined", "Combined-Rep.1")
-			fig = self.chrom1_model.plot_prediction_comparison(self.pred_G1, title, vmax)
-		else:
-			title = self.chrom1_model.define_title().replace("Combined", "Combined-Rep.2")
-			fig = self.chrom2_model.plot_prediction_comparison(self.pred_G2, title, vmax)
+	# 	if replicate == 1:
+	# 		title = self.chrom1_model.define_title().replace("Combined", "Combined-Rep.1")
+	# 		fig = self.chrom1_model.plot_prediction_comparison(self.pred_G1, title, vmax)
+	# 	else:
+	# 		title = self.chrom1_model.define_title().replace("Combined", "Combined-Rep.2")
+	# 		fig = self.chrom2_model.plot_prediction_comparison(self.pred_G2, title, vmax)
+
+	# 	return fig
+
+
+	def plot_normalization_sanity_check(self):
+
+		fig, axs = plt.subplots(2, 3, figsize=(13, 6))
+		plt.subplots_adjust(top=0.8)
+		plt.suptitle("Normalization verification")
+
+		axs = np.array(axs)
+
+		first_row = axs[0]
+		second_row = axs[1]
+
+		self.chrom1_model.plot_normalization_sanity_check(axs=first_row)
+		self.chrom2_model.plot_normalization_sanity_check(axs=second_row)
+
+		for ax in second_row:
+			ax.set_title("")
 
 		return fig
+
 
 
 	def plot_raw_origin_data(self, replicate, vmax=100):
@@ -403,117 +400,117 @@ class CombinedChromatinModel:
 		# save_figure_for_analysis(save_path)
 		# plt.close(fig)
 
-	def save_deconvolved_origin_outputs(self, out_dir, index):
+	# def save_deconvolved_origin_outputs(self, out_dir, index):
 
-		origin = self.chrom1_model.origin
-		f = self.deconvolved_f_value
-		tracking_df = self.chrom1_model.get_origin_tracking_df()
+	# 	origin = self.chrom1_model.origin
+	# 	f = self.deconvolved_f_value
+	# 	tracking_df = self.chrom1_model.get_origin_tracking_df()
 
-		origin_save_name = f"{origin.name}_{origin.ars_name}"
+	# 	origin_save_name = f"{origin.name}_{origin.ars_name}"
 
-		f_save_path = f'{out_dir}/{index}_f_{origin_save_name}.npy'
-		tracking_save_path = f'{out_dir}/{index}_tracking_{origin_save_name}.csv'
-		meta_save_path = f'{out_dir}/{index}_meta_{origin_save_name}.csv'
+	# 	f_save_path = f'{out_dir}/{index}_f_{origin_save_name}.npy'
+	# 	tracking_save_path = f'{out_dir}/{index}_tracking_{origin_save_name}.csv'
+	# 	meta_save_path = f'{out_dir}/{index}_meta_{origin_save_name}.csv'
 
-		#---------- Save to disk -------------
+	# 	#---------- Save to disk -------------
 
-		# Save the f to disk
-		np.save(f_save_path, f)
+	# 	# Save the f to disk
+	# 	np.save(f_save_path, f)
 
-		# Save the ptr to disk
-		tracking_df.to_csv(tracking_save_path)
+	# 	# Save the ptr to disk
+	# 	tracking_df.to_csv(tracking_save_path)
 
-		# Save meta information
-		from datetime import datetime
-		run_date = datetime.now().strftime("%D")
+	# 	# Save meta information
+	# 	from datetime import datetime
+	# 	run_date = datetime.now().strftime("%D")
 
-		df = pd.DataFrame({
-			'rn': self.solver.rn, 'sn': self.solver.sn, 
-				'gm': self.solver.gamma,
-			'config1': self.chrom1_model.config.name,
-			'config2': self.chrom2_model.config.name,
-			'model1_path': self.chrom1_model.config.model_wt1_file,
-			'model2_path': self.chrom2_model.config.model_wt1_file,
-			'run_date': run_date,
-			'replicate': "combined",
-			'image_shape': str(GlobalConstants.IMAGE_SHAPE),
-			},
-			index=[self.chrom1_model.origin.name])
-		df.to_csv(meta_save_path, float_format="%.4f")
+	# 	df = pd.DataFrame({
+	# 		'rn': self.solver.rn, 'sn': self.solver.sn, 
+	# 			'gm': self.solver.gamma,
+	# 		'config1': self.chrom1_model.config.name,
+	# 		'config2': self.chrom2_model.config.name,
+	# 		'model1_path': self.chrom1_model.config.model_wt1_file,
+	# 		'model2_path': self.chrom2_model.config.model_wt1_file,
+	# 		'run_date': run_date,
+	# 		'replicate': "combined",
+	# 		'image_shape': str(GlobalConstants.IMAGE_SHAPE),
+	# 		},
+	# 		index=[self.chrom1_model.origin.name])
+	# 	df.to_csv(meta_save_path, float_format="%.4f")
 
-		print_fl(f"Saved to {f_save_path}...")
-		print_fl(f"Saved to {tracking_save_path}...")
-		print_fl(f"Saved to {meta_save_path}...")
+	# 	print_fl(f"Saved to {f_save_path}...")
+	# 	print_fl(f"Saved to {tracking_save_path}...")
+	# 	print_fl(f"Saved to {meta_save_path}...")
 
-	def save_deconvolved_outputs(self, out_dir, index):
+	# def save_deconvolved_outputs(self, out_dir, index):
 
-		orf_name = self.chrom1_model.gene.name
-		gene_name = self.chrom1_model.gene['gene']
-		f = self.deconvolved_f_value
-		G1 = self.G1
-		G2 = self.G2
+	# 	orf_name = self.chrom1_model.gene.name
+	# 	gene_name = self.chrom1_model.gene['gene']
+	# 	f = self.deconvolved_f_value
+	# 	G1 = self.G1
+	# 	G2 = self.G2
 
-		f_save_path = f'{out_dir}/{index}_f_{orf_name}_{gene_name}.npy'
-		g1_save_path = f'{out_dir}/{index}_g1_{orf_name}_{gene_name}.npy'
-		g2_save_path = f'{out_dir}/{index}_g2_{orf_name}_{gene_name}.npy'
+	# 	f_save_path = f'{out_dir}/{index}_f_{orf_name}_{gene_name}.npy'
+	# 	g1_save_path = f'{out_dir}/{index}_g1_{orf_name}_{gene_name}.npy'
+	# 	g2_save_path = f'{out_dir}/{index}_g2_{orf_name}_{gene_name}.npy'
 
-		g1_correction_save_path = f'{out_dir}/{index}_g1_correction_{orf_name}_{gene_name}.csv'
-		g2_correction_save_path = f'{out_dir}/{index}_g2_correction_{orf_name}_{gene_name}.csv'
+	# 	g1_correction_save_path = f'{out_dir}/{index}_g1_correction_{orf_name}_{gene_name}.csv'
+	# 	g2_correction_save_path = f'{out_dir}/{index}_g2_correction_{orf_name}_{gene_name}.csv'
 
-		ptr_save_path = f'{out_dir}/{index}_ptr_{orf_name}_{gene_name}.npy'
-		meta_save_path = f'{out_dir}/{index}_meta_{orf_name}_{gene_name}.csv'
+	# 	ptr_save_path = f'{out_dir}/{index}_ptr_{orf_name}_{gene_name}.npy'
+	# 	meta_save_path = f'{out_dir}/{index}_meta_{orf_name}_{gene_name}.csv'
 
-		#---------- Save to disk -------------
+	# 	#---------- Save to disk -------------
 
-		def create_df(chrom_model):
-			correction2_df = pd.DataFrame({
-				'uncorrected': chrom_model.uncorrected_G.sum(axis=1),
-				'corrected': chrom_model.G.sum(axis=1),
-			}, index=chrom_model.config.WT1_TIMEPOINTS)
-			return correction2_df
+	# 	def create_df(chrom_model):
+	# 		correction2_df = pd.DataFrame({
+	# 			'uncorrected': chrom_model.uncorrected_G.sum(axis=1),
+	# 			'corrected': chrom_model.G.sum(axis=1),
+	# 		}, index=chrom_model.config.WT1_TIMEPOINTS)
+	# 		return correction2_df
 
-		g1_cor_df = create_df(self.chrom1_model)
-		g2_cor_df = create_df(self.chrom2_model)
-		g1_cor_df.to_csv(g1_correction_save_path)
-		g2_cor_df.to_csv(g2_correction_save_path)
+	# 	g1_cor_df = create_df(self.chrom1_model)
+	# 	g2_cor_df = create_df(self.chrom2_model)
+	# 	g1_cor_df.to_csv(g1_correction_save_path)
+	# 	g2_cor_df.to_csv(g2_correction_save_path)
 
-		# Save the f to disk
-		np.save(g1_save_path, G1)
-		np.save(g2_save_path, G2)
+	# 	# Save the f to disk
+	# 	np.save(g1_save_path, G1)
+	# 	np.save(g2_save_path, G2)
 
-		# Save the f to disk
-		np.save(f_save_path, f)
+	# 	# Save the f to disk
+	# 	np.save(f_save_path, f)
 
-		# Save the ptr to disk
-		np.save(ptr_save_path, self.chrom1_model.f_ptrs)
+	# 	# Save the ptr to disk
+	# 	np.save(ptr_save_path, self.chrom1_model.f_ptrs)
 
-		# Save meta information
-		from datetime import datetime
-		run_date = datetime.now().strftime("%D")
+	# 	# Save meta information
+	# 	from datetime import datetime
+	# 	run_date = datetime.now().strftime("%D")
 
-		df = pd.DataFrame({
-			'rn': self.solver.rn, 'sn': self.solver.sn, 
-				'gm': self.solver.gamma,
-			'config1': self.chrom1_model.config.name,
-			'config2': self.chrom2_model.config.name,
-			'model1_path': self.chrom1_model.config.model_wt1_file,
-			'model2_path': self.chrom2_model.config.model_wt1_file,
-			'run_date': run_date,
-			'replicate': "combined",
-			'image_shape': str(GlobalConstants.IMAGE_SHAPE),
-			'rep1_+1': self.chrom1_model.computed_plus_one,
-			'rep1_+2': self.chrom2_model.computed_plus_one
-			},
-			index=[orf_name])
-		df.to_csv(meta_save_path, float_format="%.4f")
+	# 	df = pd.DataFrame({
+	# 		'rn': self.solver.rn, 'sn': self.solver.sn, 
+	# 			'gm': self.solver.gamma,
+	# 		'config1': self.chrom1_model.config.name,
+	# 		'config2': self.chrom2_model.config.name,
+	# 		'model1_path': self.chrom1_model.config.model_wt1_file,
+	# 		'model2_path': self.chrom2_model.config.model_wt1_file,
+	# 		'run_date': run_date,
+	# 		'replicate': "combined",
+	# 		'image_shape': str(GlobalConstants.IMAGE_SHAPE),
+	# 		'rep1_+1': self.chrom1_model.computed_plus_one,
+	# 		'rep1_+2': self.chrom2_model.computed_plus_one
+	# 		},
+	# 		index=[orf_name])
+	# 	df.to_csv(meta_save_path, float_format="%.4f")
 
-		print_fl(f"Saved to {g1_save_path}...")
-		print_fl(f"Saved to {g2_save_path}...")
-		print_fl(f"Saved to {g1_correction_save_path}...")
-		print_fl(f"Saved to {g2_correction_save_path}...")
-		print_fl(f"Saved to {f_save_path}...")
-		print_fl(f"Saved to {ptr_save_path}...")
-		print_fl(f"Saved to {meta_save_path}...")
+	# 	print_fl(f"Saved to {g1_save_path}...")
+	# 	print_fl(f"Saved to {g2_save_path}...")
+	# 	print_fl(f"Saved to {g1_correction_save_path}...")
+	# 	print_fl(f"Saved to {g2_correction_save_path}...")
+	# 	print_fl(f"Saved to {f_save_path}...")
+	# 	print_fl(f"Saved to {ptr_save_path}...")
+	# 	print_fl(f"Saved to {meta_save_path}...")
 
 def load_chromatin_model_from_disk(gene_name, chromatin_dir, f_only=False):
 

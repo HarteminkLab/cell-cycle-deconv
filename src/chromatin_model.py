@@ -235,25 +235,12 @@ class ChromatinModel:
 		self.deconvolved_f_value = None
 
 
-	def deconvolve(self, solver=cvxpy.MOSEK, verbose=False, 
-			wavelet="Symmlet", verbose_progress=True):
+	def deconvolve(self, gamma, kappa, verbose=True):
 		"""
 		Deconvolve the chromatin for a single gamma value
 		"""
-
-		timer = Timer()
-		self.setup_deconv_model()
-		self.setup_solver(wavelet)
-
-		print_fl(f"Deconvolving with gamma={self.gamma}")
-		self.deconvolved_f_value = self.solver.deconvolve_G_iteratively(self.gamma,
-			verbose=verbose, verbose_progress=verbose_progress)
-		self.rn = self.solver.rn
-		self.sn = self.solver.sn
-
-		print_fl(f"Deconvolved in : {timer.get_time()}")
-		print_fl(f"The fitting norm is {self.rn:.2f}, "
-			  f"the smoothing norm is: {self.sn:.2f}")
+		F = self.solver.deconvolve_G_iteratively(gamma=gamma, kappa=kappa, verbose=verbose)
+		self.F = F
 
 
 	def compute_ptr(self, quantiles=[0.2, 0.8]):
@@ -385,16 +372,16 @@ class ChromatinModel:
 		print_fl(f"Saved to {ptr_save_path}...")
 		print_fl(f"Saved to {meta_save_path}...")
 
-	def plot_normalization_sanity_check(self):
+	def plot_normalization_sanity_check(self, axs=None):
 		from src.mnase_normalization import plot_normalization_sanity, load_target_distribution
 
 		plot_normalization_sanity(self.exact_bins, 
 			self.length_normalized, self.length_normalized_target_sums, 
 			self.downsampled_bins, self.target_length_distribution,
-			self.window_10kb_g_curve)
+			self.window_10kb_g_curve, axs=axs)
 
 	def plot_raw_data(self, figsize=(2, 7)):
-		plot_raw(self, figsize)
+		return plot_raw(self, figsize)
 
 
 def read_chromosome_mnase_reads(replicate, chr):
@@ -470,7 +457,6 @@ def plot_raw_G(G, config, chrom, mnase_span, figsize=(2, 7),
 		ax.set_xticks([])
 		ax.set_yticks([])
 		ax.set_ylabel(f"{timepoints[i-1]}'")
-
 
 	plt.suptitle("Predicted vs Raw data bins")
 	plt.subplots_adjust(top=0.95)
