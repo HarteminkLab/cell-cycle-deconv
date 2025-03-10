@@ -21,15 +21,15 @@ NUM_EPOCHS=2000
 
 # ---------- Expression deconvolution ----------------
 
-ARGS="deconvolve_expression ${OUTDIR}"
-sbatch -D ./slurm-logs/ --job-name="rep" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+# ARGS="deconvolve_expression ${OUTDIR}"
+# sbatch -D ./slurm-logs/ --job-name="rep" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
 # ----------------------------------------------------
 
 # ARGS="deconvolve_chromatin_staging ${OUTDIR} 0"
 # sbatch -D ./slurm-logs/ --job-name="chrom" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
-for i in {1..23}; do
+for i in {0..21}; do
 
     # Set the arguments with the current number
     ARGS="deconvolve_chromatin_staging ${OUTDIR} $i"
