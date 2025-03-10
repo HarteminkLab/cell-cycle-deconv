@@ -211,9 +211,9 @@ class DeconvolutionSolver(object):
 
 		# Testing adjustments to smoothing weights of the three branches
 		# They appear to have minimal effect on gene expression.
-		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 1 +
+		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 1.25 +
 						 cp.sum(cp.abs(smooth_f_t_result)) * 1 +
-						 cp.sum(cp.abs(smooth_f_b_result)) * 1.4)
+						 cp.sum(cp.abs(smooth_f_b_result)) * 0.9)
 
 		kappa = self.kappa
 

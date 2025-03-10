@@ -29,7 +29,7 @@ NUM_EPOCHS=2000
 # ARGS="deconvolve_chromatin_staging ${OUTDIR} 0"
 # sbatch -D ./slurm-logs/ --job-name="chrom" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
-for i in {0..21}; do
+for i in {0..22}; do
 
     # Set the arguments with the current number
     ARGS="deconvolve_chromatin_staging ${OUTDIR} $i"

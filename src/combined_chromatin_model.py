@@ -17,24 +17,8 @@ class CombinedChromatinModel:
 	"""
 
 	def __init__(self, config1, config2):
-
-		# Rename the config such that when plotting with the title
-		# the combined model name is used.
-		# Config2 will not be used for plotting
-
-		if config1.config_type == 'delta':
-			config1.name = f"Combined Prepend Model, $\\alpha$={config1.alpha},{config2.alpha}"
-			config2.name = f"Combined Prepend Model,, $\\alpha$={config1.alpha},{config2.alpha}"
-		elif config1.config_type == 'distinct':
-			config1.name = f"Combined Distinct, $\\alpha$={config1.alpha},{config2.alpha}"
-			config2.name = f"Combined Distinct, $\\alpha$={config1.alpha},{config2.alpha}"
-		elif config1.config_type == 'shared':
-			config1.name = f"Combined Shared, $\\alpha$={config1.alpha},{config2.alpha}"
-			config2.name = f"Combined Shared, $\\alpha$={config1.alpha},{config2.alpha}"
-
 		self.chrom1_model = ChromatinModel(config1)
 		self.chrom2_model = ChromatinModel(config2)
-		self.G_deconvolution_offset = 1
 
 
 	def load_mnase_span(self, chrom, mnase_span, verbose=True):
@@ -103,10 +87,6 @@ class CombinedChromatinModel:
 				self.G2])
 		else:
 			self.G = G
-
-		#if self.G_deconvolution_offset > 0:
-		#	print_fl(f"Adding a deconvolution offset to G: {self.G_deconvolution_offset}")
-		#	self.G = self.G+self.G_deconvolution_offset
 
 		# Create the first replicates model and H
 		self.H1 = chrom1_model.config.calculate_H()

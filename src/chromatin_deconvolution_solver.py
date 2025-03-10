@@ -204,7 +204,7 @@ def plot_branches(config, chrom, mnase_span, full_deconvolved_F, vmax=40, figsiz
 	plot_difference(img_axs[3], t_indices, b_indices)
 
 	plt.suptitle("Deconvolved chromatin")
-	plt.subplots_adjust(top=0.9, hspace=0)
+	plt.subplots_adjust(top=0.9, hspace=0, wspace=0.05)
 
 	return fig
 

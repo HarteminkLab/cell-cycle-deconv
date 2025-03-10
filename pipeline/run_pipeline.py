@@ -220,8 +220,7 @@ def main():
 			plt.savefig(f"{deconv_plots_directory}/deconv_{save_title}.png")
 			plt.close(fig)
 
-
-		window_set = pd.read_csv("output/prototype_pipeline_subset/chromatin_deconvolution/test_window_set.csv")
+		window_set = pd.read_csv("datasets/computed_mnase/test_window_set_2kb.csv")
 		row = window_set.iloc[index]
 
 		chrom = row.chr

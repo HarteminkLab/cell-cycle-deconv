@@ -472,12 +472,24 @@ class RG1Model(object):
 		print("Recovery: ", recovery_smoothing_tps_length)
 		print("Mother: ", top_smoothing_tps_length)
 		print("Daughter: ", bottom_smoothing_tps_length)
+		print()
 
-		print("1/Proportion of the daughter branch (longest):")
-		print("Recovery: ", bottom_smoothing_tps_length/recovery_smoothing_tps_length)
-		print("Mother: ", bottom_smoothing_tps_length/top_smoothing_tps_length)
-		print("Daughter: ", bottom_smoothing_tps_length/bottom_smoothing_tps_length)
+		print("1/Proportion of the mother branch:")
+		print("Recovery: ", top_smoothing_tps_length/recovery_smoothing_tps_length)
+		print("Mother: ", top_smoothing_tps_length/top_smoothing_tps_length)
+		print("Daughter: ", top_smoothing_tps_length/bottom_smoothing_tps_length)
+		print()
 
+		# Length of smoothing constraints
+		initial_constraint_length = length_rg1 + length_postg1
+		top_constraint_length = length_cg1 + length_postg1*2
+		bottom_constraint_length = length_dg1 + length_postg1*2
+
+		print("1/Proportion of the mother branch, with padded postg1:")
+		print("Recovery: ", top_constraint_length/initial_constraint_length)
+		print("Mother: ", top_constraint_length/top_constraint_length)
+		print("Daughter: ", top_constraint_length/bottom_constraint_length)
+		print()
 
 
 def read_cloccs_posteriors(posteriors_filepath):
