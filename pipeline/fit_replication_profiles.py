@@ -90,10 +90,11 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 		# Load the config from CLOCCS, if in second stage, the setup deconvolution
 		# function will modify the parameters to the updated fits
 		print_fl("Loading initial cell cycle parameters from CLOCCS fits.")
-		config1, config2 = load_default_chrom_configs(from_CLOCCS=True)
+		config1, config2 = load_cloccs_configs(mode='chromatin', shift_CLOCCS=True)
 		config = config1 if replicate == 1 else config2
 
-	replication_deconvolver = RealDataReplicationDeconvolution(config, replicate=replicate, chr=chrom)
+	replication_deconvolver = RealDataReplicationDeconvolution(config, replicate=replicate, 
+		chr=chrom)
 	replication_deconvolver.deconvolve_stage = deconvolve_stage
 
 	# First iteration to settle N, Fr, and B

@@ -58,3 +58,18 @@ def load_orf_data(path):
 	dat = pd.read_csv(path).set_index('orf_name')
 	dat.columns = dat.columns.astype(int)
 	return dat
+
+# Saving a dictionary to disk
+def save_dict_to_json(dictionary, filepath):
+	import json
+	with open(filepath, 'w') as file:
+		json.dump(dictionary, file, indent=4)
+	print(f"Dictionary saved to {filepath}")
+
+
+# Loading a dictionary from disk
+def load_dict_from_json(filepath):
+	import json
+	with open(filepath, 'r') as file:
+		dictionary = json.load(file)
+	return dictionary

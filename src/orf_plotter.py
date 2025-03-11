@@ -150,7 +150,6 @@ class ORFAnnotationPlotter:
 		span = self.span
 		chrom = self.chrom
 
-
 		orfs = orfs.copy()
 		orfs['left_end'] = orfs.TSS
 		orfs['right_end'] = orfs.PAS
@@ -162,8 +161,8 @@ class ORFAnnotationPlotter:
 		# Find genes within this span, pad to handle TSS and PASs
 		genes = orfs[(orfs['chr'] == int(chrom)) & 
 
-                     ((orfs['right_end'] <= span[1]) & 
-                      (orfs['left_end'] >= span[0])) &
+                     ((orfs['right_end'] >= span[0]) & 
+                      (orfs['left_end'] <= span[1])) &
 
 					 (orfs.classification.isin(orf_classes))]
 

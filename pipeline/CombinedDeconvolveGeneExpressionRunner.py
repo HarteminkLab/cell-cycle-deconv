@@ -6,12 +6,12 @@ class CombinedDeconvolveGeneExpressionRunner:
 
 	def __init__(self, output_directory):
 
-		from src.CombinedReplicationDeconvolution import load_config_from_replication_runs
+		from src.config import load_default_expression_configs
 
 		# Load the config parameters from disk, for gene expression, the copy
 		# correction information will not be used, so we can just use the learned cell cycle
 		# parameters
-		config1, config2 = load_config_from_replication_runs(output_directory, 4, mode='expression')
+		config1, config2 = load_default_expression_configs()
 
 		self.config1 = config1
 		self.config2 = config2

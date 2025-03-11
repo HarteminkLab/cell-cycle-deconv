@@ -34,7 +34,23 @@ class RG1Model(object):
 		self.timepoints = timepoints
 
 		self.update_timepoints()
+		self.calculate_H()
 
+	def load_from_dic(self, dic_path, timepoints):
+		from src.utils import load_dict_from_json
+
+		self.params_dic = load_dict_from_json(dic_path)
+		# No longer using alpha after the CLOCCS model
+		# this should be set to 0 when it is not used
+		self.alpha = self.params_dic['alpha'] 
+		self.timepoints = timepoints
+		self.update_timepoints()
+		self.calculate_H()
+
+	def save_to_path(self, dic_path):
+		from src.utils import save_dict_to_json
+		save_dict_to_json(self.params_dic, dic_path)
+		print(f"Saved to : {dic_path}")
 
 	def update_timepoints(self):
 		self.create_timepoints_df()
@@ -51,52 +67,10 @@ class RG1Model(object):
 		# for now, let's set alpha to 0
 		alpha = self.alpha
 
-		# ***** here, is alpha handled here? or mu0 is defined/specified differently... ***
-		# Ambiguious specification
-		#
-		#       mu0 includes g1 time if mu0 is longer than g1, this had not come up when start of s
-		#       was typically 0.0
-		#
-		#       Now, when start of s > 0, mu0 is any additional length that is not accounted for as 
-		#       G1 (when mu0 is negative).
-		#
-		#       When mu0 is positive, this would indicate the first recovery G1 is shorter than
-		#       the expected G1 length.
-		#
-		# The old model that includes alpha, from create_models.pl from
-		# Xin's code
-		# rg1_time_span = mu0, start_of_s 
-		# cg1_time_span = -alpha, start_of_s
-		# dg1_time_span = -delta-alpha, start_of_s
-		# postg1_time_span = start_of_s, lambda_val-alpha
-
-		# Assumption: the length of alpha, is additional time spent in G1 that isn't accounted for in FACS
-		#             because of the cell-wall degradation timing.
-		#
-		#            The first cell cycle G1 does not include this degradation, thus alpha is not included in
-		#            this timing. In that case the length of G1 is indeed:
-	    #            (alpha + lambda*gamma1) ---- 
-	    #
-		# 
-		# Now we are modeling gamma1 differently, with MNase, we don't consider the FACS limitations. Thus
-		# CG1 can be modeled as 0 to lambda*gamma1. Meaning we need to add in the alpha time as the true length
-		# of additional time spent in G1. 
-		#
-		# This in turn affects mu0: Now defined as a difference/"delta" from the expected start of G1 for 
-		# the first recovery cell cycle.
-
-		# Therefore if we are translating from the CLOCCS fits to the updated model's fit... we need to 
-		# add alpha to mu0 to account for the additional length of G1. gamma1, gamma2 are both translated forward
-		# so mu0 needs to as well...
-		#
-		# see the function: shift_parameters_for_alpha
-		#
-		# todo: this is an ongoing justification.... and affects the initialization of the parameter
-		# fitting for the replication deconvolution.
 		rg1_time_span = mu0, start_of_s
-		cg1_time_span = 0, start_of_s
-		dg1_time_span = -delta, start_of_s
-		postg1_time_span = start_of_s, lambda_val
+		cg1_time_span = -alpha, start_of_s
+		dg1_time_span = -delta-alpha, start_of_s
+		postg1_time_span = start_of_s, lambda_val-alpha
 
 		rg1_timepoints = np.linspace(rg1_time_span[0], rg1_time_span[1], G1_NUM_TPS+1)
 		cg1_timepoints = np.linspace(cg1_time_span[0], cg1_time_span[1], G1_NUM_TPS+1)
@@ -442,6 +416,7 @@ class RG1Model(object):
 		params_dic['mu0'] = mu0
 		params_dic['gamma1'] = gamma1
 		params_dic['gamma2'] = gamma2
+		params_dic['alpha'] = 0
 
 		# alpha is now embedded into the mu0, gamma1, and gamma2 values so
 		# we can set it to 0
@@ -485,11 +460,12 @@ class RG1Model(object):
 		top_constraint_length = length_cg1 + length_postg1*2
 		bottom_constraint_length = length_dg1 + length_postg1*2
 
-		print("1/Proportion of the mother branch, with padded postg1:")
-		print("Recovery: ", top_constraint_length/initial_constraint_length)
-		print("Mother: ", top_constraint_length/top_constraint_length)
-		print("Daughter: ", top_constraint_length/bottom_constraint_length)
+		print("Proportion of the mother branch:")
+		print("Recovery: ", recovery_smoothing_tps_length/top_smoothing_tps_length)
+		print("Mother: ", top_smoothing_tps_length/top_smoothing_tps_length)
+		print("Daughter: ", bottom_smoothing_tps_length/top_smoothing_tps_length)
 		print()
+
 
 
 def read_cloccs_posteriors(posteriors_filepath):
@@ -503,75 +479,52 @@ def read_cloccs_posteriors(posteriors_filepath):
 	return params
 
 
-def load_default_configs(config_type='distinct', from_CLOCCS=True,
-	mode='chromatin'):
+def load_timepoints(mode):
+	if mode == 'chromatin':
+		timepoints1 = GlobalConstants.CHROM_WT1_TIMEPOINTS
+		timepoints2 = GlobalConstants.CHROM_WT2_TIMEPOINTS
+	else:
+		timepoints1 = GlobalConstants.EXPRESSION_WT1_TIMEPOINTS
+		timepoints2 = GlobalConstants.EXPRESSION_WT2_TIMEPOINTS
+	return timepoints1, timepoints2
 
-	from src.global_config import GlobalConstants
+
+def load_default_configs(config_type='distinct', mode='chromatin'):
 
 	config1 = RG1Model(config_type=config_type)
-
-	if from_CLOCCS:
-		config1.load_from_posteriors('data/2019_cloccs_fits/yl_2019_replicate1/posteriors.txt',
-								  GlobalConstants.CHROM_WT1_TIMEPOINTS, alpha=22)
-	else:
-		print("todo: Loading testing config from replication deconvolution")
-		config1.alpha = 0
-		config1.params_dic = {
-		    'mu0': 9.361663,
-		    'lambda': 60.397553,
-		    'delta': 14.577271,
-		    'sigma0': 5.884135,
-		    'sigmav': 0.044401,
-		    'gamma1': 0.586077,
-		    'gamma2': 1.000000,
-		    'halted': 0.000050, 
-		    'alpha': 0,
-		}
-
-	config1.replicate = 1
-
 	config2 = RG1Model(config_type=config_type)
 
-	if from_CLOCCS:
-		config2.load_from_posteriors('data/2019_cloccs_fits/yl_2019_replicate2/posteriors.txt',
-								  GlobalConstants.CHROM_WT2_TIMEPOINTS, alpha=20)
-	else:
-		config2.alpha = 0
-		config2.params_dic = {
-			'mu0': 20.0238,
-			'delta': 9.154,
-			'sigma0': 3.919,
-			'sigmav': 0.115,
-			'lambda': 60.00,
-			'gamma1': 0.663,
-			'gamma2': 1.0,
-			'halted': 1.7984e-06,
-			'alpha': 0}
-	config2.replicate = 2
+	timepoints1, timepoints2 = load_timepoints(mode)
 
-	if from_CLOCCS:
-		print("Shifting mu0, gamma1, and gamma2, for alpha...")
-		config1.shift_parameters_for_alpha()
-		config2.shift_parameters_for_alpha()
-
-	if mode == "expression":
-		config1.timepoints = GlobalConstants.EXPRESSION_WT1_TIMEPOINTS
-		config2.timepoints = GlobalConstants.EXPRESSION_WT2_TIMEPOINTS
-	else:
-		config1.timepoints = GlobalConstants.CHROM_WT1_TIMEPOINTS
-		config2.timepoints = GlobalConstants.CHROM_WT2_TIMEPOINTS
-
-	# Generate H for each replicate
-	config1.update_timepoints()
-	config1.calculate_H()
-	config2.update_timepoints()
-	config2.calculate_H()
+	# Load configs from disk
+	config1.load_from_dic(f"models/yl_cell_cycle/stage_1_rep1_31125.json", timepoints1)
+	config2.load_from_dic(f"models/yl_cell_cycle/stage_1_rep2_31125.json", timepoints2)
 
 	return config1, config2
 
 
-def load_default_expression_configs(config_type='distinct', from_CLOCCS=False):
-	return load_default_configs(config_type=config_type, mode='expression', from_CLOCCS=from_CLOCCS)
+def load_cloccs_configs(config_type='distinct', mode='chromatin', shift_CLOCCS=True):
 
-def load_default_chrom_configs(config_type='distinct', from_CLOCCS=False):
-	return load_default_configs(config_type=config_type, mode='chromatin', from_CLOCCS=from_CLOCCS)
+	config1 = RG1Model(config_type=config_type)
+	config2 = RG1Model(config_type=config_type)
+
+	timepoints1, timepoints2 = load_timepoints(mode)
+
+	# Load configs from disk
+	config1.load_from_dic(f"models/yl_cell_cycle/cloccs_rep1.json", timepoints1)
+	config2.load_from_dic(f"models/yl_cell_cycle/cloccs_rep2.json", timepoints2)
+
+	if from_CLOCCS and shift_CLOCCS:
+		print("Shifting mu0, gamma1, and gamma2, for alpha...")
+		config1.shift_parameters_for_alpha()
+		config2.shift_parameters_for_alpha()
+
+	return config1, config2
+
+
+def load_default_expression_configs(config_type='distinct'):
+	return load_default_configs(config_type=config_type, mode='expression')
+
+
+def load_default_chrom_configs(config_type='distinct'):
+	return load_default_configs(config_type=config_type, mode='chromatin')

@@ -230,12 +230,21 @@ class CombinedReplicationDeconvolution():
 
 
 def load_config_from_replication_runs(output_directory, chrom, mode='chromatin'):
-	"""Load configs from the output directory of previously run replicates"""
+	"""Load configs from the output directory of previously run replicates.
 
-	from src.config import load_default_configs
+	This should be used only for the parameter learning/replication profile
+	optimization steps. Once completed, any models for chromatin and gene
+	expression deconvolution will belong in the models folder.
+	"""
+
+	from src.config import load_cloccs_config
 	from src.RealDataReplication import modify_config_from_run
 
-	config1, config2 = load_default_configs(mode=mode)
+	print("Loading configs from replication runs: ", output_directory)
+
+	# This function will assume we are loading from CLOCCS
+	# and updating to the latest parameter run results in the output directory
+	config1, config2 = load_cloccs_config(mode=mode, shift_CLOCCS=True)
 	config1 = modify_config_from_run(config1, output_directory, 1, chrom)
 	config2 = modify_config_from_run(config2, output_directory, 2, chrom)
 
