@@ -46,8 +46,7 @@ class ChromatinModel:
 		self.chr = None
 
 		self.max_y_len = GlobalConstants.MAX_Y_LEN
-		from src.global_config import load_chrom_timepoints
-		self.timepoints = load_chrom_timepoints(self.config.replicate)
+		self.timepoints = self.config.timepoints
 
 		# Normalize such that the mean G values center to 1
 		# note: works best with large windows of G

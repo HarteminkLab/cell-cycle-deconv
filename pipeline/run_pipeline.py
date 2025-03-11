@@ -115,6 +115,7 @@ def main():
 		config1, config2 = load_config_from_replication_runs(single_replication_directory, chrom=4)
 
 		# For each chromosome, create the replication profiles for each of the chromosomes and save to disk
+		# todo: currently not aiming to learn the cell cycle parameters on this step for efficiency purposes.
 		num_epochs = 1
 		warm_start_chrom = 4
 		for chrom in range(1, 17):
@@ -164,7 +165,7 @@ def main():
 	elif command == 'deconvolve_chromatin_staging':
 
 		(_, command, output_directory, index) = system_args
-		chromatin_save_directory = f"{output_directory}/chromatin_deconvolution/"
+		chromatin_save_directory = f"{output_directory}/chromatin_deconvolution_staging/"
 		index = int(index)
 
 		window_set_path = "datasets/computed_mnase/test_window_set_2kb.csv"
@@ -176,7 +177,7 @@ def main():
 		chromatin_save_directory = f"{output_directory}/chromatin_deconvolution/"
 		index = int(index)
 
-		window_set_path = "datasets/computed_mnase/test_window_set_2kb.csv"
+		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
 		deconvolve_chromatin(chromatin_save_directory, window_set_path, index)
 
 	else:
@@ -202,18 +203,14 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index):
 	# Deconvolve the initial set of chromatin windows for testing,
 	# priority over deconvolving the most important windows first
 
-	(_, command, output_directory, index) = system_args
-	chromatin_save_directory = f"{output_directory}/chromatin_deconvolution/"
-	index = int(index)
-
 	# Load the configs from disk
 	config1, config2 = load_default_chrom_configs()
 
 	def deconv_and_save(chrom, mnase_span, chromatin_save_directory):
 
-		data_directory = f"{output_directory}/chromatin_deconvolution/deconvolution_data/chr{chrom}"
-		raw_plots_directory = f"{output_directory}/chromatin_deconvolution/raw_plots_directory/chr{chrom}"
-		deconv_plots_directory = f"{output_directory}/chromatin_deconvolution/deconv_plots_directory/chr{chrom}"
+		data_directory = f"{chromatin_save_directory}/deconvolution_data/chr{chrom}"
+		raw_plots_directory = f"{chromatin_save_directory}/raw_plots_directory/chr{chrom}"
+		deconv_plots_directory = f"{chromatin_save_directory}/deconv_plots_directory/chr{chrom}"
 
 		mkdirs_safe([data_directory, raw_plots_directory, deconv_plots_directory])
 		combined_model = CombinedChromatinModel(config1=config1, config2=config2)
@@ -250,7 +247,7 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index):
 	row = window_set.iloc[index]
 
 	chrom = row.chr
-	span = row.start, row.end
+	span = row.start, row.end+1 # (Add 1 to include the last base)
 
 	print_fl(f"Deconvolving index:{index}, chr{chrom}, {span[0], span[1]}")
 

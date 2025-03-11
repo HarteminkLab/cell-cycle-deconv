@@ -1,6 +1,7 @@
 
 import numpy as np
 import pandas as pd
+from src.global_config import GlobalConstants
 
 
 # Number of positions in H devoted to each cell cycle phase
@@ -500,6 +501,9 @@ def load_default_configs(config_type='distinct', mode='chromatin'):
 	config1.load_from_dic(f"models/yl_cell_cycle/stage_1_rep1_31125.json", timepoints1)
 	config2.load_from_dic(f"models/yl_cell_cycle/stage_1_rep2_31125.json", timepoints2)
 
+	config1.replicate = 1
+	config2.replicate = 2
+
 	return config1, config2
 
 
@@ -518,6 +522,9 @@ def load_cloccs_configs(config_type='distinct', mode='chromatin', shift_CLOCCS=T
 		print("Shifting mu0, gamma1, and gamma2, for alpha...")
 		config1.shift_parameters_for_alpha()
 		config2.shift_parameters_for_alpha()
+		
+	config1.replicate = 1
+	config2.replicate = 2
 
 	return config1, config2
 
