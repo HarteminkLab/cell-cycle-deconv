@@ -518,7 +518,7 @@ def load_cloccs_configs(config_type='distinct', mode='chromatin', shift_CLOCCS=T
 	config1.load_from_dic(f"models/yl_cell_cycle/cloccs_rep1.json", timepoints1)
 	config2.load_from_dic(f"models/yl_cell_cycle/cloccs_rep2.json", timepoints2)
 
-	if from_CLOCCS and shift_CLOCCS:
+	if shift_CLOCCS:
 		print("Shifting mu0, gamma1, and gamma2, for alpha...")
 		config1.shift_parameters_for_alpha()
 		config2.shift_parameters_for_alpha()

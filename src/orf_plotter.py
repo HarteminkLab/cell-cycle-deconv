@@ -155,14 +155,23 @@ class ORFAnnotationPlotter:
 		orfs['right_end'] = orfs.PAS
 
 		is_crick = orfs.strand == '-'
+
+		# If missing PAS, use the stop or start
+		orfs.loc[(is_crick & np.isnan(orfs.PAS)), 'PAS'] = orfs.stop
+		orfs.loc[(~is_crick & np.isnan(orfs.PAS)), 'PAS'] = orfs.start
+
+		# Set the and right ends using the TSS and PAS
 		orfs.loc[is_crick, 'left_end'] = orfs.TSS
 		orfs.loc[is_crick, 'right_end'] = orfs.PAS
+
+		orfs.loc[~is_crick, 'left_end'] = orfs.PAS
+		orfs.loc[~is_crick, 'right_end'] = orfs.TSS
 
 		# Find genes within this span, pad to handle TSS and PASs
 		genes = orfs[(orfs['chr'] == int(chrom)) & 
 
-                     ((orfs['right_end'] >= span[0]) & 
-                      (orfs['left_end'] <= span[1])) &
+					 ((orfs['right_end'] >= span[0]) & 
+					  (orfs['left_end'] <= span[1])) &
 
 					 (orfs.classification.isin(orf_classes))]
 
