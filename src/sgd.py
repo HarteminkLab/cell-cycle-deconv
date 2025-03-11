@@ -1,4 +1,4 @@
-
+import numpy as np
 import pandas as pd
 from src.read_bam import _fromRoman
 
@@ -276,3 +276,58 @@ def get_intergenic_regions(genes_df, buffer_genes=500, buffer_chrom_end=10000,
 	intergenic_regions_df = intergenic_regions_df[intergenic_regions_df['length'] >= min_threshold_len]
 
 	return intergenic_regions_df
+
+
+def select_genes_in_window(orfs, chrom, span, orf_classes=
+	['Verified', 'Uncharacterized', 'Dubious']):
+
+	genes = orfs[(orfs['chr'] == chrom) & 
+	 			 ((orfs['right_end'] >= span[0]) & 
+	   			  (orfs['left_end'] <= span[1])) &
+	 			  (orfs.classification.isin(orf_classes))]
+
+	return genes
+
+
+def construct_orf_annotation_dataset():
+	"""Create dataset for orf annotation using park TSS and PAS. Define the left and right
+	end boundaries for easy window finding computation"""
+	from src.sgd import read_park_TSS_PAS, read_nondubious_genes_dataset
+
+	genes = read_nondubious_genes_dataset()
+	gene_TSS_PASs = read_park_TSS_PAS()
+
+	joined_genes_TSS_PASs = genes[genes.columns[~genes.columns.isin(['TSS', 'PAS'])]].join(
+	gene_TSS_PASs[['TSS', 'PAS']])
+
+
+	joined_genes_TSS_PASs = joined_genes_TSS_PASs.rename(columns={'TSS': 'park_TSS', 'PAS': 'park_PAS'})
+
+	joined_genes_TSS_PASs['TSS'] = joined_genes_TSS_PASs['park_TSS']
+	joined_genes_TSS_PASs['PAS'] = joined_genes_TSS_PASs['park_PAS']
+
+	is_watson = genes['strand'] == '+'
+	tss_is_nan = np.isnan(joined_genes_TSS_PASs.TSS)
+	pas_is_nan = np.isnan(joined_genes_TSS_PASs.PAS)
+
+	def set_field_w_existing_col(dat, selection, key, val_key):
+	    dat.loc[selection, key] = dat.loc[selection, val_key]
+	    return dat
+
+	set_field_w_existing_col(joined_genes_TSS_PASs, (is_watson & tss_is_nan), 'TSS', 'start')
+	set_field_w_existing_col(joined_genes_TSS_PASs, (is_watson & pas_is_nan), 'PAS', 'stop')
+	set_field_w_existing_col(joined_genes_TSS_PASs, (~is_watson & tss_is_nan), 'TSS', 'stop')
+	set_field_w_existing_col(joined_genes_TSS_PASs, (~is_watson & pas_is_nan), 'PAS', 'start')
+
+	set_field_w_existing_col(joined_genes_TSS_PASs, (is_watson & tss_is_nan), 'TSS', 'start')
+	set_field_w_existing_col(joined_genes_TSS_PASs, (is_watson & pas_is_nan), 'PAS', 'stop')
+	set_field_w_existing_col(joined_genes_TSS_PASs, (~is_watson & tss_is_nan), 'TSS', 'stop')
+	set_field_w_existing_col(joined_genes_TSS_PASs, (~is_watson & pas_is_nan), 'PAS', 'start')
+
+
+	set_field_w_existing_col(joined_genes_TSS_PASs, (is_watson), 'left_end', 'TSS')
+	set_field_w_existing_col(joined_genes_TSS_PASs, (is_watson), 'right_end', 'PAS')
+	set_field_w_existing_col(joined_genes_TSS_PASs, (~is_watson), 'left_end', 'PAS')
+	set_field_w_existing_col(joined_genes_TSS_PASs, (~is_watson), 'right_end', 'TSS')
+
+	return joined_genes_TSS_PASs
