@@ -1,28 +1,29 @@
-
 import math
 import numpy as np
 import pandas as pd
-
 import matplotlib.pyplot as plt
+
 from src.global_config import GlobalConstants
 from src.sgd import get_chromosome_length
+from src.WindowCache import WindowCache
 
+# Global cache instance
+WINDOW_CACHE = WindowCache(max_size=3)
 
 class GenomeDeconvolutionAnalysis():
-	"""Class to perform analysis on genome-wide deconvolution
-	results. 
-
-	Functions:
-	load_mnase_span - Load the genomic data for a given chromosome and span. e.g. loading the a gene's
-	chromatin context.
 	"""
-
+	Class to perform analysis on genome-wide deconvolution results.
+	
+	Functions:
+	load_mnase_span - Load the genomic data for a given chromosome and span,
+					 e.g., loading a gene's chromatin context.
+	"""
 	def __init__(self, outdir):
 		self.outdir = outdir
-
+	
 	def load_mnase_span(self, chrom, mnase_span, window_size=10000):
 		"""
-		Load the MNase data for a given span.
+		Load the MNase data for a given span with caching.
 		
 		Args:
 			chrom: Chromosome name/number
@@ -35,32 +36,39 @@ class GenomeDeconvolutionAnalysis():
 		# Determine which windows need to be loaded
 		load_spans = get_load_spans(chrom, mnase_span, window_size=window_size)
 		
-		# Load and concatenate data from each window
+		# Load and concatenate data from each window, using cache where possible
 		loaded_data_arr = []
 		
 		for load_span in load_spans:
-			try:
-				# Construct the file path for this window
-				load_path = f'{self.outdir}/chr{chrom}/chr{chrom}_{load_span[0]}_{load_span[1]}_F.npy'
-
-				print(load_path)
-				
-				# Load the data and reshape
-				window_data = np.load(load_path)
-				window_data = window_data.reshape((window_data.shape[0], 26, -1))
-				
-				loaded_data_arr.append(window_data)
-
+			# Create a cache key for this window
+			cache_key = (chrom, load_span[0], load_span[1])
+			
+			# Check if this window is in the cache
+			cached_data = WINDOW_CACHE.get(cache_key)
+			
+			if cached_data is not None:
+				# Use cached data
+				loaded_data_arr.append(cached_data)
+			else:
+				try:
+					# Construct the file path for this window
+					load_path = f'{self.outdir}/chr{chrom}/chr{chrom}_{load_span[0]}_{load_span[1]}_F.npy'
 					
-			except (ValueError, FileNotFoundError):
-				# Skip if file doesn't exist or can't be loaded
-				continue
-
-		loaded_data = np.concatenate(loaded_data_arr, axis=2)
+					# Load the data and reshape
+					window_data = np.load(load_path)
+					window_data = window_data.reshape((window_data.shape[0], 26, -1))
+					
+					# Add to cache
+					WINDOW_CACHE.put(cache_key, window_data)
+					
+					loaded_data_arr.append(window_data)
+				except (ValueError, FileNotFoundError):
+					raise ValueError(f"File does not exist for {load_path}")
 		
-		# If no data was loaded, return None
-		if loaded_data is None:
+		if not loaded_data_arr:
 			return None, None
+			
+		loaded_data = np.concatenate(loaded_data_arr, axis=2)
 		
 		# Calculate the full span that was loaded
 		full_loaded_span = (load_spans[0][0], load_spans[-1][1])
@@ -79,6 +87,10 @@ class GenomeDeconvolutionAnalysis():
 		self.loaded_subset_span = loaded_subset_span
 		
 		return loaded_subset_data, loaded_subset_span
+	
+	def clear_cache(self):
+		"""Clear the window cache."""
+		WINDOW_CACHE.clear()
 
 
 def get_load_spans(chrom, span, window_size=10000):
@@ -109,8 +121,7 @@ def get_load_spans(chrom, span, window_size=10000):
 	for window in range(start_window, end_window):
 		window_start = window * window_size
 		window_end = min((window + 1) * window_size, max_bp)
-
- 		# Add one to include the last bp
+		# Add one to include the last bp
 		# formatting will be e.g. 10000, 20001
 		spans.append((window_start, window_end+1))
 	

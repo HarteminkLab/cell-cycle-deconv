@@ -185,11 +185,11 @@ def load_plus_ones():
 	rep1_p1 = pd.read_csv('datasets/computed_mnase/rep1_plus_ones.csv').set_index('orf_name')
 	rep2_p1 = pd.read_csv('datasets/computed_mnase/rep2_plus_ones.csv').set_index('orf_name')
 	plus_ones_combined = rep1_p1.join(rep2_p1, lsuffix='_rep1', rsuffix='_rep2')
-	plus_ones_combined['combined_+1'] = (plus_ones_combined['+1_rep1']+plus_ones_combined['+1_rep2'])/2.
+	plus_ones_combined['combined_+1'] = (plus_ones_combined['+1_rep1']+plus_ones_combined['+1_rep2'])//2.
 	return plus_ones_combined.dropna()
 
 
-def load_gene_regions(self):
+def load_p1_gene_regions():
 	"""We have plus ones called, we can better identify promoters and gene bodies.
 	In this case we will include the +1 and define the gene body as 500 bps.
 
@@ -203,12 +203,35 @@ def load_gene_regions(self):
 	genes = get_deconvolved_geneset()
 	plus_one_locations = load_plus_ones()
 
-	# If the plus one was not called, fallback to the TSS
+	# Create a dataframe that defines the windows we are interested in computing
 
-	# Promoter: (-300, p1 - 80)
-	# Gene body: (p1 + 80, p1 + 580)
+	# Span relative to called +1 position (assuming watson strand)
+	promoter_span = (-380, -80) # Approximately 300 bp promoter span, exclusive of +1
+	gene_body_span = (-80, 420) # Inclusion of +1, +2, +3 nucleosomes
 
-	# Include the plus on in the gene body and the +1, +2, and +3 nucleosomes
+	gene_metric_boundaries = genes.join(plus_one_locations[['combined_+1']])\
+	    [['gene', 'strand', 'length', 'chr', 'combined_+1', ]]
 
-	# Flip for strand math
-	pass
+	is_watson = gene_metric_boundaries.strand == '+'
+	is_crick = gene_metric_boundaries.strand == '-'
+
+	watson_p1s = gene_metric_boundaries.loc[is_watson, 'combined_+1']
+	crick_p1s = gene_metric_boundaries.loc[is_crick, 'combined_+1']
+
+	# Watson promoters
+	gene_metric_boundaries.loc[is_watson, 'promoter_start'] = watson_p1s+promoter_span[0]
+	gene_metric_boundaries.loc[is_watson, 'promoter_end'] = watson_p1s+promoter_span[1]
+
+	# Crick promoters
+	gene_metric_boundaries.loc[is_crick, 'promoter_start'] = crick_p1s-promoter_span[1]
+	gene_metric_boundaries.loc[is_crick, 'promoter_end'] = crick_p1s-promoter_span[0]
+
+	# Watson Gene Bodies
+	gene_metric_boundaries.loc[is_watson, 'gene_body_start'] = watson_p1s+gene_body_span[0]
+	gene_metric_boundaries.loc[is_watson, 'gene_body_end'] = watson_p1s+gene_body_span[1]
+
+	# Crick Gene Bodies
+	gene_metric_boundaries.loc[is_crick, 'gene_body_start'] = crick_p1s-gene_body_span[1]
+	gene_metric_boundaries.loc[is_crick, 'gene_body_end'] = crick_p1s-gene_body_span[0]
+
+	return gene_metric_boundaries
