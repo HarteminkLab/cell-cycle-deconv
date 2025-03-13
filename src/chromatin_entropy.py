@@ -8,7 +8,7 @@
 # def select_sub_img_mid(f_imgs, window=500):
 #     """Helper function to subselect a window of given size along the center
 #     of the parent window.
-    
+	
 #     Input is an np array of f images (t, r, c).
 #     Outputs (t, r, c'), where c' is length of the new window
 #     """
@@ -21,36 +21,36 @@
 #     return f_subset
 
 
-# # Functions to compute chromatin entropy
-# def compute_occupancy_entropy(f_images, kernel=None):
-#     """Compute the occupancy and entropy for a window, given a kernel
-#     that can subselect read lengths, default is a kernel that selects all
-#     fragment lengths along a column."""
-        
-#     t, r, c = f_images.shape
+# Functions to compute chromatin entropy
+def compute_occupancy_entropy(f_images, kernel=None):
+	"""Compute the occupancy and entropy for a window, given a kernel
+	that can subselect read lengths, default is a kernel that selects all
+	fragment lengths along a column."""
+		
+	t, r, c = f_images.shape
 
-#     if kernel is None:
-#         kernel = np.ones((r, 1))
-        
-#     kr, kc = kernel.shape
-#     out_r = r - kr + 1
-#     out_c = c - kc + 1
-        
-#     # Pre-allocate output array
-#     occupancy_result = np.zeros((t, out_r, out_c))
-#     entropy_scores = np.zeros(t)
-#     eps = 1e-5
-    
-#     from src.helpers import calc_entropy
+	if kernel is None:
+		kernel = np.ones((r, 1))
+		
+	kr, kc = kernel.shape
+	out_r = r - kr + 1
+	out_c = c - kc + 1
+		
+	# Pre-allocate output array
+	occupancy_result = np.zeros((t, out_r, out_c))
+	entropy_scores = np.zeros(t)
+	eps = 1e-5
+	
+	from src.helpers import calc_entropy
 
-#     for i in range(t):
-#         occupancy_result[i] = convolve2d(f_images[i], kernel, mode='valid')        
+	for i in range(t):
+		occupancy_result[i] = convolve2d(f_images[i], kernel, mode='valid')        
 
-#         entropy_scores[i] = \
-#             np.apply_along_axis(lambda row: calc_entropy(row+eps), axis=1, 
-#             arr=occupancy_result[i])
+		entropy_scores[i] = \
+			np.apply_along_axis(lambda row: calc_entropy(row+eps), axis=1, 
+			arr=occupancy_result[i])
 
-#     return occupancy_result[:, 0].mean(axis=1), entropy_scores / len(entropy_scores)
+	return occupancy_result[:, 0].mean(axis=1), entropy_scores / len(entropy_scores)
 
 
 # def plot_occupancy_entropy_results(config, occupancy_result, entropy_result):

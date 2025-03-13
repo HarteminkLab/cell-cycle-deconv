@@ -793,7 +793,7 @@ def downsample_bins(bin_data, bin_size=(10, 10)):
 	
 	# Create padded array with mean padding if needed
 	if y_padding > 0 or x_padding > 0:
-		pad_value = np.mean(bin_data)
+		pad_value = 0
 		padded_data = np.full((num_timepoints, padded_y_dim, padded_x_dim), pad_value, dtype=bin_data.dtype)
 		padded_data[:, :y_dim, :x_dim] = bin_data
 	else:
@@ -811,3 +811,4 @@ def downsample_bins(bin_data, bin_size=(10, 10)):
 	downsampled = reshaped.mean(axis=(2, 4))
 	
 	return downsampled
+

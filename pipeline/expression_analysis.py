@@ -47,10 +47,10 @@ def plot_volcano_cg1_dg1(expression_Fs_df, config1, genes_callout=[]):
 		plot_data.avg_occ = 2**plot_data.avg_occ
 
 	plt.figure(figsize=(4, 3))
-	main_scatter = plt.scatter(plot_data.max_ratio, plot_data.avg_occ, s=4)
+	main_scatter = plt.scatter(plot_data.max_ratio, plot_data.avg_occ, s=4, alpha=0.1)
 	plt.xlabel("Ratio CG1/DG1")
-	plt.xlim(-2, 2)
-	plt.ylim(-20, 1000)
+	plt.xlim(-4, 4)
+	plt.ylim(-20, 500)
 	plt.xlabel("$\\log_2$ [max CG1] / [max DG1]")
 	plt.ylabel("Average deconvolved TPM")
 	plt.title("Mother vs Daughter-specific gene expression")

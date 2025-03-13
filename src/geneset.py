@@ -58,6 +58,8 @@ def get_deconvolved_geneset():
 	# Deconvolve genes we have filtered for coverage
 	return load_analysis_genes()
 
+# def get_geneset_with_boundary definitions
+
 
 def create_windows_to_deconvolve(round_window=2000):
 

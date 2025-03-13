@@ -147,7 +147,8 @@ def load_chrom_replication_timing():
 
 
 def plot_guo_gene_expression(orf_name):
-	guo_f_df = pd.read_csv('datasets/datasets_from_web_deconvolution.cs.duke.edu/deconvolved_profiles.tsv', sep='\t').set_index('SystematicName')
+	guo_f_df = pd.read_csv('datasets/datasets_from_web_deconvolution.cs.duke.edu/deconvolved_profiles.tsv', 
+		sep='\t').set_index('SystematicName')
 	tp_cols = guo_f_df.columns[2:]
 
 	gene = guo_f_df.loc[orf_name][tp_cols]
@@ -178,3 +179,36 @@ def plot_guo_gene_expression(orf_name):
 	plt.plot(d_numbers, gene[d_values])
 	plt.title("Daughter")
 	plt.ylim(0, gene.max()*1.1)
+
+
+def load_plus_ones():
+	rep1_p1 = pd.read_csv('datasets/computed_mnase/rep1_plus_ones.csv').set_index('orf_name')
+	rep2_p1 = pd.read_csv('datasets/computed_mnase/rep2_plus_ones.csv').set_index('orf_name')
+	plus_ones_combined = rep1_p1.join(rep2_p1, lsuffix='_rep1', rsuffix='_rep2')
+	plus_ones_combined['combined_+1'] = (plus_ones_combined['+1_rep1']+plus_ones_combined['+1_rep2'])/2.
+	return plus_ones_combined.dropna()
+
+
+def load_gene_regions(self):
+	"""We have plus ones called, we can better identify promoters and gene bodies.
+	In this case we will include the +1 and define the gene body as 500 bps.
+
+	The promoter is defined as 380 upstream of the called plus one, to -80 of of the plus one. (to omit
+	the plus nucleosome in the promoter.)
+	"""
+
+	from src.reference_data import load_plus_ones
+	from src.geneset import get_deconvolved_geneset
+
+	genes = get_deconvolved_geneset()
+	plus_one_locations = load_plus_ones()
+
+	# If the plus one was not called, fallback to the TSS
+
+	# Promoter: (-300, p1 - 80)
+	# Gene body: (p1 + 80, p1 + 580)
+
+	# Include the plus on in the gene body and the +1, +2, and +3 nucleosomes
+
+	# Flip for strand math
+	pass

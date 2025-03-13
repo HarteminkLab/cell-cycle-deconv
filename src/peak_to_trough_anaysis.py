@@ -6,498 +6,505 @@ import matplotlib.pyplot as plt
 from src.reference_data import load_spellman_orfs, load_analysis_genes
 
 
-class PeakToTroughAnalysis:
-	"""This class allows us to analyze the peak-to-trough deconvolution results of the chromatin.
-
-	The objective for this analysis is to identify cell cycling genes, what threshold a gene can be considered
-	cell cycling, how we can categorize, dilineate between cell cycling genes, and identify novel cell cycling regulatory
-	chromatin that is improved by the deconvolution algorithm.
-	"""
-
-	def __init__(self, ptr_dir):
-		self.geneset = load_analysis_genes()
-		self.ptr_dir = ptr_dir
-		self.file_paths = glob.glob(f'{self.ptr_dir}/*_ptr_*.npy')
-		self.load_ptr_files()
-		self.sort_gene_ptrs()
+# Deprecated and old analysis
+# May be useful/salvageable 3/13/25
 
 
-	def compute_summary_metrics(self):
-		mean = self.summarize_ptrs(np.mean)
-		median = self.summarize_ptrs(np.median)
-		q95 = self.compute_q_vals(0.95)
-		q90 = self.compute_q_vals(0.9)
-
-		metrics_df = self.geneset[['gene']].loc[mean.index.values]
-		metrics_df['mean_ptr'] = mean
-		metrics_df['q95'] = q95
-		metrics_df['median'] = median
-
-		self.metrics_df = metrics_df
 
 
-	def compute_q_vals(self, q_val):
-		q_func = lambda val : np.quantile(val, q=q_val)
-		q_vals = self.summarize_ptrs(q_func)
-		return q_vals
+
+# class PeakToTroughAnalysis:
+# 	"""This class allows us to analyze the peak-to-trough deconvolution results of the chromatin.
+
+# 	The objective for this analysis is to identify cell cycling genes, what threshold a gene can be considered
+# 	cell cycling, how we can categorize, dilineate between cell cycling genes, and identify novel cell cycling regulatory
+# 	chromatin that is improved by the deconvolution algorithm.
+# 	"""
+
+# 	def __init__(self, ptr_dir):
+# 		self.geneset = load_analysis_genes()
+# 		self.ptr_dir = ptr_dir
+# 		self.file_paths = glob.glob(f'{self.ptr_dir}/*_ptr_*.npy')
+# 		self.load_ptr_files()
+# 		self.sort_gene_ptrs()
 
 
-	def load_ptr_files(self):
+# 	def compute_summary_metrics(self):
+# 		mean = self.summarize_ptrs(np.mean)
+# 		median = self.summarize_ptrs(np.median)
+# 		q95 = self.compute_q_vals(0.95)
+# 		q90 = self.compute_q_vals(0.9)
 
-		# Load the size of a flattened image
-		loaded_ptrs = np.load(self.file_paths[0])
+# 		metrics_df = self.geneset[['gene']].loc[mean.index.values]
+# 		metrics_df['mean_ptr'] = mean
+# 		metrics_df['q95'] = q95
+# 		metrics_df['median'] = median
 
-		# ptrs_df = pd.DataFrame(index=self.geneset.index, columns=np.arange(m))
-		ptrs_df = None
+# 		self.metrics_df = metrics_df
 
-		# For each deconvolved gene, load the ptr values and place them into the PTRs dataframe
-		for path in self.file_paths:
-			filename = path.split('/')[-1]
-			orf_name = filename.split('_')[2]
 
-			# Skip genes not in our analysis set
-			# for runs in which we haven't filtered for low coverage genes yet
-			if not orf_name in self.geneset.index.values: continue
+# 	def compute_q_vals(self, q_val):
+# 		q_func = lambda val : np.quantile(val, q=q_val)
+# 		q_vals = self.summarize_ptrs(q_func)
+# 		return q_vals
 
-			loaded_ptrs = np.load(path)
-			ptrs_flattened = loaded_ptrs.flatten()
 
-			if ptrs_df is None:
+# 	def load_ptr_files(self):
 
-				# Lazy load image shape and ptrs_df
-				image_shape = loaded_ptrs.shape
+# 		# Load the size of a flattened image
+# 		loaded_ptrs = np.load(self.file_paths[0])
 
-				m = len(ptrs_flattened)
-				ptrs_df = pd.DataFrame(index=self.geneset.index, columns=np.arange(m))
+# 		# ptrs_df = pd.DataFrame(index=self.geneset.index, columns=np.arange(m))
+# 		ptrs_df = None
 
-			ptrs_df.loc[orf_name] = ptrs_flattened
+# 		# For each deconvolved gene, load the ptr values and place them into the PTRs dataframe
+# 		for path in self.file_paths:
+# 			filename = path.split('/')[-1]
+# 			orf_name = filename.split('_')[2]
 
-		self.ptr_imgs = ptrs_df.values.reshape((-1, 
-			*image_shape))
-		self.undropped_ptrs_df = ptrs_df.copy()
-		self.ptrs_df = ptrs_df.dropna()
-		self.n = len(self.ptrs_df)
-		self.image_shape = image_shape
+# 			# Skip genes not in our analysis set
+# 			# for runs in which we haven't filtered for low coverage genes yet
+# 			if not orf_name in self.geneset.index.values: continue
 
-	def load_f_files(self, chromatin_dir):
-		"""Load all of the gene F results into a dataframe, flatten the F images for the dataframe."""
+# 			loaded_ptrs = np.load(path)
+# 			ptrs_flattened = loaded_ptrs.flatten()
 
-		f_filepaths = glob.glob(f'{chromatin_dir}/*_f_*.npy')
+# 			if ptrs_df is None:
 
-		# Load the F images for each deconvolved gene
-		current_f = np.load(f_filepaths[0])
-		print("Shape of the loaded F:", current_f.shape)
+# 				# Lazy load image shape and ptrs_df
+# 				image_shape = loaded_ptrs.shape
 
-		m_times, u_vals = current_f.shape
-		all_gene_fs_df = pd.DataFrame(index=self.geneset.index, 
-		   columns=np.arange(m_times*u_vals))
+# 				m = len(ptrs_flattened)
+# 				ptrs_df = pd.DataFrame(index=self.geneset.index, columns=np.arange(m))
 
-		from src.timer import Timer
+# 			ptrs_df.loc[orf_name] = ptrs_flattened
 
-		timer = Timer()
-		i = 0
+# 		self.ptr_imgs = ptrs_df.values.reshape((-1, 
+# 			*image_shape))
+# 		self.undropped_ptrs_df = ptrs_df.copy()
+# 		self.ptrs_df = ptrs_df.dropna()
+# 		self.n = len(self.ptrs_df)
+# 		self.image_shape = image_shape
 
-		# For each deconvolved gene, load the ptr values and place them into the PTRs dataframe
-		for path in f_filepaths:
-			filename = path.split('/')[-1]
-			orf_name = filename.split('_')[2]
+# 	def load_f_files(self, chromatin_dir):
+# 		"""Load all of the gene F results into a dataframe, flatten the F images for the dataframe."""
 
-			# Skip genes not in our analysis set
-			# for runs in which we haven't filtered for low coverage genes yet
-			if not orf_name in self.geneset.index.values: continue
+# 		f_filepaths = glob.glob(f'{chromatin_dir}/*_f_*.npy')
 
-			current_f = np.load(path)
-			all_gene_fs_df.loc[orf_name] = current_f.flatten()
+# 		# Load the F images for each deconvolved gene
+# 		current_f = np.load(f_filepaths[0])
+# 		print("Shape of the loaded F:", current_f.shape)
+
+# 		m_times, u_vals = current_f.shape
+# 		all_gene_fs_df = pd.DataFrame(index=self.geneset.index, 
+# 		   columns=np.arange(m_times*u_vals))
+
+# 		from src.timer import Timer
+
+# 		timer = Timer()
+# 		i = 0
+
+# 		# For each deconvolved gene, load the ptr values and place them into the PTRs dataframe
+# 		for path in f_filepaths:
+# 			filename = path.split('/')[-1]
+# 			orf_name = filename.split('_')[2]
+
+# 			# Skip genes not in our analysis set
+# 			# for runs in which we haven't filtered for low coverage genes yet
+# 			if not orf_name in self.geneset.index.values: continue
+
+# 			current_f = np.load(path)
+# 			all_gene_fs_df.loc[orf_name] = current_f.flatten()
 			
-			if i % 1000 == 0:
-				timer.print_time(f"{i+1}/{len(f_filepaths)}")
-			i += 1
-		self.all_gene_fs_df = all_gene_fs_df
-		self.all_f_values_flattened = self.all_gene_fs_df.values
+# 			if i % 1000 == 0:
+# 				timer.print_time(f"{i+1}/{len(f_filepaths)}")
+# 			i += 1
+# 		self.all_gene_fs_df = all_gene_fs_df
+# 		self.all_f_values_flattened = self.all_gene_fs_df.values
 
 
-	def plot_f_bin_histogram(self):
+# 	def plot_f_bin_histogram(self):
 		
-		n = 100000
-		fig = plt.figure(figsize=(9, 2))
-		plt.hist(self.all_f_values_flattened[:n], bins=200)
-		plt.yscale('log')
-		plt.xlim(0, 200)
-		plt.title(f"Distribution of bin occupancies of F, n={n}")
-		plt.xlabel("Bin values")
-		plt.ylabel("Frequency")
+# 		n = 100000
+# 		fig = plt.figure(figsize=(9, 2))
+# 		plt.hist(self.all_f_values_flattened[:n], bins=200)
+# 		plt.yscale('log')
+# 		plt.xlim(0, 200)
+# 		plt.title(f"Distribution of bin occupancies of F, n={n}")
+# 		plt.xlabel("Bin values")
+# 		plt.ylabel("Frequency")
 
-	def load_raw_data_ptrs(self, directory):
+# 	def load_raw_data_ptrs(self, directory):
 
-		# Load the raw ptrs, these have not been fixed yet, but we can still observe how the
-		# deconvolved PTRs distribution has changed
-		raw_ptr_rep1 = pd.read_csv(f'{directory}/g_ptrs_chromatin_rep1.csv').rename(
-			columns={'Unnamed: 0': 'orf_name'}).set_index('orf_name')
-		raw_ptr_rep2 = pd.read_csv(f'{directory}/g_ptrs_chromatin_rep1.csv').rename(
-			columns={'Unnamed: 0': 'orf_name'}).set_index('orf_name')
-		joined_raw_ptrs = raw_ptr_rep1[[]].copy()
-		joined_raw_ptrs['mean_rep1'] = raw_ptr_rep1.mean(axis=1)
-		joined_raw_ptrs['mean_rep2'] = raw_ptr_rep2.mean(axis=1)
-		joined_raw_ptrs['mean_raw_replicates'] = (joined_raw_ptrs['mean_rep1']+
-			joined_raw_ptrs['mean_rep2'])/2.
-		self.joined_raw_ptrs = joined_raw_ptrs
+# 		# Load the raw ptrs, these have not been fixed yet, but we can still observe how the
+# 		# deconvolved PTRs distribution has changed
+# 		raw_ptr_rep1 = pd.read_csv(f'{directory}/g_ptrs_chromatin_rep1.csv').rename(
+# 			columns={'Unnamed: 0': 'orf_name'}).set_index('orf_name')
+# 		raw_ptr_rep2 = pd.read_csv(f'{directory}/g_ptrs_chromatin_rep1.csv').rename(
+# 			columns={'Unnamed: 0': 'orf_name'}).set_index('orf_name')
+# 		joined_raw_ptrs = raw_ptr_rep1[[]].copy()
+# 		joined_raw_ptrs['mean_rep1'] = raw_ptr_rep1.mean(axis=1)
+# 		joined_raw_ptrs['mean_rep2'] = raw_ptr_rep2.mean(axis=1)
+# 		joined_raw_ptrs['mean_raw_replicates'] = (joined_raw_ptrs['mean_rep1']+
+# 			joined_raw_ptrs['mean_rep2'])/2.
+# 		self.joined_raw_ptrs = joined_raw_ptrs
 
-		raw_joined_metrics_df = self.joined_raw_ptrs[['mean_raw_replicates']].join(self.metrics_df[['mean_ptr']])
-		raw_joined_metrics_df = raw_joined_metrics_df.rename(columns={'mean_ptr': 'deconvolved_ptr'})
-		self.raw_joined_metrics_df = raw_joined_metrics_df
-
-
-	def sort_gene_ptrs(self):
-
-		# Sort each gene by the highest ptr values first
-		# We should now be able to select a column and this will indicate the kth highest
-		# ptr value (0 indexed, so highest is 0)
-		ptr_vals = self.ptrs_df.values
-		sorted_ptr_array = np.array([row[np.argsort(row)[::-1]] for row in ptr_vals])
-
-		sorted_ptrs_df = self.ptrs_df.copy()
-		sorted_ptrs_df.loc[:] = sorted_ptr_array
-
-		self.sorted_ptrs_df = sorted_ptrs_df
+# 		raw_joined_metrics_df = self.joined_raw_ptrs[['mean_raw_replicates']].join(self.metrics_df[['mean_ptr']])
+# 		raw_joined_metrics_df = raw_joined_metrics_df.rename(columns={'mean_ptr': 'deconvolved_ptr'})
+# 		self.raw_joined_metrics_df = raw_joined_metrics_df
 
 
-	def compute_gene_ptr_rank_per_k(self):
-		"""Per k, each gene will have a rank for its peak to trough ratio value, compute this rank.
+# 	def sort_gene_ptrs(self):
+
+# 		# Sort each gene by the highest ptr values first
+# 		# We should now be able to select a column and this will indicate the kth highest
+# 		# ptr value (0 indexed, so highest is 0)
+# 		ptr_vals = self.ptrs_df.values
+# 		sorted_ptr_array = np.array([row[np.argsort(row)[::-1]] for row in ptr_vals])
+
+# 		sorted_ptrs_df = self.ptrs_df.copy()
+# 		sorted_ptrs_df.loc[:] = sorted_ptr_array
+
+# 		self.sorted_ptrs_df = sorted_ptrs_df
+
+
+# 	def compute_gene_ptr_rank_per_k(self):
+# 		"""Per k, each gene will have a rank for its peak to trough ratio value, compute this rank.
 	
-		Then compute the standard deviation of these ranks, such that each gene will will have a 
-		standard deviation for how much variation from 1:k the rank changes... TODO: there
-		may be a better measure here.
-		"""
-		sorted_ptrs_ranks_df = self.sorted_ptrs_df.dropna().copy()
+# 		Then compute the standard deviation of these ranks, such that each gene will will have a 
+# 		standard deviation for how much variation from 1:k the rank changes... TODO: there
+# 		may be a better measure here.
+# 		"""
+# 		sorted_ptrs_ranks_df = self.sorted_ptrs_df.dropna().copy()
 
-		ptr_ranks = ranks = np.argsort(np.argsort(sorted_ptrs_ranks_df.values, axis=0), axis=0) + 1
+# 		ptr_ranks = ranks = np.argsort(np.argsort(sorted_ptrs_ranks_df.values, axis=0), axis=0) + 1
 
-		sorted_ptrs_ranks_df.loc[:] = ptr_ranks
-		sorted_ptrs_ranks_df = len(sorted_ptrs_ranks_df) - sorted_ptrs_ranks_df.astype(int)
-		self.sorted_ptrs_ranks_df = sorted_ptrs_ranks_df
+# 		sorted_ptrs_ranks_df.loc[:] = ptr_ranks
+# 		sorted_ptrs_ranks_df = len(sorted_ptrs_ranks_df) - sorted_ptrs_ranks_df.astype(int)
+# 		self.sorted_ptrs_ranks_df = sorted_ptrs_ranks_df
 
-		# Compute the rank of the standard deviations of selected k values
-		rank_stds_df = sorted_ptrs_ranks_df.copy()
-		rank_stds_df.loc[:] = np.nan
-		for k in range(1, len(sorted_ptrs_ranks_df.columns), 1):
-			rank_stds_df.loc[:, k] = sorted_ptrs_ranks_df.loc[:, 0:k].std(axis=1)
-		self.ptr_rank_stds_df = rank_stds_df
-
-
-	def compute_optimal_k(self):
-
-		# The first 100 bins should be enough to find compute the optimal k
-		# any large and it may be introducing too much noise
-		rank_mean_dat = self.ptr_rank_stds_df.mean(axis=0)[1:700]
-		self.set_optimal_k(73)
-
-		plt.figure(figsize=(5, 4))
-		plt.plot(rank_mean_dat.index, rank_mean_dat.values)
-		plt.axvline(self.optimal_k, c='red')
-		plt.xlabel("k")
-		plt.ylabel("Average standard deviation in rank")
-		plt.title(f"Average $\\sigma$ of gene PTR rank with increasing k\nn={self.n}, optimal k={self.optimal_k}")
-
-	def set_optimal_k(self, k):
-
-		self.optimal_k = k
-
-		k_sorted_genes = self.sorted_ptrs_ranks_df[[self.optimal_k]].sort_values(self.optimal_k).join(self.geneset[['gene']], 
-			how='inner')
-		k_sorted_genes = k_sorted_genes.join(self.sorted_ptrs_df[[self.optimal_k]], lsuffix='rank', rsuffix='ptr')
-		self.k_sorted_genes = k_sorted_genes.rename(
-			columns={
-				f'{self.optimal_k}rank': 'rank',
-				f'{self.optimal_k}ptr': 'ptr'
-			})
-
-	def plot_ptrs_per_gene(self):
-
-		plt_data = self.k_sorted_genes
-		n = len(plt_data)
-
-		plt.figure(figsize=(3, 4))
-		plt.plot(plt_data['ptr'], plt_data['rank']+1)
-		plt.xlabel("PTR")
-		plt.ylabel("Gene rank")
-		plt.yticks([1] + list(np.arange(500, n, 500)))
-		plt.ylim(n+100, 1-100)
-
-		ptr_values = plt_data['ptr']
-		q05, q95 = np.quantile(ptr_values, q=[0.05, 0.95])
-
-		plt.axvline(q05, c='red', lw=1)
-		plt.axvline(q95, c='red', lw=1)
-		plt.title(f"Gene PTR values for k={self.optimal_k}\n" +
-				 f"n={n}, q05={q05:0.1f}, q95={q95:.1f}")
-
-	def plot_mean_chromatin(self):
-		plt.figure(figsize=(13, 4))
-		plt.subplot(1, 3, 1)
-		plt.scatter(tf_joined_df['Fourier_score'], 
-					tf_joined_df['mean_ptr'], s=1, alpha=0.5)
-		plt.title("Promoter fourier score vs\nMean Chromatin PTR")
-
-		plt.subplot(1, 3, 2)
-		plt.scatter(nuc_joined_df['Fourier_score'], 
-					nuc_joined_df['mean_ptr'], s=1, alpha=0.5)
-		plt.title("Nucleosome fourier score vs\nMean Chromatin PTR")
-
-		plt.subplot(1, 3, 3)
-		plt_data = tf_joined_df.join(nuc_joined_df, lsuffix='_tf', rsuffix='_nuc')
-		plt.scatter(plt_data.Fourier_score_nuc, plt_data.Fourier_score_tf, s=1)
-		plt.title("Nucleosome fourier score vs TF fourier score")
-
-	def load_Fourier_scores(self):
-		# Load the Yulong Fourier Score Calculations
-
-		metrics_df = self.metrics_df
-
-		def load_join_yulong_fourier_score(csv_path, metrics_df):
-			# Load the Yulong Fourier scores for each gene
-			promoter_tf_scores = pd.read_csv(csv_path)
-			promoter_tf_scores = promoter_tf_scores.set_index('Gene_ID')
-			prom_tf_fourier_vs_ptr_comparison = promoter_tf_scores.join(metrics_df)
-			return prom_tf_fourier_vs_ptr_comparison
-
-		prom_tf_path = 'data/reference_data/yulongs_2023_Table_S1_promoter_tf_score.csv'
-		self.tf_joined_df = load_join_yulong_fourier_score(prom_tf_path, 
-													  metrics_df)
-		self.tf_joined_df = self.tf_joined_df.dropna()
-
-		gb_nuc_path = 'data/reference_data/yulongs_2023_Table_S1_gene_body_nuc_score.csv'
-		self.nuc_joined_df = load_join_yulong_fourier_score(gb_nuc_path,
-													   metrics_df)
-		self.nuc_joined_df = self.nuc_joined_df.dropna()
-
-	def plot_ptr_comparison_to_fourier(self):
-
-		plt.figure(figsize=(13, 4))
-		plt.subplot(1, 3, 1)
-		plot_comparison_scatter(self.tf_joined_df['Fourier_score'], 
-			self.tf_joined_df['mean_ptr'], "Promoter fourier score vs\nMean Chromatin PTR", 
-			"TF Fourier score", "Mean chromatin PTR")
-
-		plt.subplot(1, 3, 2)
-		plot_comparison_scatter(self.nuc_joined_df['Fourier_score'], 
-			self.nuc_joined_df['mean_ptr'], "Nucleosome fourier score vs\nMean Chromatin PTR",
-			"GB nucleosome Fourier score", "Mean chromatin PTR")
-
-		plt.subplot(1, 3, 3)
-		plt_data = self.tf_joined_df.join(self.nuc_joined_df, lsuffix='_tf', rsuffix='_nuc')
-		plot_comparison_scatter(plt_data.Fourier_score_nuc, plt_data.Fourier_score_tf, 
-			"Nucleosome fourier score vs TF fourier score",
-			"GB nucleosome Fourier score", "TF Fourier Score")
-
-	def plot_ptr_k_gene(self):
-
-		spellman_orfs = load_spellman_orfs()
-
-		sorted_ptrs_df = self.sorted_ptrs_df
-
-		plt.figure(figsize=(5, 5))
-
-		select_ks = np.arange(1, 700, 1)
-
-		for orf_name, row in sorted_ptrs_df.dropna().iterrows():
-
-			color = 'red' if orf_name in spellman_orfs else '#888'
-			ptrs = row[select_ks]
-			plt.plot(select_ks, ptrs, c=color, alpha=0.25)
-
-		plt.xlabel("$k$")
-		plt.ylabel("PTR")
-		plt.title(f"Peak-to-trough ratio per $k$ for each gene\nn={self.n}")
+# 		# Compute the rank of the standard deviations of selected k values
+# 		rank_stds_df = sorted_ptrs_ranks_df.copy()
+# 		rank_stds_df.loc[:] = np.nan
+# 		for k in range(1, len(sorted_ptrs_ranks_df.columns), 1):
+# 			rank_stds_df.loc[:, k] = sorted_ptrs_ranks_df.loc[:, 0:k].std(axis=1)
+# 		self.ptr_rank_stds_df = rank_stds_df
 
 
-	def spellman_analysis(self):
-		"""Plot a graph of counting up the spellman genes from accumulating the 
-		genes with the highest PTR values for the chosen k value"""
+# 	def compute_optimal_k(self):
 
-		spellman_orfs = load_spellman_orfs()
-		self.k_sorted_genes['spellman'] = False
-		k_spellman = list(set(spellman_orfs).intersection(set(self.k_sorted_genes.index.values)))
-		self.k_sorted_genes.loc[k_spellman, 'spellman'] = True
+# 		# The first 100 bins should be enough to find compute the optimal k
+# 		# any large and it may be introducing too much noise
+# 		rank_mean_dat = self.ptr_rank_stds_df.mean(axis=0)[1:700]
+# 		self.set_optimal_k(73)
 
-		spellman_cumsum = self.k_sorted_genes.spellman.cumsum()
+# 		plt.figure(figsize=(5, 4))
+# 		plt.plot(rank_mean_dat.index, rank_mean_dat.values)
+# 		plt.axvline(self.optimal_k, c='red')
+# 		plt.xlabel("k")
+# 		plt.ylabel("Average standard deviation in rank")
+# 		plt.title(f"Average $\\sigma$ of gene PTR rank with increasing k\nn={self.n}, optimal k={self.optimal_k}")
 
-		num_scs = len(k_spellman)
-		n = len(spellman_cumsum)
+# 	def set_optimal_k(self, k):
 
-		plt.figure(figsize=(4, 4))
-		plt.plot(np.arange(n)/n, spellman_cumsum/num_scs)
-		plt.plot([0, 1], [0, 1], c='gray', ls='dotted', lw=1)
-		plt.title("Proportion of Spellman genes in ordered chromatin PTR list\n" + 
-			f"n={n}, k={self.optimal_k}")
-		plt.xlabel("Proportion of all deconvolved genes")
+# 		self.optimal_k = k
+
+# 		k_sorted_genes = self.sorted_ptrs_ranks_df[[self.optimal_k]].sort_values(self.optimal_k).join(self.geneset[['gene']], 
+# 			how='inner')
+# 		k_sorted_genes = k_sorted_genes.join(self.sorted_ptrs_df[[self.optimal_k]], lsuffix='rank', rsuffix='ptr')
+# 		self.k_sorted_genes = k_sorted_genes.rename(
+# 			columns={
+# 				f'{self.optimal_k}rank': 'rank',
+# 				f'{self.optimal_k}ptr': 'ptr'
+# 			})
+
+# 	def plot_ptrs_per_gene(self):
+
+# 		plt_data = self.k_sorted_genes
+# 		n = len(plt_data)
+
+# 		plt.figure(figsize=(3, 4))
+# 		plt.plot(plt_data['ptr'], plt_data['rank']+1)
+# 		plt.xlabel("PTR")
+# 		plt.ylabel("Gene rank")
+# 		plt.yticks([1] + list(np.arange(500, n, 500)))
+# 		plt.ylim(n+100, 1-100)
+
+# 		ptr_values = plt_data['ptr']
+# 		q05, q95 = np.quantile(ptr_values, q=[0.05, 0.95])
+
+# 		plt.axvline(q05, c='red', lw=1)
+# 		plt.axvline(q95, c='red', lw=1)
+# 		plt.title(f"Gene PTR values for k={self.optimal_k}\n" +
+# 				 f"n={n}, q05={q05:0.1f}, q95={q95:.1f}")
+
+# 	def plot_mean_chromatin(self):
+# 		plt.figure(figsize=(13, 4))
+# 		plt.subplot(1, 3, 1)
+# 		plt.scatter(tf_joined_df['Fourier_score'], 
+# 					tf_joined_df['mean_ptr'], s=1, alpha=0.5)
+# 		plt.title("Promoter fourier score vs\nMean Chromatin PTR")
+
+# 		plt.subplot(1, 3, 2)
+# 		plt.scatter(nuc_joined_df['Fourier_score'], 
+# 					nuc_joined_df['mean_ptr'], s=1, alpha=0.5)
+# 		plt.title("Nucleosome fourier score vs\nMean Chromatin PTR")
+
+# 		plt.subplot(1, 3, 3)
+# 		plt_data = tf_joined_df.join(nuc_joined_df, lsuffix='_tf', rsuffix='_nuc')
+# 		plt.scatter(plt_data.Fourier_score_nuc, plt_data.Fourier_score_tf, s=1)
+# 		plt.title("Nucleosome fourier score vs TF fourier score")
+
+# 	def load_Fourier_scores(self):
+# 		# Load the Yulong Fourier Score Calculations
+
+# 		metrics_df = self.metrics_df
+
+# 		def load_join_yulong_fourier_score(csv_path, metrics_df):
+# 			# Load the Yulong Fourier scores for each gene
+# 			promoter_tf_scores = pd.read_csv(csv_path)
+# 			promoter_tf_scores = promoter_tf_scores.set_index('Gene_ID')
+# 			prom_tf_fourier_vs_ptr_comparison = promoter_tf_scores.join(metrics_df)
+# 			return prom_tf_fourier_vs_ptr_comparison
+
+# 		prom_tf_path = 'data/reference_data/yulongs_2023_Table_S1_promoter_tf_score.csv'
+# 		self.tf_joined_df = load_join_yulong_fourier_score(prom_tf_path, 
+# 													  metrics_df)
+# 		self.tf_joined_df = self.tf_joined_df.dropna()
+
+# 		gb_nuc_path = 'data/reference_data/yulongs_2023_Table_S1_gene_body_nuc_score.csv'
+# 		self.nuc_joined_df = load_join_yulong_fourier_score(gb_nuc_path,
+# 													   metrics_df)
+# 		self.nuc_joined_df = self.nuc_joined_df.dropna()
+
+# 	def plot_ptr_comparison_to_fourier(self):
+
+# 		plt.figure(figsize=(13, 4))
+# 		plt.subplot(1, 3, 1)
+# 		plot_comparison_scatter(self.tf_joined_df['Fourier_score'], 
+# 			self.tf_joined_df['mean_ptr'], "Promoter fourier score vs\nMean Chromatin PTR", 
+# 			"TF Fourier score", "Mean chromatin PTR")
+
+# 		plt.subplot(1, 3, 2)
+# 		plot_comparison_scatter(self.nuc_joined_df['Fourier_score'], 
+# 			self.nuc_joined_df['mean_ptr'], "Nucleosome fourier score vs\nMean Chromatin PTR",
+# 			"GB nucleosome Fourier score", "Mean chromatin PTR")
+
+# 		plt.subplot(1, 3, 3)
+# 		plt_data = self.tf_joined_df.join(self.nuc_joined_df, lsuffix='_tf', rsuffix='_nuc')
+# 		plot_comparison_scatter(plt_data.Fourier_score_nuc, plt_data.Fourier_score_tf, 
+# 			"Nucleosome fourier score vs TF fourier score",
+# 			"GB nucleosome Fourier score", "TF Fourier Score")
+
+# 	def plot_ptr_k_gene(self):
+
+# 		spellman_orfs = load_spellman_orfs()
+
+# 		sorted_ptrs_df = self.sorted_ptrs_df
+
+# 		plt.figure(figsize=(5, 5))
+
+# 		select_ks = np.arange(1, 700, 1)
+
+# 		for orf_name, row in sorted_ptrs_df.dropna().iterrows():
+
+# 			color = 'red' if orf_name in spellman_orfs else '#888'
+# 			ptrs = row[select_ks]
+# 			plt.plot(select_ks, ptrs, c=color, alpha=0.25)
+
+# 		plt.xlabel("$k$")
+# 		plt.ylabel("PTR")
+# 		plt.title(f"Peak-to-trough ratio per $k$ for each gene\nn={self.n}")
 
 
-	def summarize_ptrs(self, metric_func):
-		summary_ptrs = self.ptrs_df.copy()   
-		metric_val = summary_ptrs.apply(metric_func, axis=1)
-		return metric_val
+# 	def spellman_analysis(self):
+# 		"""Plot a graph of counting up the spellman genes from accumulating the 
+# 		genes with the highest PTR values for the chosen k value"""
 
-	def get_strand_corrected_ptr_imgs(self):
+# 		spellman_orfs = load_spellman_orfs()
+# 		self.k_sorted_genes['spellman'] = False
+# 		k_spellman = list(set(spellman_orfs).intersection(set(self.k_sorted_genes.index.values)))
+# 		self.k_sorted_genes.loc[k_spellman, 'spellman'] = True
 
-		ptrs_df = self.undropped_ptrs_df.fillna(0)
-		ptr_imgs = ptrs_df.values.reshape((ptrs_df.shape[0], *self.image_shape))
+# 		spellman_cumsum = self.k_sorted_genes.spellman.cumsum()
 
-		ptr_imgs = ptr_imgs.copy()
-		ptr_imgs = ptr_imgs.astype(float)
-		ptr_imgs[np.isnan(ptr_imgs)] = 0
+# 		num_scs = len(k_spellman)
+# 		n = len(spellman_cumsum)
 
-		strand_corrected_ptr_imgs = ptr_imgs.copy()
-
-		# Correct for crick genes
-		# Flip all crick genes
-		crick_strand_genes = self.geneset.strand == '-'
-		crick_ptr_imgs = ptr_imgs[crick_strand_genes]
-		strand_corrected_ptr_imgs[crick_strand_genes] = np.fliplr(crick_ptr_imgs)
-		return strand_corrected_ptr_imgs
+# 		plt.figure(figsize=(4, 4))
+# 		plt.plot(np.arange(n)/n, spellman_cumsum/num_scs)
+# 		plt.plot([0, 1], [0, 1], c='gray', ls='dotted', lw=1)
+# 		plt.title("Proportion of Spellman genes in ordered chromatin PTR list\n" + 
+# 			f"n={n}, k={self.optimal_k}")
+# 		plt.xlabel("Proportion of all deconvolved genes")
 
 
-def add_title_stats(x, y, title):
-	from scipy.stats import pearsonr
-	pearsonr, pval = pearsonr(x, y)
-	title = f"{title}\nPearson R={pearsonr:.2f}, P-value={pval:.2f}, N={len(x)}"
-	return title
+# 	def summarize_ptrs(self, metric_func):
+# 		summary_ptrs = self.ptrs_df.copy()   
+# 		metric_val = summary_ptrs.apply(metric_func, axis=1)
+# 		return metric_val
 
-def plot_comparison_scatter(x, y, title, xlabel, ylabel, c='#aaa', 
-	highlighted_orfs=[], ax=None):
+# 	def get_strand_corrected_ptr_imgs(self):
+
+# 		ptrs_df = self.undropped_ptrs_df.fillna(0)
+# 		ptr_imgs = ptrs_df.values.reshape((ptrs_df.shape[0], *self.image_shape))
+
+# 		ptr_imgs = ptr_imgs.copy()
+# 		ptr_imgs = ptr_imgs.astype(float)
+# 		ptr_imgs[np.isnan(ptr_imgs)] = 0
+
+# 		strand_corrected_ptr_imgs = ptr_imgs.copy()
+
+# 		# Correct for crick genes
+# 		# Flip all crick genes
+# 		crick_strand_genes = self.geneset.strand == '-'
+# 		crick_ptr_imgs = ptr_imgs[crick_strand_genes]
+# 		strand_corrected_ptr_imgs[crick_strand_genes] = np.fliplr(crick_ptr_imgs)
+# 		return strand_corrected_ptr_imgs
+
+
+# def add_title_stats(x, y, title):
+# 	from scipy.stats import pearsonr
+# 	pearsonr, pval = pearsonr(x, y)
+# 	title = f"{title}\nPearson R={pearsonr:.2f}, P-value={pval:.2f}, N={len(x)}"
+# 	return title
+
+# def plot_comparison_scatter(x, y, title, xlabel, ylabel, c='#aaa', 
+# 	highlighted_orfs=[], ax=None):
 
 	
 
-	if ax is None:
-		ax = plt.gca()
+# 	if ax is None:
+# 		ax = plt.gca()
 
-	if title is not None:
-		title = add_title_stats(x, y, title)
-		ax.set_title(title)
+# 	if title is not None:
+# 		title = add_title_stats(x, y, title)
+# 		ax.set_title(title)
 
-	ax.scatter(x, y, s=1, alpha=0.5, c=c, label='_none')
+# 	ax.scatter(x, y, s=1, alpha=0.5, c=c, label='_none')
 
-	for (sel_orfs, color, label) in highlighted_orfs:
+# 	for (sel_orfs, color, label) in highlighted_orfs:
 
-		x_sel = x.loc[list(sel_orfs)]
-		y_sel = y.loc[list(sel_orfs)]
+# 		x_sel = x.loc[list(sel_orfs)]
+# 		y_sel = y.loc[list(sel_orfs)]
 
-		label = f"{label}, n={len(sel_orfs)}"
+# 		label = f"{label}, n={len(sel_orfs)}"
 
-		ax.scatter(x_sel, y_sel, s=8, alpha=0.5, facecolors='none', 
-			edgecolors=color, label=label, lw=1, marker='D')
-
-
-	ax.set_xlabel(xlabel)
-	ax.set_ylabel(ylabel)
-	ax.legend()
+# 		ax.scatter(x_sel, y_sel, s=8, alpha=0.5, facecolors='none', 
+# 			edgecolors=color, label=label, lw=1, marker='D')
 
 
-def filter_index(select_index, primary_index):
-	"""Filters out an index values that do not appear in the primary index.
-	Useful for selecting subsets of a dataframe, but discards missing values
-	if that selected index does not appear in the primary index"""
-	keep_index = set(primary_index).intersection(select_index)
-	return list(keep_index)
+# 	ax.set_xlabel(xlabel)
+# 	ax.set_ylabel(ylabel)
+# 	ax.legend()
 
 
-def plot_comparison_ptr(x, y, highlighted_orfs, xlim, ylim, title, xlabel, ylabel,
-	bw=(0.05, 0.05)):
-	"""Plot PTR comparisons"""
-
-	import matplotlib.gridspec as gridspec
-
-	fig = plt.figure(figsize=(6, 6))
-	gs  = gridspec.GridSpec(4, 4, figure=fig)
-
-	# Main scatter plot
-	ax_main = fig.add_subplot(gs[1:4, 0:3])
-
-	ax_main.plot([0, 2.5], [0, 2.5], lw=1, c='black', ls='dotted')
-
-	# Top histogram (x-axis marginal distribution)
-	ax_x_dist = fig.add_subplot(gs[0, 0:3])
-	ax_y_dist = fig.add_subplot(gs[1:4, 3])
-	ax_y_dist.set_yticks([])
-	ax_x_dist.set_xticks([])
-
-	# -------------------------------------
-
-	plot_comparison_scatter(x, y,
-							title=None,
-							xlabel=xlabel, 
-							ylabel=ylabel,
-						   highlighted_orfs=highlighted_orfs, ax=ax_main)
-
-	# -------------------------------------
-
-	from src.plot_helpers import plot_density
-
-	plot_density(x.values, ax_x_dist, bw=bw[0], arange=(0, xlim[1], 0.01), 
-				 color='#ddd', lw=2, fill=True)
-
-	# ------
-	for (sel_orfs, color, label) in highlighted_orfs:
-		selected_x = x.loc[sel_orfs]
-		plot_density(selected_x.values, ax_x_dist, bw=bw[0], 
-					 arange=(0, xlim[1], 0.01), color=color,
-					ls='dotted')
-
-	# ----------
-	plot_density(y.values, ax_y_dist, bw=bw[1], arange=(0, ylim[1], 0.01), color='#ddd', 
-				 flip=True, fill=True)
-	ax_y_dist.set_ylim(0, 2)
-
-	for (sel_orfs, color, label) in highlighted_orfs:
-		selected_y = y.loc[sel_orfs]
-		plot_density(selected_y.values, ax_y_dist, bw=bw[1], 
-					 arange=(0, ylim[1], 0.01), color=color,
-					ls='dotted', flip=True)
-
-	ax_main.set_xlim(*xlim)
-	ax_main.set_ylim(*ylim)
-	ax_x_dist.set_xlim(ax_main.get_xlim())
-	ax_y_dist.set_ylim(ax_main.get_ylim())
-
-	title = add_title_stats(x, y, title)
-	plt.suptitle(title)
+# def filter_index(select_index, primary_index):
+# 	"""Filters out an index values that do not appear in the primary index.
+# 	Useful for selecting subsets of a dataframe, but discards missing values
+# 	if that selected index does not appear in the primary index"""
+# 	keep_index = set(primary_index).intersection(select_index)
+# 	return list(keep_index)
 
 
-def create_highlighted_orfs_array(ref_df):
-	"""For the PTR comparison scatter plot, add the annotated orfs from xin and spellman"""
+# def plot_comparison_ptr(x, y, highlighted_orfs, xlim, ylim, title, xlabel, ylabel,
+# 	bw=(0.05, 0.05)):
+# 	"""Plot PTR comparisons"""
 
-	from src.reference_data import load_xin_1500_cc_orfs, load_spellman_orfs
+# 	import matplotlib.gridspec as gridspec
 
-	xin_orfs = load_xin_1500_cc_orfs()
-	spellman_orfs = load_spellman_orfs()
+# 	fig = plt.figure(figsize=(6, 6))
+# 	gs  = gridspec.GridSpec(4, 4, figure=fig)
 
-	both_xin_spellman = set(xin_orfs).intersection(spellman_orfs)
-	xin_only = set(xin_orfs).difference(both_xin_spellman)
-	spellman_only = set(spellman_orfs).difference(both_xin_spellman)
+# 	# Main scatter plot
+# 	ax_main = fig.add_subplot(gs[1:4, 0:3])
+
+# 	ax_main.plot([0, 2.5], [0, 2.5], lw=1, c='black', ls='dotted')
+
+# 	# Top histogram (x-axis marginal distribution)
+# 	ax_x_dist = fig.add_subplot(gs[0, 0:3])
+# 	ax_y_dist = fig.add_subplot(gs[1:4, 3])
+# 	ax_y_dist.set_yticks([])
+# 	ax_x_dist.set_xticks([])
+
+# 	# -------------------------------------
+
+# 	plot_comparison_scatter(x, y,
+# 							title=None,
+# 							xlabel=xlabel, 
+# 							ylabel=ylabel,
+# 						   highlighted_orfs=highlighted_orfs, ax=ax_main)
+
+# 	# -------------------------------------
+
+# 	from src.plot_helpers import plot_density
+
+# 	plot_density(x.values, ax_x_dist, bw=bw[0], arange=(0, xlim[1], 0.01), 
+# 				 color='#ddd', lw=2, fill=True)
+
+# 	# ------
+# 	for (sel_orfs, color, label) in highlighted_orfs:
+# 		selected_x = x.loc[sel_orfs]
+# 		plot_density(selected_x.values, ax_x_dist, bw=bw[0], 
+# 					 arange=(0, xlim[1], 0.01), color=color,
+# 					ls='dotted')
+
+# 	# ----------
+# 	plot_density(y.values, ax_y_dist, bw=bw[1], arange=(0, ylim[1], 0.01), color='#ddd', 
+# 				 flip=True, fill=True)
+# 	ax_y_dist.set_ylim(0, 2)
+
+# 	for (sel_orfs, color, label) in highlighted_orfs:
+# 		selected_y = y.loc[sel_orfs]
+# 		plot_density(selected_y.values, ax_y_dist, bw=bw[1], 
+# 					 arange=(0, ylim[1], 0.01), color=color,
+# 					ls='dotted', flip=True)
+
+# 	ax_main.set_xlim(*xlim)
+# 	ax_main.set_ylim(*ylim)
+# 	ax_x_dist.set_xlim(ax_main.get_xlim())
+# 	ax_y_dist.set_ylim(ax_main.get_ylim())
+
+# 	title = add_title_stats(x, y, title)
+# 	plt.suptitle(title)
+
+
+# def create_highlighted_orfs_array(ref_df):
+# 	"""For the PTR comparison scatter plot, add the annotated orfs from xin and spellman"""
+
+# 	from src.reference_data import load_xin_1500_cc_orfs, load_spellman_orfs
+
+# 	xin_orfs = load_xin_1500_cc_orfs()
+# 	spellman_orfs = load_spellman_orfs()
+
+# 	both_xin_spellman = set(xin_orfs).intersection(spellman_orfs)
+# 	xin_only = set(xin_orfs).difference(both_xin_spellman)
+# 	spellman_only = set(spellman_orfs).difference(both_xin_spellman)
 		
-	# Filter the highlighted orfs by the orfs we *do* have for deconvolved
-	# PTR means
-	filtered_both_xin_spellman = filter_index(both_xin_spellman, ref_df.index.values)
-	filtered_both_xin = filter_index(xin_only, ref_df.index.values)
-	filtered_both_spellman = filter_index(spellman_only, ref_df.index.values)
+# 	# Filter the highlighted orfs by the orfs we *do* have for deconvolved
+# 	# PTR means
+# 	filtered_both_xin_spellman = filter_index(both_xin_spellman, ref_df.index.values)
+# 	filtered_both_xin = filter_index(xin_only, ref_df.index.values)
+# 	filtered_both_spellman = filter_index(spellman_only, ref_df.index.values)
 
-	highlighted_orfs=[(filtered_both_xin, 'red', "Xin"),
-					  (filtered_both_spellman, 'blue', "Spellman"),
-					  (filtered_both_xin_spellman, 'purple', "Xin+Spellman")]
+# 	highlighted_orfs=[(filtered_both_xin, 'red', "Xin"),
+# 					  (filtered_both_spellman, 'blue', "Spellman"),
+# 					  (filtered_both_xin_spellman, 'purple', "Xin+Spellman")]
 
-	return highlighted_orfs
+# 	return highlighted_orfs
 
 
-def load_deconvolved_ge_ptrs(outdir):
-	file_paths = glob.glob(f'{outdir}/*_meta_*.csv')
+# def load_deconvolved_ge_ptrs(outdir):
+# 	file_paths = glob.glob(f'{outdir}/*_meta_*.csv')
 
-	from src.geneset import get_deconvolved_geneset
+# 	from src.geneset import get_deconvolved_geneset
 
-	geneset = get_deconvolved_geneset()[['gene']].copy()
-	geneset['ptr'] = None
+# 	geneset = get_deconvolved_geneset()[['gene']].copy()
+# 	geneset['ptr'] = None
 
-	for filepath in file_paths:
-		row = pd.read_csv(filepath).iloc[0]
-		ptr = row.ptr
-		orf_name = row['Unnamed: 0']
-		geneset.loc[orf_name, 'ptr'] = ptr
-	return geneset
+# 	for filepath in file_paths:
+# 		row = pd.read_csv(filepath).iloc[0]
+# 		ptr = row.ptr
+# 		orf_name = row['Unnamed: 0']
+# 		geneset.loc[orf_name, 'ptr'] = ptr
+# 	return geneset

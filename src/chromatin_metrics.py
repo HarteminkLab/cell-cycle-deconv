@@ -8,6 +8,153 @@ from src.read_bam import read_mnase_bam
 from src.figure_configs import FiguresConfig
 
 
+def select_F_imgs_in_window(F, F_span, select_span):
+	"""For a given deconvolved F matrix, with a known span.
+	Select a subset of the span. Useful for selecting the gene related
+	features in a window"""
+	span_translated = select_span[0]-F_span[0], select_span[1]-F_span[0]
+	span_bins = int(span_translated[0]//10), int(span_translated[1]//10)
+	F_imgs = F.reshape((F.shape[0], 26, -1))        
+	selected_F_bins = F_imgs[:, :, span_bins[0]:span_bins[1]]
+	return selected_F_bins
+
+
+def retrieve_fragment_length_selection_curves(plot=True):
+
+	from src.mnase_normalization import load_target_distribution
+	from scipy.stats.distributions import norm
+
+	target_len_dist = load_target_distribution()
+	if plot:	
+		plt.figure(figsize=(6, 4))
+		plt.plot(target_len_dist, label="Raw MNase length distribution", lw=4,
+				c='gray')
+
+	xs = target_len_dist.index
+	ys = norm.pdf(xs, loc=165, scale=15)
+	nucleosome_curve = pd.DataFrame(ys, index=xs)
+
+	ys = ys / ys.max() * target_len_dist.max()
+
+	if plot:
+		plt.plot(xs, ys, label="Nucleosome fragment selection", lw=2,
+				c=plt.cm.Purples(0.75))
+
+	xs = target_len_dist.index
+	ys = norm.pdf(xs, loc=90, scale=25)
+	ys = ys / ys.max() * target_len_dist[0:100].max()
+	small_fragments_curve = pd.DataFrame(ys, index=xs)
+
+	if plot:
+		plt.plot(xs, ys, label="Small fragment selection", lw=2,
+				c=plt.cm.Oranges(0.75))
+		plt.xlabel("Fragment length")
+		plt.ylabel("Frequency")
+		plt.legend()
+		plt.xlim(0, xs[-1])
+		plt.title("Fragment length selection curves")
+
+	xs = target_len_dist.index
+	ys = norm.pdf(xs, loc=124, scale=18)
+	ys = ys / ys.max() * target_len_dist[0:120].max()
+	intermediate_curve = pd.DataFrame(ys, index=xs)
+
+	# Normalize the curves	
+	nucleosome_curve = nucleosome_curve / nucleosome_curve.mean()
+	small_fragments_curve = small_fragments_curve / small_fragments_curve.mean()
+
+	return nucleosome_curve, intermediate_curve, small_fragments_curve
+
+
+def downsample_kernel(kernel):
+	"""Reshape and downsample kernel for selection of mnase reads"""
+	from src.helpers import downsample_bins
+	kernel_reshaped = kernel.reshape((1, -1, 1))
+	downsampled_kernel = downsample_bins(kernel_reshaped, (10, 1))[0]
+	return downsampled_kernel
+
+
+def select_w_kernel(imgs, kernel):
+	from src.helpers import downsample_bins
+	from scipy.signal import correlate2d
+	kernel_selected = np.zeros((imgs.shape[0], imgs.shape[2]))
+	for i in range(imgs.shape[0]):
+		kernel_selected[i] = correlate2d(imgs[i], kernel, mode='valid')   
+	kernel_selected = kernel_selected / kernel_selected.mean()
+	return kernel_selected
+
+
+def compute_metrics_for_promoter_and_gene_body(config1, gene, F, 
+		title, mnase_span, plot=True):
+
+	prom_imgs = select_F_imgs_in_window(F, mnase_span, 
+		(gene.promoter_start, gene.promoter_end))
+	gb_imgs = select_F_imgs_in_window(F, mnase_span, 
+		(gene.gene_body_start, gene.gene_body_end))
+
+	nuc_curve, intermediate_curve, smal_curve = retrieve_fragment_length_selection_curves(plot=False)
+	nuc_kernel = downsample_kernel(nuc_curve.values)
+	small_kernel = downsample_kernel(smal_curve.values)
+
+	mother_color = plt.cm.Blues(0.5)
+	daughter_color = plt.cm.Reds(0.5)
+
+	small_prom_imgs = select_w_kernel(prom_imgs, small_kernel)
+	nuc_prom_imgs = select_w_kernel(prom_imgs, nuc_kernel)
+
+	nuc_gb_imgs = select_w_kernel(gb_imgs, nuc_kernel)
+
+	from src.helpers import calc_entropy
+
+	prom_entropies = np.apply_along_axis(calc_entropy, 1, nuc_prom_imgs)
+	gb_entropies = np.apply_along_axis(calc_entropy, 1, nuc_gb_imgs)
+
+	promoter_means = np.mean(prom_imgs.reshape((small_prom_imgs.shape[0], -1)), axis=1)
+	gb_means = np.mean(gb_imgs.reshape((gb_entropies.shape[0], -1)), axis=1)
+
+
+	if plot:
+		plt.figure(figsize=(6, 6))
+
+		def _plot_mother_daughter_curves(metric):
+			plt.plot(metric[config1.t_indices()], c=mother_color, lw=3, label="Mother")
+			plt.plot(metric[config1.b_indices()], c=daughter_color, lw=3, label='Daughter')
+			plt.xlim(0, len(config1.t_indices()))
+
+		plt.subplot(3, 2, 1)
+		_plot_mother_daughter_curves(promoter_means)
+		plt.ylim(0, 2.5)
+		plt.xticks([])
+		plt.title("Promoter occupancy")
+		plt.legend()
+
+		plt.subplot(3, 2, 2)
+		_plot_mother_daughter_curves(gb_means)
+		plt.ylim(0, 2.5)
+		plt.xticks([])
+		plt.title("Gene body occupancy")
+
+		plt.subplot(3, 2, 3)
+		_plot_mother_daughter_curves(prom_entropies)
+		# plt.ylim(3.5, 6)
+		plt.title("Nucleosome Promoter entropy")
+
+		plt.subplot(3, 2, 4)
+		_plot_mother_daughter_curves(gb_entropies)
+		plt.ylim(3.5, 6)
+		plt.title("Gene body entropy")
+		plt.suptitle(title)
+
+		plt.subplots_adjust(top=0.9, hspace=0.5)
+
+	return (
+		prom_entropies,
+		gb_entropies,
+		promoter_means,
+		gb_means,
+	)
+
+
 # Mostly deprecated at this point
 # was previously using this class as multiple functions, length distribution normalization,
 # entropy, and occupancy calculation, and other things. keeping it around for reference
@@ -328,7 +475,7 @@ def len_bins():
 
 # 	def _add_subset_by_len(subset_scaling_mat, len_span):
 # 		subset_lens = min_len_scaling_matrix[np.arange(*len_span)]
-# 		subset_mean_scales = subset_lens.mean(axis=1)
+# 		subset_mean_scales = subset_lens
 # 		subset_scaling_mat[str(len_span)] = subset_mean_scales
 # 		return subset_scaling_mat
 
