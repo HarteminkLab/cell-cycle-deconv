@@ -71,3 +71,35 @@ def load_chrom_timepoints(replicate):
 		return GlobalConstants.CHROM_WT1_TIMEPOINTS
 	else:
 		return GlobalConstants.CHROM_WT2_TIMEPOINTS
+
+
+
+def fragment_lengths_definitions():
+	"""Length spans as defined from the replicate 2 dataset,
+	these should also match replicate 1
+
+
+	Prefer using the kernel selection method, see chromatin_metrics.py
+
+	"""
+	nucleosome_len_span=(144, 192)
+	mid_frag_span=(96, 144)
+	small_frag_span=(0, 96)
+	return small_frag_span, mid_frag_span, nucleosome_len_span
+
+
+def len_bins():
+	"""
+	Defined locations for small, intermediate and nucleosome size bins
+	"""
+
+	small_lens, med_lens, nuc_lens = fragment_lengths_definitions()
+		
+	small_bins = small_lens[0]//GlobalConstants.BIN_HEIGHT,  \
+		small_lens[1]//GlobalConstants.BIN_HEIGHT
+	med_bins = med_lens[0]//GlobalConstants.BIN_HEIGHT, \
+		med_lens[1]//GlobalConstants.BIN_HEIGHT
+	nuc_bins = nuc_lens[0]//GlobalConstants.BIN_HEIGHT, \
+		nuc_lens[1]//GlobalConstants.BIN_HEIGHT
+
+	return small_bins, med_bins, nuc_bins

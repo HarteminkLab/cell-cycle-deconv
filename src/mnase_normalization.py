@@ -96,8 +96,8 @@ def plot_normalization_sanity(normalized_1, length_normalized, length_normalized
 	ax.set_title("Post-normalizatio+downsamplng\nlength distributions")
 
 
-def load_target_distribution():
+def load_target_distribution(verbose):
 	path = 'datasets/computed_mnase/target_length_distribution.csv'
-	print("Loading target length distribution: ", path)
+	if verbose: print("Loading target length distribution: ", path)
 	target_distribution = pd.read_csv(path).set_index('fragment_length')
 	return target_distribution['combined']
