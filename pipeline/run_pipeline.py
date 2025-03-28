@@ -180,7 +180,16 @@ def main():
 		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
 		deconvolve_chromatin(chromatin_save_directory, window_set_path, index)
 
+	elif command == 'daughter_analysis':
+
+		# Create and save plot of global gene expression analysis 
+
+
+		# Create and save plot of promoter analysis
+
 	else:
+
+
 		raise ValueError(f"Invalid command" + command)
 
 	# Fit the cell cycle parameters using the previous individual replicate fits

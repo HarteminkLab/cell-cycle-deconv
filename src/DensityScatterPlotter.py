@@ -42,8 +42,11 @@ class DensityScatterPlotter:
         if self.logz:
             z = np.log2(z+1.)
 
+        scatter = ax.scatter(x, y, lw=1, facecolor='None', edgecolor='#ddd', s=s+3,
+            alpha=1., rasterized=True, zorder=0)
+
         scatter = ax.scatter(x, y, c=z, lw=0, edgecolor=None, s=s, cmap=cmap,
-            alpha=self.alpha, rasterized=True, zorder=zorder+1, vmax=vmax)
+           alpha=self.alpha, rasterized=True, zorder=zorder+1, vmax=vmax)
 
         if plot_colorbar: 
             plt.colorbar(scatter)

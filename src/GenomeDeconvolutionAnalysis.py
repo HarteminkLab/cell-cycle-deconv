@@ -6,6 +6,8 @@ import matplotlib.pyplot as plt
 from src.global_config import GlobalConstants
 from src.sgd import get_chromosome_length
 from src.WindowCache import WindowCache
+from src.reference_data import load_p1_gene_regions
+from src.sgd import get_orfname
 
 # Global cache instance
 WINDOW_CACHE = WindowCache(max_size=3)
@@ -92,6 +94,22 @@ class GenomeDeconvolutionAnalysis():
 		"""Clear the window cache."""
 		WINDOW_CACHE.clear()
 
+	def plot_gene(self, gene_name, config1):
+		gene_metric_regions = load_p1_gene_regions()
+		orfname = get_orfname(gene_name)
+		gene = gene_metric_regions.loc[orfname]
+
+		chrom = gene.chr
+		mnase_span = gene['combined_+1']-1000, gene['combined_+1']+1000
+
+		from src.chromatin_deconvolution_solver import plot_branches
+
+		gene_data_F, loaded_span = self.load_mnase_span(chrom, 
+			mnase_span)
+
+		fig = plot_branches(config1, chrom, mnase_span, gene_data_F, figsize=(11, 11))
+		return fig
+
 
 def get_load_spans(chrom, span, window_size=10000):
 	"""
@@ -102,7 +120,7 @@ def get_load_spans(chrom, span, window_size=10000):
 		span: Tuple of (start, end) positions to load
 		window_size: Size of the windows (default: 10000)
 	
-	Returns:
+
 		List of (start, end) tuples for each window to load
 	"""
 	max_bp = get_chromosome_length(chrom)

@@ -5,7 +5,7 @@ def find_origin_p1_and_m1_nucleosome_position(self, find_p1=True):
 
 		from src.chrom_img_segment_selector import translate_span_for_bins
 		from src.chromatin_metric_tracking import ChromatinMetricTracking
-		from src.chromatin_metrics import fragment_lengths_definitions
+		from src.global_config import fragment_lengths_definitions
 		from src.global_config import GlobalConstants
 
 		# Center on the middle of the window (centered on the origin site)

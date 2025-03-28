@@ -51,7 +51,7 @@ class Figure3ChromatinMetrics(object):
 		                                GlobalConstants.GB_REGION[1],
 		                                GlobalConstants.BIN_WIDTH)+GlobalConstants.BIN_WIDTH//2.
 
-		from src.chromatin_metrics import fragment_lengths_definitions
+		from src.global_config import fragment_lengths_definitions
 
 		# Fragment length and genomic spans
 		sm, med, nuc = fragment_lengths_definitions()

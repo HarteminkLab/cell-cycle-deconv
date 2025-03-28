@@ -48,6 +48,9 @@ class CombinedReplicationDeconvolution():
 			print_fl(f"Warm start load F N and B from disk {warm_start_output_directory}")
 			F1, N1, B1 = load_N_F_B_for_replication_deconv_from_save(warm_start_output_directory, 1, warm_start_chrom)
 			F2, N2, B2 = load_N_F_B_for_replication_deconv_from_save(warm_start_output_directory, 2, warm_start_chrom)
+		else:
+			N1 = None
+			N2 = None
 
 		# Load just N, more important than B. And we can deconvolve other chromosomes easily
 		# First set of iterations will provide a consistent replication profile
@@ -237,14 +240,14 @@ def load_config_from_replication_runs(output_directory, chrom, mode='chromatin')
 	expression deconvolution will belong in the models folder.
 	"""
 
-	from src.config import load_cloccs_config
+	from src.config import load_cloccs_configs
 	from src.RealDataReplication import modify_config_from_run
 
 	print("Loading configs from replication runs: ", output_directory)
 
 	# This function will assume we are loading from CLOCCS
 	# and updating to the latest parameter run results in the output directory
-	config1, config2 = load_cloccs_config(mode=mode, shift_CLOCCS=True)
+	config1, config2 = load_cloccs_configs(mode=mode, shift_CLOCCS=True)
 	config1 = modify_config_from_run(config1, output_directory, 1, chrom)
 	config2 = modify_config_from_run(config2, output_directory, 2, chrom)
 

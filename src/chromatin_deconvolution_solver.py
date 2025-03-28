@@ -170,19 +170,19 @@ def plot_branches(config, chrom, mnase_span, full_deconvolved_F, vmax=40, figsiz
 			
 	def plot_difference(row_axs, t_indices, b_indices):
 
-		eps = 1
+		# eps = 1
 		for plot_index, index_in_t in enumerate(np.linspace(0,
 			len(t_indices)-1, num_imgs_per_branch)):
 			
 			image_index_t = t_indices[int(index_in_t)]
 			image_index_b = b_indices[int(index_in_t)]
 
-			diff_vmax_2 = 3
-			img_diff = np.log2((full_F_imgs[image_index_b]+eps)/(full_F_imgs[image_index_t]+eps))
+			# diff_vmax_2 = 3
+			# img_diff = np.log2((full_F_imgs[image_index_b]+eps)/(full_F_imgs[image_index_t]+eps))
 
 
-			# diff_vmax_2 = 30
-			# img_diff = (full_F_imgs[image_index_b]) - (full_F_imgs[image_index_t])
+			diff_vmax_2 = 10
+			img_diff = (full_F_imgs[image_index_b]) - (full_F_imgs[image_index_t])
 			
 			ax = row_axs[plot_index]
 			ax.imshow(img_diff, aspect='auto', cmap='RdBu_r', vmin=-diff_vmax_2, vmax=diff_vmax_2,

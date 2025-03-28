@@ -5,6 +5,7 @@ import pandas as pd
 
 def load_gene_expression(gene_name, replicate):
 
+	from src.sgd import get_orfname
 	orf_name = get_orfname(gene_name)
 	gene_expressions_tpm = load_gene_expression_data(replicate)
 	gene_expression_tpm = gene_expressions_tpm.loc[orf_name]

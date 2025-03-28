@@ -53,7 +53,7 @@ class ComputePlusOne:
 
 		For the currently selected gene
 		"""
-		from src.chromatin_metrics import fragment_lengths_definitions
+		from src.global_config import fragment_lengths_definitions
 		small_lens, med_lens, nuc_lens = fragment_lengths_definitions()
 
 		# Next, we will align at the +1

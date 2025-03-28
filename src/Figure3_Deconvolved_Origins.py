@@ -104,7 +104,7 @@ class Figure4DeconvolvedOrigins(object):
 
 		# Idea will be to merge with the nucleosome reads over time to show both nucleosome
 		# positioning and origin occupancy throughout the time course
-		from src.chromatin_metrics import fragment_lengths_definitions
+		from src.global_config import fragment_lengths_definitions
 
 		_, _, nuc_lens = fragment_lengths_definitions()
 		f_mnase_span = -self.padding, self.padding
@@ -169,7 +169,7 @@ class Figure4DeconvolvedOrigins(object):
 
 	def track_nfr(self):
 		from src.global_config import GlobalConstants
-		from src.chromatin_metrics import fragment_lengths_definitions
+		from src.global_config import fragment_lengths_definitions
 
 		sm_span, med, nuc_span = fragment_lengths_definitions()
 

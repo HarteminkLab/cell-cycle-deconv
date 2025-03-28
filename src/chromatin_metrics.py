@@ -78,6 +78,8 @@ def downsample_kernel(kernel):
 
 
 def select_w_kernel(imgs, kernel):
+	"""User correlation to apply the kernel to the image to select the appropriate
+	reads. Assume the input data is normalized, so normalize resulting selection"""
 	from src.helpers import downsample_bins
 	from scipy.signal import correlate2d
 	kernel_selected = np.zeros((imgs.shape[0], imgs.shape[2]))
@@ -136,3 +138,31 @@ def compute_chromatin_metric(F, fragment_type="nucleosome", metric_type="entropy
 	else:
 		raise ValueError(f"Unknown metric type: {metric_type}. Use 'entropy' or 'occupancy'.")
 
+
+def generate_cg1_dg1_data_for_plotting(config, data, y_data=None,
+	mode='ratio'):
+	# Filter out non-data, incomplete deconvolutions
+	# will be full of zeros
+	data = data.loc[(data.sum(axis=1) > 1e-5)]
+
+	# Calculate x and y data
+	t_mean = data[config.cg1_indices()].mean(1)
+	b_mean = data[config.dg1_indices()].mean(1)
+
+	if y_data is None: 
+		y_data = data.max(1)
+
+
+	if mode == 'ratio':
+		eps = 1e-5
+		eps = 1
+		x_data = np.log2((t_mean+eps) / (b_mean+eps))
+	elif mode == 'difference':
+		x_data = t_mean - b_mean
+
+	plot_data = pd.DataFrame({
+		'x': x_data,
+		'y': y_data,
+	}, index=x_data.index)
+
+	return plot_data

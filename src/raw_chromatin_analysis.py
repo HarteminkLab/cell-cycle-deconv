@@ -6,7 +6,7 @@ import matplotlib.pyplot as plt
 
 from src.mnase_reads import load_mnase_reads
 from src.reference_data import load_analysis_genes
-from src.chromatin_metrics import fragment_lengths_definitions
+from src.global_config import fragment_lengths_definitions
 
 
 class ChromatinDataAnalysis:

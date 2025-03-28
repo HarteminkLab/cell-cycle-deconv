@@ -256,7 +256,7 @@ class GeneChromatinReplicationAnalysis:
 
 		# -------- Difference trace plots plots ---------------
 
-		from src.chromatin_metrics import fragment_lengths_definitions
+		from src.global_config import fragment_lengths_definitions
 		from src.global_config import GlobalConstants
 
 		small_lens, med_lens, nuc_lens = fragment_lengths_definitions()
@@ -369,7 +369,7 @@ class GeneChromatinReplicationAnalysis:
 
 	def compute_gene_nuc_entropy(self):
 
-		from src.chromatin_metrics import fragment_lengths_definitions
+		from src.global_config import fragment_lengths_definitions
 		from src.global_config import GlobalConstants
 		from src.helpers import calc_entropy
 

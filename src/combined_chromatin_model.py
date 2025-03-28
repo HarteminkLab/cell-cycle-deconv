@@ -256,7 +256,7 @@ class CombinedChromatinModel:
 		center = self.chrom1_model.computed_plus_one
 		xlims = center-500, center+500
 
-		from src.chromatin_metrics import fragment_lengths_definitions
+		from src.global_config import fragment_lengths_definitions
 		from src.global_config import GlobalConstants
 		config1 = self.chrom1_model.config
 		t_indices = config1.get_Hpositions_for_branch('t')

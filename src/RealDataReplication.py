@@ -9,7 +9,7 @@ from matplotlib import pyplot as plt
 from src.replication_deconvolution_solver import deconvolve_replication_brute_force
 from typing import Tuple, Optional, NamedTuple
 from src.expression_chromatin_plots import draw_phase_label_annotations
-from src.chromatin_metrics import fragment_lengths_definitions
+from src.global_config import fragment_lengths_definitions
 from src.mnase_10kb_loader import get_bin_for_position
 
 

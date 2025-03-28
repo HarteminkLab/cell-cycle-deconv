@@ -59,9 +59,10 @@ def plot_stacked_curves(x, vectors, names):
 		previous_stack = plot_phase_stack(x, prev_vec=previous_stack, 
 										  cur_vec=cur_vector, name=name)
 	
-def plot_density(data, ax=None, color='red', arange=None, 
+def plot_density(data, ax=None, color='red', domain_values=None, 
 	alpha=1., zorder=1, fill=False, bw=10, neg=False, 
-	mult=1.0, y_offset=0, flip=False, lw=1, label=None, ls='solid'):
+	mult=1.0, y_offset=0, flip_axes=False, lw=1, label=None, 
+	ls='solid', flip_x_axis=False, normalize=True):
 
 	from sklearn.neighbors import KernelDensity
 	def _kde_sklearn(x, x_grid, bandwidth):
@@ -74,31 +75,43 @@ def plot_density(data, ax=None, color='red', arange=None,
 	if ax is None:
 		fig, ax = plt.subplots()
 
-	if arange is None:
-		arange = min(data), max(data), 1
+	if domain_values is None:
+		domain_values = range(min(data), max(data), 1)
 
-	x = np.arange(arange[0], arange[1], arange[2])
-
-	y = _kde_sklearn(data, x, bw) * mult
+	y = _kde_sklearn(data, domain_values, bw) * mult
 	d = scipy.zeros(len(y))
 	fill_mask = y >= d
 
+	if normalize:
+		y = y/y.max()
+
 	if fill:
-		if not flip:
-			ax.fill_between(x, y+y_offset, 0, color=color,
+		if not flip_axes:
+			ax.fill_between(domain_values, y+y_offset, 0, color=color,
 					 alpha=alpha, linewidth=1, zorder=zorder, ls=ls)
 		else:
-			ax.fill_betweenx(x, y+y_offset, 0, color=color,
+			ax.fill_betweenx(domain_values, y+y_offset, 0, color=color,
 					 alpha=alpha, linewidth=1, zorder=zorder, ls=ls)
 	else:
-		if not flip:
-			ax.plot(x, y+y_offset, color=color,
+		if not flip_axes:
+			ax.plot(domain_values, y+y_offset, color=color,
 				 alpha=alpha, linewidth=lw, zorder=zorder, label=label,
 				 solid_joinstyle='round', ls=ls)
 		else:
-			ax.plot(y+y_offset, x, color=color,
+			ax.plot(y+y_offset, domain_values, color=color,
 				 alpha=alpha, linewidth=lw, zorder=zorder, label=label,
 				 solid_joinstyle='round', ls=ls)
+
+	if not flip_axes:
+		ax.set_xlim(domain_values[0], domain_values[-1])
+		ax.set_ylim(0, 1.4)
+	else:
+		ax.set_ylim(domain_values[0], domain_values[-1])
+
+		if flip_x_axis:
+			ax.set_xlim(1.4, 0)
+		else:
+			ax.set_xlim(0, 1.4)
 
 	return y
 
@@ -317,7 +330,8 @@ def annotate_points(xs, ys, texts,
 				   ax=None,
 				   use_adjust_text=True,
 				   bbox_props=None,
-				   adjust_text_kwargs=None):
+				   adjust_text_kwargs=None,
+				   zorder=1):
 	"""
 	Annotate scatter plot points with custom markers and text labels.
 	Uses adjustText library to prevent label overlaps when use_adjust_text=True.
@@ -331,7 +345,8 @@ def annotate_points(xs, ys, texts,
 						 s=marker_size, 
 						 edgecolor=marker_color,
 						 facecolors=marker_fill,
-						 linewidth=linewidth)
+						 linewidth=linewidth,
+						 zorder=zorder)
 	
 	# Default parameters for adjust_text
 	default_adjust_kwargs = {
@@ -361,7 +376,8 @@ def annotate_points(xs, ys, texts,
 								bbox=bbox_props,
 
 								path_effects=[patheffects.withStroke(linewidth=2,
-									foreground='white')])
+									foreground='white')],
+								zorder=zorder)
 				text_objects.append(text_obj)
 			
 			# Use adjustText to prevent overlaps
