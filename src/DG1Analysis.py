@@ -87,6 +87,9 @@ class DG1Analysis:
 		"""Plot the DG1 selected ORFs"""
 		self.plot_subset_promoter_scatter(self.dg1_orfs, dg1_color, "Daughter expressed")
 
+	def plot_subset_cg1_tx(self):
+		"""Plot the DG1 selected ORFs"""
+		self.plot_subset_promoter_scatter(self.cg1_orfs, cg1_color, "Mother expressed")
 
 	def plot_subset_promoter_scatter(self, orfs, color, title):
 
@@ -97,18 +100,86 @@ class DG1Analysis:
 			self.small_promoter_occupancies_df)
 
 		chromatin_plot = ScatterChromatinPlot()
-		ks_statistic, ks_pvalue = compute_ks_for_df(small_prom_ratio_df, self.dg1_orfs)
+		ks_statistic, ks_pvalue = compute_ks_for_df(small_prom_ratio_df, orfs)
 		fig = chromatin_plot.plot(
 			dat=small_prom_ratio_df,
 			highlight_genes=[],
 			xlim=(-1, 1),
 			ylim=(1, 4.25),
-			orf_groups=[(f"DG1 expressed genes, n={len(self.dg1_orfs)}", color, self.dg1_orfs)],
+			orf_groups=[(f"DG1 expressed genes, n={len(orfs)}", color, orfs)],
 			xlabel="$\\log_2$ [ CG1 occupancy / DG1 occupancy ]",
 			ylabel="Mean occupancy"
 		)
 		plt.suptitle(f"{title}:\n"
 					 f" KS={ks_statistic:.2f}, p-value={ks_pvalue:.2g}", fontsize=12)
+
+
+	def compute_g1_expression_sm_correlations(self, expressions_F, config1):
+
+		from src.helpers import compute_row_correlations
+
+		t_indices = config1.t_indices()
+		b_indices = config1.b_indices()
+
+		# Compute the mother and daughter correlations for all genes.
+		small_occupancies = self.small_promoter_occupancies_df
+		t_correlations = compute_row_correlations(expressions_F[t_indices], 
+		   small_occupancies.loc[expressions_F.index][t_indices])
+		b_correlations = compute_row_correlations(expressions_F[b_indices], 
+		   small_occupancies.loc[expressions_F.index][b_indices])
+
+		self.small_tx_top_correlations = t_correlations
+		self.small_tx_bottom_correlations = b_correlations
+
+	def plot_tx_sm_correlation_histograms(self, mg1_only, mg1_and_dg1, dg1_only):
+
+		t_correlations = self.small_tx_top_correlations
+		b_correlations = self.small_tx_bottom_correlations
+
+		indices_sets = ['t', 'b']
+		orf_sets = [mg1_only, mg1_and_dg1, dg1_only]
+		column_names = [f"Mother G1 expressed,\nn={len(mg1_only)}",
+		                f"Mother and\nDaughter expressed,\nn={len(mg1_and_dg1)}", 
+		               f"Daughter expressed,\nn={len(dg1_only)}"]
+		row_names = ["Mother branch", "Daughter branch"]
+
+		plt.figure(figsize=(17, 4))
+
+		i = 1
+		for row, index_set_name in enumerate(indices_sets):
+		    for col, orf_set in enumerate(orf_sets):
+		        plt.subplot(2, 3, i)
+		        
+		        if index_set_name == 't':
+		            correlations = t_correlations.loc[orf_set]
+		        else:
+		            correlations = b_correlations.loc[orf_set]
+		            
+		        plt.hist(correlations.correlation, bins=np.linspace(-1, 1, 10))
+		        plt.axvline(0, c='black', lw=1, ls='dotted')
+		        i += 1
+		        plt.ylim(0, 80)
+		        plt.xlim(-1, 1)
+
+		        if row == 0:
+		            plt.title(column_names[col])
+		            plt.xticks([])
+		        else:
+		            if col == 0: plt.xlabel("Pearson $r$")
+
+		        if col == 0:
+		            if row == 0:
+		                plt.ylabel("# genes")
+		        else:
+		            plt.yticks([])
+		            
+		        if col == 2:
+		            right_ax = plt.twinx()
+		            right_ax.set_yticks([])
+		            right_ax.set_ylabel(row_names[row], ha='left', rotation=0)
+
+		plt.subplots_adjust(left=0.3, top=0.73, right=0.7)
+		plt.suptitle("Correlation of expression and promoter occupancy", fontsize=16)
 
 
 from scipy.stats import ks_2samp

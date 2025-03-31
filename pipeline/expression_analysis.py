@@ -26,11 +26,14 @@ class ExpressionAnalysis(object):
 										   genes_callout=genes_callout)
 		plt.suptitle("Mother vs Daughter\nexpressed genes")
 
-		thresholded_data = filter_threshold_genes(self.cg1_dg1_data, cg1_dg1_boundary_func)
+		thresh_x_min, thresh_y_min = 0.25, 20
+
+		thresholded_data = filter_threshold_genes(self.cg1_dg1_data, cg1_dg1_boundary_func,
+			min_y=thresh_y_min, min_x=thresh_x_min)
 
 		# create boundaries to separate, DG1, CG1 and no difference genes
 		xs = np.linspace(0.0001, 4, 10000)
-		ys = cg1_dg1_boundary_func(xs)
+		ys = cg1_dg1_boundary_func(xs, thresh_y_min, thresh_x_min)
 
 		plt.plot(-xs, ys, c='red', lw=0.75, ls='solid')
 		plt.plot(xs, ys, c='red', lw=0.75, ls='solid')
@@ -41,27 +44,38 @@ class ExpressionAnalysis(object):
 		self.control_dat = thresholded_data.loc[(~thresholded_data.meets_dg1_threshold) &
 										   (~thresholded_data.meets_cg1_threshold)]
 
-	def define_subsets():
-		from src.sgd import get_orfnames
+	def retrieve_mg1_dg1_specific_genes(self, config1, proportion_threshold):
+		"""Retrieve G1 specific expression genes using a threshold. Separates into
+		DG1 only, MG1 only and DG1 and MG1 expressed genes."""
 
-		# From the expression analysis
-		dg1_orfs = analysis.dg1_dat.index.values
-		cg1_orfs = analysis.cg1_dat.index.values
-		control_orfs = analysis.control_dat.index.values
-		control_orfs = list(set(control_orfs).intersection(small_prom_ratio_df.index.values))
+		expressions_F = self.deconvolved_genes_F
 
-		off_tpm = 2
-		off_orfs = analysis.cg1_dg1_data.loc[analysis.cg1_dg1_data.average_TPM < off_tpm].index.values
-		off_orfs = list(set(off_orfs).intersection(small_prom_ratio_df.index.values))
+		# Compute the number of MG1, DG1 specific genes and G1 specific genes.
+		mg1_i = config1.cg1_indices()
+		dg1_i = config1.dg1_indices()
+		postg1_i = config1.postg1_indices()
 
-		high_tpm = 1000
-		high_orfs = analysis.cg1_dg1_data.loc[analysis.cg1_dg1_data.average_TPM > high_tpm]\
-		    .index.values
-		high_orfs = list(set(high_orfs).intersection(small_prom_ratio_df.index.values))
+		mean_mg1_expression = expressions_F[mg1_i].mean(1)
+		mean_dg1_expression = expressions_F[dg1_i].mean(1)
+		mean_postg1_expression = expressions_F[postg1_i].mean(1)
 
-		np.random.seed(123)
-		random_orfs = np.random.choice(small_promoter_occupancies_df.index, size=200)
+		orfs = expressions_F.index
 
+		# How many genes have g1 expression mg1 union dg1
+		mg1_select = mean_mg1_expression > mean_postg1_expression*(1+proportion_threshold)
+		dg1_select = mean_dg1_expression > mean_postg1_expression*(1+proportion_threshold)
+		
+		mg1_and_dg1 = orfs[mg1_select & dg1_select]
+		mg1_only = orfs[mg1_select & ~dg1_select]
+		dg1_only = orfs[dg1_select & ~mg1_select]
+		
+		print(f"Threshold of {1+proportion_threshold} > S/G2/M expression. There are:")
+		
+		print(f"{len(mg1_only)} Mother G1 specific genes")
+		print(f"{len(dg1_only)} Daughter G1 specific genes")
+		print(f"{len(mg1_and_dg1)} Mother and Daughter expressed genes")
+
+		return mg1_only, mg1_and_dg1, dg1_only, 
 
 
 def load_deconvolved_gene_expression(output_directory):
@@ -98,45 +112,47 @@ def plot_volcano_cg1_dg1(expression_Fs_df, config1, genes_callout=[]):
 	from src.marginal_scatter_plot import ScatterChromatinPlot
 	marginal_scatter_plot = ScatterChromatinPlot()
 
+	from src.plot_helpers import create_sub_colormap
+	cmap = create_sub_colormap('Purples', 0.25, 1., 'Purples_darker')
+
 	fig = marginal_scatter_plot.plot(
-	    dat=plot_data,
-	    x_key='max_ratio',
-	    y_key='average_TPM',
-	    highlight_genes=genes_callout,
-	    xlim=(-4, 4),
-	    ylim=(-10, 600),
-	    orf_groups=[],
-	    plot_fit=False,
-	    cmap='viridis_r',
-	    bw=[0.2, 0.03],
-	    xlabel="$\\log_2$ [ CG1 occupancy / DG1 occupancy ]",
-	    ylabel="Average deconvolved, TPM"
+		dat=plot_data,
+		x_key='max_ratio',
+		y_key='average_TPM',
+		highlight_genes=genes_callout,
+		xlim=(-4, 4),
+		ylim=(-10, 600),
+		orf_groups=[],
+		plot_fit=False,
+		cmap=cmap,
+		bw=[0.2, 0.03],
+		xlabel="$\\log_2$ [ CG1 occupancy / DG1 occupancy ]",
+		ylabel="Average deconvolved, TPM"
 	)
 
 	return plot_data
 
 
-def cg1_dg1_boundary_func(xs):
+def cg1_dg1_boundary_func(xs, y_offset=10, x_offset=0.5,
+	scale=0.2, multiplier=100):
 	"""Boundary function to place threshold on cg1/dg1 analysis plot"""
 
 	from scipy.stats.distributions import gamma
-		
-	x_offset = -0.5
-	y_offset = 10
 	
-	ys = gamma.pdf(xs+x_offset, 1, loc=0, scale=0.2)*20+y_offset
-	ys[xs < -x_offset] = 1000 # If less than the offset, set to some max value
+	ys = gamma.pdf(xs-x_offset, 1, loc=0, scale=scale)*multiplier+y_offset
+	ys[xs < +x_offset] = 1e9 # If less than the offset, set to some max value
 
 	return ys
 
-def filter_threshold_genes(cg1_dg1_data, cg1_dg1_boundary_func):
+
+def filter_threshold_genes(cg1_dg1_data, cg1_dg1_boundary_func, min_y=10, min_x=0.5):
 	xs = cg1_dg1_data.max_ratio
 
 	neg_ratios = xs < 0
 	pos_ratios = xs > 0
 
-	neg_ys = cg1_dg1_boundary_func(-xs[neg_ratios])
-	pos_ys = cg1_dg1_boundary_func(xs[pos_ratios])
+	neg_ys = cg1_dg1_boundary_func(-xs[neg_ratios], min_y, min_x)
+	pos_ys = cg1_dg1_boundary_func(xs[pos_ratios], min_y, min_x)
 
 	boundary_check = cg1_dg1_data.copy()
 	boundary_check.loc[neg_ratios, 'boundary_y'] = neg_ys

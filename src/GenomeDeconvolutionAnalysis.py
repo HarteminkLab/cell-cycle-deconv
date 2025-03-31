@@ -94,7 +94,9 @@ class GenomeDeconvolutionAnalysis():
 		"""Clear the window cache."""
 		WINDOW_CACHE.clear()
 
-	def plot_gene(self, gene_name, config1):
+	def plot_gene(self, gene_name, config1, analysis=None):
+		from src.expression_chromatin_plots import DeconvolutionChromatinExpressionPlotter
+
 		gene_metric_regions = load_p1_gene_regions()
 		orfname = get_orfname(gene_name)
 		gene = gene_metric_regions.loc[orfname]
@@ -102,13 +104,27 @@ class GenomeDeconvolutionAnalysis():
 		chrom = gene.chr
 		mnase_span = gene['combined_+1']-1000, gene['combined_+1']+1000
 
-		from src.chromatin_deconvolution_solver import plot_branches
+		chromatin_gene_data_F, loaded_span = self.load_mnase_span(chrom, 
+		    mnase_span)
 
-		gene_data_F, loaded_span = self.load_mnase_span(chrom, 
-			mnase_span)
+		plotter = DeconvolutionChromatinExpressionPlotter(config1)
+		plotter.set_chrom_span(chrom, mnase_span)
 
-		fig = plot_branches(config1, chrom, mnase_span, gene_data_F, figsize=(11, 11))
-		return fig
+		if analysis is not None:
+			expression_f = analysis.deconvolved_genes_F.loc[orfname].values
+			plotter.set_expression_data(expression_f)
+			self.gene_expression_data = expression_f
+
+		plotter.set_chromatin_data(chromatin_gene_data_F)
+
+		from src.sgd import get_gene_title_name
+
+		title = get_gene_title_name(orfname)
+		plotter.plot(title)
+
+		# For analysis if needed
+		self.gene_chromatin_data = chromatin_gene_data_F
+
 
 
 def get_load_spans(chrom, span, window_size=10000):

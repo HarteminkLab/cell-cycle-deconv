@@ -39,10 +39,24 @@ class DeconvolutionChromatinExpressionPlotter:
 		self.num_g1_rows = 4
 		self.num_pg1_rows = self.num_rows - self.num_g1_rows
 
+		# # Save the current interactive state
+		# was_interactive = plt.isinteractive()
+		
+		# # Temporarily turn off interactive mode
+		# if was_interactive:
+		# 	plt.ioff()
+
 		# Create the layout
 		self.fig, self.chrom_axs, self.exp_axs, self.ann_axs, self.cell_cycle_axes = \
-			create_chromatin_expression_layout(n_rows=self.num_rows)
+			create_chromatin_expression_layout(figsize=(15, 5), n_rows=self.num_rows)
 		
+		# # Restore previous interactive state
+		# if was_interactive:
+		# 	plt.ion()
+		
+		# # Make sure the figure doesn't display yet
+		# plt.close(self.fig)
+			
 		self.orf_plotter = load_default_orf_plotter()
 
 		# Initialize the axes
@@ -211,6 +225,32 @@ class DeconvolutionChromatinExpressionPlotter:
 			ax.imshow(self.chromatin_F[idx], aspect='auto', cmap='magma_r', origin='lower', 
 			vmin=0, vmax=self.vmax)
 
+
+
+	def _plot_chromatin_branch_difference(self, branch_idx):
+		"""Plot chromatin data for a single branch"""
+		if self.chromatin_F is None:
+			raise ValueError("Chromatin data not set. Call set_chromatin_data first.")
+			
+		# Get sampled indices for each phase
+		dg1_indices = get_sample_indices(self.config1, self.num_g1_rows, 'DG1')
+		cg1_indices = get_sample_indices(self.config1, self.num_g1_rows, 'CG1')
+		pg1_indices = get_sample_indices(self.config1, self.num_pg1_rows, 'postG1')
+		
+		# Plot G1 phase chromatin
+		vmax = 10
+
+		for row_idx in range(len(dg1_indices)):
+			ax = self.chrom_axs[branch_idx][row_idx]
+
+			dg1_dat = self.chromatin_F[dg1_indices[row_idx]]
+			cg1_dat = self.chromatin_F[cg1_indices[row_idx]]
+			diff = dg1_dat-cg1_dat
+
+			ax.imshow(diff, aspect='auto', cmap='RdBu_r', origin='lower', 
+			vmin=-vmax, vmax=vmax)
+
+
 	def set_chrom_span(self, chrom, span):
 		"""
 		Set chromosome and span for gene annotations
@@ -231,7 +271,7 @@ class DeconvolutionChromatinExpressionPlotter:
 		for ax in self.ann_axs:
 			self.orf_plotter.plot_orf_annotations(ax)
 
-	def plot(self):
+	def plot(self, title=None):
 		"""Plot the expression data for all branches"""
 		
 		# Clear the axes for redraw
@@ -256,8 +296,12 @@ class DeconvolutionChromatinExpressionPlotter:
 		self._plot_chromatin_branch(1, 'CG1')
 		self._plot_chromatin_branch(2, 'DG1')
 
+		self._plot_chromatin_branch_difference(3)
+
 		# Set title
-		plt.suptitle(f"chr{self.chrom}, {self.span[0]}-{self.span[1]}")
+		if title is None:
+			title = f"chr{self.chrom}, {self.span[0]}-{self.span[1]}"
+		plt.suptitle(title)
 		
 		return self.fig
 
@@ -268,7 +312,7 @@ def create_chromatin_expression_layout(
 	chromatin_width_ratios=[1, 1, 1, 1, 1],  # Width ratios for chromatin columns, total column width = 4
 	expression_width=1.5,  # Width of expression plot relative to chromatin (1/4)
 	cell_cycle_width=0.75,  # Width of cell cycle plot relative to chromatin (1/4)
-	branch_spacing=1.0,  # Spacing between branches
+	branch_spacing=0.5,  # Spacing between branches
 	top_margin=0.90,  # Top margin for titles
 	bottom_margin=0.05,  # Bottom margin
 	height_ratios=None,  # Optional custom height ratios for rows

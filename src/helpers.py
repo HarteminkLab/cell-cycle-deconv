@@ -812,3 +812,46 @@ def downsample_bins(bin_data, bin_size=(10, 10)):
 	
 	return downsampled
 
+
+import pandas as pd
+import numpy as np
+from scipy.stats import pearsonr
+
+def compute_row_correlations(df1, df2):
+	"""
+	Compute Pearson correlation coefficients for each corresponding row in two dataframes.
+	
+	Parameters:
+	-----------
+	df1, df2 : pandas.DataFrame
+		DataFrames with the same shape and index
+		
+	Returns:
+	--------
+	pandas.DataFrame with correlation coefficients and p-values
+	"""
+	from scipy.stats import pearsonr
+
+	# Check that dataframes have the same shape
+	if df1.shape != df2.shape:
+		raise ValueError("DataFrames must have the same shape")
+	
+	# Initialize lists to store results
+	correlations = []
+	p_values = []
+	indices = []
+	
+	# Compute correlation for each row
+	for idx in df1.index:
+		corr, p_val = pearsonr(df1.loc[idx], df2.loc[idx])
+		correlations.append(corr)
+		p_values.append(p_val)
+		indices.append(idx)
+	
+	# Create a results dataframe
+	results = pd.DataFrame({
+		'correlation': correlations,
+		'p_value': p_values
+	}, index=indices)
+	
+	return results

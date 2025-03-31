@@ -178,6 +178,9 @@ class RG1Model(object):
 	def dg1_indices(self):
 		return self.get_Hpositions_for_phase('DG1')
 
+	def postg1_indices(self):
+		return self.get_Hpositions_for_phase('postG1')
+
 	def get_Hpositions_for_phase(self, phase):
 
 		if phase == 'H' or phase == 'Halted':
