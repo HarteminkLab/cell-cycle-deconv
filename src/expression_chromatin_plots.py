@@ -113,7 +113,10 @@ class DeconvolutionChromatinExpressionPlotter:
 	def _plot_expression_branch(self, ax_idx, phase):
 		"""Plot expression data for a single branch"""
 		
-		xlim = self.expression_F.max() * 1.15
+		# Round up to the nearest 10 if necessary
+		round_num = 2
+		max_xlim = self.expression_F.max() * 1.15
+		max_xlim = max(round_num, (max_xlim//round_num+1)*round_num)
 
 		ax = self.exp_axs[ax_idx]
 
@@ -129,8 +132,11 @@ class DeconvolutionChromatinExpressionPlotter:
 		y_values = np.linspace(self.num_g1_rows, self.num_rows, len(pg1_tx))
 		ax.fill_betweenx(y_values, 0, pg1_tx, color=color)
 		
-		ax.set_xlim(0, xlim)
+		ax.set_xlim(0, max_xlim)
 		ax.set_ylim(self.num_rows, 0)
+
+		# Round to the nearest
+		ax.set_xticks(np.arange(0, max_xlim+2, 2))
 
 	def _plot_cell_cycle_annotations(self, axis_idx, g1_phase):
 		"""

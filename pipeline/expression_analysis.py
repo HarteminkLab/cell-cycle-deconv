@@ -55,8 +55,11 @@ class ExpressionAnalysis(object):
 		dg1_i = config1.dg1_indices()
 		postg1_i = config1.postg1_indices()
 
-		mean_mg1_expression = expressions_F[mg1_i].mean(1)
-		mean_dg1_expression = expressions_F[dg1_i].mean(1)
+		mg1_expression = expressions_F[mg1_i]
+		dg1_expression = expressions_F[dg1_i]
+
+		mean_mg1_expression = mg1_expression.mean(1)
+		mean_dg1_expression = dg1_expression.mean(1)
 		mean_postg1_expression = expressions_F[postg1_i].mean(1)
 
 		orfs = expressions_F.index
@@ -64,10 +67,21 @@ class ExpressionAnalysis(object):
 		# How many genes have g1 expression mg1 union dg1
 		mg1_select = mean_mg1_expression > mean_postg1_expression*(1+proportion_threshold)
 		dg1_select = mean_dg1_expression > mean_postg1_expression*(1+proportion_threshold)
-		
-		mg1_and_dg1 = orfs[mg1_select & dg1_select]
-		mg1_only = orfs[mg1_select & ~dg1_select]
-		dg1_only = orfs[dg1_select & ~mg1_select]
+
+		# M and D have similar expression levels, use the l2 norm and set to threshold
+		# these to a low value, can look at the histogram to decide on the threshold
+		cg1_dg1_l2 = (((mg1_expression.values-dg1_expression.values)**2).sum(1)**0.5)
+		mg1_and_dg1_similar_expression = cg1_dg1_l2 < 1
+
+		# MG1 and DG1 are similarly expressed and G1-specific
+		mg1_and_dg1_select = mg1_select & dg1_select & mg1_and_dg1_similar_expression
+		mg1_and_dg1 = orfs[mg1_and_dg1_select]
+
+		# MG1 is transcribed
+		mg1_only = orfs[mg1_select & ~mg1_and_dg1_select]
+
+		# DG1 is transcribed
+		dg1_only = orfs[dg1_select & ~mg1_and_dg1_select]
 		
 		print(f"Threshold of {1+proportion_threshold} > S/G2/M expression. There are:")
 		
