@@ -131,54 +131,66 @@ class DG1Analysis:
 		self.small_tx_top_correlations = t_correlations
 		self.small_tx_bottom_correlations = b_correlations
 
-	def plot_tx_sm_correlation_histograms(self, mg1_only, mg1_and_dg1, dg1_only):
+
+	def plot_tx_sm_correlation_histograms(self, mg1_only, mg1_and_dg1, dg1_only,
+		postg1_only, all_other_orfs):
 
 		t_correlations = self.small_tx_top_correlations
 		b_correlations = self.small_tx_bottom_correlations
 
 		indices_sets = ['t', 'b']
-		orf_sets = [mg1_only, mg1_and_dg1, dg1_only]
+		orf_sets = [mg1_only, mg1_and_dg1, dg1_only, postg1_only, all_other_orfs]
 		column_names = [f"Mother G1 expressed,\nn={len(mg1_only)}",
-		                f"Mother and\nDaughter expressed,\nn={len(mg1_and_dg1)}", 
-		               f"Daughter expressed,\nn={len(dg1_only)}"]
+						f"Mother and\nDaughter G1 expressed,\nn={len(mg1_and_dg1)}", 
+					   f"Daughter G1 expressed,\nn={len(dg1_only)}",
+					   f"S/G2/M expressed,\nn={len(postg1_only)}",
+					   f"All others,\nn={len(all_other_orfs)}"]
 		row_names = ["Mother branch", "Daughter branch"]
 
-		plt.figure(figsize=(17, 4))
+		plt.figure(figsize=(31, 4))
 
 		i = 1
+		columns = len(column_names)
+		rows = 2
 		for row, index_set_name in enumerate(indices_sets):
-		    for col, orf_set in enumerate(orf_sets):
-		        plt.subplot(2, 3, i)
-		        
-		        if index_set_name == 't':
-		            correlations = t_correlations.loc[orf_set]
-		        else:
-		            correlations = b_correlations.loc[orf_set]
-		            
-		        plt.hist(correlations.correlation, bins=np.linspace(-1, 1, 10))
-		        plt.axvline(0, c='black', lw=1, ls='dotted')
-		        i += 1
-		        plt.ylim(0, 80)
-		        plt.xlim(-1, 1)
+			for col, orf_set in enumerate(orf_sets):
+				plt.subplot(rows, columns, i)
+				
+				if index_set_name == 't':
+					correlations = t_correlations.loc[orf_set]
+				else:
+					correlations = b_correlations.loc[orf_set]
+					
+				plt.hist(correlations.correlation, bins=np.linspace(-1, 1, 10))
+				plt.axvline(0, c='black', lw=1, ls='dotted')
+				i += 1
 
-		        if row == 0:
-		            plt.title(column_names[col])
-		            plt.xticks([])
-		        else:
-		            if col == 0: plt.xlabel("Pearson $r$")
+				if col == 4:
+					plt.ylim(0, 1000)
+				else:
+					plt.ylim(0, 80)
 
-		        if col == 0:
-		            if row == 0:
-		                plt.ylabel("# genes")
-		        else:
-		            plt.yticks([])
-		            
-		        if col == 2:
-		            right_ax = plt.twinx()
-		            right_ax.set_yticks([])
-		            right_ax.set_ylabel(row_names[row], ha='left', rotation=0)
+				plt.xlim(-1, 1)
 
-		plt.subplots_adjust(left=0.3, top=0.73, right=0.7)
+				if row == 0:
+					plt.title(column_names[col])
+					plt.xticks([])
+				else:
+					if col == 0: plt.xlabel("Pearson $r$")
+
+				if col == 0:
+					if row == 0:
+						plt.ylabel("# genes")
+				else:
+					#plt.yticks([])
+					pass
+					
+				if col == 4:
+					right_ax = plt.twinx()
+					right_ax.set_yticks([])
+					right_ax.set_ylabel(row_names[row], ha='left', rotation=0)
+
+		plt.subplots_adjust(left=0.3, top=0.73, right=0.7, wspace=0.35)
 		plt.suptitle("Correlation of expression and promoter occupancy", fontsize=16)
 
 

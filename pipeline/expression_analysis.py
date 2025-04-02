@@ -78,18 +78,182 @@ class ExpressionAnalysis(object):
 		mg1_and_dg1 = orfs[mg1_and_dg1_select]
 
 		# MG1 is transcribed
-		mg1_only = orfs[mg1_select & ~mg1_and_dg1_select]
+		mg1_only_select = mg1_select & ~mg1_and_dg1_select & ~dg1_select
+		mg1_only = orfs[mg1_only_select]
 
 		# DG1 is transcribed
-		dg1_only = orfs[dg1_select & ~mg1_and_dg1_select]
-		
-		print(f"Threshold of {1+proportion_threshold} > S/G2/M expression. There are:")
-		
-		print(f"{len(mg1_only)} Mother G1 specific genes")
-		print(f"{len(dg1_only)} Daughter G1 specific genes")
-		print(f"{len(mg1_and_dg1)} Mother and Daughter expressed genes")
+		dg1_only_select = dg1_select & ~mg1_and_dg1_select & ~mg1_select
+		dg1_only = orfs[dg1_only_select]
 
-		return mg1_only, mg1_and_dg1, dg1_only, 
+		# How many genes have g1 expression mg1 union dg1
+		postg1_select = (mean_mg1_expression*(1+proportion_threshold) < mean_postg1_expression) & \
+						(mean_dg1_expression*(1+proportion_threshold) < mean_postg1_expression)
+		postg1_orfs = orfs[postg1_select & ~mg1_and_dg1_select & ~mg1_only_select & ~dg1_only_select]
+
+		# Unchanging orfs
+		unchanging_orfs = orfs[~postg1_select & ~mg1_and_dg1_select &\
+							   ~mg1_only_select & ~dg1_only_select]
+
+		print(f"Using a threshold of {1+proportion_threshold}")
+
+		print(f"  {len(postg1_orfs)} post G1 expressed genes")
+		
+		print(f"  {len(mg1_only)} Mother G1 specific genes")
+		print(f"  {len(dg1_only)} Daughter G1 specific genes")
+		print(f"  {len(mg1_and_dg1)} Mother and Daughter expressed genes")
+		print(f"  {len(unchanging_orfs)} All others")
+		print(f"  Total:  {len(postg1_orfs)+len(mg1_only)+len(dg1_only)+len(mg1_and_dg1)+len(unchanging_orfs)}")
+
+		return unchanging_orfs, mg1_only, mg1_and_dg1, dg1_only,  postg1_orfs
+
+def plot_expression_quantiles(config, expressions_df, gene_subsets, t_indices, b_indices, 
+                              normalize=False, figsize=(20, 6)):
+    """
+    Plot expression profiles with median and 25-75% quantiles for multiple gene sets.
+    
+    Parameters:
+    -----------
+    config : object
+        Configuration object with method get_timepoints_for_branch
+    expressions_df : pandas.DataFrame
+        DataFrame containing gene expression data
+    gene_subsets : list of tuples
+        List of (gene_set, title) tuples where gene_set contains gene identifiers
+    t_indices : list
+        Column indices for top branch
+    b_indices : list
+        Column indices for bottom branch
+    normalize : bool, default=False
+        If True, normalize each gene to have mean=0 and std=1 before plotting
+    figsize : tuple
+        Figure size (width, height)
+    """
+    # Get timepoints for branches
+    t_tps = config.get_timepoints_for_branch('t')
+    
+    # Create a copy of the expression data to avoid modifying the original
+    if normalize:
+        # Create a normalized copy of the expression data
+        # We'll normalize each gene (row) across all conditions
+        all_indices = expressions_df.columns
+        expressions_norm = expressions_df.copy()
+        
+        # For each gene in the dataframe
+        for gene in expressions_norm.index:
+            gene_data = expressions_norm.loc[gene, all_indices]
+            gene_mean = gene_data.mean()
+            gene_std = gene_data.std()
+            if gene_std > 0:  # Avoid division by zero
+                expressions_norm.loc[gene, all_indices] = (gene_data - gene_mean) / gene_std
+            else:
+                expressions_norm.loc[gene, all_indices] = 0  # Set to zero if std is zero
+                
+        plot_data = expressions_norm
+    else:
+        plot_data = expressions_df
+    
+    # Create the figure with columns and 2 rows
+    fig, axes = plt.subplots(2, len(gene_subsets), figsize=figsize, sharex='col')
+    plt.subplots_adjust(hspace=0.4, wspace=0.3)  # Adjust spacing
+    
+    # Find global min and max for consistent y-limits
+    y_min = float('inf')
+    y_max = float('-inf')
+    
+    # First pass to calculate global min and max
+    for set_name, gene_set in gene_subsets.items():
+        if len(gene_set) == 0:
+            continue
+            
+        # Get data for both branches
+        data_t = plot_data.loc[gene_set][t_indices].T
+        data_b = plot_data.loc[gene_set][b_indices].T
+        
+        # Calculate quantiles
+        q25_t = data_t.quantile(0.25, axis=1)
+        q75_t = data_t.quantile(0.75, axis=1)
+        q25_b = data_b.quantile(0.25, axis=1)
+        q75_b = data_b.quantile(0.75, axis=1)
+        
+        # Update global min and max
+        y_min = min(y_min, q25_t.min(), q25_b.min())
+        y_max = max(y_max, q75_t.max(), q75_b.max())
+    
+    # Add a small buffer to the limits (10%)
+    y_range = y_max - y_min
+    y_min = y_min - 0.05 * y_range
+    y_max = y_max + 0.1 * y_range
+    
+    # Loop through each gene subset
+    for col, (title, gene_set) in enumerate(gene_subsets.items()):
+        # Skip if gene set is empty
+        if len(gene_set) == 0:
+            axes[0, col].text(0.5, 0.5, "No genes in set", 
+                             ha='center', va='center', transform=axes[0, col].transAxes)
+            axes[1, col].text(0.5, 0.5, "No genes in set", 
+                             ha='center', va='center', transform=axes[1, col].transAxes)
+            continue
+        
+        # Top branch (t_indices)
+        # Calculate median and quantiles
+        data_t = plot_data.loc[gene_set][t_indices].T
+        median_t = data_t.median(axis=1)
+        q25_t = data_t.quantile(0.25, axis=1)
+        q75_t = data_t.quantile(0.75, axis=1)
+        
+        # Plot median line and fill between quantiles
+        axes[0, col].plot(t_tps, median_t, linewidth=2, color='blue')
+        axes[0, col].fill_between(t_tps, q25_t, q75_t, alpha=0.3, color='blue')
+        axes[0, col].set_title(f"{title}\n(n={len(gene_set)})")
+        
+        # Set ylabel based on whether data is normalized
+        if normalize:
+            axes[0, col].set_ylabel("Normalized Expression (z-score)")
+        else:
+            axes[0, col].set_ylabel("Expression")
+            
+        axes[0, col].set_ylim(y_min, y_max)  # Set consistent y-limits
+        
+        # Add a label for the top row
+        if col == 0:
+            axes[0, col].text(-0.3, 0.5, "Top Branch", 
+                             transform=axes[0, col].transAxes, 
+                             rotation=90, va='center', fontweight='bold')
+        
+        # Bottom branch (b_indices)
+        # Calculate median and quantiles
+        data_b = plot_data.loc[gene_set][b_indices].T
+        median_b = data_b.median(axis=1)
+        q25_b = data_b.quantile(0.25, axis=1)
+        q75_b = data_b.quantile(0.75, axis=1)
+        
+        # Plot median line and fill between quantiles
+        axes[1, col].plot(t_tps, median_b, linewidth=2, color='red')
+        axes[1, col].fill_between(t_tps, q25_b, q75_b, alpha=0.3, color='red')
+        axes[1, col].set_xlabel("Time")
+        
+        # Set ylabel based on whether data is normalized
+        if normalize:
+            axes[1, col].set_ylabel("Normalized Expression (z-score)")
+        else:
+            axes[1, col].set_ylabel("Expression")
+            
+        axes[1, col].set_ylim(y_min, y_max)  # Set consistent y-limits
+        
+        # Add a label for the bottom row
+        if col == 0:
+            axes[1, col].text(-0.3, 0.5, "Bottom Branch", 
+                             transform=axes[1, col].transAxes, 
+                             rotation=90, va='center', fontweight='bold')
+    
+    # Add a main title
+    title_suffix = " (Normalized)" if normalize else ""
+    plt.suptitle(f"Expression Profiles Across Different Gene Sets{title_suffix}", fontsize=16, y=1.05)
+    
+    # Adjust the layout
+    plt.tight_layout()
+    
+    return fig, axes
 
 
 def load_deconvolved_gene_expression(output_directory):
