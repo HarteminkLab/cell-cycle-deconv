@@ -90,14 +90,33 @@ class ScatterChromatinPlot:
 		
 		# Handle highlighting genes
 		if highlight_genes:
-			highlight_orfnames = self._get_orfnames(highlight_genes)
+
+			highlight_orfnames = []
+			keep_highlight_genes = []
+
+			for gene_name in highlight_genes:
+
+				from src.sgd import get_orfname
+
+				try:
+					orfname = get_orfname(gene_name)
+					if orfname not in x_data.index: 
+						print("Gene " + gene_name + " not in deconvolution set.")
+						continue
+
+					highlight_orfnames.append(orfname)
+					keep_highlight_genes.append(gene_name)
+				except ValueError:
+					print("Could not find orfname for gene: " + gene_name)
+					continue
+
 			high_xs, high_ys = x_data.loc[highlight_orfnames], y_data.loc[highlight_orfnames]
 			
 			self.ax_main.scatter(high_xs, high_ys, s=10, 
 						   facecolor='none', edgecolor='red', marker='D')
 			
 			# Annotate points
-			annotate_points(high_xs, high_ys, highlight_genes, 
+			annotate_points(high_xs, high_ys, keep_highlight_genes, 
 						ax=self.ax_main, use_adjust_text=True, zorder=11)
 
 		# Add marginal distribution for all data

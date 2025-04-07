@@ -55,17 +55,24 @@ class CombinedChromatinModel:
 
 
 	def	setup_deconv_model(self, gamma=0.007, G=None, G1=None, G2=None, wavelet="Symmlet",
-			padding_type='both'):
+			padding_type='both', copy_correct=True):
 
 		chrom1_model = self.chrom1_model
 		chrom2_model = self.chrom2_model
 
 		# Load N, freplication and b replication data for correction
 		self.load_copy_correction_data()
+
+		# Disable copy correction
+		if not copy_correct:
+			print("Disabling copy correction, using identity functions for N, b, and fr")
+			self.N = np.eye(self.N.shape[0])
+			self.f_replication = np.ones(fr.shape)
+			self.b = 1
+
 		N = self.N
 		f_replication = self.f_replication
 		b = self.b
-
 		self.gamma = gamma
 
 		# Next we will need to setup the deconvolution model to combine the H

@@ -49,6 +49,20 @@ def get_missing_geneset():
 	geneset = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies_missing_temp_2024-02-29.csv').set_index('orf_name')
 	return geneset
 
+# phosphate_pathway_genes = [
+#     # Phosphate Transporters
+#     "PHO84", "PHO87", "PHO89", "PHO90", "GIT1",
+    
+#     # Phosphatases
+#     "PHO5", "PHO3", "PHO11", "PHO12", "PHO8",
+    
+#     # Regulatory Proteins
+#     "PHO4", "PHO2", "PHO80", "PHO85", "PHO81",
+    
+#     # Additional Phosphate-Responsive Genes
+#     "SPL2", "VTC1", "VTC2", "VTC3", "VTC4",
+#     "PHM1", "PHM2", "PHM3", "PHM4"
+# ]
 
 def get_deconvolved_geneset():
 	"""Get the list of genes to deconvolve first"""

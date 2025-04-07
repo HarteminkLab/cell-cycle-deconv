@@ -2,9 +2,14 @@
 import sys
 sys.path.append('.')
 
-import sys
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
 from src.utils import mkdirs_safe, parse_bool, print_fl
 
+from src.combined_chromatin_model import CombinedChromatinModel
+from src.chromatin_model import ChromatinModel
+from src.config import load_default_chrom_configs
 
 def main():
 
@@ -15,9 +20,6 @@ def main():
 
 	# 0. Create target length distribution
 	if command == 'length_distribution':
-
-		import pandas as pd
-		import matplotlib.pyplot as plt
 
 		(_, command, output_directory) = system_args
 
@@ -180,12 +182,84 @@ def main():
 		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
 		deconvolve_chromatin(chromatin_save_directory, window_set_path, index)
 
-	elif command == 'daughter_analysis':
+	elif command == 'deconvolve_chromatin_full_no_copy':
 
-		# Create and save plot of global gene expression analysis 
+		(_, command, output_directory, index) = system_args
+		chromatin_save_directory = f"{output_directory}/chromatin_deconvolution_no_copy/"
+		index = int(index)
 
+		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
+		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
+			copy_correct=False)
 
-		# Create and save plot of promoter analysis
+	elif command == 'promoter_analysis':
+
+		from pipeline.expression_analysis import ExpressionAnalysis
+		from src.DG1Analysis import DG1Analysis
+		from src.figure_configs import save_figure_for_paper
+		from src.GenomeDeconvolutionAnalysis import GenomeDeconvolutionAnalysis
+
+		(_, command, output_directory) = system_args
+
+		save_directory = f"{output_directory}/analysis/expression_promoter_analysis"
+		mkdirs_safe([save_directory])
+
+		# Load chromatin analysis
+		chromatin_analysis = DG1Analysis(output_directory)
+		chromatin_analysis.load_chromatin_measures()
+
+		# Load expression analysis
+		expression_analysis = ExpressionAnalysis(output_directory)
+
+		# Plot the CG1 DG1 analysis plot
+		fig = expression_analysis.plot_volcano_cg1_dg1(genes_callout=['DSE1', 'DSE2', 'DSE3', 'DSE4', 'PHO5',
+		                                            'HO', 'SPL2', 'PIR1', 'EGT2', 'TOS6'])
+		save_figure_for_paper(f"{save_directory}/cg1_dg1_expression.png")
+		plt.close(fig)
+
+		# Load shift analysis
+		from src.expression_promoter_shift_analysis import PromoterExpressionShiftAnalysis
+
+		# analysis and dg1 analysis are the objects that hold the tx and chromatin data
+		# they should be renamed
+		config1, config2 = load_default_chrom_configs()
+		promoter_expression_shift_analysis = PromoterExpressionShiftAnalysis(
+			expression_analysis, chromatin_analysis, config1)
+
+		# Subset the expression groups
+		fig, axs = promoter_expression_shift_analysis.plot_expression_quantiles()
+		save_figure_for_paper(f"{save_directory}/expression_groups.png")
+		plt.close(fig)
+
+		# Filter low std genes
+		promoter_expression_shift_analysis.compute_high_std_promoter_orfs_set()
+		save_figure_for_paper(f"{save_directory}/high_std_orfs_set.png")
+		promoter_expression_shift_analysis.filter_gene_subsets_for_high_std()
+
+		# Compute correlations
+		promoter_expression_shift_analysis.compute_promoter_expression_correlations()
+
+		# Plot example gene
+		fig = promoter_expression_shift_analysis.correlation_calculator.plot_gene_correlation('CLN1', 
+			branch_name="daughter")
+		save_figure_for_paper(f"{save_directory}/correlation_CLN1.png")
+
+		# Plot regulation classification
+		fig = promoter_expression_shift_analysis.correlation_calculator.plot_regulation_type_bar_counts("mother", 
+			promoter_expression_shift_analysis.t_filtered_gene_subsets)
+		save_figure_for_paper(f"{save_directory}/mother_regulators.png")
+		plt.close(fig)
+		fig = promoter_expression_shift_analysis.correlation_calculator.plot_regulation_type_bar_counts("daughter", 
+			promoter_expression_shift_analysis.b_filtered_gene_subsets)
+		save_figure_for_paper(f"{save_directory}/daughter_regulators.png")
+		plt.close(fig)
+
+		# Plot example gene context
+		genome_analysis = GenomeDeconvolutionAnalysis(outdir=
+		    f"{output_directory}/chromatin_deconvolution/deconvolution_data")
+		fig = genome_analysis.plot_gene('DSE3', config1, expression_analysis)
+		save_figure_for_paper(f"{save_directory}/locus_DSE3.png")
+		plt.close(fig)
 
 	else:
 
@@ -200,14 +274,8 @@ def main():
 	# generate_replication_profiles()
 
 
-def deconvolve_chromatin(chromatin_save_directory, window_set_path, index):
-	import matplotlib.pyplot as plt
-	import numpy as np
-	import pandas as pd
-
-	from src.combined_chromatin_model import CombinedChromatinModel
-	from src.chromatin_model import ChromatinModel
-	from src.config import load_default_chrom_configs
+def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
+	copy_correct=True):
 
 	# Deconvolve the initial set of chromatin windows for testing,
 	# priority over deconvolving the most important windows first
@@ -243,7 +311,7 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index):
 		plt.savefig(f"{raw_plots_directory}/raw_rep2_{save_title}.png")
 		plt.close(fig)
 	
-		combined_model.setup_deconv_model()
+		combined_model.setup_deconv_model(copy_correct=copy_correct)
 		combined_model.deconvolve(gamma=0.01, kappa=0, verbose=True)	
 
 		np.save(f"{data_directory}/{save_title}_F.npy", combined_model.F)

@@ -388,10 +388,14 @@ class ExpressionCorrelationAnalyzer:
 		matplotlib.figure.Figure
 			The created figure
 		"""
-		if branch_name not in self.correlation_data or gene not in self.correlation_data[branch_name]:
+		from src.sgd import get_orfname
+
+		orfname = get_orfname(gene)
+
+		if branch_name not in self.correlation_data or orfname not in self.correlation_data[branch_name]:
 			raise ValueError(f"No correlation data available for gene {gene} in branch {branch_name}")
 		
-		gene_data = self.correlation_data[branch_name][gene]
+		gene_data = self.correlation_data[branch_name][orfname]
 		shifts = gene_data['shifts']
 		correlations = gene_data['correlations']
 		expr_series = gene_data['expression']
@@ -406,24 +410,6 @@ class ExpressionCorrelationAnalyzer:
 
 		occ_ax = ax1.twinx()
 		occ_line = occ_ax.plot(occ_series, 'b-', label='Occupancy', lw=3)
-		
-
-
-		# Calculate shifted occupancy
-		# gene_data = self.correlation_data[branch_name][gene]
-		# expr_series = gene_data['expression']
-		# occ_series = gene_data['occupancy']
-		# n = len(expr_series)
-		# optimal_shift = self.results[branch_name].loc[gene, 'min_corr_shift']
-		# correlation = self.results[branch_name].loc[gene, 'min_corr']
-		# shifted_indices = [(i + int(optimal_shift)) % n for i in range(n)]
-		# shifted_occ = np.array([occ_series[i] for i in shifted_indices])
-		# shifted_occ_line = occ_ax.plot(shifted_occ, 'b--', 
-		# 	label='Shifted Occupancy')
-
-		# ax1.legend([tx_line[0], occ_line[0], shifted_occ_line[0]], ['Expression', 'Occupancy',
-		# 	'Shifted occupancy'])
-
 
 		ax1.set_title(f"Original data for gene {gene}")
 		ax1.set_xlabel("Time point")
