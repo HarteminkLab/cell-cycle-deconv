@@ -85,7 +85,7 @@ class ChromatinModel:
 
 		# Load target length distribution
 		from src.mnase_normalization import load_target_distribution
-		target_length_distribution = load_target_distribution()
+		target_length_distribution = load_target_distribution(verbose=True)
 
 		# Load target total sums g from replication profile
 		from src.RealDataReplication import read_g
