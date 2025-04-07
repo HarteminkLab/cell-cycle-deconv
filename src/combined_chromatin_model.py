@@ -67,7 +67,7 @@ class CombinedChromatinModel:
 		if not copy_correct:
 			print("Disabling copy correction, using identity functions for N, b, and fr")
 			self.N = np.eye(self.N.shape[0])
-			self.f_replication = np.ones(fr.shape)
+			self.f_replication = np.ones(self.f_replication.shape)
 			self.b = 1
 
 		N = self.N
