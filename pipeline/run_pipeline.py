@@ -177,6 +177,7 @@ def main():
 
 		(_, command, output_directory, index) = system_args
 		chromatin_save_directory = f"{output_directory}/chromatin_deconvolution/"
+		mkdirs_safe([chromatin_save_directory])
 		index = int(index)
 
 		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
@@ -186,6 +187,8 @@ def main():
 
 		(_, command, output_directory, index) = system_args
 		chromatin_save_directory = f"{output_directory}/chromatin_deconvolution_no_copy/"
+		mkdirs_safe([chromatin_save_directory])
+
 		index = int(index)
 
 		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
