@@ -91,11 +91,14 @@ def plot_peak_idx_heatmap(matrix,
 	return fig, ax, mesh
 
 
-def create_peak_idx_co_occurrence_matrix(df, tx_col='peak_idx_tx', small_col='peak_idx_small', 
-										 min_idx=0, max_idx=63):
+def create_peak_idx_co_occurrence_matrix(df, bin_key, tp_key, min_idx=0, max_idx=63):
 	"""
 	Create a co-occurrence matrix from gene peak indices.
 	"""
+
+	tx_col = bin_key + '_tx'
+	small_col = bin_key + '_small'
+
 	# Create a copy of the dataframe to avoid modifying the original
 	df_copy = df.copy()
 	
@@ -147,23 +150,23 @@ def create_peak_idx_co_occurrence_matrix(df, tx_col='peak_idx_tx', small_col='pe
 	return full_matrix
 
 
-def count_peak_idx_by_bin(df, bins_to_include,
+def count_peak_idx_by_bin(df, bins_to_include, bin_key, tp_key,
 						 min_idx=0, max_idx=64):
 	"""
 	Count the number of entries per peak_idx for specified bins.
 	"""
 
 	# Filter the dataframe to include only the specified bins
-	filtered_df = df[df['bin'].isin(bins_to_include)]
+	filtered_df = df[df[bin_key].isin(bins_to_include)]
 	
 	# Group by peak_idx and bin, then count
-	counts = filtered_df.groupby(['peak_idx']).size()
+	counts = filtered_df.groupby([tp_key]).size()
 	
 	for idx in np.arange(0, max_idx):
 		if idx not in counts.index:
 			counts[idx] = 0
 
-	return filtered_df[['peak_idx']]#counts
+	return filtered_df[[tp_key]]
 
 
 def plot_cooccurences(expression_combined_polar_data_df, small_combined_polar_data_df,
@@ -172,16 +175,22 @@ def plot_cooccurences(expression_combined_polar_data_df, small_combined_polar_da
 	if branch == 'mother':
 		bins_to_include = ["MG1", "postG1"]
 		g1_key = 'MG1'
+		bin_key = 'bin_t'
+		tp_key = 'peak_idx_t'
 	else:
 		g1_key = 'DG1'
 		bins_to_include = ["DG1", "postG1"]
+		bin_key = 'bin_b'
+		tp_key = 'peak_idx_b'
 
-	expression_peak_counts = count_peak_idx_by_bin(expression_combined_polar_data_df, bins_to_include)
-	small_peak_counts = count_peak_idx_by_bin(small_combined_polar_data_df, bins_to_include)
+	expression_peak_counts = count_peak_idx_by_bin(expression_combined_polar_data_df, bins_to_include,
+		bin_key, tp_key)
+	small_peak_counts = count_peak_idx_by_bin(small_combined_polar_data_df, bins_to_include,
+		bin_key, tp_key)
 	joined_counts_data = expression_peak_counts.join(small_peak_counts, lsuffix='_tx', 
 		rsuffix='_small', how='outer')
 
-	counts_mat = create_peak_idx_co_occurrence_matrix(joined_counts_data)
+	counts_mat = create_peak_idx_co_occurrence_matrix(joined_counts_data, tp_key, bin_key)
 
 	fig, axes = create_subplot_grid()
 
@@ -231,7 +240,7 @@ def plot_cooccurences(expression_combined_polar_data_df, small_combined_polar_da
 
 	top_ax.fill_between([0, 41.5], [1, 1], [0, 0], color=g1_color, linewidth=0)
 	top_ax.fill_between([41.5, 63], [1, 1], [0, 0], color=postg1_color, linewidth=0)
-	top_ax.fill_between([63, 64], [1, 1], [0, 0], color='#aaa', linewidth=0)
+	top_ax.fill_between([63, 64], [1, 1], [0, 0], color='#555', linewidth=0)
 	top_ax.set_xlabel("Peak promoter occupancy time", labelpad=5)
 
 	left_ax = axes['left']
@@ -240,18 +249,20 @@ def plot_cooccurences(expression_combined_polar_data_df, small_combined_polar_da
 
 	left_ax.fill_betweenx([0, 41.5], [1, 1], [0, 0], color=g1_color, linewidth=0)
 	left_ax.fill_betweenx([41.5, 63], [1, 1], [0, 0], color=postg1_color, linewidth=0)
-	left_ax.fill_betweenx([63, 64], [1, 1], [0, 0], color='#aaa', linewidth=0)
+	left_ax.fill_betweenx([63, 64], [1, 1], [0, 0], color='#555', linewidth=0)
 	left_ax.set_ylabel("Peak expression time", labelpad=5)
 
 	def plt_text(ax, x, y, text, rotate=False):
 		rotation = 90 if rotate else 0
 		ax.text(x, y, text, rotation=rotation, va='center', ha='center', color='white',
 					fontfamily='Open Sans', fontweight='demi')
-		
-	plt_text(left_ax, 0.54, 22, g1_key, rotate=True)
+
+	g1_name = g1_key.replace("D", ' Daughter ').replace("M", " Mother")
+
+	plt_text(left_ax, 0.54, 22, g1_name, rotate=True)
 	plt_text(left_ax, 0.54, 52, "S/G2/M", rotate=True)
 
-	plt_text(top_ax, 22, 0.45, g1_key)
+	plt_text(top_ax, 22, 0.45, g1_name)
 	plt_text(top_ax, 52, 0.45, "S/G2/M")
 
 	right_ax = axes['right']
@@ -266,6 +277,6 @@ def plot_cooccurences(expression_combined_polar_data_df, small_combined_polar_da
 	cbar.ax.set_yticks(yticks)
 	cbar.ax.set_yticklabels(yticklabels)
 
-	plt.suptitle(f"{branch.title()} branch expression, promoter co-occurences", y=1.12)
+	plt.suptitle(f"{branch.title()} branch expression/promoter co-occurences", y=1.12)
 
-	return fig, counts_mat
+	return fig, joined_counts_data, counts_mat
