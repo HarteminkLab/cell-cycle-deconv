@@ -28,22 +28,22 @@ class PromoterExpressionShiftAnalysis:
 
 	def compute_high_std_promoter_orfs_set(self):
 
-		def _filter_to_high_std_genes(small_promoter_occupancies_df, indices, percentile=0.75):
+		def _filter_to_high_std_genes(small_promoter_occupancies_df, indices, percentile):
 				small_stds = small_promoter_occupancies_df[indices].std(1)
 				qval = np.quantile(small_stds, q=percentile)
 				high_std_genes = small_stds[small_stds >= qval].index
 				return small_stds, high_std_genes, qval
 
-		percentile = 0.75
+		percentile = 0.5
 		config = self.config1
 		small_promoter_occupancies_df = self.chromatin_analysis.small_promoter_occupancies_df
 		t_indices = config.t_indices()
 		b_indices = config.b_indices()
 
 		b_stds, high_b_std_genes, b_qv = _filter_to_high_std_genes(small_promoter_occupancies_df, 
-																  b_indices)
+																  b_indices, percentile=percentile)
 		t_stds, high_t_std_genes, t_qv = _filter_to_high_std_genes(small_promoter_occupancies_df, 
-																  t_indices)
+																  t_indices, percentile=percentile)
 
 		plt.figure(figsize=(9, 3))
 		plt.subplot(1, 2, 1)
@@ -60,7 +60,9 @@ class PromoterExpressionShiftAnalysis:
 
 		high_std_genes = set(high_b_std_genes).intersection(high_t_std_genes)
 
-		plt.suptitle(f"Promoter occupancy $\sigma$ bottom branch, 75th percentile",
+		print(f"Percentile values for threshold (top/bottom): {t_qv:.2f}, {b_qv:.2f}")
+
+		plt.suptitle(f"Promoter occupancy $\sigma$ bottom branch, {percentile*100} percentile",
 					 y=1.1, fontsize=16)
 
 		# The individual standard deviations and sets of genes
@@ -111,20 +113,29 @@ class PromoterExpressionShiftAnalysis:
 			
 			return filtered_gene_subsets
 
-		self.b_filtered_gene_subsets = _filter_gene_subsets(self.gene_subsets, 
-			self.high_b_std_genes)
-		self.t_filtered_gene_subsets = _filter_gene_subsets(self.gene_subsets, 
-			self.high_t_std_genes)
+		print("todo: This step allows us to justify the minimum std to classify a promoter"
+			  " with binding dynamics as activating or repressing")
+		# self.b_filtered_gene_subsets = _filter_gene_subsets(self.gene_subsets, 
+		# 	self.high_b_std_genes)
+		# self.t_filtered_gene_subsets = _filter_gene_subsets(self.gene_subsets, 
+		# 	self.high_t_std_genes)
+		self.b_filtered_gene_subsets = self.gene_subsets
+		self.t_filtered_gene_subsets = self.gene_subsets
 
 
-	def compute_promoter_expression_correlations(self):
+	def compute_promoter_expression_correlations(self, debug=False):
 
 		from src.chromatin_expression_optimal_shift import ExpressionCorrelationAnalyzer
 		from src.timer import Timer
 
 		expressions_df = self.expression_analysis.deconvolved_genes_F
 		small_occupancies = self.chromatin_analysis.small_promoter_occupancies_df
-		max_shift = len(self.config1.t_indices())//4
+
+		if debug:
+			expressions_df = expressions_df.iloc[:100]
+			small_occupancies = small_occupancies.iloc[:100]
+
+		max_shift = len(self.config1.t_indices())//2
 
 		timer = Timer()
 

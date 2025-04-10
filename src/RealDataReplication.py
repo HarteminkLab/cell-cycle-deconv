@@ -643,16 +643,18 @@ def read_g(chrom, deconv_span, replicate):
 	return g
 
 
-def read_n_fr_b(chrom, deconv_span, replicate):
+def read_n_fr_b(chrom, deconv_span, replicate, log=True):
 
 	# Trial replication profile from 2/17/25 run
 
-	print_fl(f"Loading single replication profile, 3/1/25")
+	if log:
+		print_fl(f"Loading single replication profile, 3/1/25")
 
 	single_directory = 'output/prototype_pipeline_subset/single_replication'
 	combined_directory = 'output/prototype_pipeline_subset/combined_replication'
 
-	print_fl("Trial N, need to use combined N curve")
+	if log:
+		print_fl("Trial N, need to use combined N curve")
 
 	N = np.load(f'{single_directory}/rep{replicate}_chr{4}_N.npy')
 
