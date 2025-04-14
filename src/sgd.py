@@ -67,14 +67,18 @@ def get_gene_name(orf_name, genes=read_sgd_genes()):
 	return get_gene(orf_name, genes).gene
 
 
-def get_gene_title_name(orf_name, genes=read_sgd_genes()):
+def get_gene_title_name(orf_name, genes=read_sgd_genes(), include_system=True):
 	"""For displaying gene names, avoid displaying None"""
 	gene_name = get_gene_name(orf_name, genes)
 
 	if gene_name is None:
 		gene_title = ("$\\it{" + orf_name + "}$")
 	else:
-		gene_title = ("$\\it{" + gene_name + "}$ / $\\it{" + orf_name + "}$")
+
+		if include_system:
+			gene_title = ("$\\it{" + gene_name + "}$ / $\\it{" + orf_name + "}$")
+		else:
+			gene_title = ("$\\it{" + gene_name + "}$")
 
 	return gene_title
 

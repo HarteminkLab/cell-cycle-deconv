@@ -3,6 +3,9 @@ import pandas as pd
 import numpy as np
 import matplotlib.pyplot as plt
 
+from src.peak_to_trough import compute_quantile_ptr_2d
+from scipy import stats
+
 class PolarPlot:
 	def __init__(self):
 		"""Initialize the PolarPlot class with empty data."""
@@ -13,7 +16,7 @@ class PolarPlot:
 		self.ylims = -.5, 4
 		
 	def set_data(self, data, tp_key='peak_idx', ampl_key='ptr', bin_key='bin',
-		min_time=0, max_time=64):
+		min_time=0, suffix='', max_time=64):
 		"""
 		Set the data for the polar plot.
 		
@@ -30,12 +33,13 @@ class PolarPlot:
 		self.max_time = max_time
 
 		# Convert timepoints to polar angles
-		angles = self._convert_to_polar_angles(self.data[tp_key])
-		self.data['angle'] = angles
-
-		self.tp_key = tp_key
-		self.ampl_key = ampl_key
-		self.bin_key = bin_key
+		peak_angles = self._convert_to_polar_angles(self.data['peak_idx'+suffix])
+		trough_angles = self._convert_to_polar_angles(self.data['trough_idx'+suffix])
+		self.data['peak_angle'] = peak_angles
+		self.data['trough_angle'] = trough_angles
+		self.tp_key = tp_key+suffix
+		self.ampl_key = ampl_key+suffix
+		self.bin_key = bin_key+suffix
 		
 	def _convert_to_polar_angles(self, data):
 		"""
@@ -58,7 +62,8 @@ class PolarPlot:
 		angles = 2 * np.pi * (np.array(data) - self.min_time) / (self.max_time - self.min_time)
 		return angles
 	
-	def plot(self, g1_key, ax=None, threshold=None, figsize=(4, 4)):
+	def plot(self, g1_key, ax=None, threshold=None, figsize=(4, 4),
+		plot_skew_cat=False):
 		"""
 		Plot the polar plot data
 		"""
@@ -79,11 +84,30 @@ class PolarPlot:
 		thresholded_data = self.data[self.data[bin_key].isin(bins_to_plot)]
 		below_thresholded_data = self.data[self.data[bin_key] == 'Not cell cycle']
 
-		self.ax.scatter(thresholded_data.angle, thresholded_data[self.ampl_key], s=2, c='#777', zorder=2)
-		self.ax.scatter(below_thresholded_data.angle, below_thresholded_data[self.ampl_key], s=2, c='#bbb', zorder=2)
+		# The default color for cell cycle genes
+		default_color = '#777'
+
+		self.ax.scatter(thresholded_data.peak_angle, thresholded_data[self.ampl_key], s=2, c=default_color, 
+			zorder=2)
+
+		# For skewed data, as in gene expression, we have the option to plot
+		# the genes that peak and trough differently
+		if plot_skew_cat:
+			peak_color = default_color #plt.cm.Reds(0.65)
+			trough_color = plt.cm.Blues(0.65)
+
+			sel = thresholded_data.cell_cycle_skew_t == 'peak'
+			skew_data = thresholded_data.loc[sel]
+			self.ax.scatter(skew_data.peak_angle, skew_data[self.ampl_key], s=2, color=peak_color, zorder=2)
+
+			sel = thresholded_data.cell_cycle_skew_t == 'trough'
+			skew_data = thresholded_data.loc[sel]
+			self.ax.scatter(skew_data.trough_angle, skew_data[self.ampl_key], s=2, color=trough_color, zorder=2)
+
+		self.ax.scatter(below_thresholded_data.peak_angle, below_thresholded_data[self.ampl_key], s=2, c='#bbb', zorder=2)
 		self.ax.set_ylim(*self.ylims)
 
-		add_radius_circle(ax, threshold, lw=1, ls='solid', color='red', zorder=2, alpha=0.5)
+		add_radius_circle(ax, threshold, lw=0.75, ls='solid', color='black', zorder=2, alpha=0.5)
 
 		xticks = np.arange(0, 64, 8)
 		xtick_angles = self._convert_to_polar_angles(xticks)
@@ -133,18 +157,17 @@ class PolarPlot:
 
 
 def plot_polar_branches_data(expression_combined_polar_data_df,
-		tx_ptr_threshold, tx_qval, title, ylims):
-	fig, axs = plt.subplots(1, 2, figsize=(8, 4), 
+		tx_ptr_threshold, tx_qval, title, ylims, tp_key='peak', plot_skew_cat=False):
+	fig, axs = plt.subplots(1, 2, figsize=(7.5, 4), 
 		subplot_kw={'projection': 'polar'})
 	from src.polar_plotter import add_filled_circle, add_radius_circle
 
 	# Mother branch
-
 	polar_plotter = PolarPlot()
 	polar_plotter.ylims = ylims
 	polar_plotter.set_data(expression_combined_polar_data_df,
-		tp_key='peak_idx_t', ampl_key='ptr_t', bin_key='bin_t')
-	polar_plotter.plot('MG1', axs[0], threshold=tx_ptr_threshold)
+		suffix='_t')
+	polar_plotter.plot('MG1', axs[0], threshold=tx_ptr_threshold, plot_skew_cat=plot_skew_cat)
 
 	axs[0].set_title("Mother branch")
 
@@ -152,13 +175,12 @@ def plot_polar_branches_data(expression_combined_polar_data_df,
 
 	polar_plotter = PolarPlot()
 	polar_plotter.ylims = ylims
-	polar_plotter.set_data(expression_combined_polar_data_df,
-		tp_key='peak_idx_b', ampl_key='ptr_b', bin_key='bin_b')
-	polar_plotter.plot('DG1', axs[1], threshold=tx_ptr_threshold)
-	plt.subplots_adjust(wspace=0.25, top=0.75)
+	polar_plotter.set_data(expression_combined_polar_data_df, suffix='_b')
+	polar_plotter.plot('DG1', axs[1], threshold=tx_ptr_threshold, plot_skew_cat=plot_skew_cat)
+	plt.subplots_adjust(wspace=0.125, top=0.7)
 	axs[1].set_title("Daughter branch")
 
-	plt.suptitle(f"{title} PTRs, threshold: {tx_ptr_threshold:.2f} (perc. {tx_qval*100:.0f})",
+	plt.suptitle(f"{title} PTRs,\nthreshold: {tx_ptr_threshold:.2f} (perc. {tx_qval*100:.0f})",
 				fontsize=16)
 
 
@@ -182,23 +204,36 @@ def add_filled_circle(ax, radius, **kwargs):
 	theta = np.linspace(0, 2*np.pi, 100)
 	ax.fill_between(theta, np.ones_like(theta) * radius, 0, **kwargs)
 
+def prep_polar_plot_data(branch_expressions, g1_phase_key, eps):
 
-from src.peak_to_trough import compute_quantile_ptr_2d
+	lo = 0.1
+	hi = 0.9
+	branch_expressions = branch_expressions.copy()
+	branch_expressions.columns = np.arange(len(branch_expressions.columns))
+	branch_ptrs = compute_quantile_ptr_2d(branch_expressions, eps=eps, lo=lo, hi=hi)
+	branch_peak_idx = branch_expressions.idxmax(1)
+	branch_trough_idx = branch_expressions.idxmin(1)
+	branch_polar_data_df = pd.DataFrame({
+		'peak_idx': branch_peak_idx, 
+		'trough_idx': branch_trough_idx,
+		'skew': stats.skew(branch_expressions, axis=1),
+		'mean': branch_expressions.mean(1),
+		'ptr': branch_ptrs},
+		index=branch_expressions.index)
 
-def prep_polar_plot_data(t_expressions, g1_phase_key, eps):
-	t_expressions = t_expressions.copy()
-	t_expressions.columns = np.arange(len(t_expressions.columns))
-	t_ptrs = compute_quantile_ptr_2d(t_expressions, eps=eps)
-	t_peak_idx = t_expressions.idxmax(1)
-	t_polar_data_df = pd.DataFrame({'peak_idx': t_peak_idx, 'ptr': t_ptrs},
-								  index=t_expressions.index)
-	t_polar_data_df['phase'] = g1_phase_key
-	t_polar_data_df.loc[t_polar_data_df.peak_idx >= 44, 'phase'] = 'postG1'
+	# Assign peak phase based on location of peak index
+	branch_polar_data_df['peak_phase'] = g1_phase_key
+	branch_polar_data_df.loc[branch_polar_data_df.peak_idx >= 44, 'peak_phase'] = 'postG1'
 
-	return t_polar_data_df
+	# Assign peak phase based on location of trough index
+	branch_polar_data_df['trough_phase'] = g1_phase_key
+	branch_polar_data_df.loc[branch_polar_data_df.trough_idx >= 44, 'trough_phase'] = 'postG1'
+
+	return branch_polar_data_df
 
 
-def create_combined_ptr_data_set(gene_data, config1, q_threshold, eps):
+def create_combined_ptr_data_set(gene_data, config1, q_threshold, eps, assign_p_or_t=False,
+	skew_threshold=None):
 	# Sort through the polar data and assign the genes into MG1, DG1, or postG1 based
 	# on highest PTR
 	b_polar_data_df = prep_polar_plot_data(gene_data[config1.b_indices()],
@@ -211,9 +246,46 @@ def create_combined_ptr_data_set(gene_data, config1, q_threshold, eps):
 
 	# For each branch, assign to the non-cell cycle bin if below the ptr threshold
 	def assign_bin(polar_data_df, threshold):
-		bin_assignments = polar_data_df['phase'].values
-		bin_assignments[polar_data_df.ptr < threshold] = 'Not cell cycle'
-		return bin_assignments
+
+		bin_assignments = polar_data_df['peak_phase'].copy()
+
+		# For trough genes, assign based on trough location
+		if assign_p_or_t:
+			trough_genes = polar_data_df[polar_data_df.cell_cycle_skew == 'trough'].index
+			bin_assignments.loc[trough_genes] = polar_data_df.loc[trough_genes, 'trough_phase']
+
+		bin_assignments.loc[polar_data_df.ptr < threshold] = 'Not cell cycle'
+
+		return bin_assignments.values
+
+	def classify_peak_or_trough_genes(polar_data_df, skew_threshold=None, ptr_threshold=None):
+		"""Classifies cell cycle genes as peak or trough based on skew, default to 'even' 
+		if the gene is balanced, or "Not cell Cycle" if the gene is not a cell cycle gene"""
+		
+		polar_data_df = polar_data_df.copy()
+
+		polar_data_df['peak_or_trough_gene'] = None
+		
+		# Default to even, equally balanced skew
+		polar_data_df['peak_or_trough_gene'] = 'even'
+		
+		# If positive skew, skews positive and is a peaky gene
+		polar_data_df.loc[(polar_data_df['skew'] > skew_threshold), 'peak_or_trough_gene'] = 'peak'
+		
+		# If negative skew, skews positive and is a troughy gene
+		polar_data_df.loc[(polar_data_df['skew'] < -skew_threshold), 'peak_or_trough_gene'] = 'trough'
+		
+		# Set non-cell cycle genes to not cell cycling category
+		# Both the peak phase and trough phase will be not cell cycle so set on checking either
+		polar_data_df.loc[(polar_data_df.ptr < ptr_threshold), 'peak_or_trough_gene'] = 'Not cell cycle'
+
+		return polar_data_df['peak_or_trough_gene']
+
+	if assign_p_or_t:
+		b_polar_data_df['cell_cycle_skew'] = classify_peak_or_trough_genes(b_polar_data_df, 
+			skew_threshold, ptr_threshold)
+		t_polar_data_df['cell_cycle_skew'] = classify_peak_or_trough_genes(t_polar_data_df, 
+			skew_threshold, ptr_threshold)
 
 	b_polar_data_df['bin'] = assign_bin(b_polar_data_df, ptr_threshold)
 	t_polar_data_df['bin'] = assign_bin(t_polar_data_df, ptr_threshold)
@@ -222,3 +294,21 @@ def create_combined_ptr_data_set(gene_data, config1, q_threshold, eps):
 	combined_polar_data_df = t_polar_data_df.join(b_polar_data_df, lsuffix='_t', rsuffix='_b')
 
 	return combined_polar_data_df, ptr_threshold
+
+
+def plot_skew(polar_data_df, skew_threshold=0.25):
+    
+    plt.figure(figsize=(8, 2))
+    plt.subplot(1, 2, 1)
+    plt.hist(polar_data_df.skew_t, bins=12)
+    plt.title("Mother")
+    plt.axvline(skew_threshold, c='red', lw=1, ls='dotted')
+    plt.axvline(-skew_threshold, c='red', lw=1, ls='dotted')
+
+    plt.subplot(1, 2, 2)
+    plt.hist(polar_data_df.skew_b, bins=12)
+    plt.axvline(skew_threshold, c='red', lw=1, ls='dotted')
+    plt.axvline(-skew_threshold, c='red', lw=1, ls='dotted')
+    plt.title("Daughter")    
+    plt.suptitle("Gene expression skew")
+

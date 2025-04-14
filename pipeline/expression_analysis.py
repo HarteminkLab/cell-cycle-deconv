@@ -200,3 +200,62 @@ def filter_threshold_genes(cg1_dg1_data, cg1_dg1_boundary_func, min_y=10, min_x=
 	boundary_check[boundary_check.meets_cg1_threshold]
 	return boundary_check
 
+
+
+def plot_skew_cell_cycle_groups(config1, analysis, expression_combined_polar_data_df):
+	"""Plot the gene expression groups based on skew, signifying which genes are peak vs trough genes
+	in each category."""
+
+	gene_expression_t = analysis.deconvolved_genes_F[config1.t_indices()]
+
+	def select_skew_gene_expression(gene_expression_branch, meta_data, skew_group_name,
+					suffix='_t', phase=None):
+
+		selected_orfs = meta_data[(meta_data[f'cell_cycle_skew{suffix}'] == skew_group_name) &
+								 (meta_data[f'bin{suffix}'] == phase)].index
+
+		sel_expression = gene_expression_branch.loc[selected_orfs]
+		sel_expression_normalized = sel_expression.copy()
+
+		sel_expression_normalized.loc[:] =  sel_expression.values-sel_expression.values.min(1)\
+		[:, None]
+		sel_expression_normalized.loc[:] =  sel_expression_normalized.values/\
+		   sel_expression_normalized.values.max(1)[:, None]
+
+		sel_expression_normalized.loc[:] =  sel_expression.values-\
+		   sel_expression.values.mean(1)[:, None]
+		return sel_expression_normalized
+
+	def plot_expression_group(skew_group, phase):
+		peak_expression_t_normalized = select_skew_gene_expression(gene_expression_t,
+			expression_combined_polar_data_df, skew_group, suffix='_t', phase=phase)
+		plt.plot(peak_expression_t_normalized.T.values, c='gray')
+		plt.title(f"{skew_group.replace('even', 'Balanced').title()} {phase} genes, {len(peak_expression_t_normalized)}")
+		plt.xticks([])
+		plt.yticks([])    
+		return peak_expression_t_normalized
+
+	plt.figure(figsize=(18, 7))
+
+	plt.subplot(2, 3, 1)
+	plot_expression_group('peak', 'MG1')
+
+
+	plt.subplot(2, 3, 2)
+	trough_t_mg1_genes = plot_expression_group('trough', 'MG1')
+
+	plt.subplot(2, 3, 3)
+	plot_expression_group('even', 'MG1')
+
+	plt.subplot(2, 3, 4)
+	plot_expression_group('peak', 'postG1')
+
+	plt.subplot(2, 3, 5)
+	plot_expression_group('trough', 'postG1')
+
+	plt.subplot(2, 3, 6)
+	plot_expression_group('even', 'postG1')
+
+	plt.subplots_adjust(hspace=0.3, wspace=0.1)
+	plt.suptitle("Cell cycle gene classifications, Peak/Trough")
+	0

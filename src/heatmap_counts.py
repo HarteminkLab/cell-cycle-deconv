@@ -3,9 +3,11 @@ import pandas as pd
 import matplotlib.pyplot as plt
 import numpy as np
 from matplotlib import colors
+from src.plot_helpers import color_for_key
+
 
 def create_subplot_grid(fig_size=(4, 4), main_size=(0.9, 0.9), 
-						margin=0.05):
+						margin=0.05, cbar_ax=True):
 	"""
 	Create a custom subplot grid with a main plot and three marginal plots
 	(one on the left, one on top, and one on the right).
@@ -21,7 +23,12 @@ def create_subplot_grid(fig_size=(4, 4), main_size=(0.9, 0.9),
 	main_width, main_height = main_size
 	top_height = 1 - main_height - margin
 	left_width = 1 - main_width - margin
-	right_width = left_width  # Make right width same as left width
+
+	if cbar_ax:
+		right_width = left_width  # Make right width same as left width
+	else:
+		right_width = 0
+		main_right_padding = 0
 	
 	# Calculate positions
 	left_pos = margin
@@ -37,10 +44,10 @@ def create_subplot_grid(fig_size=(4, 4), main_size=(0.9, 0.9),
 	right_ax = plt.axes([left_padding+left_pos + left_width + main_width+main_right_padding, bottom_pos, right_width, main_height])
 	
 	# Remove ticks from marginal plots
-	for ax in [left_ax, top_ax, right_ax]:
+	for ax in [left_ax, top_ax, right_ax, main_ax]:
 		ax.set_xticks([])
 		ax.set_yticks([])
-	
+
 	top_ax.xaxis.set_label_position('top')
 	
 	# Store axes in a dictionary for easy access
@@ -170,7 +177,7 @@ def count_peak_idx_by_bin(df, bins_to_include, bin_key, tp_key,
 
 
 def plot_cooccurences(expression_combined_polar_data_df, small_combined_polar_data_df,
-	branch='mother'):
+	branch='mother', metric='metric'):
 
 	if branch == 'mother':
 		bins_to_include = ["MG1", "postG1"]
@@ -225,7 +232,7 @@ def plot_cooccurences(expression_combined_polar_data_df, small_combined_polar_da
 
 	for idx, entry in quadrant_counts.iterrows():
 		ax.text(entry.text_x, entry.text_y, f"{entry['count']:.0f}",
-			fontfamily='Open Sans', fontsize=12, color='black', alpha=0.5)
+			fontfamily='Open Sans', fontsize=12, fontweight='demi', color='black', alpha=0.25)
 
 	# Plot annotations along top and left
 
@@ -234,36 +241,8 @@ def plot_cooccurences(expression_combined_polar_data_df, small_combined_polar_da
 	g1_color = color_for_key(g1_key)
 	postg1_color = color_for_key('postG1')
 
-	top_ax = axes['top']
-	top_ax.set_xlim(0, 64)
-	top_ax.set_ylim(0, 1)
-
-	top_ax.fill_between([0, 41.5], [1, 1], [0, 0], color=g1_color, linewidth=0)
-	top_ax.fill_between([41.5, 63], [1, 1], [0, 0], color=postg1_color, linewidth=0)
-	top_ax.fill_between([63, 64], [1, 1], [0, 0], color='#555', linewidth=0)
-	top_ax.set_xlabel("Peak promoter occupancy time", labelpad=5)
-
-	left_ax = axes['left']
-	left_ax.set_ylim(64, 0)
-	left_ax.set_xlim(0, 1)
-
-	left_ax.fill_betweenx([0, 41.5], [1, 1], [0, 0], color=g1_color, linewidth=0)
-	left_ax.fill_betweenx([41.5, 63], [1, 1], [0, 0], color=postg1_color, linewidth=0)
-	left_ax.fill_betweenx([63, 64], [1, 1], [0, 0], color='#555', linewidth=0)
-	left_ax.set_ylabel("Peak expression time", labelpad=5)
-
-	def plt_text(ax, x, y, text, rotate=False):
-		rotation = 90 if rotate else 0
-		ax.text(x, y, text, rotation=rotation, va='center', ha='center', color='white',
-					fontfamily='Open Sans', fontweight='demi')
-
-	g1_name = g1_key.replace("D", ' Daughter ').replace("M", " Mother")
-
-	plt_text(left_ax, 0.54, 22, g1_name, rotate=True)
-	plt_text(left_ax, 0.54, 52, "S/G2/M", rotate=True)
-
-	plt_text(top_ax, 22, 0.45, g1_name)
-	plt_text(top_ax, 52, 0.45, "S/G2/M")
+	annotate_top_ax(axes['top'])
+	annotate_left_ax(axes['left'])
 
 	right_ax = axes['right']
 
@@ -277,6 +256,45 @@ def plot_cooccurences(expression_combined_polar_data_df, small_combined_polar_da
 	cbar.ax.set_yticks(yticks)
 	cbar.ax.set_yticklabels(yticklabels)
 
-	plt.suptitle(f"{branch.title()} branch expression/promoter co-occurences", y=1.12)
+	plt.suptitle(f"{branch.title()} branch expression/{metric} timing", y=1.12)
 
 	return fig, joined_counts_data, counts_mat
+
+def _add_annotation_text(ax, x, y, text, rotate=False):
+	rotation = 90 if rotate else 0
+	ax.text(x, y, text, rotation=rotation, va='center', ha='center', color='white',
+				fontfamily='Open Sans', fontweight='demi')
+
+def annotate_top_ax(top_ax, label="Peak time", g1_key='CG1'):
+	top_ax.set_xlim(0, 64.5)
+	top_ax.set_ylim(0, 1)
+
+	g1_color = color_for_key(g1_key)
+	postg1_color = color_for_key('postG1')
+
+	top_ax.fill_between([0, 41.5], [1, 1], [0, 0], color=g1_color, linewidth=0)
+	top_ax.fill_between([41.5, 63.5], [1, 1], [0, 0], color=postg1_color, linewidth=0)
+	top_ax.fill_between([63.5, 64.5], [1, 1], [0, 0], color='#555', linewidth=0)
+	top_ax.set_xlabel(label, labelpad=5)
+
+	g1_name = g1_key.replace("D", ' Daughter ').replace("M", " Mother")
+
+	_add_annotation_text(top_ax, 22, 0.45, g1_name)
+	_add_annotation_text(top_ax, 52, 0.45, "S/G2/M")
+
+def annotate_left_ax(left_ax, label='Peak expression time', g1_key='CG1'):
+	left_ax.set_ylim(64.5, 0)
+	left_ax.set_xlim(0, 1)
+
+	g1_color = color_for_key(g1_key)
+	postg1_color = color_for_key('postG1')
+
+	g1_name = g1_key.replace("D", ' Daughter ').replace("M", " Mother")
+
+	left_ax.fill_betweenx([0, 41.5], [1, 1], [0, 0], color=g1_color, linewidth=0)
+	left_ax.fill_betweenx([41.5, 63.5], [1, 1], [0, 0], color=postg1_color, linewidth=0)
+	left_ax.fill_betweenx([63.5, 64.5], [1, 1], [0, 0], color='#555', linewidth=0)
+	left_ax.set_ylabel("Peak expression time", labelpad=5)
+
+	_add_annotation_text(left_ax, 0.54, 22, g1_name, rotate=True)
+	_add_annotation_text(left_ax, 0.54, 52, "S/G2/M", rotate=True)
