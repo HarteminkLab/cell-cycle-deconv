@@ -20,6 +20,43 @@ class CopyCorrectionAnalysis():
 		windows = pd.read_csv('data/reference_data/sacCer3_genome_10k_windows.csv')
 		self.windows = windows
 
+	
+	def load_means_all_chromosomes(self):
+
+		from src.timer import Timer
+
+		timer = Timer()
+		all_cc_b_means = []
+		all_no_cc_means = []
+		all_repl_times = []
+		
+		for chrom in range(1, 17):
+
+			print(f"Chromosome {chrom}", end='...')
+			self.load_chromosome(chrom=chrom)
+			self.load_replication_timing()
+
+			def _add_chrom_to_index(dat, chrom):
+				dat.index.name = 'start'
+				new_dat = dat.reset_index()
+				new_dat['chr'] = chrom
+				new_dat = new_dat.set_index(['chr', 'start'])
+				return new_dat
+
+			chrom_cc_w_b_means = _add_chrom_to_index(self.chrom_b_copy_corrected_means_df, chrom)
+			chrom_no_cc_means = _add_chrom_to_index(self.chrom_no_cc_means_df, chrom)
+			chrom_repl_times = _add_chrom_to_index(self.chrom_replication_times, chrom)
+
+			all_cc_b_means.append(chrom_cc_w_b_means)
+			all_no_cc_means.append(chrom_no_cc_means)
+			all_repl_times.append(chrom_repl_times)
+			
+			timer.print_time()
+
+		(self.all_cell_cycle_b_means, self.all_no_cell_cycle_means,
+		 self.all_replication_times) = (pd.concat(all_cc_b_means), 
+		 	pd.concat(all_no_cc_means), pd.concat(all_repl_times))
+
 	def load_chromosome(self, chrom):
 
 		self.chrom = chrom
@@ -67,14 +104,14 @@ class CopyCorrectionAnalysis():
 		self.chrom_cc_means_df = pd.DataFrame(self.chrom_cc_means, index=starts)
 		self.chrom_b_copy_corrected_means = self.chrom_cc_means_df.values * \
 			self.chrom_bs_df.values[:, None]
-		self.chrom_b_copy_corrected_means_df = pd.DataFrame(self.chrom_cc_means_df, index=starts)
+		self.chrom_b_copy_corrected_means_df = pd.DataFrame(self.chrom_b_copy_corrected_means, index=starts)
 
 		# To avoid memory issues, we'll delete the data after it has been loaded
 		del F_data_cc
 		del F_data_no_cc
 
 
-	def plot_heatmap_comparison(self):
+	def plot_heatmap_comparison(self, plot_chrom):
 		from src.config import load_default_expression_configs
 
 		config1, config2 = load_default_expression_configs()
@@ -85,36 +122,40 @@ class CopyCorrectionAnalysis():
 
 		nrows = 4
 
+		plot_chrom_cc_means_df = self.all_cell_cycle_b_means.loc[plot_chrom].values
+		plot_chrom_nocc_means_df = self.all_no_cell_cycle_means.loc[plot_chrom].values
+		replication_timing = self.all_replication_times.loc[plot_chrom]
+
 		plt.subplot(nrows, 1, 1)
-		plt.imshow(self.chrom_no_cc_means.T[\
+		plt.imshow(plot_chrom_cc_means_df.T[\
 			branch_indices], 
 			vmin=0, vmax=2, cmap='RdBu_r', aspect='auto', interpolation='none')
 		plt.xticks([])
 		plt.title("No copy correction", fontsize=12)
 
 		plt.subplot(nrows, 1, 2)
-		plt.imshow(self.chrom_b_copy_corrected_means.T[\
+		plt.imshow(plot_chrom_nocc_means_df.T[\
 			branch_indices], 
 			vmin=0, vmax=2, cmap='RdBu_r', aspect='auto', interpolation='none')
 		plt.xticks([])
 		plt.title("With copy correction", fontsize=12)
 
 		plt.subplot(nrows, 1, 3)
-		plt.imshow((self.chrom_b_copy_corrected_means-\
-						self.chrom_no_cc_means).T[\
+		plt.imshow((plot_chrom_nocc_means_df-\
+						plot_chrom_cc_means_df).T[\
 			branch_indices], 
 			vmin=-1, vmax=1, cmap='RdBu_r', aspect='auto', interpolation='none')
 		plt.xticks([])
 		plt.title("No copy correction - Copy correction", fontsize=12)
 
 		plt.subplot(nrows, 1, 4)
-		plt.plot(self.chrom_replication_times.index,
-				 self.chrom_replication_times.replication_time)
+		plt.plot(replication_timing.index,
+				 replication_timing.replication_time)
 		plt.ylim(60, 30)
 		plt.xlim(0, self.chrom_windows.start.values[-1])
 		plt.title("Replication time", fontsize=12)
 
-		plt.suptitle(f"Copy correction affect on chromatin deconvolution, chrom{self.chrom} 10kb means",
+		plt.suptitle(f"Copy correction affect on chromatin deconvolution, chrom{plot_chrom} 10kb means",
 			fontsize=16)
 
 		plt.tight_layout()
@@ -123,7 +164,6 @@ class CopyCorrectionAnalysis():
 	def plot_sample_curves(self):
 		copy_correction_ptr_comparison_t = self.ptrs_df[\
 			['cc_ptr_t', 'no_cc_ptr_t']]
-		copy_correction_ptr_comparison_t
 
 		repl_ptrs_df = copy_correction_ptr_comparison_t.join(
 			self.chrom_replication_times)
@@ -141,13 +181,13 @@ class CopyCorrectionAnalysis():
 
 		def _plot_window(window_idx):
 			tps = config1.get_timepoints_for_branch('t')
-			plt.plot(tps, self.chrom_no_cc_means_df\
+			plt.plot(tps, self.all_no_cell_cycle_means\
 						 .loc[window_idx][indices] / no_cc_mean,
 					color='black',
 					lw=1,
 					ls=(5, (1, 1)),
 					label="No copy correction")
-			plt.plot(tps, self.chrom_b_copy_corrected_means_df\
+			plt.plot(tps, self.all_cell_cycle_b_means\
 						 .loc[window_idx][indices] / cc_mean,
 					color=plt.cm.Reds(0.6),
 					lw=2,
@@ -173,21 +213,21 @@ class CopyCorrectionAnalysis():
 		from src.RealDataReplication import load_replication_Fr_df, load_B_df
 
 		def _retrieve_closest_replication_bin(source_starts, target_starts):
-		    """
-		    Convert the target 10kb start positions to the replication start positions.
-		    
-		    Source starts are the full replication window start values that the profile 
-		    estimations were computed over. These are 10kb windows 2kb apart
-		    
-		    The target starts are the 10kb window delineations from the chromatin deconvolution.
-		    These are 10kb windows 10kb apart.
-		    """
-		    from src.mnase_10kb_loader import get_bin_for_position
+			"""
+			Convert the target 10kb start positions to the replication start positions.
+			
+			Source starts are the full replication window start values that the profile 
+			estimations were computed over. These are 10kb windows 2kb apart
+			
+			The target starts are the 10kb window delineations from the chromatin deconvolution.
+			These are 10kb windows 10kb apart.
+			"""
+			from src.mnase_10kb_loader import get_bin_for_position
 
-		    # Get the midpoint of the target start positions
-		    mid_10ks = target_starts + 5000 # fixed 10kb windows/2
-		    closest_source_starts = [get_bin_for_position(row, source_starts)[1] for row in mid_10ks]
-		    return closest_source_starts
+			# Get the midpoint of the target start positions
+			mid_10ks = target_starts + 5000 # fixed 10kb windows/2
+			closest_source_starts = [get_bin_for_position(row, source_starts)[1] for row in mid_10ks]
+			return closest_source_starts
 
 		# Retrieve the 10kb/2kb replication timings and b values
 		Fr_df, replication_indices = load_replication_Fr_df(self.output_directory, self.chrom)
@@ -198,7 +238,7 @@ class CopyCorrectionAnalysis():
 
 		# Retrieve the closest bin starts to the start indices from the deconvolution
 		closest_starts = _retrieve_closest_replication_bin(b_df.index.values, 
-		    self.chrom_starts)
+			self.chrom_starts)
 
 		selected_replication_indices = replication_indices.loc[closest_starts].values
 
@@ -220,8 +260,8 @@ class CopyCorrectionAnalysis():
 
 		from src.peak_to_trough import compute_quantile_ptr_2d
 
-		cc_means = self.chrom_b_copy_corrected_means
-		no_cc_means = self.chrom_no_cc_means_df.values
+		cc_means = self.all_cell_cycle_b_means.values
+		no_cc_means = self.all_no_cell_cycle_means.values
 
 		cc_ptrs = compute_quantile_ptr_2d(cc_means)
 		no_cc_ptrs = compute_quantile_ptr_2d(no_cc_means)
@@ -239,7 +279,6 @@ class CopyCorrectionAnalysis():
 		i_cc_ptrs = compute_quantile_ptr_2d(cc_means[:, i_indices])
 		i_no_cc_ptrs = compute_quantile_ptr_2d(no_cc_means[:, i_indices])
 
-
 		self.ptrs_df = pd.DataFrame({
 			'cc_ptr_all': cc_ptrs,
 			'no_cc_ptr_all': no_cc_ptrs,
@@ -252,54 +291,58 @@ class CopyCorrectionAnalysis():
 
 			'cc_ptr_i': i_cc_ptrs,
 			'no_cc_ptr_i': i_no_cc_ptrs,
-		}, index=self.chrom_starts)
+		}, index=self.all_cell_cycle_b_means.index)
 
 
 	def plot_branch_ptrs(self):
 
-		window_replication_times = self.chrom_replication_times
-
-		def plot_ptrs(no_cc_ptrs, cc_ptrs):
-			plt.plot([0, 2], [0, 2], c='black', lw=0.75)
-			plt.scatter(no_cc_ptrs, cc_ptrs, s=12, alpha=1, 
-						edgecolor='gray', facecolor='none')
+		def plot_ptrs(no_cc_ptrs, cc_ptrs, plot_replication_times_df):
+			plt.plot([0, 2], [0, 2], c='black', lw=0.75, ls='dotted')
 			plt.scatter(no_cc_ptrs, cc_ptrs, s=10, alpha=1, 
-						c=window_replication_times.replication_time[:len(no_cc_ptrs)],
+						edgecolor='gray', facecolor='none')
+			plt.scatter(no_cc_ptrs, cc_ptrs, s=8, alpha=1, 
+						c=plot_replication_times_df.replication_time,
 					   cmap='RdBu', vmin=30, vmax=60)
-			plt.xlim(1, 1.3)
-			plt.ylim(1, 1.3)
+			plt.xlim(1, 1.4)
+			plt.ylim(1, 1.4)
 			plt.xlabel("No correction, PTRs")
 			plt.ylabel("Copy corrected, PTRs")
 			plt.colorbar()
 
-		no_cc_ptrs = self.ptrs_df['no_cc_ptr_all']
-		cc_ptrs = self.ptrs_df['cc_ptr_all']
+		np.random.seed(123)
+		random_indices = np.random.permutation(self.ptrs_df.index)
 
-		i_no_cc_ptrs = self.ptrs_df['no_cc_ptr_i']
-		i_cc_ptrs = self.ptrs_df['cc_ptr_i']
+		plot_ptrs_df = self.ptrs_df.loc[random_indices]
+		plot_replication_times_df = self.all_replication_times.loc[random_indices]
 
-		t_no_cc_ptrs = self.ptrs_df['no_cc_ptr_t']
-		t_cc_ptrs = self.ptrs_df['cc_ptr_t']
+		no_cc_ptrs = plot_ptrs_df['no_cc_ptr_all']
+		cc_ptrs = plot_ptrs_df['cc_ptr_all']
 
-		b_no_cc_ptrs = self.ptrs_df['no_cc_ptr_b']
-		b_cc_ptrs = self.ptrs_df['cc_ptr_b']
+		i_no_cc_ptrs = plot_ptrs_df['no_cc_ptr_i']
+		i_cc_ptrs = plot_ptrs_df['cc_ptr_i']
+
+		t_no_cc_ptrs = plot_ptrs_df['no_cc_ptr_t']
+		t_cc_ptrs = plot_ptrs_df['cc_ptr_t']
+
+		b_no_cc_ptrs = plot_ptrs_df['no_cc_ptr_b']
+		b_cc_ptrs = plot_ptrs_df['cc_ptr_b']
 
 		plt.figure(figsize=(9, 8))
 		plt.subplot(2, 2, 1)
-		plot_ptrs(no_cc_ptrs, cc_ptrs)
+		plot_ptrs(no_cc_ptrs, cc_ptrs, plot_replication_times_df)
 		plt.title("All branches")
 
 		plt.subplot(2, 2, 2)
-		plot_ptrs(i_no_cc_ptrs, i_cc_ptrs)
+		plot_ptrs(i_no_cc_ptrs, i_cc_ptrs, plot_replication_times_df)
 		plt.title("Recovery")
 
 		plt.subplot(2, 2, 3)
-		plot_ptrs(t_no_cc_ptrs, t_cc_ptrs)
+		plot_ptrs(t_no_cc_ptrs, t_cc_ptrs, plot_replication_times_df)
 		plt.title("Top")
 
 		plt.subplot(2, 2, 4)
-		plot_ptrs(b_no_cc_ptrs, b_cc_ptrs)
+		plot_ptrs(b_no_cc_ptrs, b_cc_ptrs, plot_replication_times_df)
 		plt.title("Bottom")
 
-		plt.suptitle(f"PTR comparison, chr{self.chrom} 10kb means", fontsize=16, y=0.97)
+		plt.suptitle(f"PTR change from copy correction", fontsize=16, y=0.97)
 		plt.tight_layout()
