@@ -20,6 +20,18 @@ class CopyCorrectionAnalysis():
 		windows = pd.read_csv('data/reference_data/sacCer3_genome_10k_windows.csv')
 		self.windows = windows
 
+
+	def initialize_replication_time_colormaps(self):
+
+		import matplotlib as mpl
+		norm = mpl.colors.Normalize(vmin=30, vmax=60)
+		cmap = plt.cm.RdBu  # The _r suffix reverses the colormap
+
+		# Create a ScalarMappable object with the colormap
+		self.repl_sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
+		self.repl_cmap = cmap
+		self.repl_norm = norm
+
 	
 	def load_means_all_chromosomes(self):
 
@@ -55,7 +67,7 @@ class CopyCorrectionAnalysis():
 
 		(self.all_cell_cycle_b_means, self.all_no_cell_cycle_means,
 		 self.all_replication_times) = (pd.concat(all_cc_b_means), 
-		 	pd.concat(all_no_cc_means), pd.concat(all_repl_times))
+			pd.concat(all_no_cc_means), pd.concat(all_repl_times))
 
 	def load_chromosome(self, chrom):
 
@@ -124,7 +136,15 @@ class CopyCorrectionAnalysis():
 
 		plot_chrom_cc_means_df = self.all_cell_cycle_b_means.loc[plot_chrom].values
 		plot_chrom_nocc_means_df = self.all_no_cell_cycle_means.loc[plot_chrom].values
+
 		replication_timing = self.all_replication_times.loc[plot_chrom]
+
+		# Load the full replication timing for reference
+		from src.RealDataReplication import load_replication_Fr_df
+		Fr_df, replication_indices = load_replication_Fr_df(self.output_directory, plot_chrom)
+		rep1_timing = config1.timepoints_df.set_index('Hpos').loc[replication_indices]
+		rep2_timing = config2.timepoints_df.set_index('Hpos').loc[replication_indices]
+		mean_replication_timing = ((rep1_timing + rep2_timing)/2).mean(1)
 
 		plt.subplot(nrows, 1, 1)
 		plt.imshow(plot_chrom_cc_means_df.T[\
@@ -149,10 +169,9 @@ class CopyCorrectionAnalysis():
 		plt.title("No copy correction - Copy correction", fontsize=12)
 
 		plt.subplot(nrows, 1, 4)
-		plt.plot(replication_timing.index,
-				 replication_timing.replication_time)
-		plt.ylim(60, 30)
-		plt.xlim(0, self.chrom_windows.start.values[-1])
+		plt.plot(replication_indices.index, mean_replication_timing)
+		plt.ylim(68, 26)
+		plt.xlim(0, replication_indices.index[-1])
 		plt.title("Replication time", fontsize=12)
 
 		plt.suptitle(f"Copy correction affect on chromatin deconvolution, chrom{plot_chrom} 10kb means",
@@ -160,51 +179,89 @@ class CopyCorrectionAnalysis():
 
 		plt.tight_layout()
 
+	def select_example_windows(self):
+		copy_correction_ptr_comparison_t = self.ptrs_df[\
+			['cc_ptr_t', 'no_cc_ptr_t']]
+		repl_ptrs_df = copy_correction_ptr_comparison_t.join(
+			self.all_replication_times)
+		sorted_repl_ptrs = repl_ptrs_df.sort_values('replication_time')
+		self.early_windows = [sorted_repl_ptrs.iloc[i].name for i in [21, 33, 67]]
+		self.late_windows = [sorted_repl_ptrs.iloc[i].name for i in [-28, -16, -30]]
 
 	def plot_sample_curves(self):
 		copy_correction_ptr_comparison_t = self.ptrs_df[\
 			['cc_ptr_t', 'no_cc_ptr_t']]
-
 		repl_ptrs_df = copy_correction_ptr_comparison_t.join(
-			self.chrom_replication_times)
-
+			self.all_replication_times)
 		sorted_repl_ptrs = repl_ptrs_df.sort_values('replication_time')
 
-		early_window = sorted_repl_ptrs.iloc[10].name
-		late_window = sorted_repl_ptrs.iloc[-6].name
+		early_windows = self.early_windows
+		late_windows = self.late_windows
 
-		window_idx = early_window
 		indices = config1.t_indices()
 
 		no_cc_mean = self.chrom_no_cc_means_df.mean().mean()
 		cc_mean = self.chrom_b_copy_corrected_means_df.mean().mean()
 
-		def _plot_window(window_idx):
-			tps = config1.get_timepoints_for_branch('t')
-			plt.plot(tps, self.all_no_cell_cycle_means\
+		from src.config import get_average_timepoints_for_branch
+
+		tps = get_average_timepoints_for_branch(config1, config2, 't')
+
+		def _plot_window(ax, window_idx, show_xticks, show_yticks, color):
+			ax.plot(tps, self.all_no_cell_cycle_means\
 						 .loc[window_idx][indices] / no_cc_mean,
-					color='black',
-					lw=1,
-					ls=(5, (1, 1)),
+					color='#555555',
+					lw=2,
+					ls=(0, (1, 1)),
 					label="No copy correction")
-			plt.plot(tps, self.all_cell_cycle_b_means\
+			ax.plot(tps, self.all_cell_cycle_b_means\
 						 .loc[window_idx][indices] / cc_mean,
-					color=plt.cm.Reds(0.6),
+					color=color,
 					lw=2,
 					label="With copy correction")
-			plt.ylim(0, 2)
+			ax.set_ylim(-0.5, 2)
+			ax.set_xlim(tps[0], tps[-1])
+			ax.axhline(1, c='black', lw=0.25)
+			if not show_xticks: 
+				ax.set_xticks([])
+			else:
+				ax.set_xlabel("Average single cell time, minutes")
+			if not show_yticks: 
+				ax.set_yticks([])
+			else:
+				ax.set_ylabel("Average occupancy")
 
-		plt.figure(figsize=(9, 4))
-		plt.subplot(1, 2, 1)
-		_plot_window(early_window)
-		plt.title("Early replicating window")
+		nrows = len(early_windows)
 
-		plt.subplot(1, 2, 2)
-		_plot_window(late_window)
-		plt.title("Late replicating window")
-		plt.legend()
+		fig, axs = plt.subplots(nrows, 2, figsize=(6, 6))
 
-		plt.suptitle("Mother branch correction examples")
+		for row in range(nrows):
+			early_window, late_window = early_windows[row], late_windows[row]
+
+			early_repl_time = self.all_replication_times.loc[early_window].replication_time
+			early_color = self.lookup_color_for_repl_time(early_repl_time)
+
+			late_repl_time = self.all_replication_times.loc[late_window].replication_time
+			late_color = self.lookup_color_for_repl_time(late_repl_time)
+
+			row_ax = axs[row]
+			mid = early_window[1]
+			_plot_window(row_ax[0], early_window, show_yticks=True, show_xticks=(row==nrows-1),
+				color=early_color)
+			row_ax[0].set_title(f"Early {row+1}, chr{early_window[0]}: {mid-5000}-{mid+5000}")
+
+			if row == 0:
+				row_ax[0].legend(loc='lower right')
+
+			mid = late_window[1]
+			_plot_window(row_ax[1], late_window, show_yticks=False, show_xticks=(row==nrows-1),
+				color=late_color)
+			row_ax[1].set_title(f"Late {row+1}: chr{late_window[0]}: {mid-5000}-{mid+5000}")
+
+			if row == 0:
+				row_ax[1].legend(loc='lower right')
+
+		plt.suptitle("Example copy correction occupancy", fontsize=16)
 		plt.tight_layout()
 
 
@@ -293,56 +350,47 @@ class CopyCorrectionAnalysis():
 			'no_cc_ptr_i': i_no_cc_ptrs,
 		}, index=self.all_cell_cycle_b_means.index)
 
+	def plot_ptrs(self, key_1, key_2):
+		ptrs1 = self.ptrs_df[key_1]
+		ptrs2 = self.ptrs_df[key_2]
+		plot_replication_times_df = self.all_replication_times
+		plt.plot([0, 2], [0, 2], c='black', lw=0.75, ls='dotted')
+		plt.scatter(ptrs1, ptrs2, s=10, alpha=1, 
+					edgecolor='gray', facecolor='none')
+		plt.scatter(ptrs1, ptrs2, s=8, alpha=1, 
+					c=plot_replication_times_df.replication_time,
+					cmap=self.repl_cmap, norm=self.repl_norm)
+		plt.xlim(1, 1.4)
+		plt.ylim(1, 1.4)
+		plt.xlabel("No correction, PTRs")
+		plt.ylabel("Copy corrected, PTRs")
+		plt.colorbar()
 
 	def plot_branch_ptrs(self):
 
-		def plot_ptrs(no_cc_ptrs, cc_ptrs, plot_replication_times_df):
-			plt.plot([0, 2], [0, 2], c='black', lw=0.75, ls='dotted')
-			plt.scatter(no_cc_ptrs, cc_ptrs, s=10, alpha=1, 
-						edgecolor='gray', facecolor='none')
-			plt.scatter(no_cc_ptrs, cc_ptrs, s=8, alpha=1, 
-						c=plot_replication_times_df.replication_time,
-					   cmap='RdBu', vmin=30, vmax=60)
-			plt.xlim(1, 1.4)
-			plt.ylim(1, 1.4)
-			plt.xlabel("No correction, PTRs")
-			plt.ylabel("Copy corrected, PTRs")
-			plt.colorbar()
-
-		np.random.seed(123)
-		random_indices = np.random.permutation(self.ptrs_df.index)
-
-		plot_ptrs_df = self.ptrs_df.loc[random_indices]
-		plot_replication_times_df = self.all_replication_times.loc[random_indices]
-
-		no_cc_ptrs = plot_ptrs_df['no_cc_ptr_all']
-		cc_ptrs = plot_ptrs_df['cc_ptr_all']
-
-		i_no_cc_ptrs = plot_ptrs_df['no_cc_ptr_i']
-		i_cc_ptrs = plot_ptrs_df['cc_ptr_i']
-
-		t_no_cc_ptrs = plot_ptrs_df['no_cc_ptr_t']
-		t_cc_ptrs = plot_ptrs_df['cc_ptr_t']
-
-		b_no_cc_ptrs = plot_ptrs_df['no_cc_ptr_b']
-		b_cc_ptrs = plot_ptrs_df['cc_ptr_b']
-
 		plt.figure(figsize=(9, 8))
 		plt.subplot(2, 2, 1)
-		plot_ptrs(no_cc_ptrs, cc_ptrs, plot_replication_times_df)
+		self.plot_ptrs('no_cc_ptr_all', 'cc_ptr_all')
 		plt.title("All branches")
 
 		plt.subplot(2, 2, 2)
-		plot_ptrs(i_no_cc_ptrs, i_cc_ptrs, plot_replication_times_df)
+		self.plot_ptrs('no_cc_ptr_i', 'cc_ptr_i')
 		plt.title("Recovery")
 
 		plt.subplot(2, 2, 3)
-		plot_ptrs(t_no_cc_ptrs, t_cc_ptrs, plot_replication_times_df)
+		self.plot_ptrs('no_cc_ptr_t', 'cc_ptr_t')
 		plt.title("Top")
 
 		plt.subplot(2, 2, 4)
-		plot_ptrs(b_no_cc_ptrs, b_cc_ptrs, plot_replication_times_df)
+		self.plot_ptrs('no_cc_ptr_b', 'cc_ptr_b')
 		plt.title("Bottom")
 
 		plt.suptitle(f"PTR change from copy correction", fontsize=16, y=0.97)
 		plt.tight_layout()
+
+
+	def lookup_color_for_repl_time(self, value, alpha=1.0):
+		normalized_value = self.repl_norm(value)
+		rgba_color = self.repl_cmap(normalized_value)
+		rgba_color = rgba_color[0], rgba_color[1], rgba_color[2], alpha
+		return rgba_color

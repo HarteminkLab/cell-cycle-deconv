@@ -532,6 +532,12 @@ def load_cloccs_configs(config_type='distinct', mode='chromatin', shift_CLOCCS=T
 	return config1, config2
 
 
+def get_average_timepoints_for_branch(config1, config2, branch):
+	tp1 = config1.get_timepoints_for_branch(branch)
+	tp2 = config2.get_timepoints_for_branch(branch)
+	return (tp1+tp2)/2.
+
+
 def load_default_expression_configs(config_type='distinct'):
 	return load_default_configs(config_type=config_type, mode='expression')
 
