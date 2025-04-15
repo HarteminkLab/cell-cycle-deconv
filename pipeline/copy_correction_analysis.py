@@ -70,6 +70,7 @@ class CopyCorrectionAnalysis():
 		self.chrom_cc_means_df = pd.DataFrame(self.chrom_cc_means, index=starts)
 		self.chrom_b_copy_corrected_means = self.chrom_cc_means_df.values * \
 			self.chrom_bs_df.values
+		self.chrom_b_copy_corrected_means_df = pd.DataFrame(self.chrom_cc_means_df, index=starts)
 
 		self.chrom_starts = starts
 
@@ -78,27 +79,99 @@ class CopyCorrectionAnalysis():
 		del F_data_no_cc
 
 
-	def plot_sample_curves():
-		# from src.config import load_default_chrom_configs
+	def plot_heatmap_comparison(self):
+		from src.config import load_default_expression_configs
 
-		# plt.figure(figsize=(16, 4))
-		# plt.subplot(1, 2, 1)
-		# plt.plot(predicted_G_copy_corrected.mean((1)), label="Copy corrected G")
-		# plt.plot(predicted_G_no_copy_corrected.mean((1)), label="Not copy corrected G")
-		# plt.plot(raw_G_mean, label="Raw data curve")
-		# plt.ylim(0, 2)
-		# plt.legend()
-		# plt.title(f"Predicted G curves, chr{chrom}: {mnase_span[0]}-{mnase_span[1]}")
+		config1, config2 = load_default_expression_configs()
 
-		# plt.subplot(1, 2, 2)
-		# plt.plot(imgs_cc.mean((1, 2))[b_indices]*b, label="Copy corrected")
-		# plt.plot(imgs_no_cc.mean((1, 2))[b_indices], label="No copy correction")
-		# plt.legend()
-		# plt.title(f"10kb means, chr{chrom}: {mnase_span[0]}-{mnase_span[1]}")
-		# plt.ylim(0, 2)
-		# # Maybe it will be more normal looking when N H and B are involved
-		# # We would then expect the curve to be more leveled out for the predicted values of G...
-		pass
+		branch_indices = config1.t_indices()
+			
+		fig = plt.figure(figsize=(13, 9))
+
+		nrows = 4
+
+		plt.subplot(nrows, 1, 1)
+		plt.imshow(self.chrom_no_cc_means.T[\
+			branch_indices], 
+			vmin=0, vmax=2, cmap='RdBu_r', aspect='auto', interpolation='none')
+		plt.xticks([])
+		plt.title("No copy correction", fontsize=12)
+
+		plt.subplot(nrows, 1, 2)
+		plt.imshow(self.chrom_b_copy_corrected_means.T[\
+			branch_indices], 
+			vmin=0, vmax=2, cmap='RdBu_r', aspect='auto', interpolation='none')
+		plt.xticks([])
+		plt.title("With copy correction", fontsize=12)
+
+		plt.subplot(nrows, 1, 3)
+		plt.imshow((self.chrom_b_copy_corrected_means-\
+						self.chrom_no_cc_means).T[\
+			branch_indices], 
+			vmin=-1, vmax=1, cmap='RdBu_r', aspect='auto', interpolation='none')
+		plt.xticks([])
+		plt.title("No copy correction - Copy correction", fontsize=12)
+
+		plt.subplot(nrows, 1, 4)
+		plt.plot(self.chrom_replication_times.start,
+				 self.chrom_replication_times.replication_time)
+		plt.ylim(70, 35)
+		plt.xlim(0, self.chrom_windows.start.values[-1])
+		plt.title("Replication time", fontsize=12)
+
+		plt.suptitle(f"Copy correction affect on chromatin deconvolution, chrom{self.chrom} 10kb means",
+			fontsize=16)
+
+		plt.tight_layout()
+
+
+	def plot_sample_curves(self):
+		copy_correction_ptr_comparison_t = self.ptrs_df[\
+			['cc_ptr_t', 'no_cc_ptr_t']]
+		copy_correction_ptr_comparison_t
+
+		repl_ptrs_df = copy_correction_ptr_comparison_t.join(
+			self.chrom_replication_times.set_index('start'))
+
+		sorted_repl_ptrs = repl_ptrs_df.sort_values('replication_time')
+
+		early_window = sorted_repl_ptrs.iloc[10].name
+		late_window = sorted_repl_ptrs.iloc[-6].name
+
+		window_idx = early_window
+		indices = config1.t_indices()
+
+		no_cc_mean = self.chrom_no_cc_means_df.mean().mean()
+		cc_mean = self.chrom_b_copy_corrected_means_df.mean().mean()
+
+		def _plot_window(window_idx):
+			tps = config1.get_timepoints_for_branch('t')
+			plt.plot(tps, self.chrom_no_cc_means_df\
+						 .loc[window_idx][indices] / no_cc_mean,
+					color='black',
+					lw=1,
+					ls=(5, (1, 1)),
+					label="No copy correction")
+			plt.plot(tps, self.chrom_b_copy_corrected_means_df\
+						 .loc[window_idx][indices] / cc_mean,
+					color=plt.cm.Reds(0.6),
+					lw=2,
+					label="With copy correction")
+			plt.ylim(0, 2)
+
+		plt.figure(figsize=(9, 4))
+		plt.subplot(1, 2, 1)
+		_plot_window(early_window)
+		plt.title("Early replicating window")
+
+		plt.subplot(1, 2, 2)
+		_plot_window(late_window)
+		plt.title("Late replicating window")
+		plt.legend()
+
+		plt.suptitle("Mother branch correction examples")
+		plt.tight_layout()
+
 
 	def load_replication_timing(self):
 		from src.RealDataReplication import read_n_fr_b, read_no_copy_correction_n_fr_b
@@ -169,7 +242,7 @@ class CopyCorrectionAnalysis():
 						edgecolor='gray', facecolor='none')
 			plt.scatter(no_cc_ptrs, cc_ptrs, s=10, alpha=1, 
 						c=window_replication_times.replication_time[:len(no_cc_ptrs)],
-					   cmap='Spectral', vmin=40, vmax=60)
+					   cmap='RdBu', vmin=40, vmax=60)
 			plt.xlim(1, 1.3)
 			plt.ylim(1, 1.3)
 			plt.xlabel("No correction, PTRs")

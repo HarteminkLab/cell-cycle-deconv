@@ -643,13 +643,30 @@ def read_g(chrom, deconv_span, replicate):
 	return g
 
 
+def load_replication_Fr_df(output_dir, chrom):
+	combined_directory = f'{output_dir}/combined_replication'
+	Fr_df = pd.read_csv(f'{combined_directory}/combined_chr{chrom}_F.csv')
+	Fr_df = Fr_df[Fr_df.columns[1:]]
+	Fr_df.columns = Fr_df.columns.astype(int)
+
+	replication_indices = Fr_df.idxmax(0)
+
+	return Fr_df, replication_indices
+
+def load_B_df(output_dir, chrom, starts):
+	B = np.load(f'{output_dir}/combined_replication/combined_chr{chrom}_B.npy')
+	b_df = pd.DataFrame(np.diag(B), columns=['b'], index=starts)
+	return B, b_df['b']
+
+
 def read_n_fr_b(chrom, deconv_span, replicate, log=True):
 
 	# Trial replication profile from 2/17/25 run
 
 	if log:
-		print_fl(f"Loading single replication profile, 3/1/25")
+		print_fl(f"todo: Loading prototype pipeline replication data")
 
+	output_dir = 'output/prototype_pipeline_subset'
 	single_directory = 'output/prototype_pipeline_subset/single_replication'
 	combined_directory = 'output/prototype_pipeline_subset/combined_replication'
 
@@ -658,19 +675,12 @@ def read_n_fr_b(chrom, deconv_span, replicate, log=True):
 
 	N = np.load(f'{single_directory}/rep{replicate}_chr{4}_N.npy')
 
-	Fr_df = pd.read_csv(f'{combined_directory}/combined_chr{chrom}_F.csv')
-	B = np.load(f'{combined_directory}/combined_chr{chrom}_B.npy')
-
-	# Fix the column names
-	Fr_df = Fr_df[Fr_df.columns[1:]]
-	Fr_df.columns = Fr_df.columns.astype(int)
-
-	B_df = pd.DataFrame(np.diag(B), index=Fr_df.columns)
-
+	Fr_df, _ = load_replication_Fr_df(output_dir, chrom)
 	start_indices = Fr_df.columns
 
-	mid_span = (deconv_span[0]+deconv_span[1])/2
+	B, B_df = load_B_df(output_dir, chrom, start_indices)
 
+	mid_span = (deconv_span[0]+deconv_span[1])/2
 	bin_idx, start = get_bin_for_position(mid_span, start_indices)
 
 	fr = Fr_df[start].values
