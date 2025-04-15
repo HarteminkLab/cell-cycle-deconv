@@ -32,7 +32,6 @@ class CopyCorrectionAnalysis():
 
 		F_data_cc = np.zeros((n, 149, 26000))
 		F_data_no_cc = np.zeros((n, 149, 26000))
-		bs = np.zeros(n)
 
 		i = 0
 
@@ -40,8 +39,6 @@ class CopyCorrectionAnalysis():
 		for idx, row in windows[:-1].iterrows():
 
 			mnase_span = row.start, row.end+1
-			_, _, f_replication, b = read_n_fr_b(row.chr, mnase_span, 1, log=False)
-			bs[i] = b
 			
 			try:
 				data_no_cc = np.load(f"{chr1_no_cc_data_directory}/chr{row.chr}_{mnase_span[0]}_{mnase_span[1]}_F.npy")
@@ -61,18 +58,16 @@ class CopyCorrectionAnalysis():
 		self.chrom_windows = windows
 		self.chrom_cc_means = F_data_cc.mean(axis=2)
 		self.chrom_no_cc_means = F_data_no_cc.mean(axis=2)
-		self.chrom_bs = bs
 
 		starts = self.chrom_windows['start']
+		self.chrom_starts = starts
 
-		self.chrom_bs_df = pd.DataFrame(self.chrom_bs, index=starts, columns=['b'])
+		self.load_replication_timing()
 		self.chrom_no_cc_means_df = pd.DataFrame(self.chrom_no_cc_means, index=starts)
 		self.chrom_cc_means_df = pd.DataFrame(self.chrom_cc_means, index=starts)
 		self.chrom_b_copy_corrected_means = self.chrom_cc_means_df.values * \
-			self.chrom_bs_df.values
+			self.chrom_bs_df.values[:, None]
 		self.chrom_b_copy_corrected_means_df = pd.DataFrame(self.chrom_cc_means_df, index=starts)
-
-		self.chrom_starts = starts
 
 		# To avoid memory issues, we'll delete the data after it has been loaded
 		del F_data_cc
@@ -113,9 +108,9 @@ class CopyCorrectionAnalysis():
 		plt.title("No copy correction - Copy correction", fontsize=12)
 
 		plt.subplot(nrows, 1, 4)
-		plt.plot(self.chrom_replication_times.start,
+		plt.plot(self.chrom_replication_times.index,
 				 self.chrom_replication_times.replication_time)
-		plt.ylim(70, 35)
+		plt.ylim(60, 30)
 		plt.xlim(0, self.chrom_windows.start.values[-1])
 		plt.title("Replication time", fontsize=12)
 
@@ -131,7 +126,7 @@ class CopyCorrectionAnalysis():
 		copy_correction_ptr_comparison_t
 
 		repl_ptrs_df = copy_correction_ptr_comparison_t.join(
-			self.chrom_replication_times.set_index('start'))
+			self.chrom_replication_times)
 
 		sorted_repl_ptrs = repl_ptrs_df.sort_values('replication_time')
 
@@ -174,24 +169,52 @@ class CopyCorrectionAnalysis():
 
 
 	def load_replication_timing(self):
-		from src.RealDataReplication import read_n_fr_b, read_no_copy_correction_n_fr_b
+
+		from src.RealDataReplication import load_replication_Fr_df, load_B_df
+
+		def _retrieve_closest_replication_bin(source_starts, target_starts):
+		    """
+		    Convert the target 10kb start positions to the replication start positions.
+		    
+		    Source starts are the full replication window start values that the profile 
+		    estimations were computed over. These are 10kb windows 2kb apart
+		    
+		    The target starts are the 10kb window delineations from the chromatin deconvolution.
+		    These are 10kb windows 10kb apart.
+		    """
+		    from src.mnase_10kb_loader import get_bin_for_position
+
+		    # Get the midpoint of the target start positions
+		    mid_10ks = target_starts + 5000 # fixed 10kb windows/2
+		    closest_source_starts = [get_bin_for_position(row, source_starts)[1] for row in mid_10ks]
+		    return closest_source_starts
+
+		# Retrieve the 10kb/2kb replication timings and b values
+		Fr_df, replication_indices = load_replication_Fr_df(self.output_directory, self.chrom)
+		B, b_df = load_B_df(self.output_directory, self.chrom, Fr_df.columns)
+
+		# The copy correction is performed on the 10kb windows, thus convert to 
+		# a lower resolution set of start positions
+
+		# Retrieve the closest bin starts to the start indices from the deconvolution
+		closest_starts = _retrieve_closest_replication_bin(b_df.index.values, 
+		    self.chrom_starts)
+
+		selected_replication_indices = replication_indices.loc[closest_starts].values
+
+		rep1_timing = config1.timepoints_df.set_index('Hpos').loc[selected_replication_indices]
+		rep2_timing = config2.timepoints_df.set_index('Hpos').loc[selected_replication_indices]
+		mean_replication_timing = ((rep1_timing + rep2_timing)/2).mean(1) # mean of two replicates and the start and end
+
+		self.chrom_replication_times = pd.DataFrame({
+			'replication_index': selected_replication_indices,
+			'replication_time': mean_replication_timing.values
+		}, index=self.chrom_starts.values)
 
 
-		chrom = self.chrom
-		windows = self.chrom_windows
-		# Retrieve the replication timings for each window
-		window_replication_times = windows.copy()
-		for win_idx, window_entry in windows.iterrows():
-			chrom = window_entry.chr
-			mnase_span = window_entry.start, window_entry.end
-			_, _, f_replication, b = read_n_fr_b(chrom, mnase_span, 1, log=False)
-			window_replication_times.loc[win_idx, 'replication_index'] = f_replication.argmax()
-		rep1_tp_lookup = config1.timepoints_df.set_index('Hpos')[['timepoint_start']]
-		rep1_tps = [rep1_tp_lookup.loc[int(r_idx)].values[0] for r_idx in window_replication_times.replication_index]
-		window_replication_times['replication_time'] = rep1_tps
+		self.chrom_bs_df = b_df.loc[closest_starts]
+		self.full_replication_indices = replication_indices
 
-		window_replication_times.sort_values('replication_time')
-		self.chrom_replication_times = window_replication_times
 
 	def compute_ptrs(self):
 
@@ -242,7 +265,7 @@ class CopyCorrectionAnalysis():
 						edgecolor='gray', facecolor='none')
 			plt.scatter(no_cc_ptrs, cc_ptrs, s=10, alpha=1, 
 						c=window_replication_times.replication_time[:len(no_cc_ptrs)],
-					   cmap='RdBu', vmin=40, vmax=60)
+					   cmap='RdBu', vmin=30, vmax=60)
 			plt.xlim(1, 1.3)
 			plt.ylim(1, 1.3)
 			plt.xlabel("No correction, PTRs")
