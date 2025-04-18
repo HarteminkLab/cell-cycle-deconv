@@ -198,13 +198,13 @@ class TwoDimensionalPTRAnalysis:
 
 				intersection_size = int(self.heatmap_data['intersection_sizes'][i, j])
 
-				lp_value = log_pvalues[j, i]
+				lp_value = log_pvalues[i, j]
 				text = str(intersection_size)
 
 				if lp_value > 10:
-					collect.append((plot_y_position, plot_x_position, lp_value))
+					collect.append((plot_x_position, plot_y_position, lp_value))
 
-				ax.text(plot_y_position, plot_x_position, text,
+				ax.text(plot_x_position, plot_y_position, text,
 					   ha='center', va='center', 
 					   color='white' if lp_value < \
 					   self.pval_vmax*0.75 else 'black',
