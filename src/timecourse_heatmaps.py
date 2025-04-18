@@ -40,11 +40,9 @@ class CellCycleHeatmapPlotter:
 		self.b_indices = config.b_indices()
 		
 		# Load wild-type data if not provided
-		if wt_data is None:
-			self.wt_data = load_gene_expression_data(1)
-		else:
-			self.wt_data = wt_data
-			
+		self.wt_data1 = load_gene_expression_data(1)
+		self.wt_data2 = load_gene_expression_data(2)
+
 		# Define colormap and normalization to be used consistently across all plots
 		self.norm = mpl.colors.Normalize(vmin=-1.5, vmax=1.5)
 		self.cmap = plt.cm.RdBu_r
@@ -96,8 +94,9 @@ class CellCycleHeatmapPlotter:
 		# Print summary statistics
 		print(f"There are {len(self.dg1_only)} DG1 only genes and {len(self.mg1_only)} MG1 only genes")
 		print(f"and {len(self.remaining_cell_cycle)} that are cell cycling but not DG1/MG1 specific")
+
 	
-	def plot_wt(self, sorted_indices):
+	def plot_wt(self, wt_data, sorted_indices, xticks=True, xlabel=False):
 		"""
 		Plot the wild-type heatmap for the given sorted indices.
 		
@@ -106,13 +105,23 @@ class CellCycleHeatmapPlotter:
 		sorted_indices : array-like
 			Indices to use for sorting the data
 		"""
-		wt1_data_log2fold = self.wt_data.copy()
-		wt1_data_log2fold.loc[:] = np.log2((self.wt_data.values+1) / 
-									  (self.wt_data.mean(1).values[:, None]+1))
-		plt.imshow(wt1_data_log2fold.loc[sorted_indices], aspect='auto',
-				  cmap=self.cmap, norm=self.norm)
-		plt.xticks([])
+		extent = [0, int(wt_data.columns[-1]), 0, len(wt_data)]
+		wt_data_log2fold = wt_data.copy()
+		wt_data_log2fold.loc[:] = np.log2((wt_data.values+1) / 
+									  (wt_data.mean(1).values[:, None]+1))
+		plt.imshow(wt_data_log2fold.loc[sorted_indices], aspect='auto',
+				  cmap=self.cmap, norm=self.norm, extent=extent)
+
+		if not xticks:
+			plt.xticks([])
+		else:
+			plt.xticks(np.arange(0, int(wt_data.columns[-1])+10, 40))
+
+		if xlabel:
+			plt.xlabel("Experiment time, min")
+
 		plt.yticks([])
+
 	
 	def retrieve_data_to_plot_heatmap(self, sel_rows, sort_key):
 		"""
@@ -140,7 +149,7 @@ class CellCycleHeatmapPlotter:
 		return tx_logfold, indices_sorted
 	
 
-	def plot_im(self, sel_rows, sort_key, indices):
+	def plot_im(self, sel_rows, sort_key, indices, plot_xticks=False):
 		"""
 		Plot a heatmap image for the given selection and indices.
 		
@@ -160,15 +169,20 @@ class CellCycleHeatmapPlotter:
 		indices_sorted : array-like
 			Sorted indices
 		"""
+
 		dat, indices_sorted = self.retrieve_data_to_plot_heatmap(sel_rows, sort_key)
+		extent = [0, dat.shape[1], 0, dat.shape[0]]
+
 		plt.imshow(dat[:, indices], cmap=self.cmap, aspect='auto', 
 				   norm=self.norm)
-		plt.xticks([])
+		if not plot_xticks:
+			plt.xticks([])
+
 		plt.yticks([])
 		return dat, indices_sorted
 	
 
-	def plot_heatmaps(self, row_heights=None, figsize=(11, 6)):
+	def plot_heatmaps(self, row_heights=None, figsize=(11, 13)):
 		"""
 		Plot heatmaps with configurable row heights.
 		
@@ -186,7 +200,7 @@ class CellCycleHeatmapPlotter:
 			The figure containing the heatmaps
 		"""
 		nrows = 3
-		ncols = 4
+		ncols = 5
 		
 		# Set default row heights if not provided
 		if row_heights is None:
@@ -200,31 +214,44 @@ class CellCycleHeatmapPlotter:
 		
 		# Define a function to plot each row
 		def plot_row(group_name, selection, sort_key, row_idx):
+
 			# Wild-type plot (first column)
 			plt.subplot(gs[row_idx, 0])
 			dat, indices_sorted = self.retrieve_data_to_plot_heatmap(selection, sort_key)
-			self.plot_wt(indices_sorted)
-			plt.ylabel(group_name, rotation=0, ha='right', fontsize=12)
+			self.plot_wt(self.wt_data1, indices_sorted, xticks=(row_idx == 2),
+				xlabel=(row_idx==2))
+			plt.ylabel(group_name, rotation=0, va='center', ha='right', fontsize=16)
 			if row_idx == 0:
-				plt.title("Wild-type 1", fontsize=13)
+				plt.title("Wild-type 1", fontsize=14, y=1.05)
+
+			# Wild-type plot (first column)
+			plt.subplot(gs[row_idx, 1])
+			dat, indices_sorted = self.retrieve_data_to_plot_heatmap(selection, sort_key)
+			self.plot_wt(self.wt_data2, indices_sorted, xticks=(row_idx == 2))
+			if row_idx == 0:
+				plt.title("Wild-type 2", fontsize=14, y=1.05)
 				
 			# Recovery branch plot
-			plt.subplot(gs[row_idx, 1])
-			dat, indices_sorted = self.plot_im(selection, sort_key, self.i_indices)
+			plt.subplot(gs[row_idx, 2])
+			dat, indices_sorted = self.plot_im(selection, sort_key, self.i_indices,
+				plot_xticks=(row_idx==2))
+			if row_idx == 2: plt.xlabel("Average single cell time, min")
 			if row_idx == 0:
-				plt.title("Recovery branch", fontsize=13)
+				plt.title("Deconvolved,\nRecovery branch", fontsize=14, y=1.05)
 				
 			# Mother branch plot 
-			plt.subplot(gs[row_idx, 2])
-			dat, indices_sorted = self.plot_im(selection, sort_key, self.t_indices)
+			plt.subplot(gs[row_idx, 3])
+			dat, indices_sorted = self.plot_im(selection, sort_key, self.t_indices,
+				plot_xticks=(row_idx==2))
 			if row_idx == 0:
-				plt.title("Mother branch", fontsize=13)
+				plt.title("Deconvolved,\nMother branch", fontsize=13)
 			
 			# Daughter branch plot 
-			plt.subplot(gs[row_idx, 3])
-			dat, indices_sorted = self.plot_im(selection, sort_key, self.b_indices)
+			plt.subplot(gs[row_idx, 4])
+			dat, indices_sorted = self.plot_im(selection, sort_key, self.b_indices,
+				plot_xticks=(row_idx==2))
 			if row_idx == 0:
-				plt.title("Daughter branch", fontsize=13)
+				plt.title("Deconvolved,\nDaughter branch", fontsize=13)
 			
 			return indices_sorted
 		
@@ -235,6 +262,9 @@ class CellCycleHeatmapPlotter:
 		plot_row(f"Daughter G1,\nn={len(self.dg1_only)}", self.dg1_only, 'peak_idx_b', 2)
 		
 		plt.tight_layout()
+		plt.subplots_adjust(left=0.3, right=0.7)
+		plt.suptitle("Cell cycle gene expression", fontsize=23, y=1.05)
+
 		return fig
 	
 	def create_colorbar_figure(self, height=1, width=0.5):
@@ -269,7 +299,7 @@ class CellCycleHeatmapPlotter:
 		
 		return fig
 	
-	def plot_all(self, row_heights=[0.1, 0.4, 0.2], figsize=(11, 6), 
+	def plot_all(self, row_heights=[0.1, 0.6, 0.2], figsize=(23, 9), 
 				 colorbar_height=1, colorbar_width=0.5,
 				 save_directory=None):
 		"""
@@ -277,11 +307,18 @@ class CellCycleHeatmapPlotter:
 		"""
 		from src.figure_configs import save_figure_for_paper
 
+		ndg1 = len(self.dg1_only)
+		nmg1 = len(self.mg1_only)
+		nother = len(self.remaining_cell_cycle)
+
+		total = ndg1+nmg1+nother
+		row_heights = [nmg1/total, nother/total, ndg1/total]
+
 		# Plot heatmaps
 		heatmap_fig = self.plot_heatmaps(row_heights=row_heights, figsize=figsize)
 
 		if save_directory is not None:
-			save_figure_for_paper(f"{save_directory}/heatmap_timecourse_wt1.png")
+			save_figure_for_paper(f"{save_directory}/heatmap_timecourse.png")
 		
 		# Create colorbar figure
 		colorbar_fig = self.create_colorbar_figure(height=colorbar_height, width=colorbar_width)

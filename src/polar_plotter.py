@@ -297,21 +297,17 @@ def create_combined_ptr_data_set(gene_data, config1, q_threshold, eps, assign_p_
 
 
 def plot_skew(polar_data_df, skew_threshold=0.25):
-    
-    plt.figure(figsize=(8, 2))
-    plt.subplot(1, 2, 1)
-    plt.hist(polar_data_df.skew_t, bins=12)
-    plt.title("Mother")
-    plt.axvline(skew_threshold, c='red', lw=1, ls='dotted')
-    plt.axvline(-skew_threshold, c='red', lw=1, ls='dotted')
-    plt.xlabel("Skew")
-    plt.ylabel("Frequency")
+	
+	from src.expression_chromatin_analysis_plots import color_map
 
-    plt.subplot(1, 2, 2)
-    plt.hist(polar_data_df.skew_b, bins=12)
-    plt.axvline(skew_threshold, c='red', lw=1, ls='dotted')
-    plt.axvline(-skew_threshold, c='red', lw=1, ls='dotted')
-    plt.title("Daughter")    
+	data = np.concatenate([polar_data_df.skew_t.values, polar_data_df.skew_b.values])
 
-    plt.suptitle("Gene expression skew", y=1.1)
+	plt.figure(figsize=(5, 3.5))
+	plt.hist(data, bins=24, color=color_map['expression_only'])
+	plt.axvline(skew_threshold, c='red', lw=1, ls='dotted')
+	plt.axvline(-skew_threshold, c='red', lw=1, ls='dotted')
+	plt.xlabel("Skew")
+	plt.ylabel("Frequency")
+
+	plt.suptitle("Gene expression skew", fontsize=15, y=1.02)
 

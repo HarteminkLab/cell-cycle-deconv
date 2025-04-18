@@ -208,6 +208,19 @@ def main():
 
 		print("Analysis completed successfully")
 
+		from pipeline.expression_chromatin_analysis_runner import layout_figure_plots
+
+		plots_dir = f'{output_directory}/expression_chromatin'
+		save_dir = plots_dir
+
+		print("Laying out plots for Figure 2")
+		layout_figure_plots(plots_dir, save_dir)
+
+		print("Laying out plots for Supplemental figures")
+		layout_supplemental_1(plots_dir, save_dir)
+		layout_supplemental_2(plots_dir, save_dir)
+		layout_supplemental_3(plots_dir, save_dir)
+
 	elif command == 'promoter_analysis':
 
 		from pipeline.expression_analysis import ExpressionAnalysis

@@ -182,16 +182,17 @@ class TwoDimensionalPTRAnalysis:
 		# Plot 1: p-values heatmap
 		im = ax.pcolormesh(X, Y, log_pvalues, cmap='viridis',
 			vmin=0, vmax=self.pval_vmax)
-		ax.set_xlabel(f'{self.metric2_name} percentile threshold')
-		ax.set_ylabel(f'{self.metric1_name} percentile threshold')
+		ax.set_xlabel(f'{self.metric2_name}, perc. threshold')
+		ax.set_ylabel(f'{self.metric1_name}, perc. threshold')
 
 		# Plot 3: Intersection size heatmap
 		# im = ax.pcolormesh(X, Y, self.heatmap_data['intersection_sizes'], cmap='Blues')
-		ax.set_xlabel(f'{self.metric2_name} Percentile Threshold')
-		ax.set_ylabel(f'{self.metric1_name} Percentile Threshold')
+		ax.set_xlabel(f'{self.metric2_name}, perc. threshold')
+		ax.set_ylabel(f'{self.metric1_name}, perc. threshold')
 		ax.set_title('Number of Genes in Intersection')
 
 		# Add intersection size text to each cell in the third heatmap
+		collect = []
 		for i, plot_y_position in enumerate(y):
 			for j, plot_x_position in enumerate(x):
 
@@ -200,13 +201,24 @@ class TwoDimensionalPTRAnalysis:
 				lp_value = log_pvalues[j, i]
 				text = str(intersection_size)
 
+				if lp_value > 10:
+					collect.append((plot_y_position, plot_x_position, lp_value))
+
 				ax.text(plot_y_position, plot_x_position, text,
 					   ha='center', va='center', 
 					   color='white' if lp_value < \
 					   self.pval_vmax*0.75 else 'black',
 					   fontsize=8, fontweight='demi')
 
-		return im
+		from src.heatmap_helpers import highlight_points_on_heatmap
+
+		spacing_size = x[1]-x[0]
+		spacing = spacing_size, spacing_size
+		points_to_highlight = [[c[0], c[1]] for c in collect]
+		highlight_points_on_heatmap(ax, points_to_highlight, spacing, color='red', 
+			linewidth=2)
+
+		return im, collect
 		
 	def plot_heatmaps(self):
 		"""
@@ -490,10 +502,8 @@ def apply_benjamini_hochberg(p_values, fdr=0.05):
 
 def plot_expected_intersection_heatmap(total_genes, metric1_name, metric2_name, 
 									   percentile_thresholds=np.linspace(0.25, 0.99, 10),
-									   ax=None, cmap='Reds', include_text=True,
-									  figsize=(5, 4)):
-	"""
-	"""
+									   ax=None, cmap='Greys', include_text=True,
+									  figsize=(5, 4), highlight=[]):
 	# Create figure and axes if not provided
 	if ax is None:
 		fig, ax = plt.subplots(figsize=figsize)
@@ -527,7 +537,7 @@ def plot_expected_intersection_heatmap(total_genes, metric1_name, metric2_name,
 	ax.set_xlabel(f'Percentile Threshold')
 	ax.set_ylabel(f'Percentile Threshold')
 	ax.set_title(f'Expected Intersection Size',
-				pad=13)
+				pad=26, fontsize=14)
 	
 	# Add text annotations if requested
 	if include_text:
@@ -543,6 +553,14 @@ def plot_expected_intersection_heatmap(total_genes, metric1_name, metric2_name,
 					   color='white' if expected_count > np.max(expected_counts)/2 
 						else 'black',
 					   fontsize=8, fontweight='demi')
+
+	from src.heatmap_helpers import highlight_points_on_heatmap
+
+	spacing_size = percentile_thresholds[1]-percentile_thresholds[0]
+	spacing = spacing_size, spacing_size
+	points_to_highlight = [[c[0], c[1]] for c in highlight]
+	highlight_points_on_heatmap(ax, points_to_highlight, spacing, color='red', 
+		linewidth=2)
 	
 	return fig, im
 
@@ -563,15 +581,18 @@ def compare_md_and_plot_thresholds(metric_1, metric_2, metric_1_name, metric_2_n
 		metric_1['ptr_t'], metric_2['ptr_t'], pval_vmax=vmax)
 	analyzer.run_2d_analysis(metric1_percentiles=ptr_linspace, 
 		metric2_percentiles=ptr_linspace)
-	analyzer.plot_pvalue_heatmap(ax_m)
+	im, collected_cells = analyzer.plot_pvalue_heatmap(ax_m)
 	ax_m.set_title("Mother")
+
+	if len(collected_cells) > 0:
+		analyzer.interesting_cells = collected_cells
 
 	# Second subplot (Daughter)
 	analyzer = TwoDimensionalPTRAnalysis(metric_1_name, metric_2_name, 
 			metric_1['ptr_b'], metric_2['ptr_b'], pval_vmax=vmax)
 	analyzer.run_2d_analysis(metric1_percentiles=ptr_linspace, 
 		metric2_percentiles=ptr_linspace)
-	im = analyzer.plot_pvalue_heatmap(ax_d)
+	im, _ = analyzer.plot_pvalue_heatmap(ax_d)
 	ax_d.set_title("Daughter")
 	ax_d.set_yticks([])
 	ax_d.set_ylabel('')
@@ -584,6 +605,7 @@ def compare_md_and_plot_thresholds(metric_1, metric_2, metric_1_name, metric_2_n
 	cbar = fig.colorbar(im, cax=cax)
 	cbar.set_label('-log10(p-value)')
 
-	plt.suptitle(f"{metric_1_name} and {metric_2_name}\nGene set intersection, "
-				 f"PTR threshold sensitivity", 
-		fontsize=16, y=1.1)
+	plt.suptitle(f"{metric_2_name} vs {metric_1_name}", 
+		fontsize=17, y=1.05)
+
+	return collected_cells
