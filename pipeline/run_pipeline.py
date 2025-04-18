@@ -195,6 +195,19 @@ def main():
 		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 			copy_correct=False)
 
+	elif command == 'expression_chromatin_analysis':
+
+		from pipeline.expression_chromatin_analysis_runner import ExpressionChromatinAnalysis
+		(_, command, output_directory) = system_args
+
+		# Create analysis object
+		analyzer = ExpressionChromatinAnalysis(output_directory)
+
+		# Run all analyses
+		analyzer.run_all_analyses()
+
+		print("Analysis completed successfully")
+
 	elif command == 'promoter_analysis':
 
 		from pipeline.expression_analysis import ExpressionAnalysis

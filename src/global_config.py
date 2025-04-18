@@ -8,6 +8,8 @@ import numpy as np
 
 class GlobalConstants:
 
+	CHR12_MASK_SPAN = 450000, 470000
+
 	BIN_WIDTH = 10
 	BIN_HEIGHT = 10
 	MAX_Y_LEN = 253

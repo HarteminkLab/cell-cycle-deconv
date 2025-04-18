@@ -609,10 +609,15 @@ def plot_scatter_timing(ax, expression_df, promoter_df, entropy_df, suffix='_t',
 		expr_for_chrom = expression_df.loc[common_expr_chrom]
 		chrom_filtered = chromatin_df.loc[common_expr_chrom]
 
+		if plot_trough_indices:
+			skew_classification = expr_for_chrom[tx_skew_class_key]
+		else:
+			skew_classification = [None] * len(chrom_filtered)
+
 		df = pd.DataFrame({
 			'x': chrom_filtered[chrom_tp_col],
 			'y': expr_for_chrom[peak_tx_tp_col],
-			'skew_classification': expr_for_chrom[tx_skew_class_key]
+			'skew_classification': skew_classification
 		})
 
 		# For the trough genes, use the trough tx timepoint
@@ -642,27 +647,43 @@ def plot_scatter_timing(ax, expression_df, promoter_df, entropy_df, suffix='_t',
 	import matplotlib.markers as mmarkers
 
 	# Plot non-trough genes
-	non_trough_rows = cc_prom_tx_df[cc_prom_tx_df.skew_classification != 'trough']
-	prom_scatter = ax.scatter(
-		non_trough_rows.x, 
-		non_trough_rows.y,
-		color=colors[0], 
-		alpha=alpha, 
-		s=marker_size, 
-		marker=mmarkers.MarkerStyle('o', fillstyle='none'),
-		lw=0.75,
-		label='Promoter Occupancy'
-	)
+	if plot_trough_indices:
+		non_trough_rows = cc_prom_tx_df[cc_prom_tx_df.skew_classification != 'trough']
+		prom_scatter = ax.scatter(
+			non_trough_rows.x, 
+			non_trough_rows.y,
+			color=colors[0], 
+			alpha=alpha, 
+			s=marker_size, 
+			marker=mmarkers.MarkerStyle('o', fillstyle='full'),
+			lw=0.75,
+			label='Promoter Occupancy'
+		)
 
-	import matplotlib.markers as mmarkers
+		import matplotlib.markers as mmarkers
 
-	# Trough genes
-	trough_rows = cc_prom_tx_df[cc_prom_tx_df.skew_classification == 'trough']
-	trough_prom = ax.scatter(trough_rows.x, trough_rows.y, facecolor=colors[0],
-		edgecolor=colors[0],
-		# marker=mmarkers.MarkerStyle('o', fillstyle='bottom'), s=marker_size, lw=0,
-		marker=mmarkers.MarkerStyle('v', fillstyle='full'), s=marker_size, lw=0,
-		label='Promoter Occupancy trough gene')
+		# Trough genes
+		trough_rows = cc_prom_tx_df[cc_prom_tx_df.skew_classification == 'trough']
+		trough_prom = ax.scatter(trough_rows.x, trough_rows.y,
+			color=colors[0],
+			marker=mmarkers.MarkerStyle('v', fillstyle='none'), s=marker_size+5, lw=0.5,
+			label='Promoter Occupancy trough gene')
+		handles = [prom_scatter, trough_prom]
+		labels = [prom_scatter.get_label(), trough_prom.get_label()]
+	else:
+		plot_data = cc_prom_tx_df
+		prom_scatter = ax.scatter(
+			plot_data.x, 
+			plot_data.y,
+			color=colors[0], 
+			alpha=alpha, 
+			s=marker_size, 
+			marker=mmarkers.MarkerStyle('o', fillstyle='full'),
+			lw=0.75,
+			label='Promoter Occupancy'
+		)
+		handles = [prom_scatter]
+		labels = [prom_scatter.get_label()]
 
 	# Plot scatter for expression vs entropy
 	entr_scatter = ax.scatter(
@@ -670,11 +691,13 @@ def plot_scatter_timing(ax, expression_df, promoter_df, entropy_df, suffix='_t',
 		cc_entropy_tx_df.y,
 		color=colors[1],
 		alpha=alpha, 
-		marker=mmarkers.MarkerStyle('x', fillstyle='full'),
+		marker=mmarkers.MarkerStyle('o', fillstyle='full'),
 		lw=0.75,
 		s=marker_size,
 		label='Nucleosome Entropy'
 	)
+	handles.append(entr_scatter)
+	labels.append(entr_scatter.get_label())
 
 	# For the genes that intersect all groups, annotate
 	if plot_intersection_genes:
@@ -709,7 +732,7 @@ def plot_scatter_timing(ax, expression_df, promoter_df, entropy_df, suffix='_t',
 	ax.axvline(63.5, c='black', lw=0.25)
 	ax.axhline(63.5, c='black', lw=0.25)
 
-	return prom_scatter, trough_prom, entr_scatter
+	return handles, labels
 
 
 def plot_example_gene_cycles(cc_orfs, chromatin_analysis, analysis,

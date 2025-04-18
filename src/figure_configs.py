@@ -17,7 +17,7 @@ class FiguresConfig:
 	FIGSIZE_WIDE = (10, 6)
 
 def save_figure_for_analysis(save_path):
-	plt.savefig(save_path, dpi=200, transparent=False)
+	plt.savefig(save_path, dpi=200, transparent=False, bbox_inches='tight')
 
 def save_figure_for_paper(save_path):
-	plt.savefig(save_path, dpi=350, transparent=True)
+	plt.savefig(save_path, dpi=350, transparent=True, bbox_inches='tight')

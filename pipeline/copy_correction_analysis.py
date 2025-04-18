@@ -161,12 +161,12 @@ class CopyCorrectionAnalysis():
 		plt.title("With copy correction", fontsize=12)
 
 		plt.subplot(nrows, 1, 3)
-		plt.imshow((plot_chrom_nocc_means_df-\
-						plot_chrom_cc_means_df).T[\
+		plt.imshow((plot_chrom_cc_means_df-\
+						plot_chrom_nocc_means_df).T[\
 			branch_indices], 
 			vmin=-1, vmax=1, cmap='RdBu_r', aspect='auto', interpolation='none')
 		plt.xticks([])
-		plt.title("No copy correction - Copy correction", fontsize=12)
+		plt.title("Copy correction - No copy correction", fontsize=12)
 
 		plt.subplot(nrows, 1, 4)
 		plt.plot(replication_indices.index, mean_replication_timing)
@@ -188,15 +188,19 @@ class CopyCorrectionAnalysis():
 		self.early_windows = [sorted_repl_ptrs.iloc[i].name for i in [21, 33, 67]]
 		self.late_windows = [sorted_repl_ptrs.iloc[i].name for i in [-28, -16, -30]]
 
-	def plot_sample_curves(self):
+	def plot_sample_curves(self, early_windows=None, late_windows=None, figsize=(6, 6),
+		override_color=None):
 		copy_correction_ptr_comparison_t = self.ptrs_df[\
 			['cc_ptr_t', 'no_cc_ptr_t']]
 		repl_ptrs_df = copy_correction_ptr_comparison_t.join(
 			self.all_replication_times)
 		sorted_repl_ptrs = repl_ptrs_df.sort_values('replication_time')
 
-		early_windows = self.early_windows
-		late_windows = self.late_windows
+		if early_windows is None:
+			early_windows = self.early_windows
+
+		if late_windows is None:
+			late_windows = self.late_windows
 
 		indices = config1.t_indices()
 
@@ -208,6 +212,10 @@ class CopyCorrectionAnalysis():
 		tps = get_average_timepoints_for_branch(config1, config2, 't')
 
 		def _plot_window(ax, window_idx, show_xticks, show_yticks, color):
+
+			if override_color is not None:
+				color = override_color
+
 			ax.plot(tps, self.all_no_cell_cycle_means\
 						 .loc[window_idx][indices] / no_cc_mean,
 					color='#555555',
@@ -233,7 +241,7 @@ class CopyCorrectionAnalysis():
 
 		nrows = len(early_windows)
 
-		fig, axs = plt.subplots(nrows, 2, figsize=(6, 6))
+		fig, axs = plt.subplots(nrows, 2, figsize=figsize)
 
 		for row in range(nrows):
 			early_window, late_window = early_windows[row], late_windows[row]
@@ -246,9 +254,11 @@ class CopyCorrectionAnalysis():
 
 			row_ax = axs[row]
 			mid = early_window[1]
-			_plot_window(row_ax[0], early_window, show_yticks=True, show_xticks=(row==nrows-1),
+			_plot_window(row_ax[0], early_window, show_yticks=row==nrows-1, show_xticks=(row==nrows-1),
 				color=early_color)
-			row_ax[0].set_title(f"Early {row+1}, chr{early_window[0]}: {mid-5000}-{mid+5000}")
+
+			if nrows < 5:
+				row_ax[0].set_title(f"Early {row+1}, chr{early_window[0]}: {mid-5000}-{mid+5000}")
 
 			if row == 0:
 				row_ax[0].legend(loc='lower right')
@@ -256,7 +266,9 @@ class CopyCorrectionAnalysis():
 			mid = late_window[1]
 			_plot_window(row_ax[1], late_window, show_yticks=False, show_xticks=(row==nrows-1),
 				color=late_color)
-			row_ax[1].set_title(f"Late {row+1}: chr{late_window[0]}: {mid-5000}-{mid+5000}")
+
+			if nrows < 5:
+				row_ax[1].set_title(f"Late {row+1}: chr{late_window[0]}: {mid-5000}-{mid+5000}")
 
 			if row == 0:
 				row_ax[1].legend(loc='lower right')

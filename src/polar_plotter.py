@@ -304,11 +304,14 @@ def plot_skew(polar_data_df, skew_threshold=0.25):
     plt.title("Mother")
     plt.axvline(skew_threshold, c='red', lw=1, ls='dotted')
     plt.axvline(-skew_threshold, c='red', lw=1, ls='dotted')
+    plt.xlabel("Skew")
+    plt.ylabel("Frequency")
 
     plt.subplot(1, 2, 2)
     plt.hist(polar_data_df.skew_b, bins=12)
     plt.axvline(skew_threshold, c='red', lw=1, ls='dotted')
     plt.axvline(-skew_threshold, c='red', lw=1, ls='dotted')
     plt.title("Daughter")    
-    plt.suptitle("Gene expression skew")
+
+    plt.suptitle("Gene expression skew", y=1.1)
 

@@ -7,19 +7,21 @@ def load_gene_expression(gene_name, replicate):
 
 	from src.sgd import get_orfname
 	orf_name = get_orfname(gene_name)
-	gene_expressions_tpm = load_gene_expression_data(replicate)
-	gene_expression_tpm = gene_expressions_tpm.loc[orf_name]
+	gene_expressions_logtpm = load_gene_expression_data(replicate)
+	gene_expression_logtpm = gene_expressions_logtpm.loc[orf_name]
 
 	return gene_expression_tpm
 
-def load_gene_expression_data(replicate):
+def load_gene_expression_data(replicate, log_transform=True):
 
 	from src.sgd import get_orfname
 
 	gene_expressions_tpm = pd.read_csv(
 		f'datasets/yl_cell_cycle/replicate{replicate}_gene_expression_TPM.csv')
 	gene_expressions_tpm = gene_expressions_tpm.set_index('orf_name')
-	gene_expressions_tpm.loc[:] = np.log2(gene_expressions_tpm.values+1)
+
+	if log_transform:
+		gene_expressions_tpm.loc[:] = np.log2(gene_expressions_tpm.values+1)
 
 	return gene_expressions_tpm
 
