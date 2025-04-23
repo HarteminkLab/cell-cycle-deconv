@@ -221,7 +221,12 @@ class DeconvolutionSolver(object):
 		kappa = self.kappa
 
 		tb_regularization_result = f_padded_variation[f_dg1] - f_padded_variation[f_cg1]
-		cg1_dg1_regularization_result = cp.square(cp.norm(tb_regularization_result, 2))
+
+		# L2 norm
+		# cg1_dg1_regularization_result = cp.square(cp.norm(tb_regularization_result, 2))
+
+		# L1 norm
+		cg1_dg1_regularization_result = cp.sum(cp.abs(tb_regularization_result))
 
 		objective = cp.Minimize(
 

@@ -194,6 +194,23 @@ def main():
 		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 			no_daughter=True)
 
+	elif command == 'deconvolve_chromatin_partial_daughter':
+
+		(_, command, output_directory, index) = system_args
+
+		# Some sparse differences between mothers and daughters are allowed
+		kappa = 0.008
+		print("Deconvolving the chromatin with a partial regularization on CG1/DG1 differences"
+			  f" kappa of {kappa}")
+
+		chromatin_save_directory = f"{output_directory}/chromatin_deconvolution_partial_daughter/"
+		mkdirs_safe([chromatin_save_directory])
+		index = int(index)
+
+		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
+		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
+			no_daughter=False, kappa=kappa)
+
 	elif command == 'deconvolve_chromatin_full_no_copy':
 
 		(_, command, output_directory, index) = system_args
@@ -315,7 +332,7 @@ def main():
 
 
 def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
-	copy_correct=True, no_daughter=False):
+	copy_correct=True, no_daughter=False, kappa=0):
 
 	# Deconvolve the initial set of chromatin windows for testing,
 	# priority over deconvolving the most important windows first
@@ -351,11 +368,11 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 		plt.savefig(f"{raw_plots_directory}/raw_rep2_{save_title}.png")
 		plt.close(fig)
 
-		if no_daughter:
-			kappa = 1.0
-		else:
-			kappa = 0.0
-	
+		# If no daughter branch, specify kappa to be 1.0, enforcing the two branches
+		# to be identical
+		if no_daughter: kappa = 1.0
+		# Otherwise, use the specified kappa, 0.0 by default
+
 		combined_model.setup_deconv_model(copy_correct=copy_correct)
 		combined_model.deconvolve(gamma=0.01, kappa=no_daughter, verbose=True)	
 
