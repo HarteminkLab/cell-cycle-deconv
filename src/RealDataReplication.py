@@ -684,7 +684,7 @@ def read_n_fr_b(chrom, deconv_span, replicate, log=True):
 	bin_idx, start = get_bin_for_position(mid_span, start_indices)
 
 	fr = Fr_df[start].values
-	b = B_df.loc[start].values[0]
+	b = B_df.loc[start]
 
 	return start, N, fr, b
 
