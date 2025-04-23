@@ -209,7 +209,7 @@ def main():
 
 		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
 		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
-			no_daughter=False, kappa=kappa)
+			no_daughter=False, kappa=kappa) # Allow CG1/DG1 changes, set kappa manually to 0.008 for testing
 
 	elif command == 'deconvolve_chromatin_full_no_copy':
 
