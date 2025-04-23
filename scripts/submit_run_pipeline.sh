@@ -49,7 +49,15 @@ OUTDIR=output/prototype_pipeline_subset
 
 # -------------- No copy correction ---------------------
 
-ARGS="deconvolve_chromatin_full_no_copy ${OUTDIR}"
-sbatch -a 0-999%24 -D ./slurm-logs/ --job-name="nocc_1" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
-sbatch -a 0-216%24 -D ./slurm-logs/ --job-name="nocc_2" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
+# ARGS="deconvolve_chromatin_full_no_copy ${OUTDIR}"
+# sbatch -a 0-999%24 -D ./slurm-logs/ --job-name="nocc_1" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+# sbatch -a 0-216%24 -D ./slurm-logs/ --job-name="nocc_2" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
+
+# -------------- No daughter-specificity ------------------
+
+ARGS="deconvolve_chromatin_full_no_daughter ${OUTDIR}"
+sbatch -a 0-999%24 -D ./slurm-logs/ --job-name="nodg1_1" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+sbatch -a 0-216%24 -D ./slurm-logs/ --job-name="nodg1_2" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
+
+# ----------------------------------------------------------
 
