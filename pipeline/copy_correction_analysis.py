@@ -311,6 +311,7 @@ class CopyCorrectionAnalysis():
 
 		selected_replication_indices = replication_indices.loc[closest_starts].values
 
+		# todo: Switch to: retrieve_replication_timing
 		rep1_timing = config1.timepoints_df.set_index('Hpos').loc[selected_replication_indices]
 		rep2_timing = config2.timepoints_df.set_index('Hpos').loc[selected_replication_indices]
 		mean_replication_timing = ((rep1_timing + rep2_timing)/2).mean(1) # mean of two replicates and the start and end

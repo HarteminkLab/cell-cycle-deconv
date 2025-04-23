@@ -183,6 +183,17 @@ def main():
 		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
 		deconvolve_chromatin(chromatin_save_directory, window_set_path, index)
 
+	elif command == 'deconvolve_chromatin_no_daughter':
+
+		(_, command, output_directory, index) = system_args
+		chromatin_save_directory = f"{output_directory}/chromatin_deconvolution_no_daughter/"
+		mkdirs_safe([chromatin_save_directory])
+		index = int(index)
+
+		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
+		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
+			no_daughter=True)
+
 	elif command == 'deconvolve_chromatin_full_no_copy':
 
 		(_, command, output_directory, index) = system_args
@@ -304,7 +315,7 @@ def main():
 
 
 def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
-	copy_correct=True):
+	copy_correct=True, no_daughter=False):
 
 	# Deconvolve the initial set of chromatin windows for testing,
 	# priority over deconvolving the most important windows first
@@ -339,9 +350,14 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 		fig = combined_model.chrom2_model.plot_raw_data(figsize=(11, 11))
 		plt.savefig(f"{raw_plots_directory}/raw_rep2_{save_title}.png")
 		plt.close(fig)
+
+		if no_daughter:
+			kappa = 1.0
+		else:
+			kappa = 0.0
 	
 		combined_model.setup_deconv_model(copy_correct=copy_correct)
-		combined_model.deconvolve(gamma=0.01, kappa=0, verbose=True)	
+		combined_model.deconvolve(gamma=0.01, kappa=no_daughter, verbose=True)	
 
 		np.save(f"{data_directory}/{save_title}_F.npy", combined_model.F)
 

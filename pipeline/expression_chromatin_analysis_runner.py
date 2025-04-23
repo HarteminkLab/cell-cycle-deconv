@@ -5,7 +5,7 @@ import pandas as pd
 import matplotlib.pyplot as plt
 
 # Custom imports
-from src.DG1Analysis import DG1Analysis
+from src.deconvolved_chromatin_analysis import DeconvolvedChromatinAnalysis
 from src.figure_configs import save_figure_for_paper
 from pipeline.expression_analysis import ExpressionAnalysis
 from src.GenomeDeconvolutionAnalysis import GenomeDeconvolutionAnalysis
@@ -50,6 +50,7 @@ class ExpressionChromatinAnalysis:
 		self.expression_combined_polar_data_df = None
 		self.small_combined_polar_data_df = None
 		self.entropies_combined_polar_data_df = None
+		self.gb_nucleosome_combined_polar_data_df = None
 		
 		# Thresholds
 		self.tx_ptr_threshold = None
@@ -62,10 +63,11 @@ class ExpressionChromatinAnalysis:
 		self.sm_qval = 0.9
 		self.nuc_qval = 0.9
 		
-	def initialize_analyses(self):
+	def initialize_analyses(self, copy_correction=True):
 		"""Initialize all analysis objects and load required data"""
-		print("Initializing chromatin analysis...")
-		self.chromatin_analysis = DG1Analysis(self.output_directory)
+		print(f"Initializing chromatin analysis... copy correction: {copy_correction}")
+		self.chromatin_analysis = DeconvolvedChromatinAnalysis(self.output_directory, 
+			copy_correction=copy_correction)
 		self.chromatin_analysis.load_chromatin_measures()
 		
 		print("Initializing expression analysis...")
@@ -101,6 +103,14 @@ class ExpressionChromatinAnalysis:
 			self.chromatin_analysis.small_promoter_occupancies_df, 
 			self.config1,
 			self.sm_qval, 
+			eps=1
+		)
+
+		# Nucleosome fragments data (gene body occupancies)
+		self.gb_nucleosome_combined_polar_data_df, self.sm_ptr_threshold = create_combined_ptr_data_set(
+			self.chromatin_analysis.nucleosome_gene_body_occupancies_df, 
+			self.config1,
+			self.nuc_qval,  # todo: Use the same qvalue threshold as entropy temporarily
 			eps=1
 		)
 		
@@ -371,6 +381,37 @@ class ExpressionChromatinAnalysis:
 		
 		print("PTR sensitivity plots saved")
 		
+	def load_gene_replication_times(self):
+		from src.reference_data import load_p1_gene_regions
+		from src.sgd import read_nondubious_genes_dataset
+		from src.mnase_10kb_loader import get_bin_for_position
+		from src.config import retrieve_replication_timing
+		from src.RealDataReplication import load_replication_Fr_df, load_B_df
+
+		output_dir = self.output_directory
+		gene_p1s = load_p1_gene_regions().join(read_nondubious_genes_dataset()[['TSS']], how='left')
+		gene_p1s = gene_p1s.loc[self.small_combined_polar_data_df.index]
+
+		gene_replication_times = gene_p1s[[]].copy()
+
+		for chrom in range(1, 17):
+
+			_, chrom_replication_indices = load_replication_Fr_df(output_dir, chrom)    
+			chrom_genes = gene_p1s[gene_p1s.chr == chrom]
+
+			chrom_bin_indices_starts = [get_bin_for_position(tss, chrom_replication_indices.index) 
+						  for tss in chrom_genes.TSS.values]
+			chrom_replication_indices = [chrom_replication_indices.loc[bin_start_bp] for bin_idx, bin_start_bp in chrom_bin_indices_starts]
+
+			chrom_replication_times = retrieve_replication_timing(self.config1,
+								   self.config2,
+								   chrom_replication_indices)
+
+			gene_replication_times.loc[chrom_genes.index, 'replication_index'] = chrom_replication_indices
+			gene_replication_times.loc[chrom_genes.index, 'replication_time'] = chrom_replication_times.values
+
+		self.gene_replication_times = gene_replication_times
+
 	# def plot_gene_examples(self, gene_list=None):
 	# 	"""
 	# 	Plot examples of specific genes
@@ -500,8 +541,8 @@ def layout_supplemental_1(plots_dir, save_dir):
 
 	# Define image paths
 	image_names = [
-	    'heatmap_timecourse',
-	    'heatmap_timecourse_colorbar',
+		'heatmap_timecourse',
+		'heatmap_timecourse_colorbar',
 	]
 
 	image_paths = [f"{plots_dir}/{name}.png" for name in image_names]
@@ -509,7 +550,7 @@ def layout_supplemental_1(plots_dir, save_dir):
 	# Create compositor with a scale factor of 4
 	# Logical canvas size is 1024x800, but actual output will be 4096x3200
 	compositor = FigureCompositor(1024, 740, background_color=(255, 255, 255),
-	                             debug_mode=True, scale_factor=4.0)
+								 debug_mode=True, scale_factor=4.0)
 
 	# Place images individually
 	# All coordinates and dimensions are specified in logical pixels
@@ -530,8 +571,8 @@ def layout_supplemental_2(plots_dir, save_dir):
 
 	# Define image paths
 	image_names = [
-	    'ptr_distributions',
-	    'skew_distribution',
+		'ptr_distributions',
+		'skew_distribution',
 	]
 
 	image_paths = [f"{plots_dir}/{name}.png" for name in image_names]
@@ -540,7 +581,7 @@ def layout_supplemental_2(plots_dir, save_dir):
 	# Logical canvas size is 1024x800, but actual output will be 4096x3200
 	scale_factor = 4.0
 	compositor = FigureCompositor(1024, 620, background_color=(255, 255, 255),
-	                             debug_mode=True, scale_factor=scale_factor)
+								 debug_mode=True, scale_factor=scale_factor)
 
 	# Place images individually
 	# All coordinates and dimensions are specified in logical pixels
@@ -564,7 +605,7 @@ def layout_supplemental_3(plots_dir, save_dir):
 
 	# Define image paths
 	image_names = [
-	    'ptr_sensitivity_tx_prom',
+		'ptr_sensitivity_tx_prom',
 		'ptr_sensitivity_tx_entropy',
 		'ptr_sensitivity_prom_entropy',
 		'ptr_sensitivity_expected_counts',

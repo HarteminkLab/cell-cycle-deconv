@@ -532,6 +532,13 @@ def load_cloccs_configs(config_type='distinct', mode='chromatin', shift_CLOCCS=T
 	return config1, config2
 
 
+def retrieve_replication_timing(config1, config2, selected_replication_indices):
+	rep1_timing = config1.timepoints_df.set_index('Hpos').loc[selected_replication_indices]
+	rep2_timing = config2.timepoints_df.set_index('Hpos').loc[selected_replication_indices]
+	mean_replication_timing = ((rep1_timing + rep2_timing)/2).mean(1) # mean of two replicates and the start and end
+	return mean_replication_timing
+
+
 def get_average_timepoints_for_branch(config1, config2, branch):
 	tp1 = config1.get_timepoints_for_branch(branch)
 	tp2 = config2.get_timepoints_for_branch(branch)
