@@ -389,7 +389,7 @@ def plot_cell_cycle_venn_diagram(ax, results,
 	
 	# Create the Venn diagram
 	v = venn2(subsets=(cat_1_only, cat_2_only, both), 
-			  set_labels=("Expression", "Chromatin"),
+			  set_labels=category_names[:2],
 			  ax=ax,
 			  alpha=1.,
 			  set_colors=(colors[0], colors[1]))
@@ -401,17 +401,17 @@ def plot_cell_cycle_venn_diagram(ax, results,
 	
 	# Customize the labels with counts
 	# Format label for Expression only (10)
-	v.get_label_by_id('10').set_text(f'{category_names[0]}\n{cat_1_only} ({cat_1_only/total*100:.1f}%)')
+	v.get_label_by_id('10').set_text(f'{category_names[0]} only\n{cat_1_only} ({cat_1_only/total*100:.1f}%)')
 	v.get_label_by_id('10').set_color(text_colors[0])
 	v.get_patch_by_id('10').set_color(colors[0])
 	
 	# Format label for Chromatin only (01)
-	v.get_label_by_id('01').set_text(f'{category_names[1]}\n{cat_2_only} ({cat_2_only/total*100:.1f}%)')
+	v.get_label_by_id('01').set_text(f'{category_names[1]} only\n{cat_2_only} ({cat_2_only/total*100:.1f}%)')
 	v.get_patch_by_id('01').set_color(colors[1])
 	v.get_label_by_id('01').set_color(text_colors[1])
 	
 	# Format label for both (11)
-	v.get_label_by_id('11').set_text(f'{both}\n({both/total*100:.1f}%)')
+	v.get_label_by_id('11').set_text(f'Both\n{both}\n({both/total*100:.1f}%)')
 	v.get_patch_by_id('11').set_color(colors[2])
 	v.get_label_by_id('11').set_color(text_colors[2])
 	
@@ -427,7 +427,7 @@ def plot_cell_cycle_venn_diagram(ax, results,
 	# Add title showing total count
 	ax.set_title(f'Cell Cycle Classification (Total: {total})', 
 				fontsize=14, 
-				fontweight='bold')
+				fontweight='demi')
 	
 	# Remove axes
 	ax.axis('off')

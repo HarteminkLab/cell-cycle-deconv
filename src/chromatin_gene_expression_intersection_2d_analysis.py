@@ -189,7 +189,6 @@ class TwoDimensionalPTRAnalysis:
 		# im = ax.pcolormesh(X, Y, self.heatmap_data['intersection_sizes'], cmap='Blues')
 		ax.set_xlabel(f'{self.metric2_name}, perc. threshold')
 		ax.set_ylabel(f'{self.metric1_name}, perc. threshold')
-		ax.set_title('Number of Genes in Intersection')
 
 		# Add intersection size text to each cell in the third heatmap
 		collect = []
@@ -201,7 +200,8 @@ class TwoDimensionalPTRAnalysis:
 				lp_value = log_pvalues[i, j]
 				text = str(intersection_size)
 
-				if lp_value > 10:
+				# Threshold to highlight
+				if lp_value > 7:
 					collect.append((plot_x_position, plot_y_position, lp_value))
 
 				ax.text(plot_x_position, plot_y_position, text,
@@ -213,6 +213,7 @@ class TwoDimensionalPTRAnalysis:
 		from src.heatmap_helpers import highlight_points_on_heatmap
 
 		spacing_size = x[1]-x[0]
+
 		spacing = spacing_size, spacing_size
 		points_to_highlight = [[c[0], c[1]] for c in collect]
 		highlight_points_on_heatmap(ax, points_to_highlight, spacing, color='red', 
@@ -564,10 +565,41 @@ def plot_expected_intersection_heatmap(total_genes, metric1_name, metric2_name,
 	
 	return fig, im
 
+def compare_mean_and_plot_thresholds(metric_1, metric_2, metric_1_name, metric_2_name,
+							   vmax=8):
+	import matplotlib.pyplot as plt
+	import numpy as np
+	from mpl_toolkits.axes_grid1 import make_axes_locatable
+
+	# Create the plot with a bit more space on the right for the colorbar
+	ptr_linspace = np.linspace(0.25, 0.99, 10)
+	fig, ax = plt.subplots(1, 1, figsize=(4, 4)) 
+
+	analyzer = TwoDimensionalPTRAnalysis(metric_1_name, metric_2_name, 
+		metric_1['ptr'], metric_2['ptr'], pval_vmax=vmax)
+	analyzer.run_2d_analysis(metric1_percentiles=ptr_linspace, 
+		metric2_percentiles=ptr_linspace)
+	im, collected_cells = analyzer.plot_pvalue_heatmap(ax)
+
+	if len(collected_cells) > 0:
+		analyzer.interesting_cells = collected_cells
+
+	cax = fig.add_axes([ax.get_position().x1 + 0.05,
+		ax.get_position().y0, 
+		0.02, ax.get_position().height])
+
+	# Add the colorbar using the returned im object
+	cbar = fig.colorbar(im, cax=cax)
+	cbar.set_label('-log10(p-value)')
+
+	plt.suptitle(f"{metric_2_name} vs\n{metric_1_name}", 
+		fontsize=17, y=1.03)
+
+	return collected_cells
+
 def compare_md_and_plot_thresholds(metric_1, metric_2, metric_1_name, metric_2_name,
 							   vmax=12):
 	"""Plot and compare the threshold sweep for mothers and daughters"""
-	from src.chromatin_gene_expression_intersection_2d_analysis import TwoDimensionalPTRAnalysis
 	import matplotlib.pyplot as plt
 	import numpy as np
 	from mpl_toolkits.axes_grid1 import make_axes_locatable

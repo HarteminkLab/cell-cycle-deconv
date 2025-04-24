@@ -225,6 +225,10 @@ def main():
 
 	# elif command == 'expression_chromatin_analysis':
 		# Deprecated command, see old_pipeline.py
+
+	elif command == 'gene_chromatin_analysis':
+
+		pass
 	
 	elif command == 'promoter_analysis':
 

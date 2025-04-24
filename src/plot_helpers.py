@@ -303,6 +303,7 @@ def color_for_key(key):
 		 "CG1": np.array([147, 168, 198])/255.,
 		 "MG1": np.array([147, 168, 198])/255.,
 		 "DG1": np.array([157, 190, 201])/255.,
+		 "meanG1": np.array([152, 179, 198])/255.,
 
 		 "Delta": np.array([227, 194, 163])/255.,
 		 "postG1": np.array([214, 170, 129])/255.,

@@ -77,6 +77,12 @@ class PolarPlot:
 			self.ax = ax
 
 		self.ax.xaxis.grid(False)
+
+		self.ax.set_theta_zero_location("N")  # Set 0 at 12 o'clock
+		self.ax.set_theta_direction(-1)  # Set clockwise rotation
+
+		ax.plot([0, 0], [threshold, self.ylims[1]], color='black', lw=0.75)
+
 		bin_key = self.bin_key
 		
 		# Plot the genes that are above the threshold
@@ -111,19 +117,32 @@ class PolarPlot:
 
 		xticks = np.arange(0, 64, 8)
 		xtick_angles = self._convert_to_polar_angles(xticks)
+		xtick_labels = [f"{x}'" for x in xticks]
 		self.ax.set_yticks([])
 
 		self.ax.set_xticks(xtick_angles)
-		self.ax.set_xticklabels(xticks)
+		self.ax.set_xticklabels(xtick_labels)
 
 		from src.plot_helpers import color_for_key
 
 		num_g1 = len(thresholded_data[thresholded_data[bin_key] == g1_key])
 		num_postg1 = len(thresholded_data) - num_g1
 
-		self.plot_annotation(0, 42, color_for_key(g1_key), f"{g1_key}, {num_g1}", 
+		g1_name = g1_key
+
+		if g1_name == 'meanG1':
+			g1_name = 'Mean G1'
+
+		# todo: add S-phase annotation, need to convert the index from H to
+		# branch specific position. There should be a config function that has this mapping
+		# may want to store this estimated position somewhere
+
+		# from src.RealDataReplication import load_replication_Fr_df, get_estimated_S_phase_end_index
+		# est_s_index = get_estimated_S_phase_end_index(analyzer.config1, output_directory)
+
+		self.plot_phase_label_annotation(0, 42, color_for_key(g1_key), f"{g1_name},\n{num_g1}", 
 			threshold, self.ylims[1])
-		self.plot_annotation(42, 64, color_for_key('postG1'), f'S/G2/M, {num_postg1}', 
+		self.plot_phase_label_annotation(42, 64, color_for_key('postG1'), f'S/G2/M,\n{num_postg1}', 
 			threshold, self.ylims[1])
 
 		num_non_cc = len(below_thresholded_data)
@@ -131,7 +150,7 @@ class PolarPlot:
 			va='center')
 
 
-	def plot_annotation(self, time_min, time_max, color, text, min_radius, max_radius):
+	def plot_phase_label_annotation(self, time_min, time_max, color, text, min_radius, max_radius):
 		"""
 		Add a colored sector annotation to the plot.
 		"""
@@ -149,14 +168,31 @@ class PolarPlot:
 		self.ax.fill_between(angles, min_radius, max_radius, color=color, alpha=0.15, zorder=0)
 
 		# Add text
-		radius = 0.75 * max_radius
+		radius = 0.8 * max_radius
 		angle_text = (angle_min + angle_max) / 2
 		self.ax.text(angle_text, radius, text, color=color,
 			fontfamily='Open Sans', horizontalalignment='center', 
 			verticalalignment='center')
 
 
-def plot_polar_branches_data(expression_combined_polar_data_df,
+def plot_polar_plot_polar_mean_branch_data(polar_data_df,
+		tx_ptr_threshold, title, ylims, tp_key='peak', plot_skew_cat=False):	
+
+	fig, ax = plt.subplots(1, 1, figsize=(7.5, 4), 
+		subplot_kw={'projection': 'polar'})
+	from src.polar_plotter import add_filled_circle, add_radius_circle
+
+	# Mother branch
+	polar_plotter = PolarPlot()
+	polar_plotter.ylims = ylims
+	polar_plotter.set_data(polar_data_df,
+		suffix='')
+	polar_plotter.plot('meanG1', ax, threshold=tx_ptr_threshold, plot_skew_cat=plot_skew_cat)
+
+	ax.set_title(f"{title}")
+
+
+def plot_polar_branches_data(polar_data_df,
 		tx_ptr_threshold, tx_qval, title, ylims, tp_key='peak', plot_skew_cat=False):
 	fig, axs = plt.subplots(1, 2, figsize=(7.5, 4), 
 		subplot_kw={'projection': 'polar'})
@@ -165,7 +201,7 @@ def plot_polar_branches_data(expression_combined_polar_data_df,
 	# Mother branch
 	polar_plotter = PolarPlot()
 	polar_plotter.ylims = ylims
-	polar_plotter.set_data(expression_combined_polar_data_df,
+	polar_plotter.set_data(polar_data_df,
 		suffix='_t')
 	polar_plotter.plot('MG1', axs[0], threshold=tx_ptr_threshold, plot_skew_cat=plot_skew_cat)
 
@@ -175,7 +211,7 @@ def plot_polar_branches_data(expression_combined_polar_data_df,
 
 	polar_plotter = PolarPlot()
 	polar_plotter.ylims = ylims
-	polar_plotter.set_data(expression_combined_polar_data_df, suffix='_b')
+	polar_plotter.set_data(polar_data_df, suffix='_b')
 	polar_plotter.plot('DG1', axs[1], threshold=tx_ptr_threshold, plot_skew_cat=plot_skew_cat)
 	plt.subplots_adjust(wspace=0.125, top=0.7)
 	axs[1].set_title("Daughter branch")
@@ -232,6 +268,37 @@ def prep_polar_plot_data(branch_expressions, g1_phase_key, eps):
 	return branch_polar_data_df
 
 
+def create_average_tb_ptr_data_set(gene_data, config1, q_threshold, eps):
+
+	# Take the average of the gene data
+
+	# combine top and bottom branch data
+	b_gene_data = gene_data[config1.b_indices()]
+	t_gene_data = gene_data[config1.t_indices()]
+
+	mean_gene_data = pd.DataFrame((b_gene_data.values + t_gene_data.values)/2.0,
+		index=t_gene_data.index, columns=np.arange(len(t_gene_data.columns)))
+
+	mean_polar_data_df = prep_polar_plot_data(mean_gene_data,
+		'meanG1', eps)
+
+	ptr_values = mean_polar_data_df.ptr.values
+	ptr_threshold = np.quantile(ptr_values, q=q_threshold)
+
+	# For each branch, assign to the non-cell cycle bin if below the ptr threshold
+	def assign_bin(polar_data_df, threshold):
+
+		bin_assignments = polar_data_df['peak_phase'].copy()
+		bin_assignments.loc[polar_data_df.ptr < threshold] = 'Not cell cycle'
+
+		return bin_assignments.values
+
+	mean_polar_data_df['bin'] = assign_bin(mean_polar_data_df, ptr_threshold)
+
+	return mean_polar_data_df, ptr_threshold
+
+
+# todo: this may be depreceated for a simpler analysis
 def create_combined_ptr_data_set(gene_data, config1, q_threshold, eps, assign_p_or_t=False,
 	skew_threshold=None):
 	# Sort through the polar data and assign the genes into MG1, DG1, or postG1 based

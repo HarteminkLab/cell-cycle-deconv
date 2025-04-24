@@ -643,6 +643,31 @@ def read_g(chrom, deconv_span, replicate):
 	return g
 
 
+def get_estimated_S_phase_end_index(config, output_directory, plot=False):
+    # Get the estimated replication timings for chromosome 4 to estimate
+    # a length of S for plotting
+
+    pg1_indices = config.get_Hpositions_for_phase('postG1')
+    Fr_df, repl_indices = load_replication_Fr_df(output_directory, 4)
+
+    average_pg1_copy = Fr_df.mean(1)[pg1_indices]
+
+    threshold = 1.9
+    threshold_index = average_pg1_copy[average_pg1_copy > threshold].index[0]
+
+    if plot:
+        plt.figure(figsize=(4, 3))
+        plt.plot(average_pg1_copy)
+        plt.scatter(threshold_index, average_pg1_copy.loc[threshold_index], c='red',
+                   label="90% replicated")
+        plt.title("Chr4 average copy number in S/G2/M")
+        plt.legend()
+        plt.xlabel("PostG1 index")
+        plt.ylabel("Average copy number")
+
+    return threshold_index
+
+
 def load_replication_Fr_df(output_dir, chrom):
 	combined_directory = f'{output_dir}/combined_replication'
 	Fr_df = pd.read_csv(f'{combined_directory}/combined_chr{chrom}_F.csv')
@@ -653,8 +678,12 @@ def load_replication_Fr_df(output_dir, chrom):
 
 	return Fr_df, replication_indices
 
-def load_B_df(output_dir, chrom, starts):
+def load_B_df(output_dir, chrom, starts=None):
 	B = np.load(f'{output_dir}/combined_replication/combined_chr{chrom}_B.npy')
+
+	if starts is None:
+		starts = np.arange(B.shape[0])
+
 	b_df = pd.DataFrame(np.diag(B), columns=['b'], index=starts)
 	return B, b_df['b']
 
