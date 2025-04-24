@@ -424,11 +424,12 @@ def plot_raw(chromatin_model, figsize=(2, 7)):
 	config = chromatin_model.config
 	G = chromatin_model.G
 	chrom, mnase_span = chromatin_model.chr, chromatin_model.mnase_span
-	return plot_raw_G(G, config, chrom, mnase_span, figsize=figsize)
+	return plot_raw_G(G, config, chrom, mnase_span, figsize=figsize,
+		title=f"Raw data, replicate {config.replicate}")
 
 
 def plot_raw_G(G, config, chrom, mnase_span, figsize=(2, 7),
-	vmin=0, vmax=40, cmap='magma_r'):
+	vmin=0, vmax=40, cmap='magma_r', title=""):
 
 	G_imgs = G.reshape((G.shape[0], 26, -1))
 	timepoints = config.timepoints
@@ -457,7 +458,7 @@ def plot_raw_G(G, config, chrom, mnase_span, figsize=(2, 7),
 		ax.set_yticks([])
 		ax.set_ylabel(f"{timepoints[i-1]}'")
 
-	plt.suptitle("Predicted vs Raw data bins")
+	plt.suptitle(title)
 	plt.subplots_adjust(top=0.95)
 
 	return fig
