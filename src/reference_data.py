@@ -2,6 +2,7 @@
 
 import pandas as pd
 import matplotlib.pyplot as plt
+from src.read_bam import _fromRoman
 
 
 def load_spellman_orfs():
@@ -38,17 +39,25 @@ def load_plus_ones(replicate=1):
 	return pd.read_csv(f"datasets/computed_mnase/rep{replicate}_plus_ones.csv").set_index('orf_name')
 
 
-def read_macisaac_sites():
 
-	from src.read_bam import _fromRoman
+def read_brogaard_nucleosomes():
+    brogaard = pd.read_csv('data/reference_data/Brogaard_nuc_positions.sacCer3.top2000.tsv', sep='\t',
+        names=['chromosome',  'position', 'NCP_score', 'NCP_score/noise_ratio'])
+    brogaard.chromosome = brogaard.chromosome.apply(_fromRoman)
+    return brogaard
+
+
+def read_macisaac_sites():
 
 	sites = pd.read_csv('data/reference_data/p005_c2.sacCer3.gff.txt', sep='\t',
 			   names=range(9))
 	sites = sites[sites.columns[[0, 3, 4, 6, 8]]].copy()
 	sites.columns = ['chr','start','stop','strand','TF']
 
-	#sites.chr = _fromRoman(sites.chr)
+	sites.chr = sites.chr.str.replace('chr', '').apply(_fromRoman)
 	sites.TF = sites.TF.str.replace(';', '').str.replace('Site ', '')
+	sites['mid'] = (sites.start+sites.stop)//2
+
 	return sites
 
 def read_rossi_sites():
@@ -81,6 +90,7 @@ def read_rossi_sites():
 	rossi_sites.chr = rossi_sites.chr.str.replace('chr', '').astype(int)
 	rossi_sites = rossi_sites.reset_index(drop=True)
 	rossi_sites = rossi_sites.sort_values(['chr', 'start'])
+	rossi_sites['mid'] = rossi_sites['start']//2 + rossi_sites['stop']//2
 
 	return rossi_sites
 

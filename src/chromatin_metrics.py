@@ -34,7 +34,7 @@ def retrieve_fragment_length_selection_curves(plot=True):
 				c='gray')
 
 	xs = target_len_dist.index
-	ys = norm.pdf(xs, loc=165, scale=15)
+	ys = norm.pdf(xs, loc=165, scale=17.8)
 	nucleosome_curve = pd.DataFrame(ys, index=xs)
 
 	ys = ys / ys.max() * target_len_dist.max()
@@ -44,7 +44,7 @@ def retrieve_fragment_length_selection_curves(plot=True):
 				c=plt.cm.Purples(0.75))
 
 	xs = target_len_dist.index
-	ys = norm.pdf(xs, loc=90, scale=25)
+	ys = norm.pdf(xs, loc=80, scale=19.5)
 	ys = ys / ys.max() * target_len_dist[0:100].max()
 	small_fragments_curve = pd.DataFrame(ys, index=xs)
 

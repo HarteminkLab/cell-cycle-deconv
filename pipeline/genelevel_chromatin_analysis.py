@@ -55,8 +55,8 @@ class GeneChromatinAnalysis:
 		self.entropy_ptr_threshold = None
 		
 		# Parameters for analysis, determined from sensitivity analysis
-		self.sm_percentile_threshold = None
-		self.entropy_percentile_threshold = None
+		self.sm_percentile_threshold = 0.95
+		self.entropy_percentile_threshold = 0.95
 		
 	def initialize_analyses(self, copy_correction=True):
 		"""Initialize all analysis objects and load required data"""
@@ -126,7 +126,7 @@ class GeneChromatinAnalysis:
 		plt.figure(figsize=(7, 3.5))
 		
 		# Define internal helper function for plotting
-		def plot_ptr_hist(data_df, ptr_thresh, subplot_pos, key, title):
+		def plot_ptr_hist(data_df, percentile_thresh, ptr_thresh, subplot_pos, key, title):
 			plt.subplot(1, 2, subplot_pos)
 			ptrs = data_df.ptr
 
@@ -137,10 +137,13 @@ class GeneChromatinAnalysis:
 			num_threshold = len(thresholded_genes)
 			plt.xlabel('PTR')
 			plt.title(title, y=1.05, fontsize=14)
+
+			plt.text(ptr_thresh, 1000, f" Threshold: {ptr_thresh:.2f} ({percentile_thresh*100:.1f}%)", ha='left', c='red')
 		
 		# Plot promoter PTR
 		plot_ptr_hist(
 			self.small_polar_data_df, 
+			self.sm_percentile_threshold,
 			self.sm_ptr_threshold, 
 			1, 
 			'promoter',
@@ -150,6 +153,7 @@ class GeneChromatinAnalysis:
 		# Plot entropy PTR
 		plot_ptr_hist(
 			self.entropies_polar_data_df, 
+			self.entropy_percentile_threshold,
 			self.entropy_ptr_threshold, 
 			2, 
 			'entropy',
@@ -241,8 +245,8 @@ class GeneChromatinAnalysis:
 		print(f"Highest p-value: {thresholds[0]:0.4f}, {thresholds[1]:0.4f}: p-value {highest_neg_logpval:0.2f}")
 
 		# Parameters for analysis, determined from sensitivity analysis
-		self.sm_percentile_threshold = thresholds[0]
-		self.entropy_percentile_threshold = thresholds[1]
+		self.sm_percentile_threshold = thresholds[1]
+		self.entropy_percentile_threshold = thresholds[0]
 
 		save_figure_for_paper(f"{self.save_plots_dir}/ptr_sensitivity_prom_entropy.png")
 		
@@ -296,40 +300,40 @@ class GeneChromatinAnalysis:
 		
 		# Initialize analyses
 		self.initialize_analyses()
-		
+
 		# Create and process datasets
+		self.create_polar_datasets()
+
+		# Plot sensitivity and determine updated thresholds
+		self.plot_ptr_sensitivity()
+
+		# Update dataset with new PTR thresholds from sensivity
+		# analysis
 		self.create_polar_datasets()
 		
 		# Generate all plots
 		self.plot_ptr_distributions()
 		self.plot_polar_branches()
 		self.plot_venn_diagrams()
-		self.plot_ptr_sensitivity()
 		
 		print("Complete polar analysis finished!")
 
 
 def layout_figure_plots(plots_dir, save_dir):
-	
 	from pipeline.figure_composer import FigureCompositor
 
 	# Define image paths
 	image_names = [
-		'metrics_venn3',
-		'expression_polar',
-		'promoters_polar',
-		'entropy_polar',
-		'timing_tx_chrom_mother',
-		'timing_tx_chrom_mother_legend',
-		'timing_tx_chrom_daughter'
+	    'metrics_venn2',
+	    'promoters_polar',
+	    'entropy_polar'
 	]
 
 	image_paths = [f"{plots_dir}/{name}.png" for name in image_names]
 
 	# Create compositor with a scale factor of 4
 	# Logical canvas size is 1024x800, but actual output will be 4096x3200
-	compositor = FigureCompositor(1024, 740, background_color=(255, 255, 255),
-								 debug_mode=True, scale_factor=4.0)
+	compositor = FigureCompositor(1024, 340, debug_mode=True, scale_factor=4.0)
 
 	# Place images individually
 	# All coordinates and dimensions are specified in logical pixels
@@ -337,169 +341,68 @@ def layout_figure_plots(plots_dir, save_dir):
 	margin = 20
 	venn_width = 320
 
-	# -------- Venn diagram -------------
-	compositor.place_image(image_paths[0], margin, margin, venn_width, None, 'venn3')
-
-	# Example using the new add_panel_label_to_image function
-	compositor.add_panel_label_to_image('venn3', 'A', offset=(5, 5), 
-									   background=(240, 240, 240), bg_padding=3)
+	# -------- Sensitivity analysis -------------
+	compositor.place_image(image_paths[0], margin, margin, venn_width, None, 'venn')
+	compositor.add_panel_label_to_image('venn', 'A')
 
 	# -------- Polar plots -------------
 
-	polar_width = 330
+	polar_width = 280
 	pad_x_polar = 24
 
 	polar_x = venn_width+pad_x_polar+margin
 	img = compositor.place_image(image_paths[1], polar_x, margin, polar_width, 
-						  None, 'tx_polar')
-	polar_height = img['logical_size'][1]  # Use logical_size instead of size
+	                      None, 'prom_polar')
+	compositor.add_panel_label_to_image('prom_polar', 'B')
 
-	# Add label to the polar plot
-	compositor.add_panel_label_to_image('tx_polar', 'B', offset=(5, 5),
-									   background=(240, 240, 240))
-
-	pad_y_polar = 20
-
-	compositor.place_image(image_paths[2], polar_x, margin+polar_height+pad_y_polar, polar_width, 
-						  None, 'prom_polar')
-	compositor.add_panel_label_to_image('prom_polar', 'C', offset=(5, 5))
-
-	compositor.place_image(image_paths[3], polar_x, margin+polar_height*2+pad_y_polar*2, polar_width,
-						  None, 'entropy_polar')
-	compositor.add_panel_label_to_image('entropy_polar', 'D', offset=(5, 5))
-
-	# -------- Timing plots -------------
-	timing_width = 280
-	timing_x = polar_x+polar_width+pad_x_polar
-	img = compositor.place_image(image_paths[4], timing_x, margin, timing_width, 
-						  None, 'mother_time')
-	timing_height = img['logical_size'][1]  # Use logical_size for logical height
-	compositor.add_panel_label_to_image('mother_time', 'E', offset=(5, 5))
-
-	pad_time_y = 20
-	lgd_img = compositor.place_image(image_paths[5], timing_x, margin+timing_height+pad_time_y, 
-						  timing_width, None, 'legend_time')
-	lgd_height = lgd_img['logical_size'][1]  # Use logical_size for logical height
-
-	compositor.place_image(image_paths[6], timing_x, margin+timing_height+pad_time_y+lgd_height+\
-						  pad_time_y, timing_width, None, 'daughter_time')
-	compositor.add_panel_label_to_image('daughter_time', 'F', offset=(5, 5))
-
-	# You can still use the original method for adding labels not attached to images
-	padding = 5
+	polar_x = polar_x+polar_width+pad_x_polar
+	img = compositor.place_image(image_paths[2], polar_x, margin, polar_width, 
+	                      None, 'entropy_polar')
+	compositor.add_panel_label_to_image('entropy_polar', 'C')
 
 	# Save the figure - will be 4x the logical resolution
 	compositor.save(f"{save_dir}/Figure_2.png")
-
-def layout_supplemental_1(plots_dir, save_dir):
-	from pipeline.figure_composer import FigureCompositor
-
-	# Define image paths
-	image_names = [
-		'heatmap_timecourse',
-		'heatmap_timecourse_colorbar',
-	]
-
-	image_paths = [f"{plots_dir}/{name}.png" for name in image_names]
-
-	# Create compositor with a scale factor of 4
-	# Logical canvas size is 1024x800, but actual output will be 4096x3200
-	compositor = FigureCompositor(1024, 740, background_color=(255, 255, 255),
-								 debug_mode=True, scale_factor=4.0)
-
-	# Place images individually
-	# All coordinates and dimensions are specified in logical pixels
-	# but will be rendered at 4x resolution
-	margin = 20
-	hm_width = 800
-
-	# -------- Venn diagram -------------
-	compositor.place_image(image_paths[0], margin, margin, hm_width, None, 'hm')
-	compositor.add_panel_label_to_image('hm', 'A', offset=(5, 5))
-
-	compositor.place_image(image_paths[1], margin+hm_width+30, margin+100, 60, None, 'cbar')
-
-	compositor.save(f"{save_dir}/Supplemental_S1.png")
 
 def layout_supplemental_2(plots_dir, save_dir):
 	from pipeline.figure_composer import FigureCompositor
 
 	# Define image paths
 	image_names = [
-		'ptr_distributions',
-		'skew_distribution',
-	]
-
-	image_paths = [f"{plots_dir}/{name}.png" for name in image_names]
-
-	# Create compositor with a scale factor of 4
-	# Logical canvas size is 1024x800, but actual output will be 4096x3200
-	scale_factor = 4.0
-	compositor = FigureCompositor(1024, 620, background_color=(255, 255, 255),
-								 debug_mode=True, scale_factor=scale_factor)
-
-	# Place images individually
-	# All coordinates and dimensions are specified in logical pixels
-	# but will be rendered at 4x resolution
-	margin = 20
-	ptr_width = 800
-
-	# -------- Venn diagram -------------
-	img = compositor.place_image(image_paths[0], margin, margin, ptr_width, None, 'ptr')
-	compositor.add_panel_label_to_image('ptr', 'A', offset=(5, 5))
-
-	skew_y = img['size'][1]/scale_factor+margin+30
-	compositor.place_image(image_paths[1], margin, skew_y, 340, None, 'skew')
-	compositor.add_panel_label_to_image('skew', 'B', offset=(5, 5))
-
-	compositor.save(f"{save_dir}/Supplemental_S2.png")
-
-
-def layout_supplemental_3(plots_dir, save_dir):
-	from pipeline.figure_composer import FigureCompositor
-
-	# Define image paths
-	image_names = [
-		'ptr_sensitivity_tx_prom',
-		'ptr_sensitivity_tx_entropy',
 		'ptr_sensitivity_prom_entropy',
 		'ptr_sensitivity_expected_counts',
+		'ptr_distributions',
 	]
 
 	image_paths = [f"{plots_dir}/{name}.png" for name in image_names]
 
 	scale = 4.0
-	compositor = FigureCompositor(1024, 550, scale_factor=scale, debug_mode=True)
+	compositor = FigureCompositor(1024, 840, scale_factor=scale, debug_mode=True)
 
 	# Place images individually
 	# All coordinates and dimensions are specified in logical pixels
 	# but will be rendered at 4x resolution
 	margin = 20
-	sens_width = 480
+	sens_width = 420
+	expected_width = 455
 
-	# Place sensitivity analysis images
 	# A
-	img = compositor.place_image(image_paths[0], margin, margin, sens_width, None, 'tx_prom')
-	sens_height = img['size'][1]/scale
-	compositor.add_panel_label_to_image('tx_prom', 'A', offset=(5, 5))
+	compositor.place_image(image_paths[0], margin, margin, sens_width, None, 
+		'chrom_sens')
+	compositor.add_panel_label_to_image('chrom_sens', 'A', offset=(5, 5))
 
 	# B
-	compositor.place_image(image_paths[1], margin+sens_width+30, margin, sens_width, None, 
-		'tx_entropy')
-	compositor.add_panel_label_to_image('tx_entropy', 'B', offset=(5, 5))
+	expected_img = compositor.place_image(image_paths[1], margin+24+sens_width, margin, expected_width, None, 
+		'expected')
+	expected_height = expected_img['logical_size'][1]
+	compositor.add_panel_label_to_image('expected', 'B', offset=(5, 5))
 
 	# C
-	compositor.place_image(image_paths[2], margin, margin+sens_height+30, sens_width, None, 
-		'prom_entropy')
-	compositor.add_panel_label_to_image('prom_entropy', 'C', offset=(5, 5))
+	ptr_width = 700
+	img = compositor.place_image(image_paths[2], margin, 
+		margin+expected_height+34, ptr_width, None, 'dist')
+	compositor.add_panel_label_to_image('dist', 'C', offset=(5, 5))
 
-	# D
-	compositor.place_image(image_paths[3], margin+sens_width+30,
-		margin+sens_height+37, 260, None, 
-		'control')
-	compositor.add_panel_label_to_image('control', 'D', offset=(5, 0))
-
-	compositor.save(f"{save_dir}/Supplemental_S3.png")
+	compositor.save(f"{save_dir}/Supplemental_S2.png")
 
 	
 def main():
