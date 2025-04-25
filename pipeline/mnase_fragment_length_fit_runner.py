@@ -58,7 +58,7 @@ class FragmentLengthFitRunner:
         print("Created analyzers for Brogaard nucleosomes and MacIsaac ABF1 sites")
         return self
     
-    def process_all_sites(self, chromosomes=range(1, 2)):
+    def process_all_sites(self, chromosomes=range(1, 17)):
         """Process all sites for each analyzer"""
         for name, analyzer in self.analyzers.items():
             print(f"\nProcessing {name} sites...")
@@ -176,3 +176,53 @@ class FragmentLengthFitRunner:
                 selection_curves[name] = selection_curve
                 
         return selection_curves
+
+
+def layout_supplemental_figures(abf1_plot_path, brogaard_plot_path, output_path):
+    """
+    Layout Supplemental Figure S2 with ABF1 and Brogaard nucleosome distribution plots
+    side by side with appropriate padding and margins.
+    
+    Parameters:
+    -----------
+    abf1_plot_path : str
+        Path to the ABF1 distribution plot image
+    brogaard_plot_path : str
+        Path to the Brogaard distribution plot image
+    output_path : str
+        Path where the combined figure should be saved
+    """
+    from pipeline.figure_composer import FigureCompositor
+    
+    # Create compositor with appropriate scale
+    # Using a wider canvas to accommodate two plots side by side
+    compositor = FigureCompositor(1024, 380, background_color=(255, 255, 255),
+                                debug_mode=True, scale_factor=4.0)
+    
+    # Define layout parameters
+    margin = 30
+    plot_width = 460  # Width for each plot
+    
+    # Place the ABF1 distribution plot on the left
+    img1 = compositor.place_image(abf1_plot_path, margin, margin, 
+                                plot_width, None, 'abf1_plot')
+    
+    # Add panel label
+    compositor.add_panel_label_to_image('abf1_plot', 'A', offset=(10, 10),
+                                      background=(240, 240, 240), bg_padding=3)
+    
+    # Place the Brogaard nucleosome distribution plot on the right
+    # Calculate x position based on first image's width plus padding
+    x_pos = margin + plot_width + margin
+    img2 = compositor.place_image(brogaard_plot_path, x_pos, margin, 
+                                plot_width, None, 'brogaard_plot')
+    
+    # Add panel label
+    compositor.add_panel_label_to_image('brogaard_plot', 'B', offset=(10, 10),
+                                      background=(240, 240, 240), bg_padding=3)
+    
+    # Save the combined figure
+    compositor.save(output_path)
+    
+    return compositor  # Return compositor object in case further modifications are needed
+

@@ -2,7 +2,6 @@
 import numpy as np
 import pandas as pd
 from matplotlib import pyplot as plt
-from src.chromatin_model import read_chromosome_mnase_reads
 from src.TracerPlotter import normalize_max_min
 from src.global_config import GlobalConstants
 
@@ -12,11 +11,21 @@ class MNase10kbLoader:
 	"""
 
 	def __init__(self):
-		pass
+		self.chromosome = None
+		self.fragment_lengths_span = None
+		self.mnase_reads = None
 
 	def load_mnase_data(self, replicate, chromosome, fragment_lengths_span=None):
 		from src.sgd import get_chromosome_length
 
+		# Cache loaded chromosome, return the reads already loaded
+		if chromosome == self.chromosome and self.replicate == replicate \
+			and self.fragment_lengths_span == self.fragment_lengths_span:
+			return self.mnase_reads
+		else:
+			del self.mnase_reads # for memory management
+
+		self.mnase_span = fragment_lengths_span
 		self.replicate = replicate
 		self.chromosome = chromosome
 		self.mnase_reads = read_chromosome_mnase_reads(replicate, chromosome)
@@ -28,12 +37,6 @@ class MNase10kbLoader:
 			selection_criteria = (self.mnase_reads['length'] >= fragment_lengths_span[0]) & (self.mnase_reads['length'] < fragment_lengths_span[1])
 			self.mnase_reads = self.mnase_reads[selection_criteria]
 
-		self.timepoints = self.mnase_reads['sample'].unique()
-		self.chrom_len = get_chromosome_length(self.chromosome)
-
-		# Compute read counts
-		chrom_read_counts = self.mnase_reads.groupby(['sample', 'mid']).count()
-		self.chrom_read_counts = chrom_read_counts[['start']].rename(columns={'start': 'count'})
 		return self.mnase_reads
 
 
@@ -122,4 +125,10 @@ def get_bin_for_position(position, start_indices, win=10000, step=2000):
 	bin_end = bin_start + win
 	
 	return position_bin_idx, bin_start
+
+def read_chromosome_mnase_reads(replicate, chr):
+	chr_reads = pd.read_hdf(f'output/mnase/yl_rep{replicate}_mnase_reads/yl_rep{replicate}_mnase_reads_chr{chr}.h5', 
+							 'mnase_data')
+
+	return chr_reads
 

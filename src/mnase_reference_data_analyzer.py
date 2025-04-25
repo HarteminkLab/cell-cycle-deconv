@@ -26,7 +26,7 @@ class MNaseReferenceAnalyzer:
 		
 		# Initialize histogram bins
 		self.x_bins = np.arange(-padding, padding+1, 1)
-		self.y_bins = np.arange(0, length_bins)
+		self.y_bins = np.arange(0, length_bins+1)
 		
 		# Initialize the histogram matrix
 		self.hist = np.zeros((len(self.x_bins)-1, len(self.y_bins)-1))

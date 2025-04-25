@@ -77,15 +77,18 @@ def downsample_kernel(kernel):
 	return downsampled_kernel
 
 
-def select_w_kernel(imgs, kernel):
+def select_w_kernel(imgs, kernel, normalize=True):
 	"""User correlation to apply the kernel to the image to select the appropriate
 	reads. Assume the input data is normalized, so normalize resulting selection"""
 	from src.helpers import downsample_bins
 	from scipy.signal import correlate2d
 	kernel_selected = np.zeros((imgs.shape[0], imgs.shape[2]))
 	for i in range(imgs.shape[0]):
-		kernel_selected[i] = correlate2d(imgs[i], kernel, mode='valid')   
-	kernel_selected = kernel_selected / kernel_selected.mean()
+		img = imgs[i]
+		res = correlate2d(img, kernel, mode='valid')   
+		kernel_selected[i] = res
+	if normalize:
+		kernel_selected = kernel_selected / kernel_selected.mean()
 	return kernel_selected
 
 
