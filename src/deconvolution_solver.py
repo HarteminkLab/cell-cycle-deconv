@@ -209,6 +209,12 @@ class DeconvolutionSolver(object):
 		# Smooth each branch separately and weigh by the proportional length of the
 		# branch relative to the bottom branch (the longest)
 
+		# Recovery branch is the shortest 0.9
+		# Top branch: 1.0
+		# Daughter branch: 1.2
+		# The recovery branch is subject to the least amount of regularization and requires more of a 
+		# smoothing regularization compared to the mother and daughter branches
+
 		# Testing adjustments to smoothing weights of the three branches
 		# They appear to have minimal effect on gene expression.
 		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 1 +
