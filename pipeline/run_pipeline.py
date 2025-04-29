@@ -192,7 +192,7 @@ def main():
 
 		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
 		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
-			no_daughter=True)
+			kappa=1.0)
 
 	elif command == 'deconvolve_chromatin_partial_daughter':
 
@@ -209,7 +209,7 @@ def main():
 
 		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
 		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
-			no_daughter=False, kappa=kappa) # Allow CG1/DG1 changes, set kappa manually to 0.008 for testing
+			kappa=kappa) # Allow CG1/DG1 changes, set kappa manually to 0.008 for testing
 
 	elif command == 'deconvolve_chromatin_full_no_copy':
 
@@ -349,13 +349,8 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 		plt.savefig(f"{raw_plots_directory}/raw_rep2_{save_title}.png")
 		plt.close(fig)
 
-		# If no daughter branch, specify kappa to be 1.0, enforcing the two branches
-		# to be identical
-		if no_daughter: kappa = 1.0
-		# Otherwise, use the specified kappa, 0.0 by default
-
 		combined_model.setup_deconv_model(copy_correct=copy_correct)
-		combined_model.deconvolve(gamma=0.01, kappa=no_daughter, verbose=True)	
+		combined_model.deconvolve(gamma=0.01, kappa=kappa, verbose=True)	
 
 		np.save(f"{data_directory}/{save_title}_F.npy", combined_model.F)
 
@@ -369,10 +364,9 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 	chrom = row.chr
 	span = row.start, row.end+1 # (Add 1 to include the last base)
 
-	print_fl(f"Deconvolving index:{index}, chr{chrom}, {span[0], span[1]}")
+	print_fl(f"Deconvolving index:{index}, chr{chrom}, {span[0], span[1]}, k")
 
 	deconv_and_save(chrom, span, chromatin_save_directory)
-
 
 
 if __name__ == '__main__':

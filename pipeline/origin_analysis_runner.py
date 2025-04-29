@@ -157,13 +157,13 @@ class DeconvolvedOriginAnalysisRunner:
 		print(f"[{self._get_elapsed_time()}] Starting full analysis pipeline...")
 		
 		# 1. Initialize analysis objects
-		# self.initialize_analyses()
+		self.initialize_analyses()
 		
 		# 2. Generate histogram data
-		# self.generate_histogram_data()
+		self.generate_histogram_data()
 		
 		# 3. Compute correlations
-		# self.compute_correlations(time_indices=time_indices)
+		self.compute_correlations(time_indices=time_indices)
 		
 		# 4. Generate and save all figures
 		self.generate_and_save_figures(time_indices=time_indices)
