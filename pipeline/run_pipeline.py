@@ -72,7 +72,7 @@ def main():
 		single_replication_directory = f"{output_directory}/single_replication"
 		mkdirs_safe([output_directory, single_replication_directory])
 
-		cold_start = parse_bool(cold_start)
+		cold_start = parse_bool(cold_start) # Unused parameter, may deprecate
 		chrom = int(chrom)
 		replicate = int(replicate)
 		num_epochs = int(num_epochs)
@@ -80,7 +80,7 @@ def main():
 		# 1. Compute replication profiles for each replicate using chromosome 4
 		from pipeline.fit_replication_profiles import main as fit_replication_profile
 		fit_replication_profile(chrom=chrom, replicate=replicate, num_epochs=num_epochs, 
-			output_directory=single_replication_directory, cold_start=cold_start)
+			output_directory=single_replication_directory)
 
 	# Deprecated
 	# elif command == 'replication_second_stage':

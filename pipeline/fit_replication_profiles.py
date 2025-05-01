@@ -78,17 +78,13 @@ def run_epochs(replication_deconvolver, bounds_df, num_epochs, function_update=N
 
 
 def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_directory=None,
-	deconvolve_stage=1, config=None, save=True, stage_1_subset_parameters = ['mu0', 'gamma2', 'sigma0']):
+	config=None, save=True, learn_subset_parameters = ['mu0', 'gamma2', 'sigma0']):
 
 	np.random.seed(123)
-
-	print("Deconvolve stage: ", deconvolve_stage)
 
 	# Load the default replication chrom configuration from disk
 	# use the posteriors from the CLOCCS fits to initialize
 	if config is None:
-		# Load the config from CLOCCS, if in second stage, the setup deconvolution
-		# function will modify the parameters to the updated fits
 		print_fl("Loading initial cell cycle parameters from CLOCCS fits.")
 		config1, config2 = load_cloccs_configs(mode='chromatin', shift_CLOCCS=True)
 		config = config1 if replicate == 1 else config2
@@ -96,31 +92,18 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 	print("Loading MNase data")
 	replication_deconvolver = RealDataReplicationDeconvolution(config, replicate=replicate, 
 		chr=chrom)
-	replication_deconvolver.deconvolve_stage = deconvolve_stage
 
 	# First iteration to settle N, Fr, and B
 	print_fl("Running initial iterations...")
 
-	if deconvolve_stage == 1:
-		replication_deconvolver.setup_deconvolution(config)
-	elif deconvolve_stage == 2:
-		replication_deconvolver.setup_deconvolution(config,
-			warm_start_output_directory=output_directory, warm_start_chrom=4)
+	replication_deconvolver.setup_deconvolution(config)
 
 	# Generate initial parameters and boundaries for optimization
 	bounds_df = create_bounds_params_from_config(config)
 
-	# Subset the parameters to learn in stage 1
-	if deconvolve_stage == 1:
-		subset_parameters = stage_1_subset_parameters
-		bounds_df = bounds_df.loc[subset_parameters]
-		print(f"Subsetting the cell cycle parameters to learn: ", subset_parameters)
-	elif deconvolve_stage == 2:
-		print(f"No subset, full parameter updates")
-		print(f"** todo: testing learning only delta and lambda **")
-
-		# bounds_df = freeze_params_bounds_df(bounds_df,  ['delta'])
-		bounds_df = bounds_df.loc[['delta', 'lambda', 'sigmav']].copy()
+	subset_parameters = learn_subset_parameters
+	bounds_df = bounds_df.loc[subset_parameters]
+	print(f"Subsetting the cell cycle parameters to learn: ", subset_parameters)
 
 	# Initial convergence of N, F, B
 	replication_deconvolver.iterative_deconvolution_updates(20, verbose=True)
@@ -141,11 +124,7 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 				if output_directory is not None:
 					print_fl(f"[{epoch}]Saving to output_directory...")
 					replication_deconvolver.save_to_disk(output_directory)
-
-					if deconvolve_stage == 1:
-						update_params_df.to_csv(f"{output_directory}/parameter_updates_rep{replicate}_chr{chrom}.csv")
-					else:
-						update_params_df.to_csv(f"{output_directory}/parameter_updates_rep{replicate}_chr{chrom}_stage2.csv")
+					update_params_df.to_csv(f"{output_directory}/parameter_updates_rep{replicate}_chr{chrom}.csv")
 
 	# Run the optimizer
 	update_params_df, Hs, Fs, Ns, Bs, optimizer = run_epochs(replication_deconvolver, bounds_df,
