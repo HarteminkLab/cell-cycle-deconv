@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script to create jobs to create locus plots for all genes across all chromosomes
 
-OUTDIR=output/prototype_pipeline_subset
+OUTDIR=output/draft1_run/
 
 # ---------- Replication deconvolution ----------------
 
