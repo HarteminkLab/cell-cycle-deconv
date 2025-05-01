@@ -247,7 +247,8 @@ def load_config_from_replication_runs(output_directory, chrom, mode='chromatin')
 
 	# This function will assume we are loading from CLOCCS
 	# and updating to the latest parameter run results in the output directory
-	config1, config2 = load_cloccs_configs(mode=mode, shift_CLOCCS=True)
+
+	config1, config2 = load_cloccs_configs(mode=mode)
 	config1 = modify_config_from_run(config1, output_directory, 1, chrom)
 	config2 = modify_config_from_run(config2, output_directory, 2, chrom)
 

@@ -86,7 +86,7 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 	# use the posteriors from the CLOCCS fits to initialize
 	if config is None:
 		print_fl("Loading initial cell cycle parameters from CLOCCS fits.")
-		config1, config2 = load_cloccs_configs(mode='chromatin', shift_CLOCCS=True)
+		config1, config2 = load_cloccs_configs(mode='chromatin')
 		config = config1 if replicate == 1 else config2
 
 	print("Loading MNase data")

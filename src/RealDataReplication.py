@@ -194,6 +194,10 @@ class RealDataReplicationDeconvolution():
 			parameters_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_parameters.csv'
 		else:
 			parameters_save_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}_parameters_stage2.csv'
+			configs
+
+		# Save latest config to json file
+		self.config.save_to_path(f"{self.save_dir}/single_replication/rep{self.config.replicate}.json")
 
 		fig_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}.png'
 
@@ -896,15 +900,12 @@ def modify_config_from_run(config, output_directory, replicate, chrom):
 	parameters_df = pd.read_csv(f'{output_directory}/parameter_updates_rep{replicate}_chr{chrom}.csv')
 	parameters = parameters_df.iloc[-1]
 
-	mu0, gamma1, gamma2, sigma0 = parameters.mu0, parameters.gamma1, \
-		parameters.gamma2, parameters.sigma0
+	mu0, gamma2, sigma0 = parameters.mu0, parameters.gamma2, parameters.sigma0
 
 	# todo: load all parameters in the parameters csv, when we deconvolve all parameters
 	config.params_dic['mu0'] = mu0
-	config.params_dic['gamma1'] = gamma1
 	config.params_dic['gamma2'] = gamma2
 	config.params_dic['sigma0'] = sigma0
-	config.params_dic['alpha'] = 0
 	config.update_timepoints()
 	config.calculate_H()
 

@@ -391,46 +391,6 @@ class RG1Model(object):
 
 		return (parameters, relations, i_timepoints, t_timepoints, b_timepoints, None)
 
-	def shift_parameters_for_alpha(self):
-		"""From Guo, the CLOCCS estimates need to be adjusted because CLOCCS 
-		assumes cells that have divided, but the cell wall has not been degraded yet, to 
-		be in G2M.
-		Guo estimated previously that this delay (alpha) was about 30% of the cell cycle 
-		(exact value is in the paper).
-
-		Thus we can use this value as the time/proportion that mu0 and gamma1 and gamma2
-		should be shifted for the initialization
-		"""
-
-		# todo: Testing no shiftt
-		pass
-
-		# alpha = self.alpha
-		# params_dic = self.params_dic
-
-		# lambda_ = params_dic['lambda']
-		# old_mu0 = params_dic['mu0']
-		# old_gamma1 = params_dic['gamma1']
-		# old_gamma2 = params_dic['gamma2']
-
-		# mu0 = old_mu0+alpha
-
-		# gamma_shift = alpha/lambda_ 
-
-		# gamma1 = old_gamma1 + gamma_shift
-		# gamma2 = old_gamma2 + gamma_shift
-
-		# params_dic = params_dic.copy()
-		# params_dic['mu0'] = mu0
-		# params_dic['gamma1'] = gamma1
-		# params_dic['gamma2'] = gamma2
-		# params_dic['alpha'] = 0
-
-		# # alpha is now embedded into the mu0, gamma1, and gamma2 values so
-		# # we can set it to 0
-		# self.params_dic = params_dic
-		# self.alpha = 0
-		# self.update_timepoints()
 
 	def compute_branch_lengths(self):
 		"""Compute the branch lengths to determine the distribution of weights for smoothing"""
@@ -504,9 +464,10 @@ def load_default_configs(config_type='distinct', mode='chromatin'):
 
 	timepoints1, timepoints2 = load_timepoints(mode)
 
-	# Load configs from disk
-	config1.load_from_dic(f"models/yl_cell_cycle/stage_1_rep1_31125.json", timepoints1)
-	config2.load_from_dic(f"models/yl_cell_cycle/stage_1_rep2_31125.json", timepoints2)
+	# Load config parameters from json file from disk
+	# todo: automate saving of the last replication runs from the replication runner
+	config1.load_from_dic(f"models/yl_cell_cycle/refined_rep1_50125.json", timepoints1)
+	config2.load_from_dic(f"models/yl_cell_cycle/refined_rep2_50125.json", timepoints2)
 
 	config1.replicate = 1
 	config2.replicate = 2
@@ -514,7 +475,7 @@ def load_default_configs(config_type='distinct', mode='chromatin'):
 	return config1, config2
 
 
-def load_cloccs_configs(config_type='distinct', mode='chromatin', shift_CLOCCS=True):
+def load_cloccs_configs(config_type='distinct', mode='chromatin'):
 
 	config1 = RG1Model(config_type=config_type)
 	config2 = RG1Model(config_type=config_type)
@@ -524,11 +485,6 @@ def load_cloccs_configs(config_type='distinct', mode='chromatin', shift_CLOCCS=T
 	# Load configs from disk
 	config1.load_from_dic(f"models/yl_cell_cycle/cloccs_rep1.json", timepoints1)
 	config2.load_from_dic(f"models/yl_cell_cycle/cloccs_rep2.json", timepoints2)
-
-	if shift_CLOCCS:
-		print("Shifting mu0, gamma1, and gamma2, for alpha...")
-		config1.shift_parameters_for_alpha()
-		config2.shift_parameters_for_alpha()
 		
 	config1.replicate = 1
 	config2.replicate = 2
