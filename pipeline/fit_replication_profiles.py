@@ -78,7 +78,7 @@ def run_epochs(replication_deconvolver, bounds_df, num_epochs, function_update=N
 
 
 def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_directory=None,
-	deconvolve_stage=1, config=None, save=True):
+	deconvolve_stage=1, config=None, save=True, stage_1_subset_parameters = ['mu0', 'gamma2', 'sigma0']):
 
 	np.random.seed(123)
 
@@ -112,7 +112,7 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 
 	# Subset the parameters to learn in stage 1
 	if deconvolve_stage == 1:
-		subset_parameters = ['mu0', 'gamma1', 'gamma2', 'sigma0']
+		subset_parameters = stage_1_subset_parameters
 		bounds_df = bounds_df.loc[subset_parameters]
 		print(f"Subsetting the cell cycle parameters to learn: ", subset_parameters)
 	elif deconvolve_stage == 2:
