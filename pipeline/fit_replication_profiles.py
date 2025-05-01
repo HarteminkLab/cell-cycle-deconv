@@ -7,7 +7,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from src.RealDataReplication import RealDataReplicationDeconvolution
-from src.config import load_default_chrom_configs
+from src.config import load_default_chrom_configs, load_cloccs_configs
 from src.optimize_H import create_bounds_params_from_config, ParameterOptimizer
 from src.timer import Timer
 from src.utils import print_fl
@@ -93,6 +93,7 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 		config1, config2 = load_cloccs_configs(mode='chromatin', shift_CLOCCS=True)
 		config = config1 if replicate == 1 else config2
 
+	print("Loading MNase data")
 	replication_deconvolver = RealDataReplicationDeconvolution(config, replicate=replicate, 
 		chr=chrom)
 	replication_deconvolver.deconvolve_stage = deconvolve_stage

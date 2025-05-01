@@ -16,6 +16,11 @@ class MNase10kbLoader:
 		self.mnase_reads = None
 
 	def load_mnase_data(self, replicate, chromosome, fragment_lengths_span=None):
+		"""todo: This class is serving two purposes and needs to be refactored into separate classes (with code reuse)
+		
+		1. Loading the 10kb occupancy values
+		2. General use MNase-loading for the chromatin deconvolution
+		"""
 		from src.sgd import get_chromosome_length
 
 		# Cache loaded chromosome, return the reads already loaded
@@ -36,6 +41,12 @@ class MNase10kbLoader:
 			# Filter by fragment lengths
 			selection_criteria = (self.mnase_reads['length'] >= fragment_lengths_span[0]) & (self.mnase_reads['length'] < fragment_lengths_span[1])
 			self.mnase_reads = self.mnase_reads[selection_criteria]
+
+		# For usage for the 10kb occupancy values for the replication deconvolution
+		self.timepoints = GlobalConstants.CHROM_WT1_TIMEPOINTS if self.replicate == 1 else GlobalConstants.CHROM_WT2_TIMEPOINTS
+		self.chrom_len = get_chromosome_length(self.chromosome)
+		chrom_read_counts = self.mnase_reads.groupby(['sample', 'mid']).count()
+		self.chrom_read_counts = chrom_read_counts[['start']].rename(columns={'start': 'count'})
 
 		return self.mnase_reads
 
