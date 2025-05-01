@@ -23,7 +23,8 @@ class GeneChromatinAnalysis:
 	Class to perform analysis on the chromatin at the gene-level
 	"""
 	
-	def __init__(self, output_directory):
+	def __init__(self, output_directory, chromatin_data_directory='chromatin_deconvolution',
+		save_directory='genelevel_chromatin'):
 		"""
 		Initialize the ExpressionChromatinAnalysis with the output directory
 		
@@ -33,10 +34,11 @@ class GeneChromatinAnalysis:
 			Directory where output files will be saved
 		"""
 		self.output_directory = output_directory
-		self.save_plots_dir = os.path.join(output_directory, 'genelevel_chromatin')
-		
+		self.save_directory = os.path.join(output_directory, save_directory)
+		self.chromatin_data_directory = chromatin_data_directory
+
 		# Create output directory if it doesn't exist
-		os.makedirs(self.save_plots_dir, exist_ok=True)
+		os.makedirs(self.save_directory, exist_ok=True)
 		
 		# Initialize analyses
 		self.chromatin_analysis = None
@@ -61,14 +63,28 @@ class GeneChromatinAnalysis:
 	def initialize_analyses(self, copy_correction=True):
 		"""Initialize all analysis objects and load required data"""
 		print(f"Initializing chromatin analysis... copy correction: {copy_correction}")
+		if not copy_correction:
+			print(f" ** todo: need to refactor no copy correction directory loading...")
+
+		genome_deconv_full_path = os.path.join(self.output_directory, 
+										f"{self.chromatin_data_directory}/deconvolution_data")
+		analysis_path = self.save_directory # save the metrics csv files to the directory with the plots
+
 		self.chromatin_analysis = DeconvolvedChromatinAnalysis(self.output_directory, 
-			copy_correction=copy_correction)
-		self.chromatin_analysis.load_chromatin_measures()
-		
+			chromatin_data_path=genome_deconv_full_path,
+			analysis_path=analysis_path)
+
+		try:
+			print("Loading chromatin measures")
+			self.chromatin_analysis.load_chromatin_measures()
+		except Exception as e:
+			print(f"Failed to load chromatin measures: {e}")
+			print("Computing measures...")
+			self.chromatin_analysis.compute_chromatin_measures(debug=False)
+
 		print("Initializing genome deconvolution analysis...")
-		genome_deconv_dir = os.path.join(self.output_directory, 
-										"chromatin_deconvolution/deconvolution_data")
-		self.genome_analysis = GenomeDeconvolutionAnalysis(outdir=genome_deconv_dir)
+
+		self.genome_analysis = GenomeDeconvolutionAnalysis(outdir=genome_deconv_full_path)
 		
 		# Store configs for later use
 		from src.config import load_default_expression_configs
@@ -163,7 +179,7 @@ class GeneChromatinAnalysis:
 			fontsize=23)
 
 		plt.tight_layout()
-		save_figure_for_paper(f"{self.save_plots_dir}/ptr_distributions.png")
+		save_figure_for_paper(f"{self.save_directory}/ptr_distributions.png")
 		
 		print("PTR distribution plots saved")
 		
@@ -178,7 +194,7 @@ class GeneChromatinAnalysis:
 			"Promoter occupancy", 
 			(0.5, 2.2)
 		)
-		save_figure_for_paper(f"{self.save_plots_dir}/promoters_polar.png")
+		save_figure_for_paper(f"{self.save_directory}/promoters_polar.png")
 
 		# Nucleosome entropy polar plot
 		plot_polar_plot_polar_mean_branch_data(
@@ -187,7 +203,7 @@ class GeneChromatinAnalysis:
 			"Nucleosome entropy", 
 			(0.75, 1.75)
 		)
-		save_figure_for_paper(f"{self.save_plots_dir}/entropy_polar.png")
+		save_figure_for_paper(f"{self.save_directory}/entropy_polar.png")
 
 		# Nucleosome occupancy polar plot
 		# plot_polar_plot_polar_mean_branch_data(
@@ -196,7 +212,7 @@ class GeneChromatinAnalysis:
 		# 	"Nucleosome occupancy", 
 		# 	(0.5, 2)
 		# )
-		# save_figure_for_paper(f"{self.save_plots_dir}/gb_polar.png")
+		# save_figure_for_paper(f"{self.save_directory}/gb_polar.png")
 		
 		print("Polar branch plots saved")
 		
@@ -217,7 +233,7 @@ class GeneChromatinAnalysis:
 		  category_keys=['promoter_only', 'entropy_only', 'both', 'neither'], 
 									 category_names=['Promoter', 'Entropy'])
 		ax.set_ylabel("# of genes")
-		save_figure_for_paper(f"{self.save_plots_dir}/metrics_venn2.png")
+		save_figure_for_paper(f"{self.save_directory}/metrics_venn2.png")
 		
 		print("Venn diagrams saved")
 		
@@ -230,25 +246,34 @@ class GeneChromatinAnalysis:
 			self.small_polar_data_df,
 			self.entropies_polar_data_df, 
 			'Promoter occupancy', 
-			'Nucleosome entropy'
+			'Nucleosome entropy',
+			vmax=10,
+			plot_pvalue_heatmap=8.5
 		)
-
 		
 		print("Interesting threshold values:")
 		highest_neg_logpval = 0
 		thresholds = None
+
 		for row in interesting_chrom_points:
 			print(f"{row[0]:0.4f}, {row[1]:0.4f}: p-value {row[2]:0.2f}")
 			if row[2] > highest_neg_logpval:
 				highest_neg_logpval = row[2]
 				thresholds = row[:2]
-		print(f"Highest p-value: {thresholds[0]:0.4f}, {thresholds[1]:0.4f}: p-value {highest_neg_logpval:0.2f}")
 
-		# Parameters for analysis, determined from sensitivity analysis
-		self.sm_percentile_threshold = thresholds[1]
-		self.entropy_percentile_threshold = thresholds[0]
+		# If we found interesting ptr values, update the thresholds
+		if len(interesting_chrom_points) > 0:
+			print(f"Highest p-value: {thresholds[0]:0.4f}, {thresholds[1]:0.4f}: p-value {highest_neg_logpval:0.2f}")
+			# Parameters for analysis, determined from sensitivity analysis
+			self.sm_percentile_threshold = thresholds[1]
+			self.entropy_percentile_threshold = thresholds[0]
 
-		save_figure_for_paper(f"{self.save_plots_dir}/ptr_sensitivity_prom_entropy.png")
+		# Keep thresholds the same for comparison with other analyses
+		# may want to keep at 95, for stringent purposes.
+		# self.sm_percentile_threshold = 0.95
+		# self.entropy_percentile_threshold = 0.95
+
+		save_figure_for_paper(f"{self.save_directory}/ptr_sensitivity_prom_entropy.png")
 		
 		# Expected intersection heatmap
 		plot_expected_intersection_heatmap(
@@ -258,7 +283,7 @@ class GeneChromatinAnalysis:
 			figsize=(5, 4),
 			highlight=interesting_chrom_points
 		)
-		save_figure_for_paper(f"{self.save_plots_dir}/ptr_sensitivity_expected_counts.png")
+		save_figure_for_paper(f"{self.save_directory}/ptr_sensitivity_expected_counts.png")
 		
 		print("PTR sensitivity plots saved")
 		
@@ -324,9 +349,9 @@ def layout_figure_plots(plots_dir, save_dir):
 
 	# Define image paths
 	image_names = [
-	    'metrics_venn2',
-	    'promoters_polar',
-	    'entropy_polar'
+		'metrics_venn2',
+		'promoters_polar',
+		'entropy_polar'
 	]
 
 	image_paths = [f"{plots_dir}/{name}.png" for name in image_names]
@@ -352,12 +377,12 @@ def layout_figure_plots(plots_dir, save_dir):
 
 	polar_x = venn_width+pad_x_polar+margin
 	img = compositor.place_image(image_paths[1], polar_x, margin, polar_width, 
-	                      None, 'prom_polar')
+						  None, 'prom_polar')
 	compositor.add_panel_label_to_image('prom_polar', 'B')
 
 	polar_x = polar_x+polar_width+pad_x_polar
 	img = compositor.place_image(image_paths[2], polar_x, margin, polar_width, 
-	                      None, 'entropy_polar')
+						  None, 'entropy_polar')
 	compositor.add_panel_label_to_image('entropy_polar', 'C')
 
 	# Save the figure - will be 4x the logical resolution

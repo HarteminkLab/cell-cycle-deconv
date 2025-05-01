@@ -133,6 +133,10 @@ class DeconvolvedOriginAnalysis:
 		
 		# Apply strand correction if needed
 		if strand_correct and strand == '-':
+
+			# TODO: Do we need to correct for mcm loading class as well?
+			#       Upstream and watson or Downstream and crick
+
 			# Flip each timepoint's histogram for strand correction
 			for tp in range(self.n_timepoints):
 				origin_data_processed[tp] = np.flip(origin_data_processed[tp], axis=1)
@@ -452,7 +456,7 @@ class DeconvolvedOriginAnalysis:
 		ax.plot(t_tps, b_occupancy, '-', linewidth=2,label='Daughter branch')
 		
 		# Add labels and title
-		ax.set_xlabel('Time (min)')
+		ax.set_xlabel('Average single cell time')
 		ax.set_ylabel(f'Mean occupancy small\nfragments at origin footprint')
 		ax.set_title('Origin occupancy, Mother vs Daughter', fontweight='demi', fontsize=12, y=1.01)
 		ax.set_ylim(0, 2.0)

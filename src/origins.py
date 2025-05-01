@@ -16,47 +16,50 @@ def load_origins(full=False):
 	return origins
 
 
-def load_origins_w_replication(full=False):
+# Deprecated, we need a way to easily load genomic items with the correponding replication timing.
+#
+#
+# def load_origins_w_replication(full=False):
 
-	from src.config import load_configs_by_config_type
+# 	from src.config import load_default_chrom_configs
 
-	# Load origins of replication
-	# load the replication timing
-	# assign the replication index and timing to each origin for analysis and plotting
-	origins = load_origins(full=full)
-	from src.stepwise_replication_solver import replication_timing_from_index
+# 	# Load origins of replication
+# 	# load the replication timing
+# 	# assign the replication index and timing to each origin for analysis and plotting
+# 	origins = load_origins(full=full)
+# 	from src.stepwise_replication_solver import replication_timing_from_index
 
-	# Depiction of the chromosome 10 replication timing profile computed from the MNase-seq
-	chrom_replication_profile = pd.read_csv(
-		'data/replication_timing/yl_2019/chrom_replication_timing_shared.csv')
-	chrom_replication_profile = chrom_replication_profile.set_index(['chr', 'start'])
+# 	# Depiction of the chromosome 10 replication timing profile computed from the MNase-seq
+# 	chrom_replication_profile = pd.read_csv(
+# 		'data/replication_timing/yl_2019/chrom_replication_timing_shared.csv')
+# 	chrom_replication_profile = chrom_replication_profile.set_index(['chr', 'start'])
 
-	# Copy number correction procedure....
-	config1, config2 = load_configs_by_config_type('shared', 1)
+# 	# Copy number correction procedure....
+# 	config1, config2 = load_default_chrom_configs
 
-	origins_repl = origins.copy()
+# 	origins_repl = origins.copy()
 		
-	for chrom in range(1, 17):
+# 	for chrom in range(1, 17):
 
-		repl_idx = chrom_replication_profile.loc[chrom].replication_index
-		repl_timing = replication_timing_from_index(repl_idx, config1, config2)
+# 		repl_idx = chrom_replication_profile.loc[chrom].replication_index
+# 		repl_timing = replication_timing_from_index(repl_idx, config1, config2)
 
-		origins_chr = origins[origins.chr == chrom]
+# 		origins_chr = origins[origins.chr == chrom]
 
-		from src.global_config import GlobalConstants
-		from src.sgd import get_chromosome_length
-		from src.mnase_replication_timing_analysis import get_bin_for_position
+# 		from src.global_config import GlobalConstants
+# 		from src.sgd import get_chromosome_length
+# 		from src.mnase_replication_timing_analysis import get_bin_for_position
 
-		for origin_name, origin in origins_chr.iterrows():
+# 		for origin_name, origin in origins_chr.iterrows():
 
-			bin_idx, bin_start_pos = get_bin_for_position(origin.pos, repl_idx.index)
-			replication_index = repl_idx.iloc[bin_idx]
-			replication_time = repl_timing[bin_idx]
+# 			bin_idx, bin_start_pos = get_bin_for_position(origin.pos, repl_idx.index)
+# 			replication_index = repl_idx.iloc[bin_idx]
+# 			replication_time = repl_timing[bin_idx]
 
-			origins_repl.loc[origin_name, 'replication_time'] = replication_time
-			origins_repl.loc[origin_name, 'replication_index'] = replication_index
+# 			origins_repl.loc[origin_name, 'replication_time'] = replication_time
+# 			origins_repl.loc[origin_name, 'replication_index'] = replication_index
 
-	return origins_repl
+# 	return origins_repl
 
 
 

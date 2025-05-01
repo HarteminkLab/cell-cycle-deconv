@@ -7,7 +7,6 @@ from matplotlib import pyplot as plt
 
 from src.sgd import get_gene_name_orf_name
 from src.mnase_plotting import plot_mnase_density
-from src.origins import load_origins_w_replication
 from src.figure_configs import FiguresConfig
 
 from src.timer import Timer

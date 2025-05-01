@@ -78,8 +78,9 @@ class PolarPlot:
 
 		self.ax.xaxis.grid(False)
 
-		self.ax.set_theta_zero_location("N")  # Set 0 at 12 o'clock
-		self.ax.set_theta_direction(-1)  # Set clockwise rotation
+		# Set 12 o clock start and clockwise reotation	
+		# self.ax.set_theta_zero_location("N")  # Set 0 at 12 o'clock
+		# self.ax.set_theta_direction(-1)  # Set clockwise rotation
 
 		ax.plot([0, 0], [threshold, self.ylims[1]], color='black', lw=0.75)
 

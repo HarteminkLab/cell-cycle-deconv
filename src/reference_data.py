@@ -156,7 +156,10 @@ def load_chrom_replication_timing():
 	return replication_timing
 
 
-def plot_guo_gene_expression(orf_name):
+def plot_guo_gene_expression(gene_name):
+
+	from src.sgd import get_orfname
+	orf_name = get_orfname(gene_name)
 	guo_f_df = pd.read_csv('datasets/datasets_from_web_deconvolution.cs.duke.edu/deconvolved_profiles.tsv', 
 		sep='\t').set_index('SystematicName')
 	tp_cols = guo_f_df.columns[2:]

@@ -122,7 +122,7 @@ class DeconvolvedOriginAnalysisRunner:
 		self._save_figure('origin_correlation_heatmap')
 		
 		# 5. Early origin example
-		early_origin_id = 'oridb_437'  # Can be parameterized if needed
+		early_origin_id = 'oridb_10'  # Can be parameterized if needed
 		fig1 = self.consensus_analysis.plot_consensus_vs_origin(
 			origin_id=early_origin_id,
 			time_indices=time_indices, 
@@ -147,7 +147,7 @@ class DeconvolvedOriginAnalysisRunner:
 		
 		print(f"[{self._get_elapsed_time()}] All figures saved to {self.save_directory}")
 	
-	def analyze_all_origins(self, time_indices=None):
+	def analyze_all_origins(self, generate_data=True, time_indices=None):
 		"""
 		Run the full analysis pipeline and save all results
 		
@@ -156,14 +156,15 @@ class DeconvolvedOriginAnalysisRunner:
 		"""
 		print(f"[{self._get_elapsed_time()}] Starting full analysis pipeline...")
 		
-		# 1. Initialize analysis objects
-		self.initialize_analyses()
-		
-		# 2. Generate histogram data
-		self.generate_histogram_data()
-		
-		# 3. Compute correlations
-		self.compute_correlations(time_indices=time_indices)
+		if generate_data:
+			# 1. Initialize analysis objects
+			self.initialize_analyses()
+			
+			# 2. Generate histogram data
+			self.generate_histogram_data()
+			
+			# 3. Compute correlations
+			self.compute_correlations(time_indices=time_indices)
 		
 		# 4. Generate and save all figures
 		self.generate_and_save_figures(time_indices=time_indices)

@@ -3,14 +3,14 @@ import numpy as np
 import pandas as pd
 
 
-def load_gene_expression(gene_name, replicate):
+def load_gene_expression(gene_name, replicate, log_transform=True):
 
 	from src.sgd import get_orfname
 	orf_name = get_orfname(gene_name)
-	gene_expressions_logtpm = load_gene_expression_data(replicate)
+	gene_expressions_logtpm = load_gene_expression_data(replicate, log_transform=log_transform)
 	gene_expression_logtpm = gene_expressions_logtpm.loc[orf_name]
 
-	return gene_expression_tpm
+	return gene_expression_logtpm
 
 def load_gene_expression_data(replicate, log_transform=True):
 

@@ -88,8 +88,9 @@ class GeneExpressionFindOptimalGamma(object):
 		gamma_sweep = self.gamma_optimizer.elbow_results_df.index
 		f_gamma_solutions = self.gamma_optimizer.elbow_solutions
 		g = self.deconvolution_solver.g
+		vmax = max(g.max(), f_gamma_solutions.max())
 
-		ylims=(0, g.max()*1.3)
+		ylims = (vmax*-0.05, vmax*1.2)
 
 		if g.max() == 0:
 			ylims = -0.1, 1

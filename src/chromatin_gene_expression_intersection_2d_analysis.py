@@ -154,7 +154,7 @@ class TwoDimensionalPTRAnalysis:
 		
 		return self.results_df
 	
-	def plot_pvalue_heatmap(self, ax):
+	def plot_pvalue_heatmap(self, ax, interesting_pval_threshold=7):
 		"""
 		Plot heatmaps of the analysis results.
 		
@@ -201,7 +201,7 @@ class TwoDimensionalPTRAnalysis:
 				text = str(intersection_size)
 
 				# Threshold to highlight
-				if lp_value > 7:
+				if lp_value > interesting_pval_threshold:
 					collect.append((plot_x_position, plot_y_position, lp_value))
 
 				ax.text(plot_x_position, plot_y_position, text,
@@ -566,7 +566,7 @@ def plot_expected_intersection_heatmap(total_genes, metric1_name, metric2_name,
 	return fig, im
 
 def compare_mean_and_plot_thresholds(metric_1, metric_2, metric_1_name, metric_2_name,
-							   vmax=8):
+							   vmax=8, plot_pvalue_heatmap=7):
 	import matplotlib.pyplot as plt
 	import numpy as np
 	from mpl_toolkits.axes_grid1 import make_axes_locatable
@@ -579,7 +579,7 @@ def compare_mean_and_plot_thresholds(metric_1, metric_2, metric_1_name, metric_2
 		metric_1['ptr'], metric_2['ptr'], pval_vmax=vmax)
 	analyzer.run_2d_analysis(metric1_percentiles=ptr_linspace, 
 		metric2_percentiles=ptr_linspace)
-	im, collected_cells = analyzer.plot_pvalue_heatmap(ax)
+	im, collected_cells = analyzer.plot_pvalue_heatmap(ax, plot_pvalue_heatmap)
 
 	if len(collected_cells) > 0:
 		analyzer.interesting_cells = collected_cells

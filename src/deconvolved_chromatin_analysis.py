@@ -16,30 +16,21 @@ random_color = plt.cm.gray(0.25)
 
 class DeconvolvedChromatinAnalysis:
 	"""Analysis and computation of deconvolved chromatin data"""
-	def __init__(self, output_directory, copy_correction=True):
+	def __init__(self, output_directory, chromatin_data_path, analysis_path):
 
 		self.output_directory = output_directory
 		self.config1, self.config2 = load_config_from_replication_runs(f'{output_directory}/single_replication/', 
 			chrom=4)
 
-		if copy_correction:
-			chromatin_analysis_directory = 'chromatin_analysis'
-			chromatin_data_path = f"{output_directory}/chromatin_deconvolution/deconvolution_data"
-		else:
-			chromatin_analysis_directory = 'chromatin_analysis_no_copy'
-			chromatin_data_path = f"{output_directory}/chromatin_deconvolution_no_copy/deconvolution_data"
-
 		from src.utils import mkdirs_safe
 
-		self.chromatin_analysis_path = f'{self.output_directory}/{chromatin_analysis_directory}/'
+		self.chromatin_analysis_path = analysis_path
 		self.genome_analysis = GenomeDeconvolutionAnalysis(chromatin_data_path)
 
 		mkdirs_safe([self.chromatin_analysis_path])
 
-		print_fl("Loading data directory: "+ chromatin_data_path)
-		print_fl(f"Copy correction: {copy_correction}")
-		print_fl("Will save chromatin measures to: ", self.chromatin_analysis_path)
-
+		print_fl("Loading genomic data directory: "+ chromatin_data_path)
+		print_fl("Will save chromatin measures to: " + self.chromatin_analysis_path)
 
 	def compute_chromatin_measures(self, debug=False):
 		"""Takes about two hours to compute, so save to disk"""
@@ -99,7 +90,8 @@ class DeconvolvedChromatinAnalysis:
 				nucleosome_gene_body_occupancies_df.loc[orfname] = gene_body_nucleosome_occupancy
 				small_gene_body_occupancies_df.loc[orfname] = gene_body_small_occupancy
 
-			except ValueError:
+			except Exception as e:
+
 				# Skip missing window
 				skip_genes.append(orfname)
 				pass
@@ -119,10 +111,15 @@ class DeconvolvedChromatinAnalysis:
 		nucleosome_gene_body_occupancies_df.to_csv(f"{self.chromatin_analysis_path}/nuc_gb_occupancies.csv")
 		small_gene_body_occupancies_df.to_csv(f"{self.chromatin_analysis_path}/small_gb_occupancies.csv")
 
+		self.small_promoter_occupancies_df = small_promoter_occupancies_df
+		self.nucleosome_genebody_entropies_df = nucleosome_genebody_entropies_df
+		self.nucleosome_gene_body_occupancies_df = nucleosome_gene_body_occupancies_df
+		self.small_gene_body_occupancies_df = small_gene_body_occupancies_df
+
 
 	def load_chromatin_measures(self):
 
-		print("Loading precomputed chromatin measures")
+		print(f"Loading precomputed chromatin measures, from {self.chromatin_analysis_path}")
 		self.small_promoter_occupancies_df = pd.read_csv(f"{self.chromatin_analysis_path}/small_prom_occupancies.csv").set_index('orf_name')
 		self.nucleosome_genebody_entropies_df = pd.read_csv(f"{self.chromatin_analysis_path}/nuc_gb_entropies.csv").set_index('orf_name')
 		self.nucleosome_gene_body_occupancies_df = pd.read_csv(f"{self.chromatin_analysis_path}/nuc_gb_occupancies.csv").set_index('orf_name')

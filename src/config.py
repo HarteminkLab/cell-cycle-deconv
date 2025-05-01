@@ -401,32 +401,36 @@ class RG1Model(object):
 		Thus we can use this value as the time/proportion that mu0 and gamma1 and gamma2
 		should be shifted for the initialization
 		"""
-		alpha = self.alpha
-		params_dic = self.params_dic
 
-		lambda_ = params_dic['lambda']
-		old_mu0 = params_dic['mu0']
-		old_gamma1 = params_dic['gamma1']
-		old_gamma2 = params_dic['gamma2']
+		# todo: Testing no shiftt
+		pass
 
-		mu0 = old_mu0+alpha
+		# alpha = self.alpha
+		# params_dic = self.params_dic
 
-		gamma_shift = alpha/lambda_ 
+		# lambda_ = params_dic['lambda']
+		# old_mu0 = params_dic['mu0']
+		# old_gamma1 = params_dic['gamma1']
+		# old_gamma2 = params_dic['gamma2']
 
-		gamma1 = old_gamma1 + gamma_shift
-		gamma2 = old_gamma2 + gamma_shift
+		# mu0 = old_mu0+alpha
 
-		params_dic = params_dic.copy()
-		params_dic['mu0'] = mu0
-		params_dic['gamma1'] = gamma1
-		params_dic['gamma2'] = gamma2
-		params_dic['alpha'] = 0
+		# gamma_shift = alpha/lambda_ 
 
-		# alpha is now embedded into the mu0, gamma1, and gamma2 values so
-		# we can set it to 0
-		self.params_dic = params_dic
-		self.alpha = 0
-		self.update_timepoints()
+		# gamma1 = old_gamma1 + gamma_shift
+		# gamma2 = old_gamma2 + gamma_shift
+
+		# params_dic = params_dic.copy()
+		# params_dic['mu0'] = mu0
+		# params_dic['gamma1'] = gamma1
+		# params_dic['gamma2'] = gamma2
+		# params_dic['alpha'] = 0
+
+		# # alpha is now embedded into the mu0, gamma1, and gamma2 values so
+		# # we can set it to 0
+		# self.params_dic = params_dic
+		# self.alpha = 0
+		# self.update_timepoints()
 
 	def compute_branch_lengths(self):
 		"""Compute the branch lengths to determine the distribution of weights for smoothing"""

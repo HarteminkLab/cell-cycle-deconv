@@ -245,8 +245,10 @@ class OriginConsensusCorrelationAnalysis:
 		# Create DataFrame
 		origins = self.deconv_origin_analysis.origins.join(self.correlations)
 		occupancy_df = pd.DataFrame(mean_occupancy, index=origins.index)
+		sorted_origins = origins.sort_values(['activation_time', 'correlation'])
+		sorted_indices = sorted_origins.index
 
-		plot_data = occupancy_df
+		plot_data = occupancy_df.loc[sorted_indices]
 		normalized_data = plot_data.copy()
 		normalized_data.loc[:] = plot_data.values-plot_data.values.mean(1)[:, None]
 		early_indices = origins[origins.activation_time == 'early'].index
@@ -341,9 +343,9 @@ class OriginConsensusCorrelationAnalysis:
 		late_positions = bar_positions + bar_width/2
 		
 		# Plot early and late bars side by side
-		ax.bar(early_positions, early_counts, width=bar_width, color='red', alpha=0.6,
+		ax.bar(early_positions, early_counts, width=bar_width, color=plt.cm.Reds(0.6), alpha=0.75,
 			   label=f'Early, n={len(early_corrs)}')
-		ax.bar(late_positions, late_counts, width=bar_width, color='blue', alpha=0.6,
+		ax.bar(late_positions, late_counts, width=bar_width, color=plt.cm.Blues(0.6), alpha=0.75,
 			   label=f'Late, n={len(late_corrs)}')
 		
 		ax.legend()
@@ -400,11 +402,11 @@ class OriginConsensusCorrelationAnalysis:
 		late_positions = bar_positions + bar_width/2
 		
 		# Plot early and late bars side by side
-		ax.bar(early_positions, early_counts, width=bar_width, color='red', alpha=0.6,
+		ax.bar(early_positions, early_counts, width=bar_width, color=plt.cm.Reds(0.6), alpha=0.75,
 			   label=f'Early firing, n={len(early_shifts)}')
-		ax.bar(late_positions, late_counts, width=bar_width, color='blue', alpha=0.6,
+		ax.bar(late_positions, late_counts, width=bar_width, color=plt.cm.Blues(0.6), alpha=0.75,
 			   label=f'Late firing, n={len(late_shifts)}')
-		
+
 		plt.legend()
 
 		ax.set_xlabel('Optimal shift')
@@ -480,8 +482,8 @@ class OriginConsensusCorrelationAnalysis:
 		plt.tight_layout()
 		
 	def plot_consensus_vs_origin(self, 
-							  origin_id, figsize: Tuple[int, int] = (6, 3), 
-							  time_indices=None, title=None):
+								 origin_id, figsize: Tuple[int, int] = (6, 3), 
+								 time_indices=None, title=None):
 		"""
 		Plot the time series of consensus vs. an individual origin.
 		"""
@@ -502,23 +504,29 @@ class OriginConsensusCorrelationAnalysis:
 		full_title = "$\\it{" + origins.iloc[idx].ars_name + "}$, " + title
 			
 		# Plot
-		plt.figure(figsize=figsize)
-		plt.plot(consensus_ts, label='Consensus', linewidth=2)
-		plt.xlabel('Average single cell time')
-		plt.ylabel('Consensus Occupancy')
-		plt.title(full_title, y=1.05, fontsize=12, fontweight='demi')
-		plt.legend()
-
-		ax = plt.gca()
+		fig, ax = plt.subplots(figsize=figsize)
+		
+		# Plot on first axis
+		line1 = ax.plot(consensus_ts, label='Consensus', linewidth=2, c='#555555')
+		ax.set_xlabel('Average single cell time')
+		ax.set_ylabel('Consensus Occupancy')
+		ax.set_title(full_title, y=1.05, fontsize=12, fontweight='demi')
+		
+		# Create twin axis
 		twin_ax = ax.twinx()
-
-		twin_ax.plot(origin_ts, label=f'Origin occupancy', linewidth=2, alpha=0.7,
-			c='orange')
-		twin_ax.plot(rolled_origin_ts, label=f'Optimal shift, {shift}', 
-			linewidth=2, alpha=0.7, c='orange', ls='dotted')
+		
+		# Plot on twin axis
+		line2 = twin_ax.plot(origin_ts, label=f'Origin occupancy', linewidth=2, alpha=0.7,
+			c=plt.cm.Oranges(0.6))
+		line3 = twin_ax.plot(rolled_origin_ts, label=f'Optimal shift, {shift}', 
+			linewidth=2, alpha=0.7, c=plt.cm.Oranges(0.6), ls='dotted')
 		twin_ax.set_ylabel("Origin occupancy")
-
-		plt.legend()
-
+		
+		# Get all lines and labels for a single legend
+		lines = line1 + line2 + line3
+		labels = [l.get_label() for l in lines]
+		
+		# Create a single legend
+		ax.legend(lines, labels, loc='best')
+		
 		plt.tight_layout()
-

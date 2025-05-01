@@ -139,6 +139,9 @@ def main():
 		from src.timer import Timer
 		import cvxpy as cp
 
+		# Default kappa is set to 0, no regularization of MG1/DG1 differences
+		kappa = 0.0
+
 		timer = Timer()
 
 		save_genes_directory = f"{output_directory}/genes_deconvolution/"
@@ -156,7 +159,7 @@ def main():
 			print_fl(f"[{index}/{len(genes)}] Deconvolving {gene_name}", end="...")
 			
 			try: 
-				expression_find_gamma = runner.deconvolve_gene(gene_name)
+				expression_find_gamma = runner.deconvolve_gene(gene_name, kappa)
 			except cp.error.SolverError:
 				print_fl(f"  Failed. Skipping.")
 				continue
