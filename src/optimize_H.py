@@ -98,12 +98,12 @@ class ParameterOptimizer:
 			# regularization, gamma2 tends to 1.0 to for outlier windows
 
 			# loss will be between 0 and 1.0, with the regularization
-			# being applied empirically around values of 0.3.
+			# being applied empirically around values of 0.3-0.6.
 			#
-			# Loss of the fitting norm typically converges to marginal changes of
-			# 0.0001, therefore weight the regularization around this
+			# Loss of the fitting norm typically converges to marginal changes around
+			# 1e-9, therefore weight the regularization around this
 			# to not dominate the loss function
-			weight_gamma2_reg = 0.001
+			weight_gamma2_reg = 1e-9
 			reg_gamma2_loss = compute_gamma2_l1_loss(self.config, F, gamma2)
 
 			loss = compute_rn(N, H, F, B, G) + reg_gamma2_loss

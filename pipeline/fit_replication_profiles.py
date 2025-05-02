@@ -137,10 +137,9 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 	
 def plot_parameter_updates(output_directory, replicate, chrom):
 	filepath = f'{output_directory}/parameter_updates_rep{replicate}_chr{chrom}.csv'
-	rep1_updates = pd.read_csv(filepath)
+	params_df = pd.read_csv(filepath)
 
 	rows, cols = 1, 5
-
 
 	rename_parameters = {
 		'mu0': "$\\mu_0$",
@@ -160,14 +159,14 @@ def plot_parameter_updates(output_directory, replicate, chrom):
 		"Residual norm, ($\\times$1e-4)",
 	]
 
-	plt.figure(figsize=(16, 3))
+	fig = plt.figure(figsize=(16, 3))
 
 	plot_index = 1
-	for i, col in enumerate(rep1_updates.columns[1:]):
+	for i, col in enumerate(params_df.columns[1:]):
 
 		if col in skip_parameters: continue
 
-		values = rep1_updates[col][10:]
+		values = params_df[col][10:]
 		xs = np.arange(len(values))
 
 		if col == 'F_rn':
@@ -190,6 +189,8 @@ def plot_parameter_updates(output_directory, replicate, chrom):
 
 	plt.subplots_adjust(hspace=0.5, wspace=0.45, top=0.77)
 	plt.suptitle(f"Parameter convergence, replicate {replicate}, chrom {chrom}", fontsize=16)
+
+	return fig, params_df
 
 
 # try and freeze all parameters but delta
