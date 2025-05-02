@@ -197,7 +197,7 @@ class RealDataReplicationDeconvolution():
 			configs
 
 		# Save latest config to json file
-		self.config.save_to_path(f"{self.save_dir}/single_replication/rep{self.config.replicate}.json")
+		self.config.save_to_path(f"{self.save_dir}/rep{self.config.replicate}.json")
 
 		fig_path = f'{self.save_dir}/rep{self.replicate}_chr{self.chrom}.png'
 
