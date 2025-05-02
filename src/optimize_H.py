@@ -93,7 +93,7 @@ class ParameterOptimizer:
 		if (gamma2 - self.config.params_dic['gamma1'] < 0.05):
 			loss = float('inf')
 		else:
-			loss = compute_rn(N, H, F, B, G) + reg_gamma2_loss
+			loss = compute_rn(N, H, F, B, G)
 
 		self.current_params = params
 		self.current_H = H
@@ -152,18 +152,6 @@ class ParameterOptimizer:
 
 		self.result = result
 		self.rn = self.result.fun
-
-
-def compute_gamma2_l1_loss(config, F, gamma2):
-	"""Apply an L1 regularization loss to the gamma2 value, such that
-	the model converges to the expected position of gamma2: when
-	the 99% of the genome has reach an average copy nubmer of 2.
-
-	Returns loss values between 0 and 1.0, weight loss accordingly and appropriate
-	to expected fitting norm values.
-	"""
-	est_gamma2 = compute_estimated_gamma2_from_copy_num(config, F)
-	return np.abs(gamma2-est_gamma2)
 
 
 def compute_estimated_gamma2_from_copy_num(config, F, copy_num_threshold=1.99):
