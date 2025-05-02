@@ -8,8 +8,8 @@ from src.global_config import GlobalConstants
 # RG1, DG1, and CG1 have an equivalent number of timepoints for ease
 # of computation. This approximation allows for an approximately 1 min per index
 # deconvolution for MG1 and postG1. RG1 is 75% of MG1 and DG1 is 140% of MG1.
-G1_NUM_TPS = 12
-POSTG1_NUM_TPS = 52
+G1_NUM_TPS = 16
+POSTG1_NUM_TPS = 48
 
 
 class ModelConfig(object):
