@@ -52,8 +52,8 @@ class ChromatinDeconvolveSolver:
 		N, H, b, f_replication = self.N, self.H, self.b, self.f_replication
 
 		if F is None: F = self.F
-
 		predicted_G = N@H@np.multiply(F, f_replication[:, None])*b
+
 		return predicted_G
 
 
@@ -118,7 +118,7 @@ class ChromatinDeconvolveSolver:
 		self.rn = running_rn
 		self.sn = running_sn
 		self.deconvolution_solver = deconvolution_solver
-		self.predicted_G = self.compute_predicted_G()
+		self.predicted_G = self.compute_predicted_G(self.F)
 
 		if verbose:
 			timer.print_time(f"Completed")

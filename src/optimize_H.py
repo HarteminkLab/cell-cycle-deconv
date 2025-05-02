@@ -22,7 +22,6 @@ class ParameterOptimizer:
 		self.B = B
 		self.G = G
 		self.verbose = True
-		self.should_regularize_gamma2 = False
 
 		# Initiialize H with config's H
 		self.current_H = config.calculate_H()
@@ -94,25 +93,6 @@ class ParameterOptimizer:
 		if (gamma2 - self.config.params_dic['gamma1'] < 0.05):
 			loss = float('inf')
 		else:
-
-			# Regularize gamma2, we aim to regularize gamma2 such that, it approximates
-			# the timing in which most of the genome has replicated, without this 
-			# regularization, gamma2 tends to 1.0 to for outlier windows
-
-			# loss will be between 0 and 1.0, with the regularization
-			# being applied empirically around values of 0.3-0.6.
-			#
-			# Loss of the fitting norm typically converges to marginal changes around
-			# 1e-9, therefore weight the regularization around this
-			# to not dominate the loss function
-
-			# Apply regularization after sigma0 and mu0 has converged
-			if self.should_regularize_gamma2:
-				weight_gamma2_reg = 1e-8
-				reg_gamma2_loss = compute_gamma2_l1_loss(self.config, F, gamma2)
-			else:
-				reg_gamma2_loss = 0
-
 			loss = compute_rn(N, H, F, B, G) + reg_gamma2_loss
 
 		self.current_params = params

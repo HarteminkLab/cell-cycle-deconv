@@ -62,11 +62,20 @@ class CombinedChromatinModel:
 		# Load N, freplication and b replication data for correction
 		self.load_copy_correction_data()
 
+		# Create the first replicates model and H
+		self.H1 = chrom1_model.config.calculate_H()
+
+		# And the second
+		self.H2 = chrom2_model.config.calculate_H()
+
+		# Combine the H matrices
+		self.H = np.concatenate([self.H1, self.H2])
+
 		# Disable copy correction
 		if not copy_correct:
 			print("Disabling copy correction, using identity functions for N, b, and fr")
 			self.N = np.eye(self.N.shape[0])
-			self.f_replication = np.ones(self.f_replication.shape)
+			self.f_replication = np.ones(self.H.shape[1])
 			self.b = 1
 
 		N = self.N
@@ -93,15 +102,6 @@ class CombinedChromatinModel:
 				self.G2])
 		else:
 			self.G = G
-
-		# Create the first replicates model and H
-		self.H1 = chrom1_model.config.calculate_H()
-
-		# And the second
-		self.H2 = chrom2_model.config.calculate_H()
-
-		# Combine the H matrices
-		self.H = np.concatenate([self.H1, self.H2])
 
 		self.solver = ChromatinDeconvolveSolver(self.chrom1_model.config, self.G, self.N,
 			wavelet=wavelet, padding_type=padding_type, f_replication=f_replication,

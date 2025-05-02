@@ -11,6 +11,7 @@ from src.config import load_default_chrom_configs, load_cloccs_configs
 from src.optimize_H import create_bounds_params_from_config, ParameterOptimizer
 from src.timer import Timer
 from src.utils import print_fl
+from src.optimize_H import compute_estimated_gamma2_from_copy_num
 
 
 def run_epochs(replication_deconvolver, bounds_df, num_epochs, function_update=None):
@@ -27,7 +28,6 @@ def run_epochs(replication_deconvolver, bounds_df, num_epochs, function_update=N
 
 	timer = Timer()
 
-	regularize_gamma2_epoch = 20 # After 20 epochs, start regularizing gamma2
 	num_iterations_N_B = 20
 	update_params_df = pd.DataFrame()
 
@@ -42,10 +42,6 @@ def run_epochs(replication_deconvolver, bounds_df, num_epochs, function_update=N
 	for epoch in range(num_epochs):
 
 		print_fl(f"Epoch: {epoch}")
-
-		if epoch == regularize_gamma2_epoch:
-			# Turn on the flag to begin regularizing gamma2
-			optimizer.should_regularize_gamma2 = True
 		
 		optimizer.optimize(maxiter=1000, verbose=True)
 
@@ -59,6 +55,11 @@ def run_epochs(replication_deconvolver, bounds_df, num_epochs, function_update=N
 		params_row = pd.DataFrame([optimizer.params_df['value']], index=[epoch])
 		params_row['opt_H_loss'] = optimizer.rn
 		params_row['F_rn'] = replication_deconvolver.rn
+
+		est_gamma2 = compute_estimated_gamma2_from_copy_num(replication_deconvolver.config, 
+			replication_deconvolver.F)
+		# Derived parameter value for gamma2
+		params_row['derived_gamma2'] = est_gamma2
 
 		update_params_df = pd.concat([update_params_df, params_row])
 		

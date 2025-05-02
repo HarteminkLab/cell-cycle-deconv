@@ -81,6 +81,10 @@ class GeneExpressionFindOptimalGamma(object):
 		t_indices = config.get_Hpositions_for_branch('t')
 		b_indices = config.get_Hpositions_for_branch('b')
 
+		i_tps = config.get_timepoints_for_branch('i')
+		t_tps = config.get_timepoints_for_branch('t')
+		b_tps = config.get_timepoints_for_branch('b')
+
 		num_cols = 4
 
 		fig, axs = plt.subplots(1, num_cols, figsize=(16, 3))
@@ -102,8 +106,10 @@ class GeneExpressionFindOptimalGamma(object):
 			f_gamma_solutions = 2**f_gamma_solutions
 			gamma_predicted_gs = 2**gamma_predicted_gs
 
+		g_vmax = g.max()
 		vmax = max(g.max(), f_gamma_solutions[optimal_solution_index].max())
 		ylims = (vmax*-0.05, vmax*1.2)
+		g_ylims = (g_vmax*-0.05, g_vmax*1.2)
 
 		if g.max() == 0:
 			ylims = -0.1, 1
@@ -126,32 +132,31 @@ class GeneExpressionFindOptimalGamma(object):
 		ax.plot(gamma_predicted_gs[optimal_solution_index, :].T, c='red',
 				lw=3, label="Optimal $\\gamma$ solution")
 		
-		ax.set_ylim(*ylims)
+		ax.set_ylim(*g_ylims)
 		ax.set_title("Data vs Fit")
 		ax.legend()
-		ax.set_ylim(*ylims)
 
 		ax = ax_row[1]
 		for j in range(f_gamma_solutions.shape[0]):
-			ax.plot(f_gamma_solutions[j, i_indices].T, c=cmap(j/len(f_gamma_solutions)))
+			ax.plot(i_tps, f_gamma_solutions[j, i_indices].T, c=cmap(j/len(f_gamma_solutions)))
 
-		ax.plot(f_gamma_solutions[optimal_solution_index, i_indices].T, c='red',
+		ax.plot(i_tps, f_gamma_solutions[optimal_solution_index, i_indices].T, c='red',
 				lw=3)
 		ax.set_title("Initial branch")
 		ax.set_ylim(*ylims)
 
 		ax = ax_row[2]
 		for j in range(f_gamma_solutions.shape[0]):
-			ax.plot(f_gamma_solutions[j, t_indices].T, c=cmap(j/len(f_gamma_solutions)))
-		ax.plot(f_gamma_solutions[optimal_solution_index, t_indices].T, c='red',
+			ax.plot(t_tps, f_gamma_solutions[j, t_indices].T, c=cmap(j/len(f_gamma_solutions)))
+		ax.plot(t_tps, f_gamma_solutions[optimal_solution_index, t_indices].T, c='red',
 				lw=3)
 		ax.set_ylim(*ylims)
 		ax.set_title("Top branch")
 
 		ax = ax_row[3]
 		for j in range(f_gamma_solutions.shape[0]):
-			ax.plot(f_gamma_solutions[j, b_indices].T, c=cmap(j/len(f_gamma_solutions)))
-		ax.plot(f_gamma_solutions[optimal_solution_index, b_indices].T, c='red',
+			ax.plot(b_tps, f_gamma_solutions[j, b_indices].T, c=cmap(j/len(f_gamma_solutions)))
+		ax.plot(b_tps, f_gamma_solutions[optimal_solution_index, b_indices].T, c='red',
 				lw=3)
 		ax.set_ylim(*ylims)
 		ax.set_title("Bottom branch")

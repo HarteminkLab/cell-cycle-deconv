@@ -8,8 +8,8 @@ from src.global_config import GlobalConstants
 # RG1, DG1, and CG1 have an equivalent number of timepoints for ease
 # of computation. This approximation allows for an approximately 1 min per index
 # deconvolution for MG1 and postG1. RG1 is 75% of MG1 and DG1 is 140% of MG1.
-G1_NUM_TPS = 22
-POSTG1_NUM_TPS = 42
+G1_NUM_TPS = 12
+POSTG1_NUM_TPS = 52
 
 
 class ModelConfig(object):
@@ -42,6 +42,7 @@ class ModelConfig(object):
 		from src.utils import load_dict_from_json
 
 		self.params_dic = load_dict_from_json(dic_path)
+
 		# No longer using alpha after the CLOCCS model
 		# this should be set to 0 when it is not used
 		self.alpha = self.params_dic['alpha'] 
