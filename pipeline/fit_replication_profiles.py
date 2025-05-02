@@ -27,7 +27,7 @@ def run_epochs(replication_deconvolver, bounds_df, num_epochs, function_update=N
 
 	timer = Timer()
 
-	regularize_gamma2_epoch = 100 # After 100 epochs, start regularizing gamma2
+	regularize_gamma2_epoch = 20 # After 20 epochs, start regularizing gamma2
 	num_iterations_N_B = 20
 	update_params_df = pd.DataFrame()
 
