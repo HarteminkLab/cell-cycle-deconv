@@ -71,7 +71,7 @@ class GeneExpressionFindOptimalGamma(object):
 		self.optimal_F = self.gamma_optimizer.elbow_solutions[optimal_solution_index]
 		return self.optimal_F
 
-	def plot_gamma_sweep(self):
+	def plot_gamma_sweep(self, plot_log_transform=True):
 
 		gamma_optimizer = self.gamma_optimizer
 		optimal_solution_index = int(gamma_optimizer.elbow_results_df.loc[gamma_optimizer.optimal_gamma].solution_index)
@@ -88,12 +88,6 @@ class GeneExpressionFindOptimalGamma(object):
 		gamma_sweep = self.gamma_optimizer.elbow_results_df.index
 		f_gamma_solutions = self.gamma_optimizer.elbow_solutions
 		g = self.deconvolution_solver.g
-		vmax = max(g.max(), f_gamma_solutions.max())
-
-		ylims = (vmax*-0.05, vmax*1.2)
-
-		if g.max() == 0:
-			ylims = -0.1, 1
 
 		deconvolution_solver = self.deconvolution_solver
 
@@ -102,6 +96,17 @@ class GeneExpressionFindOptimalGamma(object):
 
 		gamma_predicted_gs = np.array([compute_predicted_g(f_gamma_solutions[i]) 
 			for i in range(f_gamma_solutions.shape[0])])
+
+		if not plot_log_transform:
+			g = 2**g
+			f_gamma_solutions = 2**f_gamma_solutions
+			gamma_predicted_gs = 2**gamma_predicted_gs
+
+		vmax = max(g.max(), f_gamma_solutions[optimal_solution_index].max())
+		ylims = (vmax*-0.05, vmax*1.2)
+
+		if g.max() == 0:
+			ylims = -0.1, 1
 
 		cmap = ListedColormap(plt.cm.viridis(np.linspace(0.2, 0.8, 256)))
 

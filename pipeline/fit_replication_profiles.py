@@ -144,7 +144,6 @@ def plot_parameter_updates(output_directory, replicate, chrom):
 
 	rename_parameters = {
 		'mu0': "$\\mu_0$",
-		'gamma1': "$\\gamma_1$",
 		'gamma2': "$\\gamma_2$",
 		'sigma0': "$\\sigma_0$",
 		'F_rn': "Loss",

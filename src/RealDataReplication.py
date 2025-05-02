@@ -536,7 +536,7 @@ def plot_heatmaps(N, F, H, B, G, column_names, full_column_names):
 	plt.xticks([])
 	plt.colorbar()
 	plt.title("$F$")
-	plt.ylim(F.shape[0], 100)
+	plt.ylim(F.shape[0], 0)
 
 	plt.subplot(6, 1, 2)
 	plt.imshow(HF, cmap=RdBu_cmap, vmin=0, vmax=2, interpolation='none', aspect='auto')
@@ -648,28 +648,28 @@ def read_g(chrom, deconv_span, replicate):
 
 
 def get_estimated_S_phase_end_index(config, output_directory, plot=False):
-    # Get the estimated replication timings for chromosome 4 to estimate
-    # a length of S for plotting
+	# Get the estimated replication timings for chromosome 4 to estimate
+	# a length of S for plotting
 
-    pg1_indices = config.get_Hpositions_for_phase('postG1')
-    Fr_df, repl_indices = load_replication_Fr_df(output_directory, 4)
+	pg1_indices = config.get_Hpositions_for_phase('postG1')
+	Fr_df, repl_indices = load_replication_Fr_df(output_directory, 4)
 
-    average_pg1_copy = Fr_df.mean(1)[pg1_indices]
+	average_pg1_copy = Fr_df.mean(1)[pg1_indices]
 
-    threshold = 1.9
-    threshold_index = average_pg1_copy[average_pg1_copy > threshold].index[0]
+	threshold = 1.9
+	threshold_index = average_pg1_copy[average_pg1_copy > threshold].index[0]
 
-    if plot:
-        plt.figure(figsize=(4, 3))
-        plt.plot(average_pg1_copy)
-        plt.scatter(threshold_index, average_pg1_copy.loc[threshold_index], c='red',
-                   label="90% replicated")
-        plt.title("Chr4 average copy number in S/G2/M")
-        plt.legend()
-        plt.xlabel("PostG1 index")
-        plt.ylabel("Average copy number")
+	if plot:
+		plt.figure(figsize=(4, 3))
+		plt.plot(average_pg1_copy)
+		plt.scatter(threshold_index, average_pg1_copy.loc[threshold_index], c='red',
+				   label="90% replicated")
+		plt.title("Chr4 average copy number in S/G2/M")
+		plt.legend()
+		plt.xlabel("PostG1 index")
+		plt.ylabel("Average copy number")
 
-    return threshold_index
+	return threshold_index
 
 
 def load_replication_Fr_df(output_dir, chrom):

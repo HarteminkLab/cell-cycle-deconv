@@ -44,10 +44,6 @@ class CombinedReplicateDeconvolutionRunner():
 			print_fl("Loading initial parameters from CLOCCS runs")
 			config1, config2 = load_default_chrom_configs()
 
-			print_fl("Shifting mu0, gamma1, and gamma2 for the alpha parameter")
-			config1.shift_parameters_for_alpha()
-			config2.shift_parameters_for_alpha()
-
 		self.deconvolution = CombinedReplicationDeconvolution(config1, config2, chr=chrom)
 
 	def start_runs(self, num_epochs, warm_start_output_directory, warm_start_chrom):

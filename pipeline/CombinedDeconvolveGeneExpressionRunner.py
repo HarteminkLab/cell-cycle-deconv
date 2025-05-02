@@ -12,7 +12,7 @@ class CombinedDeconvolveGeneExpressionRunner:
 		# correction information will not be used, so we can just use the learned cell cycle
 		# parameters
 		if should_load_cloccs_configs:
-			config1, config2 = load_cloccs_configs(mode='expression', shift_CLOCCS=False)
+			config1, config2 = load_cloccs_configs(mode='expression')
 		else:
 			config1, config2 = load_default_expression_configs()
 
@@ -28,8 +28,8 @@ class CombinedDeconvolveGeneExpressionRunner:
 
 		self.gene_name = gene_name
 		self.orf_name = get_orfname(gene_name)
-		gene_expression_replicate1 = load_gene_expression(gene_name, 1, log_transform=False)
-		gene_expression_replicate2 = load_gene_expression(gene_name, 2, log_transform=False)
+		gene_expression_replicate1 = load_gene_expression(gene_name, 1, log_transform=True)
+		gene_expression_replicate2 = load_gene_expression(gene_name, 2, log_transform=True)
 
 		H1 = self.config1.H
 		H2 = self.config2.H

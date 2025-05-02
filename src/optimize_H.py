@@ -88,10 +88,25 @@ class ParameterOptimizer:
 
 		# gamma2 must be greater than gamma1, add a boundary of 5% so 
 		# S-phase always has available indices for replication timing estimation
-		if (self.config.params_dic['gamma2'] - self.config.params_dic['gamma1'] < 0.05):
+		gamma2 = self.config.params_dic['gamma2']
+		if (gamma2 - self.config.params_dic['gamma1'] < 0.05):
 			loss = float('inf')
 		else:
-			loss = compute_rn(N, H, F, B, G)
+
+			# Regularize gamma2, we aim to regularize gamma2 such that, it approximates
+			# the timing in which most of the genome has replicated, without this 
+			# regularization, gamma2 tends to 1.0 to for outlier windows
+
+			# loss will be between 0 and 1.0, with the regularization
+			# being applied empirically around values of 0.3.
+			#
+			# Loss of the fitting norm typically converges to marginal changes of
+			# 0.0001, therefore weight the regularization around this
+			# to not dominate the loss function
+			weight_gamma2_reg = 0.001
+			reg_gamma2_loss = compute_gamma2_l1_loss(self.config, F, gamma2)
+
+			loss = compute_rn(N, H, F, B, G) + reg_gamma2_loss
 
 		self.current_params = params
 		self.current_H = H
@@ -148,6 +163,33 @@ class ParameterOptimizer:
 
 		self.result = result
 		self.rn = self.result.fun
+
+
+def compute_gamma2_l1_loss(config, F, gamma2):
+	"""Apply an L1 regularization loss to the gamma2 value, such that
+	the model converges to the expected position of gamma2: when
+	the 99% of the genome has reach an average copy nubmer of 2.
+
+	Returns loss values between 0 and 1.0, weight loss accordingly and appropriate
+	to expected fitting norm values.
+	"""
+	est_gamma2 = compute_estimated_gamma2_from_copy_num(config, F)
+	return np.abs(gamma2-est_gamma2)
+
+
+def compute_estimated_gamma2_from_copy_num(config, F, copy_num_threshold=1.99):
+	"""Estimate the end of S using the average copy number, this regularizes
+	helps estimate the gamma2 based on the overall curve rather than
+	the outliers"""
+
+	t_timepoints = config.get_timepoints_for_branch('t')
+	t_indices = config.get_Hpositions_for_branch('t')
+	average_copy_number = F.mean(1)
+
+	Hpos_end_of_S = np.arange(len(average_copy_number))[average_copy_number > copy_num_threshold].min()
+	tp_end_of_S = config.timepoints_df[config.timepoints_df.Hpos == Hpos_end_of_S].timepoint_start
+	est_gamma2 = tp_end_of_S.values[0] / config.params_dic['lambda']
+	return est_gamma2
 
 
 def create_bounds_params_from_config(config):

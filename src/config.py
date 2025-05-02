@@ -4,14 +4,15 @@ import pandas as pd
 from src.global_config import GlobalConstants
 
 
-# Number of positions in H devoted to each cell cycle phase
-# G1+PostG1 equals a power of 2 (64)
-# Add 1 because the timepoints are inclusive (?)
-G1_NUM_TPS = 42
-POSTG1_NUM_TPS = 22
+# Number of indices assigned to each phase
+# RG1, DG1, and CG1 have an equivalent number of timepoints for ease
+# of computation. This approximation allows for an approximately 1 min per index
+# deconvolution for MG1 and postG1. RG1 is 75% of MG1 and DG1 is 140% of MG1.
+G1_NUM_TPS = 22
+POSTG1_NUM_TPS = 42
 
 
-class RG1Model(object):
+class ModelConfig(object):
 	"""Model to handle loading, saving, and configuring deconvolution model runs..
 
 	This model will aim to replace the create_models and config classes....
@@ -459,8 +460,8 @@ def load_timepoints(mode):
 
 def load_default_configs(config_type='distinct', mode='chromatin'):
 
-	config1 = RG1Model(config_type=config_type)
-	config2 = RG1Model(config_type=config_type)
+	config1 = ModelConfig(config_type=config_type)
+	config2 = ModelConfig(config_type=config_type)
 
 	timepoints1, timepoints2 = load_timepoints(mode)
 
@@ -477,8 +478,8 @@ def load_default_configs(config_type='distinct', mode='chromatin'):
 
 def load_cloccs_configs(config_type='distinct', mode='chromatin'):
 
-	config1 = RG1Model(config_type=config_type)
-	config2 = RG1Model(config_type=config_type)
+	config1 = ModelConfig(config_type=config_type)
+	config2 = ModelConfig(config_type=config_type)
 
 	timepoints1, timepoints2 = load_timepoints(mode)
 
