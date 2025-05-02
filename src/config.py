@@ -160,6 +160,12 @@ class ModelConfig(object):
 
 		self.branch_Hpos_df = branch_Hpos_df
 
+	def modify_alpha(self, new_alpha):
+		self.params_dic['alpha'] = new_alpha
+		self.alpha = new_alpha
+		self.update_timepoints()
+		self.calculate_H()
+
 	# Helper functions for common getters
 	def i_indices(self):
 		return self.get_Hpositions_for_branch('i')

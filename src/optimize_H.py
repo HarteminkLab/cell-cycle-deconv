@@ -21,6 +21,8 @@ class ParameterOptimizer:
 		self.F = F
 		self.B = B
 		self.G = G
+		self.verbose = True
+		self.should_regularize_gamma2 = False
 
 		# Initiialize H with config's H
 		self.current_H = config.calculate_H()
@@ -63,7 +65,7 @@ class ParameterOptimizer:
 		self.config.update_timepoints()
 
 
-	def compute_loss(self, params, iteration=None):
+	def compute_loss(self, params, epoch=None):
 
 		if params is None:
 			H = self.config.H
@@ -105,9 +107,8 @@ class ParameterOptimizer:
 			# to not dominate the loss function
 
 			# Apply regularization after sigma0 and mu0 has converged
-			if iteration is not None and iteration >= 100:
-				if iteration == 100 and self.verbose: print_fl(f"[{iteration}] Beginning gamma2 regularization")
-				weight_gamma2_reg = 1e-9
+			if self.should_regularize_gamma2:
+				weight_gamma2_reg = 1e-8
 				reg_gamma2_loss = compute_gamma2_l1_loss(self.config, F, gamma2)
 			else:
 				reg_gamma2_loss = 0
@@ -137,6 +138,7 @@ class ParameterOptimizer:
 		bounds_list = self.params_df[['min' , 'max']].values
 		initial_parameter_values = self.params_df['value'].values
 
+		# Iteration of the optimizer
 		global ITERATION
 		ITERATION = 0
 		
