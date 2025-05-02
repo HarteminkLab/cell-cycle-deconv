@@ -457,43 +457,45 @@ def load_timepoints(mode):
 		timepoints2 = GlobalConstants.EXPRESSION_WT2_TIMEPOINTS
 	return timepoints1, timepoints2
 
+def load_from_dic(filepath, config_type, replicate, mode):
+	"""Load configs from json file from disk"""
+	config = ModelConfig(config_type=config_type)
+
+	timepoints1, timepoints2 = load_timepoints(mode)
+	timepoints = timepoints1 if replicate == 1 else timepoints2
+	config.load_from_dic(filepath, timepoints)
+	config.replicate = replicate
+
+	return config
 
 def load_default_configs(config_type='distinct', mode='chromatin'):
 
-	config1 = ModelConfig(config_type=config_type)
-	config2 = ModelConfig(config_type=config_type)
-
-	timepoints1, timepoints2 = load_timepoints(mode)
-
 	# Load config parameters from json file from disk
-	# todo: automate saving of the last replication runs from the replication runner
-	config1.load_from_dic(f"models/yl_cell_cycle/refined_rep1_50125.json", timepoints1)
-	config2.load_from_dic(f"models/yl_cell_cycle/refined_rep2_50125.json", timepoints2)
-
-	config1.replicate = 1
-	config2.replicate = 2
+	config1 = load_from_dic(f"models/yl_cell_cycle/refined_rep1_50125.json", config_type, 1, mode)
+	config2 = load_from_dic(f"models/yl_cell_cycle/refined_rep2_50125.json", config_type, 2, mode)
 
 	return config1, config2
 
 
 def load_cloccs_configs(config_type='distinct', mode='chromatin'):
 
-	config1 = ModelConfig(config_type=config_type)
-	config2 = ModelConfig(config_type=config_type)
-
-	timepoints1, timepoints2 = load_timepoints(mode)
-
 	# Load configs from disk
-	config1.load_from_dic(f"models/yl_cell_cycle/cloccs_rep1.json", timepoints1)
-	config2.load_from_dic(f"models/yl_cell_cycle/cloccs_rep2.json", timepoints2)
-		
-	config1.replicate = 1
-	config2.replicate = 2
+	config1 = load_from_dic(f"models/yl_cell_cycle/cloccs_rep1.json", config_type, 1, mode)
+	config2 = load_from_dic(f"models/yl_cell_cycle/cloccs_rep2.json", config_type, 2, mode)
 
 	return config1, config2
 
 
 def retrieve_replication_timing(config1, config2, selected_replication_indices):
+	"""todo: deprecated logic, this function essentially retrieves the average timepoints for
+	a selected set of indices. Thus, replication_timing is not the appropriate function name.
+
+	todo: rename to retrieve_average_timepoints_for_indices. Likely this is only used for replication timing
+	loading at the moment. Since this is a frequent occurrence, a dedicated class or function for loading
+	and keeping track of the replication timing and indices is appropriate. It will be relevant for origins, genes,
+	and other genomic positions.
+
+	"""
 	rep1_timing = config1.timepoints_df.set_index('Hpos').loc[selected_replication_indices]
 	rep2_timing = config2.timepoints_df.set_index('Hpos').loc[selected_replication_indices]
 	mean_replication_timing = ((rep1_timing + rep2_timing)/2).mean(1) # mean of two replicates and the start and end
@@ -511,4 +513,13 @@ def load_default_expression_configs(config_type='distinct'):
 
 
 def load_default_chrom_configs(config_type='distinct'):
-	return load_default_configs(config_type=config_type, mode='chromatin')
+	config1, config2 = load_default_configs(config_type=config_type, mode='chromatin')
+
+	replication_parent_directory = 'output/draft1_run/'
+
+	# Set the replication directory location for the loading of copy correction information
+	# todo: needs a more elegant solution for file pathing
+	config1.replication_parent_directory = replication_parent_directory
+	config2.replication_parent_directory = replication_parent_directory
+
+	return config1, config2

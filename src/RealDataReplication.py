@@ -692,26 +692,21 @@ def load_B_df(output_dir, chrom, starts=None):
 	return B, b_df['b']
 
 
-def read_n_fr_b(chrom, deconv_span, replicate, log=True):
-
-	# Trial replication profile from 2/17/25 run
-
-	if log:
-		print_fl(f"todo: Loading prototype pipeline replication data")
-
-	output_dir = 'output/prototype_pipeline_subset'
-	single_directory = 'output/prototype_pipeline_subset/single_replication'
-	combined_directory = 'output/prototype_pipeline_subset/combined_replication'
+def read_n_fr_b(chrom, deconv_span, replicate,
+	parent_directory, log=True):
+	"""Load the N, replication timing, and b from disk"""
 
 	if log:
-		print_fl("Trial N, need to use combined N curve")
+		print_fl(f"todo: Loading prototype replication data from: {parent_directory}")
 
-	N = np.load(f'{single_directory}/rep{replicate}_chr{4}_N.npy')
+	single_directory = f'{parent_directory}/single_replication'
+	combined_directory = f'{parent_directory}/combined_replication'
+	combined_N = np.load(f'{combined_directory}/N.npy')
 
-	Fr_df, _ = load_replication_Fr_df(output_dir, chrom)
+	Fr_df, _ = load_replication_Fr_df(parent_directory, chrom)
 	start_indices = Fr_df.columns
 
-	B, B_df = load_B_df(output_dir, chrom, start_indices)
+	B, B_df = load_B_df(parent_directory, chrom, start_indices)
 
 	mid_span = (deconv_span[0]+deconv_span[1])/2
 	bin_idx, start = get_bin_for_position(mid_span, start_indices)
@@ -719,7 +714,7 @@ def read_n_fr_b(chrom, deconv_span, replicate, log=True):
 	fr = Fr_df[start].values
 	b = B_df.loc[start]
 
-	return start, N, fr, b
+	return start, combined_N, fr, b
 
 
 def read_no_copy_correction_n_fr_b(H):

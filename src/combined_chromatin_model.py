@@ -44,12 +44,11 @@ class CombinedChromatinModel:
 		chrom = self.chrom1_model.chr
 		mnase_span = self.chrom1_model.mnase_span
 
-		# Loads the combined N and f replication
-		# todo: refactor for single vs combined replicate model
-		print(f"todo: Loading copy correction N, Fr, B, testing with prototype replication data")
-		combined_dir = 'output/prototype_pipeline_subset/combined_replication'
-		combined_N = np.load(f'{combined_dir}/N.npy')
-		_, _, self.f_replication, self.b = read_n_fr_b(chrom, mnase_span, 1)
+		repl_parent_dir = self.chrom1_model.config.replication_parent_directory
+		print(f"Loading copy correction N, Fr, B from {repl_parent_dir}")
+
+		_, combined_N, self.f_replication, self.b = read_n_fr_b(chrom, mnase_span, 1, 
+			repl_parent_dir)
 
 		self.N = combined_N
 
