@@ -67,7 +67,6 @@ class ModelConfig(object):
 		delta = self.params_dic['delta']
 		start_of_s = gamma1*lambda_val
 
-		# for now, let's set alpha to 0
 		alpha = self.alpha
 
 		rg1_time_span = mu0, start_of_s
@@ -387,7 +386,7 @@ class ModelConfig(object):
 
 		plt.suptitle("Replicate 1", fontsize=18, fontweight='demi', y=1.05)
 
-	def plot_H(self):
+	def plot_H(self, vmax=None):
 
 		from src.plot_helpers import color_for_key
 		import matplotlib.pyplot as plt
@@ -408,8 +407,9 @@ class ModelConfig(object):
 		plt.figure(figsize=FiguresConfig.FIGSIZE_SHORT_EXTRAWIDE)
 		plt.subplot(1, 2, 1)
 
+		vmax = H[:, :-1].max() if vmax is None else vmax
 		plt.title("H convolution matrix", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
-		plt.imshow(H, vmax=H[:, :-1].max(), aspect='auto', cmap='Reds',
+		plt.imshow(H, vmax=vmax, aspect='auto', cmap='Reds',
 				  extent=[0, H.shape[1], self.timepoints[-1], 0])
 
 		plt.subplot(1, 2, 2)

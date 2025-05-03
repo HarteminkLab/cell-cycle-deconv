@@ -213,6 +213,9 @@ class OriginAlphaSweep:
 			
 			plt.subplot(2, 3, 4)
 			plot_im(5)
+
+			num_rep1_tps = len(self.config1.timepoints)
+			num_rep2_tps = len(self.config2.timepoints)
 			
 			plt.subplot(2, 3, 2)
 			plt.imshow(origin_selection_imgs[5], cmap='magma_r', origin='lower', vmax=20,
@@ -220,18 +223,26 @@ class OriginAlphaSweep:
 			plt.title("Selected footprint")
 			plt.xticks([])
 			plt.yticks([])
+
+			plt.subplot(2, 3, 5)
+			plt.imshow(origin_selection_imgs[16+5], cmap='magma_r', origin='lower', vmax=20,
+					  aspect='auto')
+			plt.xticks([])
+			plt.yticks([])
 			
 			plt.subplot(2, 3, 3)
-			plt.plot(origin_selection_imgs.mean((1, 2)))
+			plt.plot(origin_selection_imgs.mean((1, 2))[:num_rep1_tps])
 			plt.title("Footprint occupancy over time")
+
+			plt.subplot(2, 3, 6)
+			plt.plot(origin_selection_imgs.mean((1, 2))[num_rep1_tps:])
 
 		self.footprint = origin_selection_imgs
 			
 		return origin_selection_imgs
 	
 	def analyze_origin(self, oridb: str, window: int = 1000, 
-					 footprint_bounds: List[int] = [-5, 8, 3, 10],
-					 alpha1: int = 14, alpha2: int = 12) -> np.ndarray:
+					 footprint_bounds: List[int] = [-5, 8, 3, 10]) -> np.ndarray:
 		"""
 		Perform a complete analysis of a single origin.
 		
@@ -248,8 +259,7 @@ class OriginAlphaSweep:
 		"""
 		if self.origins is None:
 			self.load_data()
-			
-		# self.adjust_alpha_configs(alpha1, alpha2)
+
 		self.load_origin_mnase_data(oridb, window)
 		self.combined_model.setup_deconv_model()
 		self.plot_raw_data()
@@ -261,9 +271,6 @@ class OriginAlphaSweep:
 		model = self.combined_model
 		solver = model.solver
 		footprint = self.footprint
-
-		config = self.config1 if replicate == 1 else self.config2
-		config.modify_alpha(alpha)
 
 		num_rep1_tps = len(self.config1.timepoints)
 		num_rep2_tps = len(self.config2.timepoints)
@@ -288,6 +295,7 @@ class OriginAlphaSweep:
 			rep_G_footprint = footprint[rep2_sub_indices].reshape((num_rep2_tps, -1))
 			config = self.config2
 
+		config.modify_alpha(alpha)
 		self.footprint_config = config
 
 		solver.H = H

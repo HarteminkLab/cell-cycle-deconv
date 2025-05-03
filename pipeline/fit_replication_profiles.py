@@ -84,7 +84,7 @@ def run_epochs(replication_deconvolver, bounds_df, num_epochs, function_update=N
 
 
 def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_directory=None,
-	config=None, save=True, learn_subset_parameters = ['mu0', 'gamma2', 'sigma0']):
+	config=None, save=True, learn_subset_parameters = ['mu0', 'gamma2']):
 
 	np.random.seed(123)
 
