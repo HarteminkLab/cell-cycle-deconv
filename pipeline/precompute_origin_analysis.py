@@ -2,13 +2,14 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from src.timer import Timer
-from src.mnase_10kb_loader import MNase10kbLoader
-from src.global_config import GlobalConstants
+from src.config import load_default_chrom_configs
+from src.origins import load_origins
+from src.combined_chromatin_model import CombinedChromatinModel
 
 class OriginFootprintAnalysis:
 	"""
-	A simplified class to analyze origins of replication using MNase-seq data,
-	storing small fragment summaries and composite data for all timepoints
+	A class to analyze origins of replication using MNase-seq data,
+	leveraging the CombinedChromatinModel for normalization.
 	"""
 	
 	def __init__(self, window_size=1000, chromosomes=np.arange(1, 17)):
@@ -24,25 +25,32 @@ class OriginFootprintAnalysis:
 		"""
 		self.timer = Timer()
 		self.chromosomes = chromosomes
-
-		# Loaders for each replicate for caching
-		self.mnase_loaders = {
-			1: MNase10kbLoader(),
-			2: MNase10kbLoader()
-		}
-
-		# Get all timepoints for each replicate
-		self.wt1_timepoints = GlobalConstants.CHROM_WT1_TIMEPOINTS
-		self.wt2_timepoints = GlobalConstants.CHROM_WT2_TIMEPOINTS
-
+		self.window_size = window_size
+		self.half_window = window_size // 2
+		
+		# Load default configurations
+		self.config1, self.config2 = load_default_chrom_configs()
+		
+		# Initialize combined model with configurations
+		self.combined_model = CombinedChromatinModel(
+			config1=self.config1, 
+			config2=self.config2
+		)
+		
+		# Get all timepoints for each replicate from the model
+		self.wt1_timepoints = self.config1.timepoints
+		self.wt2_timepoints = self.config2.timepoints
+		
 		# Default timepoints for early S-phase
 		self.default_s_phase_timepoints = {
 			1: 30,
 			2: 20
 		}
-
-		self.window_size = window_size
+		
 		self.origins = None
+		
+		# Coverage tracking DataFrame
+		self.origin_coverage = None
 		
 		# Member variables to store data
 		# Small fragment data: indexed by replicate -> timepoint -> orf -> fragment counts
@@ -62,13 +70,93 @@ class OriginFootprintAnalysis:
 			1: {},  # For replicate 1
 			2: {}   # For replicate 2
 		}
-		
+	
 	def load_origin_reference_dataset(self):
 		"""Load the origin reference dataset"""
-		from src.origins import load_origins
 		self.origins = load_origins(full=True)
+		
+		# Initialize coverage DataFrame
+		self.origin_coverage = pd.DataFrame(
+			index=self.origins.index,
+			columns=["coverage_rep1", "coverage_rep2"]
+		)
+		self.origin_coverage.fillna(0, inplace=True)
+		
 		return self.origins
-
+	
+	def get_normalized_histogram_for_origin(self, origin, replicate):
+		"""
+		Get normalized MNase histogram data for a specific origin using the combined model
+		
+		Parameters:
+		-----------
+		origin : pandas.Series
+			Origin data from the origins DataFrame
+		replicate : int
+			Replicate (1 or 2)
+			
+		Returns:
+		--------
+		numpy.ndarray
+			3D array of normalized histogram data [timepoint, length, position]
+		"""
+		chrom = origin['chr']
+		mid = origin['pos']
+		mnase_span = (mid - self.half_window, mid + self.half_window+1)
+		
+		# Load MNase data for this span
+		self.combined_model.load_mnase_span(chrom, mnase_span, verbose=False)
+		
+		# Get the appropriate model based on replicate
+		model = self.combined_model.chrom1_model if replicate == 1 else self.combined_model.chrom2_model
+		
+		# Return the normalized histogram data
+		return model.exact_bins
+	
+	def calculate_origin_coverage(self, origin_idx, replicate):
+		"""
+		Calculate the coverage for a specific origin and replicate
+		
+		Parameters:
+		-----------
+		origin_idx : int
+			Index of the origin in the origins DataFrame
+		replicate : int
+			Replicate (1 or 2)
+			
+		Returns:
+		--------
+		int
+			Number of bases covered by at least one read
+		"""
+		origin = self.origins.loc[origin_idx]
+		chrom = origin['chr']
+		mid = origin['pos']
+		
+		# Define the span for this origin
+		span = (mid - self.half_window, mid + self.half_window + 1)
+		
+		# Get the appropriate raw data from the model
+		model = self.combined_model.chrom1_model if replicate == 1 else self.combined_model.chrom2_model
+		
+		# Create a coverage array for the window
+		window_size = span[1] - span[0]-1
+		coverage_array = np.zeros(window_size, dtype=bool)
+		
+		# For each timepoint, update the coverage array
+		for timepoint_idx in range(len(model.exact_bins)):
+			# Get 2D histogram for this timepoint
+			hist_2d = model.exact_bins[timepoint_idx]
+			
+			# If any fragment covers a position, mark it as covered
+			position_coverage = np.any(hist_2d > 0, axis=0)
+			coverage_array = np.logical_or(coverage_array, position_coverage)
+		
+		# Count the number of covered bases
+		coverage = np.sum(coverage_array)
+		
+		return coverage
+	
 	def generate_small_fragments_for_chromosome(self, chrom, replicate, frag_sel=(0, 100), strand_correct=True):
 		"""
 		Generate small fragment summaries for all origins on a chromosome, for all timepoints
@@ -99,9 +187,6 @@ class OriginFootprintAnalysis:
 			
 		print(f"  Processing chromosome {chrom} ({len(origins_on_chrom)} origins) - {self.timer.get_time()}")
 		
-		# Load MNase data for this chromosome (all timepoints included)
-		mnase_data = self.mnase_loaders[replicate].load_mnase_data(replicate, chrom)
-		
 		# Get all timepoints for this replicate
 		timepoints = self.wt1_timepoints if replicate == 1 else self.wt2_timepoints
 		
@@ -110,14 +195,19 @@ class OriginFootprintAnalysis:
 			# Get strand for strand correction
 			strand = origin['strand']
 			
-			# Define window around origin
-			mid = origin['pos']
-			half_window = self.window_size // 2
-			window_start = mid - half_window
-			window_end = mid + half_window
+			# Get normalized histogram data for this origin
+			normalized_histograms = self.get_normalized_histogram_for_origin(origin, replicate)
+			
+			# Calculate coverage for this origin and update the coverage DataFrame
+			coverage = self.calculate_origin_coverage(idx, replicate)
+			coverage_col = f"coverage_rep{replicate}"
+			self.origin_coverage.loc[idx, coverage_col] = coverage
+
+			# Skip origins with low coverage from being included in the dataset
+			if coverage < 0.9: continue
 			
 			# For each timepoint
-			for timepoint in timepoints:
+			for i, timepoint in enumerate(timepoints):
 				# Skip if already processed
 				if (timepoint in self.small_fragments_data[replicate] and 
 					idx in self.small_fragments_data[replicate][timepoint]):
@@ -132,39 +222,8 @@ class OriginFootprintAnalysis:
 					self.composite_data[replicate][timepoint] = None
 					self.composite_counts[replicate][timepoint] = 0
 				
-				# Filter reads for this timepoint
-				timepoint_data = mnase_data[mnase_data['sample'] == timepoint]
-				
-				# Filter reads in the window
-				window_reads = timepoint_data[
-					(timepoint_data['mid'] >= window_start) & 
-					(timepoint_data['mid'] <= window_end)
-				]
-				
-				# Initialize arrays for positions and lengths
-				positions = []
-				lengths = []
-				
-				if len(window_reads) > 0:
-					# Extract positions (relative to window start) and lengths
-					read_positions = window_reads['mid'].values - window_start
-					read_lengths = window_reads['length'].values
-					
-					# Append to our arrays
-					positions.extend(read_positions)
-					lengths.extend(read_lengths)
-				
-				# Define histogram bins
-				position_bins = np.arange(0, self.window_size + 2)
-				max_length = 250
-				length_bins = np.arange(0, max_length + 1)
-
-				# Create 2D histogram
-				hist_2d, _, _ = np.histogram2d(
-					lengths,
-					positions, 
-					bins=[length_bins, position_bins]
-				)
+				# Get histogram for this timepoint
+				hist_2d = normalized_histograms[i]
 				
 				# Calculate small fragment mean
 				small_fragment_mean = hist_2d[frag_sel[0]:frag_sel[1], :].mean(axis=0)
@@ -203,8 +262,8 @@ class OriginFootprintAnalysis:
 				count = self.composite_counts[replicate][timepoint]
 				if count > 0:
 					self.composite_data[replicate][timepoint] /= count
-
-	def generate_summary_histogram_data(self, frag_sel=(0, 100), strand_correct=True):
+	
+	def generate_summary_histogram_data(self, frag_sel=(0, 100), debug=False, strand_correct=True):
 		"""
 		Generate small fragment summaries and composite data for all origins, timepoints, and replicates
 		
@@ -212,6 +271,8 @@ class OriginFootprintAnalysis:
 		-----------
 		frag_sel : tuple
 			Fragment size selection range (min, max)
+		debug : bool
+			If True, only process chromosomes 1-4 for faster testing
 		strand_correct : bool
 			Whether to flip the data for origins on the Crick strand
 			
@@ -224,19 +285,24 @@ class OriginFootprintAnalysis:
 			self.load_origin_reference_dataset()
 			
 		self.timer.start()
-		
+
 		print(f"Generating summary histogram data for all timepoints and replicates...")
+		
+		if debug:
+			print(f"Debug mode, only loading chromosomes 1-4")
 		
 		# Process replicate 1
 		print(f"Processing replicate 1...")
 		for chrom in self.chromosomes:
 			self.generate_small_fragments_for_chromosome(chrom, 1, frag_sel, strand_correct)
+			if debug and chrom == 4: break
 		
 		# Process replicate 2
 		print(f"Processing replicate 2...")
 		for chrom in self.chromosomes:
 			self.generate_small_fragments_for_chromosome(chrom, 2, frag_sel, strand_correct)
-		
+			if debug and chrom == 4: break
+
 		# Normalize composite data
 		self.finalize_composite_data()
 		
@@ -244,6 +310,82 @@ class OriginFootprintAnalysis:
 		
 		return (self.small_fragments_data, self.composite_data)
 	
+	def get_coverage_df(self):
+		"""
+		Get the coverage DataFrame
+		
+		Returns:
+		--------
+		pandas.DataFrame
+			DataFrame with origins as rows and coverage for each replicate as columns
+		"""
+		if self.origin_coverage is None:
+			raise ValueError("Coverage data not available. Generate summary histogram data first.")
+		
+		return self.origin_coverage
+	
+	def filter_origins_by_coverage(self, min_coverage=500):
+		"""
+		Filter origins by coverage threshold
+		
+		Parameters:
+		-----------
+		min_coverage : int
+			Minimum number of bases that must be covered
+			
+		Returns:
+		--------
+		pandas.DataFrame
+			Filtered origin reference dataset
+		"""
+		if self.origin_coverage is None:
+			raise ValueError("Coverage data not available. Generate summary histogram data first.")
+		
+		# Create a mask for origins that meet the coverage threshold in both replicates
+		mask = (self.origin_coverage['coverage_rep1'] >= min_coverage) & \
+			   (self.origin_coverage['coverage_rep2'] >= min_coverage)
+		
+		# Get the filtered origins
+		filtered_origins = self.origins.loc[mask]
+		
+		return filtered_origins
+	
+	def plot_coverage_histogram(self, bins=30, figsize=(10, 6)):
+		"""
+		Plot histograms of coverage for both replicates
+		
+		Parameters:
+		-----------
+		bins : int
+			Number of bins for the histogram
+		figsize : tuple
+			Figure size
+			
+		Returns:
+		--------
+		matplotlib.figure.Figure
+			The created figure
+		"""
+		if self.origin_coverage is None:
+			raise ValueError("Coverage data not available. Generate summary histogram data first.")
+		
+		fig, (ax1, ax2) = plt.subplots(1, 2, figsize=figsize)
+		
+		# Plot histograms
+		ax1.hist(self.origin_coverage['coverage_rep1'], bins=bins, alpha=0.7)
+		ax1.set_xlabel('Coverage (bases)')
+		ax1.set_ylabel('Number of origins')
+		ax1.set_title('Replicate 1 Coverage')
+		
+		ax2.hist(self.origin_coverage['coverage_rep2'], bins=bins, alpha=0.7)
+		ax2.set_xlabel('Coverage (bases)')
+		ax2.set_ylabel('Number of origins')
+		ax2.set_title('Replicate 2 Coverage')
+		
+		plt.tight_layout()
+		return fig
+	
+	# Keep all the existing methods for getting data and plotting
 	def get_small_fragments_df(self, replicate, timepoint):
 		"""
 		Convert the small fragments data for a specific replicate and timepoint to a DataFrame
@@ -276,7 +418,7 @@ class OriginFootprintAnalysis:
 		
 		# Create positions for columns
 		win_2 = self.window_size // 2
-		positions = np.arange(-win_2, win_2+1)
+		positions = np.arange(-win_2, win_2)
 		
 		# Create DataFrame
 		df = pd.DataFrame(
@@ -474,14 +616,14 @@ class OriginFootprintAnalysis:
 	
 	def plot_composite_histograms(self, replicates, timepoints, max_value=0.1, cmap='magma_r'):
 		"""
-		Plot multiple composite histograms
+		Plot multiple composite histograms with timepoints as rows
 		
 		Parameters:
 		-----------
 		replicates : list
-			List of replicates to plot
+			List of replicates to plot as columns
 		timepoints : list or dict
-			List of timepoints to plot (one per replicate) or dict mapping replicate to timepoint
+			List of timepoints to plot as rows (one per replicate) or dict mapping replicate to timepoint
 		max_value : float
 			Maximum value for color scale
 		cmap : str
@@ -492,39 +634,46 @@ class OriginFootprintAnalysis:
 		matplotlib.figure.Figure
 			The created figure
 		"""
-		# Create figure
-		n_plots = len(replicates)
-		fig, axs = plt.subplots(1, n_plots, figsize=(5.5, 1.5))
-		if n_plots == 1:
-			axs = [axs]
+		# Determine number of unique timepoints
+		
+		n_timepoints = len(timepoints)
+		n_replicates = len(replicates)
+		
+		# Create figure with timepoints as rows and replicates as columns
+		fig, axs = plt.subplots(n_timepoints, n_replicates, 
+							   figsize=(3. * n_replicates, 1 * n_timepoints))
 		
 		# Window half-size for plot extents
 		win_2 = self.window_size // 2
 		
 		# Plot each composite histogram
-		for i, rep in enumerate(replicates):
-			# Determine timepoint
-			if isinstance(timepoints, dict):
-				tp = timepoints[rep]
-			else:
-				tp = timepoints[i]
-			
-			# Get the data
-			hist = self.get_composite_histogram(rep, tp)
-			
-			# Plot composite histogram
-			axs[i].imshow(hist, cmap=cmap, origin='lower', vmax=max_value,
-						 extent=[-win_2, win_2, 0, 250], aspect='auto', interpolation='none')
-			
-			# Add title
-			axs[i].set_title(f"WT{rep} @ {tp}")
-			
-			# Remove y-ticks for all but the first plot
-			if i > 0:
-				axs[i].set_yticks([])
+		for row_idx, tp in enumerate(timepoints):
+			for col_idx, rep in enumerate(replicates):
+				
+				# Get the data
+				hist = self.get_composite_histogram(rep, tp)
+				
+				# Plot composite histogram
+				axs[row_idx, col_idx].imshow(hist, cmap=cmap, origin='lower', vmax=max_value,
+											extent=[-win_2, win_2, 0, 250], aspect='auto', 
+											interpolation='none')
+				
+				# Add titles only to the top row
+				if row_idx == 0:
+					axs[row_idx, col_idx].set_title(f"WT{rep}")
+				
+				# Add timepoint labels to the leftmost column
+				if col_idx == 0:
+					axs[row_idx, col_idx].set_ylabel(f"{tp}'")
+				
+				# Remove y-ticks for all but the leftmost column
+				axs[row_idx, col_idx].set_yticks([])
+
+				if row_idx < n_timepoints-1:
+					axs[row_idx, col_idx].set_xticks([])
 		
 		plt.tight_layout()
-		plt.subplots_adjust(wspace=0.1)
+		plt.subplots_adjust(wspace=0.1, hspace=0.2)
 		return fig
 	
 	def plot_timecourse_heatmaps(self, replicate, timepoints, origins_sorted=None, max_value=0.02):
@@ -638,3 +787,16 @@ class OriginFootprintAnalysis:
 		plt.tight_layout()
 		plt.subplots_adjust(hspace=0)  # Remove vertical spacing between plots
 		return fig
+
+
+	def plot_origin_read_coverage(self):
+		plt.figure(figsize=(8, 2))
+		plt.subplot(1, 2, 1)
+		plt.hist(self.origin_coverage[self.origin_coverage.coverage_rep1 > 0]\
+			.coverage_rep1 / self.window_size, bins=20)
+		plt.axvline(0.95, c='red')
+		plt.subplot(1, 2, 2)
+		plt.hist(self.origin_coverage[self.origin_coverage.coverage_rep2 > 0]\
+			 .coverage_rep1 / self.window_size, bins=20)
+		plt.axvline(0.95, c='red')
+		plt.suptitle("Origin read coverage distribution")

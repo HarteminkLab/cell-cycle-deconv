@@ -20,6 +20,7 @@ class GeneExpressionFindOptimalGamma(object):
 		# Refactoring of the find optimal gamma code
 		from src.find_gamma_refactor import GammaOptimizer
 		self.H = H
+		self.config = config
 			
 		def compute_solution(gamma_value):
 			"""Function to compute the solution, rn, and sn for the optimizer"""
@@ -120,16 +121,21 @@ class GeneExpressionFindOptimalGamma(object):
 
 		ax = ax_row[0]
 
+		timepoints = config.timepoints
+
 		for j in range(gamma_predicted_gs.shape[0]):
-			ax.plot(gamma_predicted_gs[j, :].T, c=cmap(j/len(gamma_predicted_gs)))
+			ax.plot(timepoints, gamma_predicted_gs[j, :].T, 
+				c=cmap(j/len(gamma_predicted_gs)))
 
 		sm = plt.cm.ScalarMappable(cmap=cmap, norm=plt.Normalize(vmin=gamma_sweep.min(),
 			vmax=gamma_sweep.max()))
 		cbar = plt.colorbar(sm, ax=ax)
 		cbar.ax.set_ylabel('Smoothness, $\\gamma$', rotation=270, va='bottom')
 
-		ax.plot(g[:], c='black', lw=3, label="Raw data")
-		ax.plot(gamma_predicted_gs[optimal_solution_index, :].T, c='red',
+		ax.plot(timepoints, 
+			g[:], c='black', lw=3, label="Raw data")
+		ax.plot(timepoints, 
+			gamma_predicted_gs[optimal_solution_index, :].T, c='red',
 				lw=3, label="Optimal $\\gamma$ solution")
 		
 		ax.set_ylim(*g_ylims)

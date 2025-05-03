@@ -7,9 +7,9 @@ from src.global_config import GlobalConstants
 # Number of indices assigned to each phase
 # RG1, DG1, and CG1 have an equivalent number of timepoints for ease
 # of computation. This approximation allows for an approximately 1 min per index
-# deconvolution for MG1 and postG1. RG1 is 75% of MG1 and DG1 is 140% of MG1.
-G1_NUM_TPS = 16
-POSTG1_NUM_TPS = 48
+# deconvolution for MG1 and postG1
+G1_NUM_TPS = 22
+POSTG1_NUM_TPS = 42
 
 
 class ModelConfig(object):
@@ -281,7 +281,16 @@ class ModelConfig(object):
 		g2m_indices = postg1_indices[postg1_indices > s_indices[-1]]
 
 		return s_indices, g2m_indices
-		
+
+	def retrieve_mass(self):
+		from src.calcH_separate_G1 import get_alive_halted_mass
+		model_intervals = self.retrieve_model_intervals_for_calcH()
+		mass_dic = get_alive_halted_mass(model_intervals, self.timepoints)
+		mass_df = pd.DataFrame(np.array(list(mass_dic.values())),
+			columns=['halted', 'alive', 'total'],
+			index=mass_dic.keys())
+		return mass_df
+
 	def calculate_H(self):
 
 		from src.calcH_single_g1 import calcH as single_calcH
@@ -299,6 +308,85 @@ class ModelConfig(object):
 
 		return self.H
 
+	def plot_mass(self, plot_DNA=True, fig=None):
+
+		from src.plot_helpers import color_for_key
+		import matplotlib.pyplot as plt
+		from src.figure_configs import FiguresConfig
+
+		mass_df = self.retrieve_mass()
+
+		H = self.H * (mass_df.total.values/1000.)[:, None]
+
+		rg1_cols = self.get_Hpositions_for_phase('RG1')
+		cg1_cols = self.get_Hpositions_for_phase('CG1')
+		dg1_cols = self.get_Hpositions_for_phase('DG1')
+		s_cols = self.get_Hpositions_for_phase('S')
+		g2m_cols = self.get_Hpositions_for_phase('G2M')
+
+		H_cols = np.array([H.shape[1]-1])
+
+		phases = ['H', 'RG1', 'CG1', 'DG1', 'S', 'G2M']
+		cols_list = [H_cols, rg1_cols, cg1_cols, dg1_cols, s_cols, g2m_cols]
+
+		if fig is None:
+			fig = plt.figure(figsize=(6, 4))
+
+		plt.title("DNA mass over time", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
+		x = self.timepoints
+		prev = np.zeros(len(x))
+
+		label_mapping = {
+			'H': 'Halted',
+			'RG1': 'Recovery-G1',
+			'CG1': 'Mother-G1',
+			'DG1': 'Daughter-G1',
+			'S': 'S',
+			'G2M': 'G2/M',
+		}
+		for i in range(len(phases)):
+			phase = phases[i]
+			cols = cols_list[i]
+			color = color_for_key(phase)
+			mass = H[:, cols].sum(axis=1)
+
+			if plot_DNA:
+				if phase == 'G2M': mass = mass*2.
+				elif phase == 'S':
+					mass = mass * np.linspace(1, 2., len(mass))
+
+				if self.config_type == 'shared':
+					if phase in ['CG1', 'DG1']:
+						mass = mass/2.
+
+			y = prev+mass
+
+			plt.fill_between(x, prev, y, color=color, label=label_mapping[phase])
+			prev = y
+
+		plt.plot(x, y, c='#555', lw=3)
+
+		plt.legend(ncol=2)
+		plt.xlim(x[0], x[-1])
+		plt.ylim(0, 1.4*y.max())
+
+
+	def plot_mass_cells_dna(self):
+		import matplotlib.pyplot as plt
+		fig = plt.figure(figsize=(11, 3.5))
+
+		plt.subplot(1, 2, 1)
+		self.plot_mass(plot_DNA=False, fig=fig)
+		plt.title("Cell population", fontsize=16, fontweight='demi')
+		plt.ylim(0, 7)
+
+		plt.subplot(1, 2, 2)
+		self.plot_mass(plot_DNA=True, fig=fig)
+		plt.title("Amount of DNA", fontsize=16, fontweight='demi')
+		plt.ylim(0, 7)
+
+		plt.suptitle("Replicate 1", fontsize=18, fontweight='demi', y=1.05)
+
 	def plot_H(self):
 
 		from src.plot_helpers import color_for_key
@@ -310,6 +398,7 @@ class ModelConfig(object):
 		cg1_cols = self.get_Hpositions_for_phase('CG1')
 		dg1_cols = self.get_Hpositions_for_phase('DG1')
 		post_g1_cols = self.get_Hpositions_for_phase('postG1')
+
 
 		H_cols = np.array([H.shape[1]-1])
 

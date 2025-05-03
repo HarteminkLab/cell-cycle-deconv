@@ -19,7 +19,7 @@ class CombinedDeconvolveGeneExpressionRunner:
 		self.config1 = config1
 		self.config2 = config2
 
-	def deconvolve_gene(self, gene_name, kappa=0.0):
+	def deconvolve_gene(self, gene_name, replicate='combined', kappa=0.0):
 
 		from src.gene_expression import load_gene_expression
 		from src.sgd import get_orfname
@@ -28,13 +28,31 @@ class CombinedDeconvolveGeneExpressionRunner:
 
 		self.gene_name = gene_name
 		self.orf_name = get_orfname(gene_name)
+
 		gene_expression_replicate1 = load_gene_expression(gene_name, 1, log_transform=True)
 		gene_expression_replicate2 = load_gene_expression(gene_name, 2, log_transform=True)
 
 		H1 = self.config1.H
 		H2 = self.config2.H
 
-		H, G = concatenate_H_G(H1, H2, gene_expression_replicate1, gene_expression_replicate2)
+		from src.global_config import GlobalConstants
+
+		if replicate == 'combined':
+			H, G = concatenate_H_G(H1, H2, gene_expression_replicate1, gene_expression_replicate2)
+			config = self.config1
+			config.timepoints = np.concatenate([GlobalConstants.EXPRESSION_WT1_TIMEPOINTS, 
+				GlobalConstants.EXPRESSION_WT2_TIMEPOINTS])
+
+		elif replicate == 1:
+			H = H1
+			G = gene_expression_replicate1
+			config = self.config1
+		elif replicate == 2:
+			H = H2
+			G = gene_expression_replicate2
+			config = self.config2
+		else:
+			raise ValueError()
 
 		expression_find_gamma = GeneExpressionFindOptimalGamma(config=self.config1, H=H, 
 			gene_expression=G)

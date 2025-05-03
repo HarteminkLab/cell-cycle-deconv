@@ -19,7 +19,7 @@ class ChromatinDeconvolveSolver:
 	for gamma values and reusing the same
 	problem definition"""
 
-	def __init__(self, config, G, N, b, f_replication,
+	def __init__(self, config, G, N=None, b=1, f_replication=None,
 		solver=cvxpy.MOSEK, wavelet="Symmlet", padding_type='both', subsample=-1):
 
 		self.config = config
@@ -27,8 +27,17 @@ class ChromatinDeconvolveSolver:
 		self.solver = solver
 		self.wavelet = wavelet
 		self.G = G
+
+		if N is None:
+			N = np.eye(self.H.shape[0])
+
 		self.N = N
 		self.b = b
+
+		if f_replication is None:
+			f_replication = np.ones(self.H.shape[1])
+
+
 		self.f_replication = f_replication
 		self.padding_type = padding_type
 

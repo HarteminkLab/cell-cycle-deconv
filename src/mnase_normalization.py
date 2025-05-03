@@ -26,7 +26,7 @@ def normalize_to_target_distribution(data, target_distribution):
 	normalized_data = data * scaling_factors
 	
 	# Mean normalize to 1.0
-	return normalized_data / normalized_data.mean()
+	return normalized_data / (normalized_data.mean()+epsilon)
 
 def normalize_to_target_sums(data, target_sums):
 	"""
@@ -47,13 +47,14 @@ def normalize_to_target_sums(data, target_sums):
 	# while scaling to the target sum
 	normalized_data = data * scaling_factors
 	
-	normalized_data = normalized_data / normalized_data.mean() * target_sums.mean()
+	normalized_data = normalized_data / (normalized_data.mean()+epsilon) * target_sums.mean()
 		
 	return normalized_data 
 
 
 def normalize_and_downsample(exact_bins, target_distribution, g):
-	normalized_1 = exact_bins / exact_bins.mean(axis=1).mean(axis=1)[:, None, None]
+	eps = 1e-5
+	normalized_1 = exact_bins / (exact_bins.mean(axis=1).mean(axis=1)[:, None, None]+eps)
 
 	# Normalize to target length distribution
 	length_normalized = normalize_to_target_distribution(normalized_1, 

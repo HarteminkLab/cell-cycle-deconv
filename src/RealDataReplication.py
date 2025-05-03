@@ -577,8 +577,9 @@ def compute_N(config, plot=False):
 	H = config.H
 	tps = config.timepoints
 
-	cg1_mass = H[:, config.get_Hpositions_for_phase('RG1')].sum(axis=1)
-	rg1_mass = H[:, config.get_Hpositions_for_phase('CG1')].sum(axis=1)
+	cg1_mass = H[:, config.get_Hpositions_for_phase('CG1')].sum(axis=1)
+	dg1_mass = H[:, config.get_Hpositions_for_phase('DG1')].sum(axis=1)
+	rg1_mass = H[:, config.get_Hpositions_for_phase('RG1')].sum(axis=1)
 	s_mass = H[:, config.get_Hpositions_for_phase('S')].sum(axis=1)
 	g2m_mass = H[:, config.get_Hpositions_for_phase('G2M')].sum(axis=1)
 	h_mass = H[:, config.get_Hpositions_for_phase('H')].sum(axis=1)
@@ -587,7 +588,7 @@ def compute_N(config, plot=False):
 	s_indices = config.get_Hpositions_for_phase('S')
 	s_masses = np.linspace(1, 2, len(s_indices))
 
-	g1_mass = cg1_mass+rg1_mass
+	g1_mass = dg1_mass+cg1_mass+rg1_mass
 	s_dna_content = H[:, config.get_Hpositions_for_phase('S')] @ np.diag(s_masses).sum(axis=1)
 	replicating_mass = s_dna_content+g2m_mass*2
 
@@ -626,10 +627,11 @@ def compute_N(config, plot=False):
 	return average_DNA, N
 
 
-def read_g(chrom, deconv_span, replicate):
+def read_g(chrom, deconv_span, replicate, verbose=True):
 
-	print_fl(f"Loading G data from combined replication run, 3/10/25")
-	print_fl(f"Refactor to use the output directory, of the replication deconvolution run")
+	if verbose:
+		print_fl(f"Loading G data from combined replication run, 3/10/25")
+		print_fl(f"Refactor to use the output directory, of the replication deconvolution run")
 
 	directory = 'output/prototype_pipeline_subset/combined_replication'
 
@@ -672,13 +674,29 @@ def get_estimated_S_phase_end_index(config, output_directory, plot=False):
 	return threshold_index
 
 
-def load_replication_Fr_df(output_dir, chrom):
+def load_replication_Fr_df(output_dir, chrom, with_replication_timing=False):
+
+	from src.config import load_default_chrom_configs, retrieve_replication_timing
+
+	config1, config2 = load_default_chrom_configs()
+
 	combined_directory = f'{output_dir}/combined_replication'
 	Fr_df = pd.read_csv(f'{combined_directory}/combined_chr{chrom}_F.csv')
 	Fr_df = Fr_df[Fr_df.columns[1:]]
 	Fr_df.columns = Fr_df.columns.astype(int)
 
 	replication_indices = Fr_df.idxmax(0)
+
+	if with_replication_timing:
+		replication_timings = retrieve_replication_timing(config1, config2, 
+			replication_indices.values)
+		repl_df = pd.DataFrame({
+			'replication_index': replication_indices,
+			'replication_time': replication_timings.values
+		}, index=replication_indices.index)
+		repl_df.index.name = 'start'
+
+		return Fr_df, repl_df
 
 	return Fr_df, replication_indices
 

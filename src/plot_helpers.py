@@ -309,7 +309,7 @@ def color_for_key(key):
 		 "postG1": np.array([214, 170, 129])/255.,
 		 "RpostG1": np.array([200, 170, 140])/255.,
 
-		 "G2M": np.array([147, 168, 198])/255.,
+		 "G2M": np.array([214, 170, 129])/255.,
 		 "S": np.array([158, 189, 140])/255.,
 
 		 "H": np.array([100, 100, 100])/255.

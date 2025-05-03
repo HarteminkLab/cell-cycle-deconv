@@ -43,6 +43,7 @@ class ChromatinModel:
 		self.prom_len = GlobalConstants.PROM_LEN
 		self.gb_len = GlobalConstants.GB_LEN
 		self.chr = None
+		self.chr_reads = None
 
 		self.max_y_len = GlobalConstants.MAX_Y_LEN
 		self.timepoints = self.config.timepoints
@@ -60,6 +61,8 @@ class ChromatinModel:
 		self.mnase_span = int(mnase_span[0]), int(mnase_span[1])
 
 		if not self.chr == chrom:
+
+			del self.chr_reads
 
 			if verbose:
 				print_fl(f"Loading chromosome reads: {chrom}")
@@ -84,11 +87,11 @@ class ChromatinModel:
 
 		# Load target length distribution
 		from src.mnase_normalization import load_target_distribution
-		target_length_distribution = load_target_distribution(verbose=True)
+		target_length_distribution = load_target_distribution(verbose=verbose)
 
 		# Load target total sums g from replication profile
 		from src.RealDataReplication import read_g
-		window_10kb_g_curve = read_g(chrom, mnase_span, replicate)
+		window_10kb_g_curve = read_g(chrom, mnase_span, replicate, verbose)
 
 		# Preserve the length distribution and 10kb total curve
 		self.window_10kb_g_curve = window_10kb_g_curve
@@ -102,11 +105,11 @@ class ChromatinModel:
 
 		# Perform the normalization and downsampling steps
 		from src.mnase_normalization import normalize_and_downsample
-		exact_bins_normalized1, length_normalized, length_normalized_target_sums, downsampled_bins = \
+		exact_bins_normalized, length_normalized, length_normalized_target_sums, downsampled_bins = \
 			normalize_and_downsample(exact_bins, target_length_distribution, window_10kb_g_curve)
 
 		if verbose:
-			print(f"And downsampling from {exact_bins_normalized1.shape} to {downsampled_bins.shape}")
+			print(f"And downsampling from {exact_bins_normalized.shape} to {downsampled_bins.shape}")
 
 		self.length_normalized = length_normalized
 		self.length_normalized_target_sums = length_normalized_target_sums
@@ -119,7 +122,8 @@ class ChromatinModel:
 		exact_extent = [self.mnase_span[0], self.mnase_span[1],
 					0, GlobalConstants.MAX_Y_LEN]
 		
-		self.exact_bins = exact_bins_normalized1
+		self.exact_bins_unnormalized = exact_bins
+		self.exact_bins = exact_bins_normalized
 		self.exact_extent = exact_extent
 		self.bin_extents = exact_extent
 
@@ -129,8 +133,9 @@ class ChromatinModel:
 		self.G = downsampled_bins.reshape(downsampled_bins.shape[0], -1)
 
 		if self.normalize_mean_1 == True:
+			eps = 1e-5
 			self.non_mean_centered_G = self.G
-			self.G = self.G / self.G.mean()
+			self.G = self.G / (eps+self.G.mean())
 
 	
 	def compute_bin_counts_sample(self, sample, x_bins, y_bins):
@@ -378,8 +383,8 @@ class ChromatinModel:
 			self.downsampled_bins, self.target_length_distribution,
 			self.window_10kb_g_curve, axs=axs)
 
-	def plot_raw_data(self, figsize=(2, 7)):
-		return plot_raw(self, figsize)
+	def plot_raw_data(self, figsize=(2, 7), vmax=40):
+		return plot_raw(self, figsize, vmax=vmax)
 
 
 def read_chromosome_mnase_reads(replicate, chr):
@@ -419,12 +424,12 @@ def compute_bin_counts_sample(locus_reads, sample, x_bins, y_bins):
 	return plotting_reads, hist, x_edges, y_edges
 
 
-def plot_raw(chromatin_model, figsize=(2, 7)):
+def plot_raw(chromatin_model, figsize=(2, 7), vmax=40):
 	config = chromatin_model.config
 	G = chromatin_model.G
 	chrom, mnase_span = chromatin_model.chr, chromatin_model.mnase_span
 	return plot_raw_G(G, config, chrom, mnase_span, figsize=figsize,
-		title=f"Raw data, replicate {config.replicate}")
+		title=f"Raw data, replicate {config.replicate}", vmax=vmax)
 
 
 def plot_raw_G(G, config, chrom, mnase_span, figsize=(2, 7),

@@ -172,7 +172,7 @@ def plot_parameter_updates(output_directory, replicate, chrom):
 
 		if col in skip_parameters: continue
 
-		values = params_df[col][10:]
+		values = params_df[col][0:]
 		xs = np.arange(len(values))
 
 		if col == 'F_rn':
