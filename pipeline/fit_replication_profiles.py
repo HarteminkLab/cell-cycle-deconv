@@ -80,11 +80,14 @@ def run_epochs(replication_deconvolver, bounds_df, num_epochs, function_update=N
 		if function_update is not None:
 			function_update(epoch, update_params_df, Hs, Fs, Ns, Bs)
 
+	# Complete
+	function_update(epoch, update_params_df, Hs, Fs, Ns, Bs)
+
 	return update_params_df, Hs, Fs, Ns, Bs, optimizer
 
 
 def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_directory=None,
-	config=None, save=True, learn_subset_parameters = ['mu0', 'gamma2']):
+	config=None, save=True, learn_subset_parameters = []):
 
 	np.random.seed(123)
 
@@ -112,7 +115,7 @@ def main(replicate=1, chrom=1, num_epochs=10, num_iterations_N_B=20, output_dire
 	print(f"Subsetting the cell cycle parameters to learn: ", subset_parameters)
 
 	# Initial convergence of N, F, B
-	replication_deconvolver.iterative_deconvolution_updates(20, verbose=True)
+	replication_deconvolver.iterative_deconvolution_updates(30, verbose=True)
 
 	print("Initial config parameters: ", bounds_df)
 

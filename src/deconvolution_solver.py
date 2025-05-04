@@ -212,17 +212,9 @@ class DeconvolutionSolver(object):
 		# Recovery branch is the shortest 0.9
 		# Top branch: 1.0
 		# Daughter branch: 1.2
-		# The recovery branch is subject to the least amount of regularization and requires more of a 
-		# smoothing regularization compared to the mother and daughter branches
-
-		# Testing adjustments to smoothing weights of the three branches
-		# They appear to have minimal effect on gene expression.
-
-		# Larger weighting of smoothness on recovery, as MG1 and DG1 are 
-		# regularized against one another
-		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 2.0 +
+		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 1.11 +
 						 cp.sum(cp.abs(smooth_f_t_result)) * 1 +
-						 cp.sum(cp.abs(smooth_f_b_result)) * 1)
+						 cp.sum(cp.abs(smooth_f_b_result)) * 0.87)
 
 		# todo: These weights may be too low for the bottom branch, and introduces the
 		#       DG1 bias which depicts a greater amount of variability.

@@ -36,25 +36,15 @@ class CombinedReplicationDeconvolution():
 		self.real_deconv2.selected_threshold_region = union_threshold
 
 
-	def setup_deconvolution(self, warm_start_output_directory=None, warm_start_chrom=None):
+	def setup_deconvolution(self):
 		# Setup deconvolution for each to initialize H, N, B, and G
 
 		from src.RealDataReplication import load_N_F_B_for_replication_deconv_from_save
 
-		# Load the F, N, and B from disk
-		if warm_start_output_directory is not None:	
-			# Load the F, N, and B from disk
-			print_fl(f"Warm start load F N and B from disk {warm_start_output_directory}")
-			F1, N1, B1 = load_N_F_B_for_replication_deconv_from_save(warm_start_output_directory, 1, warm_start_chrom)
-			F2, N2, B2 = load_N_F_B_for_replication_deconv_from_save(warm_start_output_directory, 2, warm_start_chrom)
-		else:
-			N1 = None
-			N2 = None
-
 		# Load just N, more important than B. And we can deconvolve other chromosomes easily
 		# First set of iterations will provide a consistent replication profile
-		self.real_deconv1.setup_deconvolution(initial_B=None, initial_N=N1)
-		self.real_deconv2.setup_deconvolution(initial_B=None, initial_N=N2)
+		self.real_deconv1.setup_deconvolution(initial_B=None, initial_N=None)
+		self.real_deconv2.setup_deconvolution(initial_B=None, initial_N=None)
 		self.combine_replicate_data_structures()
 
 
@@ -167,7 +157,6 @@ class CombinedReplicationDeconvolution():
 
 			print_fl(f"Epoch: {epoch}")
 			
-
 			if not self.disable_H_optimization:
 				# Run the optimizer on each of the replicate Hs
 				print_fl(f"[{epoch}]: Running H optimizer for replicate 1")
@@ -217,6 +206,10 @@ class CombinedReplicationDeconvolution():
 			# For progressive saving or other tracking logic
 			if function_update is not None:
 				function_update(epoch, update_params_df, Hs, Fs, Ns, Bs)
+				
+		# For progressive saving or other tracking logic
+		if function_update is not None:
+			function_update(num_epochs, update_params_df, Hs, Fs, Ns, Bs)
 
 		return update_params_df, Hs, Fs, Ns, Bs
 

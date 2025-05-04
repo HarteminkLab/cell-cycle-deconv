@@ -9,7 +9,7 @@ from src.utils import mkdirs_safe, parse_bool, print_fl
 
 from src.combined_chromatin_model import CombinedChromatinModel
 from src.chromatin_model import ChromatinModel
-from src.config import load_default_chrom_configs
+from src.config import load_default_chrom_configs, load_cloccs_configs
 
 def main():
 
@@ -67,20 +67,24 @@ def main():
 	# 1. Deconvolve individual replication profiles, learn cell cycle parameters from MNase-seq
 	elif command == 'replication':
 
-		(_, command, output_directory, replicate, chrom, num_epochs, cold_start) = system_args
+		# Deprecated, we'll go straight into the combined replication model without
+		# parameter searching
+		pass
 
-		single_replication_directory = f"{output_directory}/single_replication"
-		mkdirs_safe([output_directory, single_replication_directory])
+		# (_, command, output_directory, replicate, chrom, num_epochs, cold_start) = system_args
 
-		cold_start = parse_bool(cold_start) # Unused parameter, may deprecate
-		chrom = int(chrom)
-		replicate = int(replicate)
-		num_epochs = int(num_epochs)
+		# single_replication_directory = f"{output_directory}/single_replication"
+		# mkdirs_safe([output_directory, single_replication_directory])
 
-		# 1. Compute replication profiles for each replicate using chromosome 4
-		from pipeline.fit_replication_profiles import main as fit_replication_profile
-		fit_replication_profile(chrom=chrom, replicate=replicate, num_epochs=num_epochs, 
-			output_directory=single_replication_directory)
+		# cold_start = parse_bool(cold_start) # Unused parameter, may deprecate
+		# chrom = int(chrom)
+		# replicate = int(replicate)
+		# num_epochs = int(num_epochs)
+
+		# # 1. Compute replication profiles for each replicate using chromosome 4
+		# from pipeline.fit_replication_profiles import main as fit_replication_profile
+		# fit_replication_profile(chrom=chrom, replicate=replicate, num_epochs=num_epochs, 
+		# 	output_directory=single_replication_directory)
 
 	# 2. Compute combined replication profiles for all chromosomes
 	elif command == 'combined_replication':
@@ -88,25 +92,22 @@ def main():
 		print_fl(f"Generating replication profiles for all chromosomes")
 		(_, command, output_directory) = system_args
 
-		single_replication_directory = f"{output_directory}/single_replication"
+		from src.CombinedReplicateDeconvolutionRunner import fit_combined_replication
+
+		single_replication_directory = None
 		combined_replication_directory = f"{output_directory}/combined_replication"
 		mkdirs_safe([combined_replication_directory])
 
-		from src.CombinedReplicateDeconvolutionRunner import main as fit_combined_replication
-		from src.CombinedReplicationDeconvolution import load_config_from_replication_runs
+		# Go straight into creating the combined replication profiles from the cloccs
+		# fits, no epochs to learn parameters, nor usage of the single replication profile
+		config1, config2 = load_cloccs_configs()
 
-		# In this case, we are loading the configs as a continuation from the single
-		# replication convergence.
-		config1, config2 = load_config_from_replication_runs(single_replication_directory, chrom=4)
-
-		# For each chromosome, create the replication profiles for each of the chromosomes and save to disk
-		# todo: currently not aiming to learn the cell cycle parameters on this step for efficiency purposes.
 		num_epochs = 1
-		warm_start_chrom = 4
+		print(f"Number of epochs {num_epochs}")
 		for chrom in range(1, 17):
 			print_fl(f"Chromosome {chrom}")
-			combined_runner = fit_combined_replication(chrom, num_epochs, single_replication_directory,
-				combined_replication_directory, warm_start_chrom, config1, config2)
+			combined_runner = fit_combined_replication(chrom, num_epochs,
+				combined_replication_directory, config1, config2)
 
 	# 3. Deconvolve the gene expression for all genes
 	elif command == 'deconvolve_expression':

@@ -2,7 +2,7 @@ import numpy as np
 import pandas as pd
 import matplotlib.pyplot as plt
 from typing import Tuple, List, Optional, Dict, Any
-from src.config import load_default_chrom_configs
+from src.config import load_default_chrom_configs, load_cloccs_configs
 from src.combined_chromatin_model import CombinedChromatinModel
 
 class OriginAlphaSweep:
@@ -12,7 +12,7 @@ class OriginAlphaSweep:
 	and peak replication timing, as well as examining chromatin footprints.
 	"""
 	
-	def __init__(self, output_dir: str = 'output/draft1_run/'):
+	def __init__(self, output_dir):
 		"""
 		Initialize the OriginAlphaSweep class.
 		
@@ -20,60 +20,32 @@ class OriginAlphaSweep:
 			output_dir: Directory containing replication timing data
 		"""
 		self.output_dir = output_dir
-		self.replication_timing_loader = None
-		self.origins = None
-		self.config1_alpha_adjusted = None
-		self.config2_alpha_adjusted = None
 
-		self.config1, self.config2 = load_default_chrom_configs()
+		from src.replication_timing import ReplicationTiming
+		from src.origins import load_origins
+		
+		# Load origins data
+		self.origins = load_origins()
+
+		# Load replication timing data
+		self.replication_timing_loader = ReplicationTiming(output_dir=self.output_dir)
+		self.replication_timing_loader.compute_peak_annotations()
+
+	def load_configs(self, model_mode):
+
+		from src.config import load_from_dic
+
+		if model_mode == 'draft1':
+			self.config1 = load_from_dic('models/yl_cell_cycle/refined_rep1.json', 1)
+			self.config2 = load_from_dic('models/yl_cell_cycle/refined_rep2.json', 2)
+		elif model_mode == 'cloccs':
+			self.config1, self.config2 = load_cloccs_configs()
 			
 		self.combined_model = CombinedChromatinModel(
 			config1=self.config1,
 			config2=self.config2
 		)
 
-		
-	def load_data(self) -> None:
-		"""
-		Load required data for analysis.
-		"""
-		# Import necessary modules
-		from src.replication_timing import ReplicationTiming
-		from src.origins import load_origins
-		
-		
-		# Load replication timing data
-		self.replication_timing_loader = ReplicationTiming(output_dir=self.output_dir)
-		self.replication_timing_loader.compute_peak_annotations()
-		
-		# Load origins data
-		self.origins = load_origins()
-
-		
-	def adjust_alpha_configs(self, alpha1: int = 14, alpha2: int = 12) -> None:
-		"""
-		Adjust alpha parameters in chromosome configurations.
-		
-		Args:
-			alpha1: Alpha value for config1
-			alpha2: Alpha value for config2
-		"""
-		# from src.config import load_default_chrom_configs
-		
-		# # Load and modify configurations with adjusted alpha values
-		# self.config1_alpha_adjusted, self.config2_alpha_adjusted = load_default_chrom_configs()
-		# self.config1_alpha_adjusted.modify_alpha(alpha1)
-		# self.config2_alpha_adjusted.modify_alpha(alpha2)
-		
-		# # Combine H values
-		# self.modified_H = np.concatenate([
-		# 	self.config1_alpha_adjusted.H, 
-		# 	self.config2_alpha_adjusted.H
-		# ])
-
-		# todo, for the deconvolution sweep, we'll modify the config with trial alpha values
-		pass
-		
 
 	def find_efficient_origins(self, top_n: int = 30) -> pd.DataFrame:
 		"""
@@ -85,8 +57,6 @@ class OriginAlphaSweep:
 		Returns:
 			DataFrame containing filtered efficient origins
 		"""
-		if self.origins is None or self.replication_timing_loader is None:
-			self.load_data()
 			
 		eff_key = 'derived_origin_efficiency_from_mcguffee_et_al_2013'
 		efficient_origins = []
@@ -132,10 +102,9 @@ class OriginAlphaSweep:
 			oridb: Origin ID to analyze
 			window: Window size around origin position
 		"""
-		if self.origins is None:
-			self.load_data()
 			
 		origin = self.origins.loc[oridb]
+		self.origin = origin
 		chrom = origin.chr
 		win_2 = window // 2
 		mnase_span = (origin.pos - win_2, origin.pos + win_2 + 1)
@@ -163,7 +132,7 @@ class OriginAlphaSweep:
 		return fig1, fig2
 	
 	def select_footprint_boundary(self, footprint_bounds: List[int] = [-5, 8, 3, 10],
-								 plot: bool = True) -> np.ndarray:
+								 plot: bool = False) -> np.ndarray:
 		"""
 		Select and visualize the footprint boundary for the current origin.
 		
@@ -242,7 +211,8 @@ class OriginAlphaSweep:
 		return origin_selection_imgs
 	
 	def analyze_origin(self, oridb: str, window: int = 1000, 
-					 footprint_bounds: List[int] = [-5, 8, 3, 10]) -> np.ndarray:
+					 footprint_bounds: List[int] = [-5, 8, 3, 10],
+					 plot=False) -> np.ndarray:
 		"""
 		Perform a complete analysis of a single origin.
 		
@@ -250,27 +220,25 @@ class OriginAlphaSweep:
 			oridb: Origin ID to analyze
 			window: Window size around origin position
 			footprint_bounds: Boundaries for the footprint [left, right, bottom, top]
-			alpha1: Alpha value for config1
-			alpha2: Alpha value for config2
-			copy_correct: Whether to apply copy correction
 			
 		Returns:
 			NumPy array of selected footprint images
 		"""
-		if self.origins is None:
-			self.load_data()
 
 		self.load_origin_mnase_data(oridb, window)
 		self.combined_model.setup_deconv_model()
-		self.plot_raw_data()
+
+		if plot:
+			self.plot_raw_data()
 
 		return self.select_footprint_boundary(footprint_bounds)
 
 
-	def setup_footprint_deconvolution(self, replicate, alpha):
+	def setup_footprint_deconvolution(self, replicate):
 		model = self.combined_model
 		solver = model.solver
 		footprint = self.footprint
+		self.replicate = replicate
 
 		num_rep1_tps = len(self.config1.timepoints)
 		num_rep2_tps = len(self.config2.timepoints)
@@ -289,13 +257,17 @@ class OriginAlphaSweep:
 			rep_N = N1
 			rep_G_footprint = footprint[rep1_sub_indices].reshape((num_rep1_tps, -1))
 			config = self.config1
-		else:
+		elif replicate == 2:
 			H = model.H2
 			rep_N = N2
 			rep_G_footprint = footprint[rep2_sub_indices].reshape((num_rep2_tps, -1))
 			config = self.config2
+		elif replicate == 'combined':
+			rep_N = model.N
+			H = model.H
+			rep_G_footprint = footprint.reshape((footprint.shape[0], -1))
+			config = self.config1
 
-		config.modify_alpha(alpha)
 		self.footprint_config = config
 
 		solver.H = H
@@ -305,19 +277,28 @@ class OriginAlphaSweep:
 
 		self.solver = solver
 
-	def deconvolve_footprint(self):
+	def deconvolve_footprint(self, gamma=0.01, kappa=1):
 		footprint_img_shape = self.footprint.shape
-		self.footprint_F = self.solver.deconvolve_G_iteratively(gamma=0.01, kappa=1, verbose=True)
+		self.footprint_F = self.solver.deconvolve_G_iteratively(gamma=gamma, kappa=1, verbose=True)
 		self.footprint_F_imgs = self.footprint_F.reshape((-1, 
 			footprint_img_shape[1], footprint_img_shape[2]))
 
-	def plot_deconvolved_footprint(self):
+	def plot_deconvolved_footprint(self, fig=None):
 		i_tps = self.footprint_config.get_timepoints_for_branch('i')
 		t_tps = self.footprint_config.get_timepoints_for_branch('t')
 		b_tps = self.footprint_config.get_timepoints_for_branch('b')
 		
+		if fig is None:
+			fig = plt.figure(figsize=(4, 3))
 		plt.plot(i_tps, self.footprint_F_imgs.mean((1, 2))[self.footprint_config.i_indices()], label="Recovery")
 		plt.plot(t_tps, self.footprint_F_imgs.mean((1, 2))[self.footprint_config.t_indices()], label="Mother")
 		plt.plot(b_tps, self.footprint_F_imgs.mean((1, 2))[self.footprint_config.b_indices()], label='Daughter')
+
+		repl_entry = self.replication_timing_loader.load_replication_entry_for(self.origin.chr, self.origin.pos)
+		plt.axvline(repl_entry.replication_time, c='red', alpha=0.5, label=
+			f"Replication time, {repl_entry.replication_time:.1f}")
+
+		plt.legend()
+		plt.title(f"{self.origin.ars_name}, Replicate {self.replicate}")
 
 

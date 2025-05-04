@@ -1,1 +1,9 @@
 The stage 1 31125 json files are config files from replication profile deconvolution runs from Feb 2025. These are runs that were initialized from the CLOCCS parameters. The parameters: mu0, sigma0, gamma1, and gamma2 were learned. These parameters were found to improve the replication profiles the greatest. Whereas when learning all parameters, delta and halted will converge to 0. This will be compared to a model in which we will call stage 2, as of 3/11/25, stage 2 is not modeled yet.
+
+---
+
+May 4, 2025
+
+Update models alpha was returned to the Guo estimations 32% of the cell cycle. cloccs models is unchanged except for alpha, refined model are the parameters updated for the replication profile: sigma0, mu0, and gamma2. Where gamma2 has no effect on the chromatin deconvoluiton, but affects the replication profile silhouette, handling very late outlier windows. Sigma0 and mu0 improve the fit for the recovery affected very early replication timepoints, which may only really effect this first cell cycle. Changing these parameters has implications for the chromatin fits.
+
+----

@@ -9,8 +9,7 @@ from src.config import load_default_chrom_configs
 import matplotlib.pyplot as plt
 
 
-def main(chrom, num_epochs, warm_start_directory, save_dir,
-		warm_start_chrom, config1, config2):
+def fit_combined_replication(chrom, num_epochs, save_dir, config1, config2):
 	"""
 	Run the combined deconvolution of the replication profile for a chromosome
 
@@ -24,9 +23,8 @@ def main(chrom, num_epochs, warm_start_directory, save_dir,
 
 	# Start runner
 	runner = CombinedReplicateDeconvolutionRunner(chrom, save_dir, config1, config2)
-	runner.start_runs(num_epochs=num_epochs, warm_start_output_directory=warm_start_directory, 
-		warm_start_chrom=warm_start_chrom)
-	runner.save_to_disk(include_H_and_params=True)
+	runner.start_runs(num_epochs=num_epochs)
+	runner.save_to_disk(num_epochs-1, include_H_and_params=True)
 
 	return runner
 
@@ -46,10 +44,12 @@ class CombinedReplicateDeconvolutionRunner():
 
 		self.deconvolution = CombinedReplicationDeconvolution(config1, config2, chr=chrom)
 
-	def start_runs(self, num_epochs, warm_start_output_directory, warm_start_chrom):
+	def start_runs(self, num_epochs):
+
+		self.num_epochs = num_epochs
 
 		# Setup runs
-		self.deconvolution.setup_deconvolution(warm_start_output_directory, warm_start_chrom)
+		self.deconvolution.setup_deconvolution()
 
 		print("Running initial combined deconvolution for F, N, and B")
 		result = self.deconvolution.iterative_deconvolution_updates(20, verbose=False)
@@ -68,13 +68,13 @@ class CombinedReplicateDeconvolutionRunner():
 				self.Bs = Bs
 
 				if not self.deconvolution.disable_H_optimization:
-					self.save_to_disk()
+					self.save_to_disk(epoch)
 
 		# Run the deconvolution updates
 		self.update_params_df, self.Hs, self.Fs, self.Ns, self.Bs = \
 			self.deconvolution.run_epochs(num_epochs=num_epochs, function_update=update_function)
 
-	def save_to_disk(self, include_H_and_params=False):
+	def save_to_disk(self, epoch=None, include_H_and_params=False):
 
 		if self.save_dir is None:
 			print_fl("No save directory, skipping save.")
@@ -97,19 +97,19 @@ class CombinedReplicateDeconvolutionRunner():
 
 		if not include_H_and_params:
 			self.update_params_df.to_csv(parameters_save_path)
-			np.save(H_save_path, self.Hs[self.current_epoch])
+			np.save(H_save_path, self.Hs[epoch])
 
-		np.save(N_save_path, self.Ns[self.current_epoch])
+		np.save(N_save_path, self.Ns[epoch])
 
 		# save only the chromosome 4 N
 		if self.chrom == 4:
 			np.save(f"{self.save_dir}/N.npy", self.deconvolution.N)		
 
-		np.save(B_save_path, self.Bs[self.current_epoch])
+		np.save(B_save_path, self.Bs[epoch])
 
 		fig = self.deconvolution.plot_heatmaps()
 		plt.suptitle(f"Combined replicate"
-			f" deconvolution,\nChromosome {self.chrom}, epoch={self.current_epoch}")
+			f" deconvolution,\nChromosome {self.chrom}, epoch={epoch}")
 		plt.savefig(fig_path, dpi=150)
 		plt.close(fig)
 
@@ -131,4 +131,4 @@ class CombinedReplicateDeconvolutionRunner():
 		print_fl(f"Saved to: {fig_path}")
 
 if __name__ == '__main__':
-	main()
+	fit_combined_replication()

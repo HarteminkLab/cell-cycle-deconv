@@ -164,6 +164,7 @@ class RealDataReplicationDeconvolution():
 		self.F = result.Fs[-1]
 		self.rn = result.iterative_update_rns[-1]
 		self.B = result.Bs[-1]
+		self.result = result
 
 		self.F_df = pd.DataFrame(self.F, columns=self.deconvolve_start_indices,
 			index=range(self.F.shape[0]))
@@ -238,11 +239,11 @@ class RealDataReplicationDeconvolution():
 		return updated_N, updated_B
 
 
-	def plot_heatmaps(self):
+	def plot_heatmaps(self, figsize=(13, 11)):
 		N, F, G, B, H = self.N, self.F, self.G, self.B, self.config.H
 
 		fig = plot_heatmaps(N, F, H, B, G, column_names=self.deconvolve_start_indices,
-			full_column_names=self.G_df.columns)
+			full_column_names=self.G_df.columns, figsize=figsize)
 		plt.suptitle(f"Replication {self.replicate}"
 			f" deconvolution,\nChromosome {self.chrom}")
 
@@ -499,7 +500,8 @@ def plot_histogram_occupancies_G(config, G):
 	plt.subplots_adjust(hspace=0.5)
 
 
-def plot_heatmaps(N, F, H, B, G, column_names, full_column_names):
+def plot_heatmaps(N, F, H, B, G, column_names, full_column_names,
+		figsize=(13, 11)):
 
 	RdBu_cmap = plt.cm.RdBu_r
 	RdBu_cmap.set_bad('#aaaaaa')  # Set the color for NaN values
@@ -529,7 +531,7 @@ def plot_heatmaps(N, F, H, B, G, column_names, full_column_names):
 	predicted_G = create_df_and_full_cols(predicted_G, column_names, full_column_names)
 	residual_diff = create_df_and_full_cols(residual_diff, column_names, full_column_names)
 
-	fig = plt.figure(figsize=(13, 11))
+	fig = plt.figure(figsize=figsize)
 
 	plt.subplot(6, 1, 1)
 	plt.imshow(F, cmap=RdBu_cmap, vmin=0, vmax=2, interpolation='none', aspect='auto')
@@ -548,6 +550,7 @@ def plot_heatmaps(N, F, H, B, G, column_names, full_column_names):
 	plt.imshow(Ninv_G_B_inv, cmap=RdBu_cmap, vmin=0, vmax=2, interpolation='none', aspect='auto')
 	plt.colorbar()
 	plt.title("$(N^{-1})G(B^{-1})$")
+	plt.xticks([])
 
 	plt.subplot(6, 1, 4)
 	plt.imshow(predicted_G, cmap=RdBu_cmap, vmin=0, vmax=2, interpolation='none', aspect='auto')

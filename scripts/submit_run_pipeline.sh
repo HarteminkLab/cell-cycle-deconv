@@ -5,7 +5,7 @@ OUTDIR=output/draft2_run/
 
 # ---------- Replication deconvolution ----------------
 
-NUM_EPOCHS=200
+NUM_EPOCHS=0 # No EPOCHS, will use CLOCCS fits
 CHROM=4
 REPLICATE=1
 

@@ -11,6 +11,7 @@ from src.global_config import GlobalConstants
 G1_NUM_TPS = 22
 POSTG1_NUM_TPS = 42
 
+DEFAULT_REPLICATION_PARENT_DIRECTORY = 'output/draft1_run/'
 
 class ModelConfig(object):
 	"""Model to handle loading, saving, and configuring deconvolution model runs..
@@ -553,7 +554,7 @@ def load_timepoints(mode):
 		timepoints2 = GlobalConstants.EXPRESSION_WT2_TIMEPOINTS
 	return timepoints1, timepoints2
 
-def load_from_dic(filepath, config_type, replicate, mode):
+def load_from_dic(filepath, replicate=None, config_type='distinct', mode='chromatin'):
 	"""Load configs from json file from disk"""
 	config = ModelConfig(config_type=config_type)
 
@@ -561,14 +562,16 @@ def load_from_dic(filepath, config_type, replicate, mode):
 	timepoints = timepoints1 if replicate == 1 else timepoints2
 	config.load_from_dic(filepath, timepoints)
 	config.replicate = replicate
+	config.replication_parent_directory = DEFAULT_REPLICATION_PARENT_DIRECTORY
 
 	return config
+
 
 def load_default_configs(config_type='distinct', mode='chromatin'):
 
 	# Load config parameters from json file from disk
-	config1 = load_from_dic(f"models/yl_cell_cycle/refined_rep1_50125.json", config_type, 1, mode)
-	config2 = load_from_dic(f"models/yl_cell_cycle/refined_rep2_50125.json", config_type, 2, mode)
+	config1 = load_from_dic(f"models/yl_cell_cycle/refined_rep1.json", 1, config_type, mode)
+	config2 = load_from_dic(f"models/yl_cell_cycle/refined_rep2.json", 2, config_type, mode)
 
 	return config1, config2
 
@@ -576,8 +579,8 @@ def load_default_configs(config_type='distinct', mode='chromatin'):
 def load_cloccs_configs(config_type='distinct', mode='chromatin'):
 
 	# Load configs from disk
-	config1 = load_from_dic(f"models/yl_cell_cycle/cloccs_rep1.json", config_type, 1, mode)
-	config2 = load_from_dic(f"models/yl_cell_cycle/cloccs_rep2.json", config_type, 2, mode)
+	config1 = load_from_dic(f"models/yl_cell_cycle/cloccs_rep1.json", 1, config_type, mode)
+	config2 = load_from_dic(f"models/yl_cell_cycle/cloccs_rep2.json", 2, config_type, mode)
 
 	return config1, config2
 
@@ -610,12 +613,5 @@ def load_default_expression_configs(config_type='distinct'):
 
 def load_default_chrom_configs(config_type='distinct'):
 	config1, config2 = load_default_configs(config_type=config_type, mode='chromatin')
-
-	replication_parent_directory = 'output/draft1_run/'
-
-	# Set the replication directory location for the loading of copy correction information
-	# todo: needs a more elegant solution for file pathing
-	config1.replication_parent_directory = replication_parent_directory
-	config2.replication_parent_directory = replication_parent_directory
 
 	return config1, config2
