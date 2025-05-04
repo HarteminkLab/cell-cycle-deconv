@@ -570,10 +570,13 @@ def load_from_dic(filepath, replicate=None, config_type='distinct', mode='chroma
 def load_default_configs(config_type='distinct', mode='chromatin'):
 
 	# Load config parameters from json file from disk
-	config1 = load_from_dic(f"models/yl_cell_cycle/refined_rep1.json", 1, config_type, mode)
-	config2 = load_from_dic(f"models/yl_cell_cycle/refined_rep2.json", 2, config_type, mode)
+	# Deprecated, using CLOCCS configs
 
-	return config1, config2
+	#config1 = load_from_dic(f"models/yl_cell_cycle/refined_rep1.json", 1, config_type, mode)
+	#config2 = load_from_dic(f"models/yl_cell_cycle/refined_rep2.json", 2, config_type, mode)
+	#return config1, config2
+
+	return load_cloccs_configs(config_type, mode)
 
 
 def load_cloccs_configs(config_type='distinct', mode='chromatin'):
