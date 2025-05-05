@@ -306,8 +306,9 @@ class OriginAlphaSweep:
 		plt.ylim(0, 3.0)
 
 		repl_entry = self.replication_timing_loader.load_replication_entry_for(self.origin.chr, self.origin.pos)
-		plt.axvline(repl_entry.replication_time, c='red', alpha=0.5, label=
-			f"Replication time, {repl_entry.replication_time:.1f}")
+		plt.axvline(repl_entry.replication_time, c='red', alpha=0.5)
+
+		plt.axvline(0, c='black', ls='dotted', lw=0.5)
 
 		plt.legend()
 		plt.title(f"{self.origin.ars_name}, Replicate {self.replicate}")
