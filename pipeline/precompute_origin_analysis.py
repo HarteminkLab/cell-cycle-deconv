@@ -4,6 +4,7 @@ import matplotlib.pyplot as plt
 from src.timer import Timer
 from src.config import load_default_chrom_configs
 from src.origins import load_origins
+from src.global_config import GlobalConstants
 from src.combined_chromatin_model import CombinedChromatinModel
 
 class OriginFootprintAnalysis:
@@ -109,9 +110,16 @@ class OriginFootprintAnalysis:
 		
 		# Get the appropriate model based on replicate
 		model = self.combined_model.chrom1_model if replicate == 1 else self.combined_model.chrom2_model
-		
+
+		# Manual normalization
+		# ret_bins = model.exact_bins_unnormalized
+		# ret_bins = ret_bins / (ret_bins.mean()+1e-5)
+
+		# To do: If using the length distribution normalization
+		ret_bins = model.exact_bins
+
 		# Return the normalized histogram data
-		return model.exact_bins
+		return ret_bins
 	
 	def calculate_origin_coverage(self, origin_idx, replicate):
 		"""
@@ -157,7 +165,8 @@ class OriginFootprintAnalysis:
 		
 		return coverage
 	
-	def generate_small_fragments_for_chromosome(self, chrom, replicate, frag_sel=(0, 100), strand_correct=True):
+	def generate_small_fragments_for_chromosome(self, chrom, replicate, frag_sel=(0, 100),
+		strand_correct=True):
 		"""
 		Generate small fragment summaries for all origins on a chromosome, for all timepoints
 		
@@ -205,6 +214,11 @@ class OriginFootprintAnalysis:
 
 			# Skip origins with low coverage from being included in the dataset
 			if coverage < 0.9: continue
+
+			# Skip masked chr 12 region
+			mask_12 = GlobalConstants.CHR12_MASK_SPAN
+			if origin.chr == 12 and origin.pos > mask_12[0] and origin.pos < mask_12[1]:
+				continue
 			
 			# For each timepoint
 			for i, timepoint in enumerate(timepoints):
@@ -254,14 +268,13 @@ class OriginFootprintAnalysis:
 		"""
 		for replicate in [1, 2]:
 			for timepoint in self.composite_data[replicate].keys():
-				# Skip if no data for this timepoint
-				if self.composite_data[replicate][timepoint] is None:
-					continue
 				
 				# Normalize by count
 				count = self.composite_counts[replicate][timepoint]
 				if count > 0:
+					unnormalized = self.composite_data[replicate][timepoint].mean()
 					self.composite_data[replicate][timepoint] /= count
+
 	
 	def generate_summary_histogram_data(self, frag_sel=(0, 100), debug=False, strand_correct=True):
 		"""
@@ -288,20 +301,21 @@ class OriginFootprintAnalysis:
 
 		print(f"Generating summary histogram data for all timepoints and replicates...")
 		
+		debug_chrom_max = 2
 		if debug:
-			print(f"Debug mode, only loading chromosomes 1-4")
+			print(f"Debug mode, only loading chromosomes 1-{debug_chrom_max}")
 		
 		# Process replicate 1
 		print(f"Processing replicate 1...")
 		for chrom in self.chromosomes:
 			self.generate_small_fragments_for_chromosome(chrom, 1, frag_sel, strand_correct)
-			if debug and chrom == 4: break
+			if debug and chrom == debug_chrom_max: break
 		
 		# Process replicate 2
 		print(f"Processing replicate 2...")
 		for chrom in self.chromosomes:
 			self.generate_small_fragments_for_chromosome(chrom, 2, frag_sel, strand_correct)
-			if debug and chrom == 4: break
+			if debug and chrom == debug_chrom_max: break
 
 		# Normalize composite data
 		self.finalize_composite_data()
@@ -727,14 +741,20 @@ class OriginFootprintAnalysis:
 			
 			# Add dividing line if there's a classification in the origins
 			if origins_sorted is not None and 'footprint_class' in origins_sorted.columns:
-				num_footprint = sum(origins_sorted.footprint_class == 'g1_and_g2_footprint')
-				if num_footprint > 0:
-					axs[i].axhline(num_footprint, c='black', lw=1, ls='dashed')
+				num_footprint_g1_g2 = sum(origins_sorted.footprint_class == 'g1_and_g2_footprint')
+				num_footprint_g1 = sum(origins_sorted.footprint_class == 'g1_only_footprint')
+				if num_footprint_g1_g2 > 0:
+					axs[i].axhline(num_footprint_g1_g2, c='black', lw=1, ls='dashed')
+					axs[i].axhline(num_footprint_g1_g2+num_footprint_g1, c='black', lw=1, ls='dashed')
 			
 			# Remove y-ticks for all but the first plot
 			if i > 0:
 				axs[i].set_yticks([])
-		
+
+			axs[i].axvline(-80, c='red', lw=1, ls='dotted')
+			axs[i].axvline(120, c='red', lw=1, ls='dotted')
+
+
 		plt.tight_layout()
 		return fig
 	

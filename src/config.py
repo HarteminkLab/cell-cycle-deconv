@@ -243,9 +243,8 @@ class ModelConfig(object):
 
 		# For the first cell cycle, mu0 includes the first G1
 		# so S starts when Recovery (mu0) ends
-		first_s_start = mu0
-		first_s_end = mu0+s_length
-		lambda_len = lambda_len
+		first_s_start = -mu0
+		first_s_end = -mu0+s_length
 
 		# The end of the first cycle is computed
 		# by taking the cell cycle length, subtracting the length of S 
@@ -260,7 +259,7 @@ class ModelConfig(object):
 			return (g1_recovery_would_start_here, cg1_length, lambda_len,
 				s_length, mu0, first_s_start, first_s_end, end_of_first_lambd)
 
-		return mu0, first_s_start, first_s_end, end_of_first_lambd
+		return first_s_start, first_s_end, end_of_first_lambd, cg1_length, s_length, lambda_len
 
 	def get_s_g2m_indices(self):
 		# Compute the G2M and S indices by collecting the length of S
@@ -387,7 +386,7 @@ class ModelConfig(object):
 
 		plt.suptitle("Replicate 1", fontsize=18, fontweight='demi', y=1.05)
 
-	def plot_H(self, vmax=None):
+	def plot_H(self, vmax=None, plot_S=False):
 
 		from src.plot_helpers import color_for_key
 		import matplotlib.pyplot as plt
@@ -398,12 +397,17 @@ class ModelConfig(object):
 		cg1_cols = self.get_Hpositions_for_phase('CG1')
 		dg1_cols = self.get_Hpositions_for_phase('DG1')
 		post_g1_cols = self.get_Hpositions_for_phase('postG1')
-
+		s_cols = self.get_Hpositions_for_phase('S')
+		g2m_cols = self.get_Hpositions_for_phase('G2M')
 
 		H_cols = np.array([H.shape[1]-1])
 
-		phases = ['H', 'RG1', 'CG1', 'DG1', 'postG1']
-		cols_list = [H_cols, rg1_cols, cg1_cols, dg1_cols, post_g1_cols]
+		if plot_S:
+			phases = ['H', 'RG1', 'CG1', 'DG1', 'S', 'G2M']
+			cols_list = [H_cols, rg1_cols, cg1_cols, dg1_cols, s_cols, g2m_cols]
+		else:
+			phases = ['H', 'RG1', 'CG1', 'DG1', 'postG1']
+			cols_list = [H_cols, rg1_cols, cg1_cols, dg1_cols, post_g1_cols]
 
 		plt.figure(figsize=FiguresConfig.FIGSIZE_SHORT_EXTRAWIDE)
 		plt.subplot(1, 2, 1)
@@ -421,10 +425,12 @@ class ModelConfig(object):
 
 		label_mapping = {
 			'H': 'Halted',
-			'RG1': 'Recovery-G1',
-			'CG1': 'Mother-G1',
-			'DG1': 'Daughter-G1',
-			'postG1': 'post-G1',
+			'RG1': 'Recovery G1',
+			'CG1': 'Mother G1',
+			'DG1': 'Daughter G1',
+			'postG1': 'S/G2/M',
+			'S': 'S',
+			'G2M': 'G2/M',
 		}
 		for i in range(len(phases)):
 			phase = phases[i]

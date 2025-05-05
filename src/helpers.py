@@ -855,3 +855,25 @@ def compute_row_correlations(df1, df2):
 	}, index=indices)
 	
 	return results
+
+
+def plot_raw_timepoints(config, s_color='red'):
+	"""Plot vertical lines along helpful dilineations of the config's cell cycle
+	points"""
+	import matplotlib.pyplot as plt
+	first_s_start, first_s_end, end_of_first_lambd, \
+		cg1_length, s_length, lambda_len = \
+		config.get_key_timepoints_in_raw()
+
+	# First cell cycle
+	for time in [first_s_start, first_s_end]:
+		plt.axvline(time, c=s_color, lw=0.5, ls='dotted')
+	plt.axvline(end_of_first_lambd, c='black', lw=0.5, ls='solid')
+	
+	# Second cell cycle
+	for time in [end_of_first_lambd+cg1_length, 
+		end_of_first_lambd+cg1_length+s_length]:
+		plt.axvline(time, c=s_color, lw=0.5, ls='dotted')
+
+	if end_of_first_lambd+lambda_len <= config.timepoints[-1]:
+		plt.axvline(end_of_first_lambd+lambda_len, c='black', lw=0.5, ls='solid')

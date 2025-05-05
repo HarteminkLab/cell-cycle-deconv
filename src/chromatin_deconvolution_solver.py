@@ -57,6 +57,11 @@ class ChromatinDeconvolveSolver:
 			selected_examples_G = G[:, selected_indices]
 			self.G = selected_examples_G
 
+	def update_config_and_H(self, config, H):
+		"""Make explicit that the config and H need to be set to update the model"""
+		self.config = config
+		self.H = H
+
 	def compute_predicted_G(self, F=None):
 		N, H, b, f_replication = self.N, self.H, self.b, self.f_replication
 

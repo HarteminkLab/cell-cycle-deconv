@@ -32,6 +32,8 @@ class ChromatinModel:
 
 	def __init__(self, config):
 
+		self.impute_50_rep2 = False
+
 		# Padding defines the window around the TSS to retrieve MNase data
 		self.padding = 5000
 		self.geneset = get_deconvolved_geneset()
@@ -52,10 +54,11 @@ class ChromatinModel:
 		# note: works best with large windows of G
 		self.normalize_mean_1 = True
 
-	def load_mnase_span(self, chrom, mnase_span, verbose=True):
+	def load_mnase_span(self, chrom, mnase_span, verbose=True, impute_50_rep2=False):
 		"""Load the MNase for an arbitrary genomic span"""
 
 		replicate = self.config.replicate
+		self.impute_50_rep2 = impute_50_rep2
 
 		# convert to integers
 		self.mnase_span = int(mnase_span[0]), int(mnase_span[1])
@@ -84,6 +87,10 @@ class ChromatinModel:
 
 		# Create the bins for the reads
 		exact_bins = create_exact_bins(self.locus_reads, new_span, self.timepoints)
+
+		if self.impute_50_rep2 and self.config.replicate == 2:
+			print("Imputing timepoint 50 as average of 40 and 60")
+			exact_bins[5] = (exact_bins[4]+exact_bins[6])/2.
 
 		# Load target length distribution
 		from src.mnase_normalization import load_target_distribution

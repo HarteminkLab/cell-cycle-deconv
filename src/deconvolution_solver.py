@@ -212,9 +212,9 @@ class DeconvolutionSolver(object):
 		# Recovery branch is the shortest 0.9
 		# Top branch: 1.0
 		# Daughter branch: 1.2
-		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 1.11 +
+		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 2.0 +
 						 cp.sum(cp.abs(smooth_f_t_result)) * 1 +
-						 cp.sum(cp.abs(smooth_f_b_result)) * 0.87)
+						 cp.sum(cp.abs(smooth_f_b_result)) * 1)
 
 		# todo: These weights may be too low for the bottom branch, and introduces the
 		#       DG1 bias which depicts a greater amount of variability.

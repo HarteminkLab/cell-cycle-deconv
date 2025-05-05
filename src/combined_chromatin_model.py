@@ -21,9 +21,9 @@ class CombinedChromatinModel:
 		self.chrom2_model = ChromatinModel(config2)
 
 
-	def load_mnase_span(self, chrom, mnase_span, verbose=True):
-		self.chrom1_model.load_mnase_span(chrom, mnase_span, verbose=verbose)
-		self.chrom2_model.load_mnase_span(chrom, mnase_span, verbose=verbose)
+	def load_mnase_span(self, chrom, mnase_span, verbose=True, impute_50_rep2=False):
+		self.chrom1_model.load_mnase_span(chrom, mnase_span, verbose=verbose, impute_50_rep2=impute_50_rep2)
+		self.chrom2_model.load_mnase_span(chrom, mnase_span, verbose=verbose, impute_50_rep2=impute_50_rep2)
 
 
 	def load_combined_mnase_gene(self, gene_name):

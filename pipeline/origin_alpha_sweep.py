@@ -31,15 +31,13 @@ class OriginAlphaSweep:
 		self.replication_timing_loader = ReplicationTiming(output_dir=self.output_dir)
 		self.replication_timing_loader.compute_peak_annotations()
 
-	def load_configs(self, model_mode):
+	def load_configs(self, config1=None, config2=None):
 
-		from src.config import load_from_dic
-
-		if model_mode == 'draft1':
-			self.config1 = load_from_dic('models/yl_cell_cycle/refined_rep1.json', 1)
-			self.config2 = load_from_dic('models/yl_cell_cycle/refined_rep2.json', 2)
-		elif model_mode == 'cloccs':
+		if config1 is None and config2 is None:
 			self.config1, self.config2 = load_cloccs_configs()
+		else:
+			self.config1 = config1
+			self.config2 = config2
 			
 		self.combined_model = CombinedChromatinModel(
 			config1=self.config1,
@@ -109,7 +107,10 @@ class OriginAlphaSweep:
 		win_2 = window // 2
 		mnase_span = (origin.pos - win_2, origin.pos + win_2 + 1)
 		
-		self.combined_model.load_mnase_span(chrom, mnase_span)
+		# todo: Impute 50 minute timepoint for replicate 2 trial
+		impute_50_rep2 = True
+
+		self.combined_model.load_mnase_span(chrom, mnase_span, impute_50_rep2=impute_50_rep2)
 		self.current_origin = origin
 			
 		
@@ -143,6 +144,9 @@ class OriginAlphaSweep:
 		Returns:
 			NumPy array of selected footprint images
 		"""
+
+		from src.helpers import plot_raw_timepoints
+
 		if self.combined_model is None or not hasattr(self, 'current_origin'):
 			raise ValueError("Origin data not loaded. Call load_origin_mnase_data first.")
 			
@@ -163,7 +167,7 @@ class OriginAlphaSweep:
 									  footprint_hspan[0]:footprint_hspan[1]]
 		
 		if plot:
-			plt.figure(figsize=(11, 3))
+			plt.figure(figsize=(16, 3))
 			
 			def plot_im(ind):
 				plt.imshow(G_imgs[ind], cmap='magma_r', origin='lower', vmax=20,
@@ -187,6 +191,7 @@ class OriginAlphaSweep:
 			num_rep2_tps = len(self.config2.timepoints)
 			
 			plt.subplot(2, 3, 2)
+			# Example img, 50' rep1
 			plt.imshow(origin_selection_imgs[5], cmap='magma_r', origin='lower', vmax=20,
 					  aspect='auto')
 			plt.title("Selected footprint")
@@ -194,24 +199,27 @@ class OriginAlphaSweep:
 			plt.yticks([])
 
 			plt.subplot(2, 3, 5)
+			# Example img 50' rep2
 			plt.imshow(origin_selection_imgs[16+5], cmap='magma_r', origin='lower', vmax=20,
 					  aspect='auto')
 			plt.xticks([])
 			plt.yticks([])
 			
 			plt.subplot(2, 3, 3)
-			plt.plot(origin_selection_imgs.mean((1, 2))[:num_rep1_tps])
+			plt.plot(self.config1.timepoints, origin_selection_imgs.mean((1, 2))[:num_rep1_tps])
 			plt.title("Footprint occupancy over time")
+			plot_raw_timepoints(self.config1)
 
 			plt.subplot(2, 3, 6)
-			plt.plot(origin_selection_imgs.mean((1, 2))[num_rep1_tps:])
+			plt.plot(self.config2.timepoints, origin_selection_imgs.mean((1, 2))[num_rep1_tps:])
+			plot_raw_timepoints(self.config2)
 
 		self.footprint = origin_selection_imgs
 			
 		return origin_selection_imgs
 	
 	def analyze_origin(self, oridb: str, window: int = 1000, 
-					 footprint_bounds: List[int] = [-5, 8, 3, 10],
+					 footprint_bounds: List[int] = [-5, 10, 3, 14],
 					 plot=False) -> np.ndarray:
 		"""
 		Perform a complete analysis of a single origin.
@@ -231,10 +239,13 @@ class OriginAlphaSweep:
 		if plot:
 			self.plot_raw_data()
 
-		return self.select_footprint_boundary(footprint_bounds)
+		return self.select_footprint_boundary(footprint_bounds, plot=plot)
 
 
-	def setup_footprint_deconvolution(self, replicate):
+	def setup_footprint_deconvolution(self, replicate, copy_correct=True):
+
+		self.combined_model.setup_deconv_model(copy_correct=copy_correct)
+
 		model = self.combined_model
 		solver = model.solver
 		footprint = self.footprint
@@ -260,7 +271,7 @@ class OriginAlphaSweep:
 		elif replicate == 2:
 			H = model.H2
 			rep_N = N2
-			rep_G_footprint = footprint[rep2_sub_indices].reshape((num_rep2_tps, -1))
+			rep_G_footprint = footprint[rep2_sub_indices].reshape((num_rep2_tps, -1))	
 			config = self.config2
 		elif replicate == 'combined':
 			rep_N = model.N
@@ -270,10 +281,9 @@ class OriginAlphaSweep:
 
 		self.footprint_config = config
 
-		solver.H = H
 		solver.N = rep_N
 		solver.G = rep_G_footprint
-		solver.config = config
+		solver.update_config_and_H(config, H)
 
 		self.solver = solver
 
@@ -293,6 +303,7 @@ class OriginAlphaSweep:
 		plt.plot(i_tps, self.footprint_F_imgs.mean((1, 2))[self.footprint_config.i_indices()], label="Recovery")
 		plt.plot(t_tps, self.footprint_F_imgs.mean((1, 2))[self.footprint_config.t_indices()], label="Mother")
 		plt.plot(b_tps, self.footprint_F_imgs.mean((1, 2))[self.footprint_config.b_indices()], label='Daughter')
+		plt.ylim(0, 3.0)
 
 		repl_entry = self.replication_timing_loader.load_replication_entry_for(self.origin.chr, self.origin.pos)
 		plt.axvline(repl_entry.replication_time, c='red', alpha=0.5, label=

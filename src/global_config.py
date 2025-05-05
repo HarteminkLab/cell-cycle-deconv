@@ -48,6 +48,7 @@ class GlobalConstants:
 	EXPRESSION_WT1_TIMEPOINTS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]
 	EXPRESSION_WT2_TIMEPOINTS = [0, 10, 20, 30, 40, 50, 60, 80, 90, 100, 110, 120, 130, 140]
 
+	# We may need to drop 50 min in replicate 2 for quality
 	CHROM_WT1_TIMEPOINTS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140, 150]
 	CHROM_WT2_TIMEPOINTS = [0, 10, 20, 30, 40, 50, 60, 70, 80, 90, 100, 110, 120, 130, 140]
 
