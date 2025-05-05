@@ -187,6 +187,7 @@ def main():
 
 		# Some sparse differences between mothers and daughters are allowed
 		kappa = 0.03
+		gamma = 0.0066
 		print("Deconvolving the chromatin with a partial regularization on CG1/DG1 differences"
 			  f" kappa of {kappa}")
 
@@ -196,7 +197,7 @@ def main():
 
 		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
 		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
-			kappa=kappa) # Allow CG1/DG1 changes, set kappa manually to 0.008 for testing
+			kappa=kappa, gamma=gamma)
 
 	elif command == 'deconvolve_chromatin_full_no_copy':
 
@@ -300,7 +301,7 @@ def main():
 
 
 def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
-	copy_correct=True, no_daughter=False, kappa=0):
+	copy_correct=True, no_daughter=False, gamma=0.0066, kappa=0):
 
 	# Deconvolve the initial set of chromatin windows for testing,
 	# priority over deconvolving the most important windows first
@@ -337,7 +338,7 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 		plt.close(fig)
 
 		combined_model.setup_deconv_model(copy_correct=copy_correct)
-		combined_model.deconvolve(gamma=0.01, kappa=kappa, verbose=True)	
+		combined_model.deconvolve(gamma=gamma, kappa=kappa, verbose=True)	
 
 		np.save(f"{data_directory}/{save_title}_F.npy", combined_model.F)
 

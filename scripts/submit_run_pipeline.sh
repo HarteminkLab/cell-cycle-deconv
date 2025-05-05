@@ -16,8 +16,8 @@ OUTDIR=output/draft3_run/
 #ARGS="replication ${OUTDIR} ${REPLICATE} ${CHROM} ${NUM_EPOCHS} True"
 #sbatch -D ./slurm-logs/ --job-name="rep${REPLICATE}" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
-ARGS="combined_replication ${OUTDIR}"
-sbatch -D ./slurm-logs/ --job-name="rep${REPLICATE}" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+# ARGS="combined_replication ${OUTDIR}"
+# sbatch -D ./slurm-logs/ --job-name="rep${REPLICATE}" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
 # ---------- Expression deconvolution ----------------
 
@@ -60,8 +60,8 @@ sbatch -D ./slurm-logs/ --job-name="rep${REPLICATE}" -p compsci --export="PYFILE
 
 # -------------- Partial daughter-specificity ------------------
 
-# ARGS="deconvolve_chromatin_partial_daughter ${OUTDIR}"
-# sbatch -a 0-999%24 -D ./slurm-logs/ --job-name="pdg1_1" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
-# sbatch -a 0-216%24 -D ./slurm-logs/ --job-name="pdg1_2" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
+ARGS="deconvolve_chromatin_partial_daughter ${OUTDIR}"
+sbatch -a 0-999%24 -D ./slurm-logs/ --job-name="pdg1_1" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+sbatch -a 0-216%24 -D ./slurm-logs/ --job-name="pdg1_2" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
 
 # ----------------------------------------------------------

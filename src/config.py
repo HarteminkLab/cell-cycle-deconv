@@ -11,7 +11,7 @@ from src.global_config import GlobalConstants
 G1_NUM_TPS = 22
 POSTG1_NUM_TPS = 42
 
-DEFAULT_REPLICATION_PARENT_DIRECTORY = 'output/draft1_run/'
+DEFAULT_REPLICATION_PARENT_DIRECTORY = 'output/draft3_run/'
 
 class ModelConfig(object):
 	"""Model to handle loading, saving, and configuring deconvolution model runs..
