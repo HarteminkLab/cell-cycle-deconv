@@ -530,7 +530,7 @@ def plot_prediction(chromatin_model, G, N, F, F_replicate, b):
 	return fig
 
 
-def plot_img(ax, img, vmax=None, extent=None):
+def plot_img(ax, img, vmax=None, extent=None, zorder=1):
 	ax.imshow(img, origin='lower', aspect='auto', vmin=0, vmax=vmax,
-					  cmap='magma_r', extent=extent)
+					  cmap='magma_r', extent=extent, zorder=zorder)
 

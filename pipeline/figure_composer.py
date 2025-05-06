@@ -27,7 +27,7 @@ class FigureCompositor:
 				 debug_mode: bool = False,
 				 grid_size: int = 20,
 				 grid_color: Union[str, Tuple[int, int, int]] = (220, 220, 220),
-				 scale_factor: float = 1.0):
+				 scale_factor: float = 4.0):
 		"""
 		Initialize a new canvas for compositing images.
 		
@@ -600,7 +600,7 @@ class FigureCompositor:
 		return self.debug_mode
 		
 	def add_panel_label_to_image(self, image_name: str, label: str, 
-								offset: Tuple[int, int] = (10, 10),
+								offset: Tuple[int, int] = (0, 0),
 								font_size: int = 24, 
 								color: Union[str, Tuple[int, int, int]] = (0, 0, 0),
 								bold: bool = True,

@@ -4,6 +4,8 @@ import numpy as np
 from src.figure_configs import FiguresConfig
 from src.chromatin_model import plot_img
 
+SUBPANEL_COLOR = '#f5f5f5'
+
 class Figure1Deconvolution(object):
 	"""Load and plot figures for the first result figure"""
 
@@ -169,15 +171,13 @@ class Figure1Deconvolution(object):
 		bg_ax = fig.add_axes([0, 0, 1, 1], zorder=-1)
 		bg_ax.axis('off')  # Hide axes
 
-		subpanel_color = '#f5f5f5'
-
 		# Add rounded rectangle with light gray background
 		# Adjust the parameters as needed for desired appearance
 		rect = FancyBboxPatch(
 			(0.01, 0.02),                         # (x, y) position
 			0.95, 0.96,                             # width, height
 			boxstyle="round,pad=0,rounding_size=0.02", # Rounded corners
-			facecolor=subpanel_color,
+			facecolor=SUBPANEL_COLOR,
 			linewidth=0,
 			alpha=1.,
 			zorder=-1,
@@ -212,7 +212,7 @@ class Figure1Deconvolution(object):
 		bg_ax = fig.add_axes([0, 0, 1, 1], zorder=-1)
 		bg_ax.axis('off')  # Hide axes
 
-		subpanel_color = '#f5f5f5'
+		SUBPANEL_COLOR = '#f5f5f5'
 
 		# Add rounded rectangle with light gray background
 		# Adjust the parameters as needed for desired appearance
@@ -220,7 +220,7 @@ class Figure1Deconvolution(object):
 			(0.01, 0.05),                         # (x, y) position
 			0.95, 1.05,                             # width, height
 			boxstyle="round,pad=0,rounding_size=0.02", # Rounded corners
-			facecolor=subpanel_color,
+			facecolor=SUBPANEL_COLOR,
 			linewidth=0,
 			alpha=1.,
 			zorder=-1,
@@ -244,7 +244,7 @@ class Figure1Deconvolution(object):
 
 					# Plot dots to signify time series
 					ax.scatter([0.5, 0.5, 0.5], [0.3, 0.5, 0.7], c='black', s=5)
-					ax.set_facecolor(subpanel_color)
+					ax.set_facecolor(SUBPANEL_COLOR)
 				else:
 
 					if i == 0:
@@ -268,33 +268,49 @@ class Figure1Deconvolution(object):
 		plot_column_imgs(axs[1], self.chrom_model.chrom2_model, show_labels=False, title="Replicate 2")
 
 
-	def plot_deconvolved_phase_annotated(self):
+	def plot_deconvolved_phase_annotated(self, chromatin_data_path):
 
 		from src.plot_helpers import plot_rect2
 		from src.plot_helpers import hide_spines
 
+
+		# ------- New loading F code -----------
+
+		# Loading example genomic locus
+		from src.GenomeDeconvolutionAnalysis import GenomeDeconvolutionAnalysis
+		
+		genome_analysis = GenomeDeconvolutionAnalysis(chromatin_data_path)
+		span = (10000, 11001)
+		chrom = 1
+		imgs, loaded_span = genome_analysis.load_mnase_span(chrom, span)
+
+		# ---------------------------------------------------------
+
 		# Plot the deconvolved data as a stack for the diagram of the deconvolution
-		chrom_model = self.combined_model.chrom1_model
+		chrom_model = self.chrom_model.chrom1_model
 		config = chrom_model.config
 		rg1_i = config.get_Hpositions_for_phase('RG1')
 		cg1_i = config.get_Hpositions_for_phase('CG1')
+		dg1_i = config.get_Hpositions_for_phase('DG1')
 		s_i = config.get_Hpositions_for_phase('S')
 		pg1_i = config.get_Hpositions_for_phase('postG1')
 
-		imgs = chrom_model.get_f_images()
-
-
 		i = 0
 
-		fig = plt.figure(figsize=(5, 5))
+		fig = plt.figure(figsize=(3.5, 5.5))
 		ax = plt.gca()
 
 		w, h = 0.7, 0.2
 		x, y = 0.5, -0.125
-		padding = 0.2
+		padding = 0.23
 
-		phases = ['RG1', 'CG1', 'S', 'G2/M']
-		img_indices = [rg1_i[0], cg1_i[0], s_i[0], pg1_i[0]]
+		phases = ['RG1', 'CG1', 'DG1', 'S', 'G2/M']
+		phase_rename_mapping = {
+			'RG1': 'Recovery G1',
+			'CG1': 'Mother G1',
+			'DG1': 'Daughter G1',
+		}
+		img_indices = [rg1_i[0], cg1_i[0], dg1_i[0], s_i[0], pg1_i[0]]
 		img_indices = list(reversed(img_indices))
 
 		plt_imgs =  imgs[img_indices]
@@ -304,17 +320,13 @@ class Figure1Deconvolution(object):
 		phases = list(reversed(phases))
 
 		from src.plot_helpers import color_for_key
-		flip = chrom_model.gene.strand == '-'
 
 		for i in range(n):
 			x1, x2, y1, y2 = x, x+w, y+i*(h+padding), y+h+i*(h+padding)
 
-			if flip:
-				img_data = np.flip(plt_imgs[i], axis=1)
-			else:
-				img_data = plt_imgs[i]
+			img_data = plt_imgs[i]
 
-			plot_img(ax, img_data, vmax=10, extent=[x1, x2, y1, y2])
+			plot_img(ax, img_data, vmax=10, extent=[x1, x2, y1, y2], zorder=100)
 			plt.plot([x1+w/2., x1+w/2.], [y1, y2], c='black', lw=1, alpha=0.25)
 			plot_rect2(ax, x1, y1, x2, y2, edgecolor='black', fill=None, lw=0.5, zorder=100)
 			phase = phases[i]
@@ -329,20 +341,49 @@ class Figure1Deconvolution(object):
 						   lw=0.5, zorder=0)
 				
 				from matplotlib.patches import Rectangle, FancyBboxPatch
-
-
-				rounded_rect = FancyBboxPatch((x1-0.3, y1-0.04), 1.13, 0.37,
+				rounded_rect = FancyBboxPatch((x1-0.5, y1-0.04), 1.35, 0.37,
 					boxstyle='Round, pad=0, rounding_size=0.05', color=color_for_key(phase),
 							 alpha = 1., zorder=-1)
 				
 				rounded_patch = ax.add_patch(rounded_rect)
 
-				phase_name = phase.replace('CG1', 'SG1')
-				ax.text(x1-0.15, (y1+y2)/2+0.02, phase_name, ha='center', color='white')
+				phase_name = phase
 
-		plt.xlim(-0.25, 1.5)
-		plt.ylim(-0.25, 1.5)
+				if phase in phase_rename_mapping.keys():
+					phase_name = phase_rename_mapping[phase]
+
+				ax.text(0.25, (y1+y2)/2+0.02, phase_name, ha='center', color='white')
+
+		xlims = -0.1, 1.4
+		ylims = -0.25, 2
+
+		plt.xlim(*xlims)
+		plt.ylim(*ylims)
 		hide_spines(ax)
+		ax.set_facecolor(SUBPANEL_COLOR)
+
+		from matplotlib.patches import FancyBboxPatch
+		bg_ax = fig.add_axes([0, 0, 1, 1], zorder=-1)
+		bg_ax.axis('off')  # Hide axes
+
+		# Add rounded rectangle with light gray background
+		# Adjust the parameters as needed for desired appearance
+		rect = FancyBboxPatch(
+			(0.1, 0.09), # x, y
+			0.83, 0.92, # w, h
+			boxstyle="round,pad=0,rounding_size=0.02", # Rounded corners
+			facecolor=SUBPANEL_COLOR,
+			linewidth=0,
+			alpha=1.,
+			zorder=-1,
+			transform=bg_ax.transAxes,
+			clip_on=False
+		)
+		bg_ax.add_patch(rect)
+
+		ax.set_title("Average single\ncell profile, $\\bf{F}$", fontsize=16, 
+			fontweight='demi')
+
 
 	def plot_mnase_reads_histogram(self):
 		from src.DensityScatterPlotter import DensityScatterPlotter
