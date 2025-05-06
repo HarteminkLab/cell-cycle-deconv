@@ -481,3 +481,100 @@ class Figure1Deconvolution(object):
 
 			print(f"{param_name}\t&\t{mean_1:.3f}\t&\t({q025_1:.3f}," +
 				  f"{q975_1:.3f})\t&&\t{mean_2:.3f}\t&\t({q025_2:.3f},{q975_2:.3f}) \\\\")
+
+
+def layout_figure_panel(save_dir):
+
+	from pipeline.figure_composer import FigureCompositor
+
+	image_names = [
+	    # A, B
+	    'Branching_Diagram',
+	    'MNase_2D_Histogram', 
+	    
+	    # C
+	    'Chromatin_profiles_G',
+	    'Kernel_H_diagram',
+	    'Deconvolved_Profiles_F',
+	]
+
+	image_paths = [f"{save_dir}/{name}.png" for name in image_names]
+
+	# Create compositor with a scale factor of 4
+	# Logical canvas size is 1024x800, but actual output will be 4096x3200
+	compositor = FigureCompositor(1024, 820, debug_mode=True)
+
+	margin = 20
+
+	top_margin = margin+30
+
+	branch_img = compositor.place_image(image_paths[0], margin, top_margin, 640, None, 'branch')
+	compositor.add_panel_label_to_image('branch', 'A', offset=(0, -40),
+	                                   font_size=36)
+
+	branch_width = branch_img['logical_size'][0]
+	branch_height = branch_img['logical_size'][1]
+	padding = 20
+	hist_img = compositor.place_image(image_paths[1], margin+branch_width+padding, top_margin, 340, None, 
+	    'hist')
+	compositor.add_panel_label_to_image('hist', 'B', offset=(0, -40),
+	                                   font_size=36)
+
+	# ---------- C panels
+
+	vertical_pad = 70
+	g_img = compositor.place_image(image_paths[2], margin, 
+	    top_margin+branch_height+vertical_pad, 
+	    325, None, 
+	    'raw')
+	compositor.add_panel_label_to_image('raw', 'C', offset=(0, -60),
+	    font_size=36)
+
+	g_width = g_img['logical_size'][0]
+	padding = 15
+	h_img = compositor.place_image(image_paths[3], 
+	    margin+g_width+padding, 
+	    top_margin+branch_height+vertical_pad-7,
+	    410, None, 
+	    'H')
+
+	h_width = h_img['logical_size'][0]
+	f_img = compositor.place_image(image_paths[4], 
+	    margin+g_width+padding+h_width-10, 
+	    top_margin+branch_height+vertical_pad, 
+	    260, None, 
+	    'F')
+
+	compositor.add_panel_label("Cell cycling branching model", margin+40, top_margin-30, 
+	    font_size=24,
+	    font_type='semi_bold')
+
+	compositor.add_panel_label("MNase data", 
+	    hist_img['logical_position'][0]+40, 
+	    top_margin-30, 
+	    font_size=24,
+	    font_type='semi_bold')
+
+
+	compositor.add_panel_label("Chromatin deconvolution", 
+	    margin+40, 
+	    g_img['logical_position'][1]-50, 
+	    font_size=24,
+	    font_type='semi_bold')
+
+	compositor.add_panel_label("=", 
+	    h_img['logical_position'][0]-26, 
+	    g_img['logical_position'][1]+150, 
+	    font_size=36,
+	    font_type='semi_bold')
+
+	compositor.add_panel_label("X", 
+	    f_img['logical_position'][0]+8,
+	    g_img['logical_position'][1]+150, 
+	    font_size=20,
+	    font_type='semi_bold')
+
+	save_path = f"{save_dir}/Fig1.png"
+	compositor.save(save_path)
+
+	print(f"Saved figure panel: {save_path}")

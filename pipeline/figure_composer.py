@@ -27,7 +27,8 @@ class FigureCompositor:
 				 debug_mode: bool = False,
 				 grid_size: int = 20,
 				 grid_color: Union[str, Tuple[int, int, int]] = (220, 220, 220),
-				 scale_factor: float = 4.0):
+				 scale_factor: float = 4.0,
+				 font_dir: str = "./fonts"):
 		"""
 		Initialize a new canvas for compositing images.
 		
@@ -47,8 +48,11 @@ class FigureCompositor:
 			Color for the debug grid lines (default: light gray)
 		scale_factor : float
 			Factor to scale all dimensions and coordinates by (default: 1.0)
+		font_dir : str
+			Directory containing custom font files (default: "./fonts")
 		"""
 		self.scale_factor = scale_factor
+		self.font_dir = font_dir
 		
 		# Store logical dimensions
 		self.logical_width = width
@@ -68,24 +72,9 @@ class FigureCompositor:
 		self.canvas = Image.new('RGB', (self.width, self.height), background_color)
 		self.draw = ImageDraw.Draw(self.canvas)
 		
-		# Try to load a default font, fall back to default if not available
-		try:
-			# Common font that should be available on most systems
-			base_font_size = 24
-			small_font_size = 18
-			debug_font_size = 12
-			
-			# Scale font sizes
-			self.font = ImageFont.truetype("Arial", int(base_font_size * scale_factor))
-			self.small_font = ImageFont.truetype("Arial", int(small_font_size * scale_factor))
-			self.debug_font = ImageFont.truetype("Arial", int(debug_font_size * scale_factor))
-		except IOError:
-			print("Could not find font")
-			# Fall back to default
-			self.font = ImageFont.load_default()
-			self.small_font = ImageFont.load_default()
-			self.debug_font = ImageFont.load_default()
-
+		# Load fonts
+		self._load_fonts()
+		
 		# Define debug colors
 		self.debug_box_color = (255, 0, 0)  # Red for bounding boxes
 		self.debug_text_color = (0, 0, 0)   # Black for text
@@ -98,6 +87,120 @@ class FigureCompositor:
 		# Track placed items for reference
 		self.placed_images = {}
 		self.annotations = {}
+	
+	def _load_fonts(self):
+		"""
+		Load custom fonts from the font directory.
+		
+		This method sets up font objects for regular, bold, semi-bold, and debug text
+		at appropriate scaled sizes.
+		"""
+		# Define base font sizes
+		base_font_size = 24
+		small_font_size = 18
+		debug_font_size = 12
+		
+		# Scale font sizes
+		scaled_base_size = int(base_font_size * self.scale_factor)
+		scaled_small_size = int(small_font_size * self.scale_factor)
+		scaled_debug_size = int(debug_font_size * self.scale_factor)
+		
+		# Define font file paths
+		font_paths = {
+			'regular': os.path.join(self.font_dir, 'OpenSans-Regular.ttf'),
+			'bold': os.path.join(self.font_dir, 'OpenSans-Bold.ttf'),
+			'semi_bold': os.path.join(self.font_dir, 'OpenSans-SemiBold.ttf'),
+			'medium': os.path.join(self.font_dir, 'OpenSans-Medium.ttf'),
+			'light': os.path.join(self.font_dir, 'OpenSans-Light.ttf'),
+			'extra_bold': os.path.join(self.font_dir, 'OpenSans-ExtraBold.ttf')
+		}
+		
+		# Initialize font dictionaries
+		self.fonts = {}
+		self.font_files = {}
+		
+		try:
+			# Load all font types
+			for font_type, font_path in font_paths.items():
+				if os.path.exists(font_path):
+					self.font_files[font_type] = font_path
+				else:
+					print(f"Warning: Font file not found: {font_path}")
+			
+			# Create regular-sized font instances
+			self.fonts['regular'] = ImageFont.truetype(self.font_files.get('regular', self.font_files.get('medium', '')), scaled_base_size) if 'regular' in self.font_files else ImageFont.load_default()
+			self.fonts['bold'] = ImageFont.truetype(self.font_files.get('bold', self.font_files.get('regular', '')), scaled_base_size) if 'bold' in self.font_files else ImageFont.load_default()
+			self.fonts['semi_bold'] = ImageFont.truetype(self.font_files.get('semi_bold', self.font_files.get('regular', '')), scaled_base_size) if 'semi_bold' in self.font_files else ImageFont.load_default()
+			
+			# Create small-sized font instances
+			self.fonts['small_regular'] = ImageFont.truetype(self.font_files.get('regular', self.font_files.get('medium', '')), scaled_small_size) if 'regular' in self.font_files else ImageFont.load_default()
+			self.fonts['small_bold'] = ImageFont.truetype(self.font_files.get('bold', self.font_files.get('regular', '')), scaled_small_size) if 'bold' in self.font_files else ImageFont.load_default()
+			self.fonts['small_semi_bold'] = ImageFont.truetype(self.font_files.get('semi_bold', self.font_files.get('regular', '')), scaled_small_size) if 'semi_bold' in self.font_files else ImageFont.load_default()
+			
+			# Create debug font instance
+			self.fonts['debug'] = ImageFont.truetype(self.font_files.get('regular', ''), scaled_debug_size) if 'regular' in self.font_files else ImageFont.load_default()
+			
+			# Set primary fonts for backward compatibility
+			self.font = self.fonts['regular']
+			self.small_font = self.fonts['small_regular']
+			self.debug_font = self.fonts['debug']
+			
+		except Exception as e:
+			print(f"Error loading fonts: {e}")
+			print("Falling back to default fonts")
+			
+			# Fall back to default fonts if there's an error
+			self.font = ImageFont.load_default()
+			self.small_font = ImageFont.load_default()
+			self.debug_font = ImageFont.load_default()
+			
+			self.fonts = {
+				'regular': self.font,
+				'bold': self.font,
+				'semi_bold': self.font,
+				'small_regular': self.small_font,
+				'small_bold': self.small_font,
+				'small_semi_bold': self.small_font,
+				'debug': self.debug_font
+			}
+	
+	def get_font(self, font_type: str = 'regular', font_size: Optional[int] = None) -> ImageFont.FreeTypeFont:
+		"""
+		Get a font of the specified type and size.
+		
+		Parameters:
+		-----------
+		font_type : str
+			Type of font to use ('regular', 'bold', 'semi_bold', etc.)
+		font_size : int, optional
+			Font size in logical pixels. If specified, creates a new font instance.
+			Otherwise, returns a pre-loaded font.
+			
+		Returns:
+		--------
+		ImageFont.FreeTypeFont
+			The requested font object
+		"""
+		if font_size is None:
+			# Return pre-loaded font
+			return self.fonts.get(font_type, self.fonts['regular'])
+		
+		# Scale the font size
+		scaled_size = self._scale(font_size)
+		
+		try:
+			# Get the corresponding font file
+			if font_type in self.font_files:
+				return ImageFont.truetype(self.font_files[font_type], scaled_size)
+			else:
+				# Fall back to regular if the requested type is not available
+				if 'regular' in self.font_files:
+					return ImageFont.truetype(self.font_files['regular'], scaled_size)
+				# Fall back to default if no fonts are available
+				return ImageFont.load_default()
+		except Exception as e:
+			print(f"Error loading font of type {font_type} and size {font_size}: {e}")
+			return ImageFont.load_default()
 	
 	def _scale(self, value: Union[int, float]) -> int:
 		"""
@@ -321,7 +424,7 @@ class FigureCompositor:
 	
 	def add_panel_label(self, label: str, x: int, y: int, 
 					   font_size: int = 24, color: Union[str, Tuple[int, int, int]] = (0, 0, 0),
-					   name: Optional[str] = None, bold: bool = True) -> None:
+					   name: Optional[str] = None, font_type: str = 'bold') -> None:
 		"""
 		Add a panel label (e.g., 'A', 'B', 'C') to the canvas.
 		
@@ -339,26 +442,15 @@ class FigureCompositor:
 			Text color as a PIL color name or RGB tuple (default: black)
 		name : str, optional
 			Name identifier for the annotation
-		bold : bool, optional
-			Whether to use bold font (default: True)
+		font_type : str, optional
+			Type of font to use ('regular', 'bold', 'semi_bold') (default: 'bold')
 		"""
 		# Scale coordinates
 		scaled_x = self._scale(x)
 		scaled_y = self._scale(y)
 		
-		# Scale font size
-		scaled_font_size = self._scale(font_size)
-		
-		try:
-			# Try to load font with specified scaled size
-			if bold:
-				font_path = "Arial Bold" if "Arial" in self.font.getname()[0] else None
-				font = ImageFont.truetype(font_path, scaled_font_size) if font_path else ImageFont.load_default()
-			else:
-				font = ImageFont.truetype("Arial", scaled_font_size) if "Arial" in self.font.getname()[0] else ImageFont.load_default()
-		except IOError:
-			# Fall back to default font
-			font = ImageFont.load_default()
+		# Get appropriate font
+		font = self.get_font(font_type, font_size)
 		
 		# Draw the label
 		self.draw.text((scaled_x, scaled_y), label, fill=color, font=font)
@@ -372,8 +464,9 @@ class FigureCompositor:
 			'logical_position': (x, y),
 			'position': (scaled_x, scaled_y),
 			'logical_font_size': font_size,
-			'font_size': scaled_font_size,
-			'color': color
+			'font_size': self._scale(font_size),
+			'color': color,
+			'font_type': font_type
 		}
 	
 	def save(self, output_path: str, quality: int = 95, dpi: Tuple[int, int] = (300, 300),
@@ -408,7 +501,8 @@ class FigureCompositor:
 											 self.background_color, debug_mode=True,
 											 grid_size=self.logical_grid_size, 
 											 grid_color=self.grid_color,
-											 scale_factor=self.scale_factor)
+											 scale_factor=self.scale_factor,
+											 font_dir=self.font_dir)
 				
 				# Copy all placed images
 				for name, info in self.placed_images.items():
@@ -424,13 +518,15 @@ class FigureCompositor:
 				# Copy all annotations
 				for name, info in self.annotations.items():
 					if 'text' in info:
+						font_type = info.get('font_type', 'bold')
 						debug_comp.add_panel_label(
 							info['text'],
 							info['logical_position'][0],
 							info['logical_position'][1],
 							info.get('logical_font_size', 24),
 							info.get('color', (0, 0, 0)),
-							name=name
+							name=name,
+							font_type=font_type
 						)
 				
 				# Save the debug version
@@ -449,7 +545,8 @@ class FigureCompositor:
 				# Create a clean version with same scale factor
 				clean_comp = FigureCompositor(self.logical_width, self.logical_height, 
 											 self.background_color, debug_mode=False,
-											 scale_factor=self.scale_factor)
+											 scale_factor=self.scale_factor,
+											 font_dir=self.font_dir)
 				
 				# Copy all placed images
 				for name, info in self.placed_images.items():
@@ -465,13 +562,15 @@ class FigureCompositor:
 				# Copy all annotations
 				for name, info in self.annotations.items():
 					if 'text' in info:
+						font_type = info.get('font_type', 'bold')
 						clean_comp.add_panel_label(
 							info['text'],
 							info['logical_position'][0],
 							info['logical_position'][1],
 							info.get('logical_font_size', 24),
 							info.get('color', (0, 0, 0)),
-							name=name
+							name=name,
+							font_type=font_type
 						)
 				
 				# Save the clean version to the original path
@@ -603,7 +702,7 @@ class FigureCompositor:
 								offset: Tuple[int, int] = (0, 0),
 								font_size: int = 24, 
 								color: Union[str, Tuple[int, int, int]] = (0, 0, 0),
-								bold: bool = True,
+								font_type: str = 'bold',
 								background: Optional[Union[str, Tuple[int, int, int]]] = None,
 								bg_padding: int = 4,
 								bg_opacity: int = 200) -> bool:
@@ -617,13 +716,13 @@ class FigureCompositor:
 		label : str
 			The label text to add (e.g., 'A', 'B', 'C')
 		offset : tuple of int, optional
-			Offset from the top-left corner of the image in logical pixels (default: (10, 10))
+			Offset from the top-left corner of the image in logical pixels (default: (0, 0))
 		font_size : int, optional
 			Font size for the label in logical pixels (default: 24)
 		color : str or tuple, optional
 			Text color as a PIL color name or RGB tuple (default: black)
-		bold : bool, optional
-			Whether to use bold font (default: True)
+		font_type : str, optional
+			Type of font to use ('regular', 'bold', 'semi_bold') (default: 'bold')
 		background : str or tuple, optional
 			Background color for the label. If None, no background is drawn (default: None)
 		bg_padding : int, optional
@@ -651,19 +750,10 @@ class FigureCompositor:
 		# Scale coordinates and font size
 		scaled_x = self._scale(logical_x)
 		scaled_y = self._scale(logical_y)
-		scaled_font_size = self._scale(font_size)
 		scaled_bg_padding = self._scale(bg_padding) if background is not None else 0
 		
-		try:
-			# Try to load font with specified scaled size
-			if bold:
-				font_path = "Arial Bold" if "Arial" in self.font.getname()[0] else None
-				font = ImageFont.truetype(font_path, scaled_font_size) if font_path else ImageFont.load_default()
-			else:
-				font = ImageFont.truetype("Arial", scaled_font_size) if "Arial" in self.font.getname()[0] else ImageFont.load_default()
-		except IOError:
-			# Fall back to default font
-			font = ImageFont.load_default()
+		# Get appropriate font
+		font = self.get_font(font_type, font_size)
 		
 		# Get text dimensions
 		if hasattr(font, 'getsize'):
@@ -707,31 +797,11 @@ class FigureCompositor:
 			'logical_position': (logical_x, logical_y),
 			'position': (scaled_x, scaled_y),
 			'logical_font_size': font_size,
-			'font_size': scaled_font_size,
+			'font_size': self._scale(font_size),
 			'color': color,
+			'font_type': font_type,
 			'attached_to': image_name,
 			'offset': offset
 		}
 		
 		return True
-
-
-# Example usage
-if __name__ == "__main__":
-	# Regular compositor with 2x scaling
-	fig = FigureCompositor(800, 600, background_color=(255, 255, 255), scale_factor=2.0)
-	
-	# Place images - all coordinates and dimensions are in logical pixels
-	# but will be rendered at 2x size
-	fig.place_image("image1.png", 100, 100, width=400, height=300, 
-					fill_transparent=True, fill_color=(255, 255, 255))
-	fig.place_image("image2.png", 550, 200, width=200, height=200, 
-					fill_transparent=True, fill_color=(255, 255, 255))
-	
-	# Add panel labels - coordinates are in logical pixels but will render at 2x
-	fig.add_panel_label("A", 110, 110)
-	fig.add_panel_label("B", 560, 210)
-	
-	# Save with debug version (shows grid and bounding boxes)
-	# Final image will be 1600x1200 pixels (2x the logical size)
-	fig.save("composite_figure_scaled.png", save_debug_version=True)
