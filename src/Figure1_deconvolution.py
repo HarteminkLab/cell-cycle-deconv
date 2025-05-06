@@ -3,13 +3,20 @@ import matplotlib.pyplot as plt
 import numpy as np
 from src.figure_configs import FiguresConfig
 from src.chromatin_model import plot_img
+from src.utils import mkdir_safe
+from src.figure_configs import save_figure_for_paper
 
 SUBPANEL_COLOR = '#f5f5f5'
 
 class Figure1Deconvolution(object):
 	"""Load and plot figures for the first result figure"""
 
-	def __init__(self):
+	def __init__(self, output_dir):
+
+		self.output_dir = output_dir
+
+		self.save_dir = f'{output_dir}/fig_chromatin_deconvolution'
+		mkdir_safe(self.save_dir)
 
 		# Create the H for the updated model config to include the H config
 		from src.config import load_default_chrom_configs
@@ -23,6 +30,26 @@ class Figure1Deconvolution(object):
 		self.config2 = config2
 		self.chrom_model = CombinedChromatinModel(config1, config2)
 		self.chrom_model.load_combined_mnase_gene("CLN2")
+
+	def run_and_save_all(self, chromatin_data_path=
+			'output/draft3_run/chromatin_deconvolution_partial_daughter/deconvolution_data/'):
+
+		save_dir = self.save_dir
+		fig, axs = self.plot_H_matrices()
+		save_figure_for_paper(f"{save_dir}/Kernel_H_diagram.png")
+
+		self.plot_mnase_reads_histogram()
+		save_figure_for_paper(f"{save_dir}/MNase_2D_Histogram.png")
+
+		self.plot_chromatin_profiles_G()
+		save_figure_for_paper(f"{save_dir}/Chromatin_profiles_G.png")
+
+		print(f"todo: temporary chromatin data path {chromatin_data_path}")
+		self.plot_deconvolved_phase_annotated(chromatin_data_path)
+		save_figure_for_paper(f"{save_dir}/Deconvolved_Profiles_F.png")
+
+	def create_panel(self):
+		layout_figure_panel(self.save_dir)
 
 
 	def plot_H(self):

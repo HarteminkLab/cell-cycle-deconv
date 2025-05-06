@@ -305,8 +305,19 @@ def main():
 		save_figure_for_paper(f"{save_directory}/locus_DSE3.png")
 		plt.close(fig)
 
-	else:
+	elif command == "figure1_chromatin_deconvolution":
 
+		from src.Figure1_deconvolution import Figure1Deconvolution
+		from src.figure_configs import save_figure_for_paper
+		from src.utils import mkdir_safe
+
+		(_, command, output_dir) = system_args
+
+		fig1 = Figure1Deconvolution(output_dir=output_dir)
+		fig1.run_and_save_all()
+		fig1.create_panel()
+
+	else:
 
 		raise ValueError(f"Invalid command" + command)
 
