@@ -29,8 +29,16 @@ class CombinedChromatinModel:
 	def load_combined_mnase_gene(self, gene_name):
 		"""This takes the place of load_mnase_gene, as we don't need the
 		replicate parameter anymore"""
-		self.chrom1_model.load_mnase_gene(gene_name)
-		self.chrom2_model.load_mnase_gene(gene_name)
+
+		from src.sgd import read_nondubious_genes_dataset
+		from src.sgd import get_orfname
+
+		genes = read_nondubious_genes_dataset()
+		orfname = get_orfname(gene_name)
+		gene = genes.loc[orfname]
+		span = gene.TSS-500, gene.TSS+500+1
+		self.load_mnase_span(gene.chr, span)
+
 
 	def load_combined_mnase_orc(self, orc_or_ars):
 		"""This takes the place of load_mnase_gene, as we don't need the
