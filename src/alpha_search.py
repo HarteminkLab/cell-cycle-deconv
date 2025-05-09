@@ -1,224 +1,161 @@
-
-# from src.model import Model
-# from src.dynamic_config_alpha import create_dynamic_alpha_config
-# import numpy as np
-# import pandas as pd
-# from src.timer import Timer
-# import matplotlib.pyplot as plt
+import matplotlib.pyplot as plt
+import numpy as np
+import pandas as pd
+from src.plot_helpers import color_for_key
 
 
-# def compute_prop_in_dg1(model1):
-# 	config = model1.config
+def plot_alpha_genes_subplots(config, plot_alphas, all_alpha_results_df, replicate):
+	"""
+	Plot data for a specific replicate showing values for t_indices and b_indices for each alpha and gene combination.
 	
-# 	dg1_indices = config.get_timepoints_phases_Hpositions_for_branch('b')[0][2]
-# 	postg1_indices = config.get_timepoints_phases_Hpositions_for_branch('b')[1][2]
+	Parameters:
+	-----------
+	config1 : object
+		Configuration object with methods get_Hpositions_for_branch() to get top and bottom branch indices
+	all_alpha_results_df : pandas.DataFrame
+		DataFrame with MultiIndex ['replicate', 'alpha', 'gene'] and numeric value columns
+	replicate : int
+		The replicate number to plot
+	
+	Returns:
+	--------
+	matplotlib.figure.Figure
+		The figure containing all subplots
+	"""
+	
+	# Select data for the specified replicate using loc
+	replicate_data = all_alpha_results_df.loc[replicate]
+	
+	# Get unique alpha values and genes from the index
+	alphas = plot_alphas
+	genes = sorted(replicate_data.index.get_level_values('gene').unique())
+	
+	# Create a figure with subplots for each alpha-gene combination plus averages
+	n_alphas = len(plot_alphas)
+	n_genes = len(genes)
+	
+	# Create a grid of subplots
+	fig, axes = plt.subplots(n_alphas, n_genes + 1, figsize=(3. * (n_genes + 1), 2. * n_alphas))
+	
+	# Make sure axes is 2D for consistent indexing
+	if n_alphas == 1 and n_genes == 1:
+		axes = np.array([[axes[0], axes[1]]])
+	elif n_alphas == 1:
+		axes = axes.reshape(1, -1)
+	elif n_genes == 1:
+		axes = axes.reshape(-1, 2)
 
-# 	cg1_indices = config.get_timepoints_phases_Hpositions_for_branch('t')[0][2]
-# 	rg1_indices = config.get_timepoints_phases_Hpositions_for_branch('i')[0][2]
 
-# 	f = model1.f
+	"""make all the ylims the same
+	color the average differently"""
 
-# 	dg1_f = f[dg1_indices]
-# 	cg1_f = f[cg1_indices]
-# 	rg1_f = f[rg1_indices]
-# 	postg1_f = f[postg1_indices]
+	all_data_no_nans = replicate_data.copy().fillna(0)
+	ylims = 0, all_data_no_nans.values.max()*1.2
 
-# 	return dg1_f.sum() / f.sum()
+	# Process each alpha value
+	for i, alpha in enumerate(alphas):
 
+		config.modify_alpha(alpha)
 
-# def search_alphas(gene_name, posteriors_filepath, alphas, replicate):
-# 	"""
-# 	Compute the proportion of expression in DG1/(all expression) for a gene given a set of alpha values
-# 	to search through and the replicate
+		# Timepoints for branch
+		t_tps = config.get_timepoints_for_branch('t')
+		b_tps = config.get_timepoints_for_branch('b')
 
-# 	TODO: Refactor such that the posteriors are loaded via the replicate parameter
-# 	"""
+		# Get t_indices and b_indices for top and bottom branches
+		t_indices = config.get_Hpositions_for_branch('t')
+		b_indices = config.get_Hpositions_for_branch('b')
 
-# 	dg1_props = []
-# 	fs = []
-# 	gammas = []
-# 	sns = []
-# 	rns = []
-
-# 	for alpha in alphas:
-
-# 		config = create_dynamic_alpha_config(posteriors_filepath, alpha, replicate, "Dynamic config")
-
-# 		model1 = Model(config, gene_name, 0.0)
-# 		model1.deconvolve_find_optimal_gamma()
-
-# 		dg1_prop = compute_prop_in_dg1(model1)
-# 		dg1_props.append(dg1_prop)
-
-# 		gammas.append(model1.gamma)
-# 		fs.append(model1.f)
-# 		sns.append(model1.sn)
-# 		rns.append(model1.rn)
+		# Get data for this alpha using xs (cross-section)
+		alpha_data = replicate_data.xs(alpha, level='alpha')
 		
-# 	ret_df = pd.DataFrame({"alpha": alphas, "prop_dg1": dg1_props, "gamma": gammas, "rn": rns, "sn": sns, "f": fs})
+		# Store for averaging
+		all_t_values = []
+		all_b_values = []
 
-# 	return ret_df
+		t_color = 'black'
+		b_color = color_for_key('DG1')
 
+		# Process each gene
+		for j, gene in enumerate(genes):
 
-# def compute_peak_dg1s(combined_dg1_df):
+			# Get the row for this gene
+			gene_data = alpha_data.loc[gene]
+			
+			# Directly select the columns for top and bottom branches
+			t_values = gene_data[t_indices].values
+			b_values = gene_data[b_indices].values
+			
+			# Store for averaging
+			all_t_values.append(t_values)
+			all_b_values.append(b_values)
+			
+			# Plot on the corresponding subplot
+			ax = axes[i, j]
+			ax.plot(t_tps, t_values, lw=3, color=t_color, label='Top Branch')
+			ax.plot(b_tps, b_values, lw=3, color=b_color, label='Bottom Branch')
+			
 
-# 	from src.config import load_yl_replicate1_rg1_alpha_vst_config, load_yl_replicate2_rg1_alpha_vst_config
-# 	from src.model import Model
+			if j == 0:
+				ax.set_ylabel(f"α={alpha}", fontsize=24)
+			else:
+				ax.set_yticks([])
 
-# 	peaks_df = combined_dg1_df = combined_dg1_df.copy()
-# 	peaks_df = peaks_df.reset_index(drop=True)
-# 	peaks_df['peak_dg1'] = -1
+			if i == 0:
+				ax.set_title('$\\it{' + gene + '}$', fontsize=24, pad=5)
 
-# 	config1 = load_yl_replicate1_rg1_alpha_vst_config()
-# 	model1 = Model(config1, "CLB2", 0.0)
-# 	dg1_indices = config1.get_timepoints_phases_Hpositions_for_branch('b')[0][2]
-# 	postg1_indices = config1.get_timepoints_phases_Hpositions_for_branch('b')[1][2]
-	
-# 	for idx, row in peaks_df.iterrows():
-# 		idx_max = row.f[dg1_indices].argmax()
-# 		peaks_df.loc[idx, 'peak_dg1'] = idx_max
+			if i == n_alphas-1:
+				if i == 0:
+					ax.set_xlabel('Average single cell time, min', 
+						fontsize=16)
 
-# 	return peaks_df
-
-	
-# def plot_DG1_genes_alpha_curves(combined_dg1_df, replicate, alpha, normalize, genes=None):
-
-# 	from src.config import load_yl_replicate1_rg1_alpha_vst_config, load_yl_replicate2_rg1_alpha_vst_config
-# 	from src.model import Model
-
-# 	fig, (ax0, ax1) = plt.subplots(1, 2, figsize=(10, 3))
-# 	plt.subplots_adjust(wspace=0., top=0.8)
-
-# 	config1 = load_yl_replicate1_rg1_alpha_vst_config()
-# 	model1 = Model(config1, "CLB2", 0.0)
-# 	cg1_indices = config1.get_timepoints_phases_Hpositions_for_branch('t')[0][2]
-# 	dg1_indices = config1.get_timepoints_phases_Hpositions_for_branch('b')[0][2]
-# 	postg1_indices = config1.get_timepoints_phases_Hpositions_for_branch('b')[1][2]
-# 	gene_rows = combined_dg1_df[(combined_dg1_df.alpha == alpha) & (combined_dg1_df.replicate == replicate)]
-# 	gene_rows = gene_rows.sort_values('peak_dg1')
-
-# 	i = 0
-
-# 	if normalize:
-# 		ylim = 0, 15
-# 	else:
-# 		ylim = 5, 35
-
-# 	for _, row in gene_rows.iterrows():
-
-# 		if genes is not None:
-# 			if row.gene not in genes:
-# 				continue
-
-# 		# Normalize f such that min is 0 and max is 10
-# 		f = row.f
+			ax.set_ylim(*ylims)
+			ax.axvline(0, c='#ddd', lw=1)
+			ax.legend()
 		
-# 		if normalize:
-# 			f = f - f.min()
-# 			f = f/f.max() * 10.
-
-# 		xs_cg1 = np.arange(len(cg1_indices))
-# 		xs_pg1 = np.arange(len(postg1_indices))+xs_cg1.max()
-# 		color = plt.get_cmap('tab10')(i)
-# 		ax0.plot(xs_cg1, f[xs_cg1], color=color, lw=3)
-# 		ax0.plot(np.concatenate([xs_cg1, xs_pg1]), 
-# 			     np.concatenate([f[xs_cg1] , f[postg1_indices]]), color=color, label=row.gene, lw=1)
-# 		ax0.set_ylim(ylim)
-
-# 		if normalize:
-# 			ax0.set_ylabel("Normalized expression")
-# 		else:
-# 			ax0.set_ylabel("Expression")
-
-# 		ax0.set_yticks([])
-# 		ax0.set_title("Mother")
-# 		ax0.set_xlim(0, xs_pg1.max())
-
-# 		xs_dg1 = np.arange(len(dg1_indices))
-# 		xs_pg1 = np.arange(len(postg1_indices))+xs_dg1.max()
-# 		color = plt.get_cmap('tab10')(i)
-# 		ax1.plot(xs_dg1, f[dg1_indices], color=color, lw=3, label=row.gene)
-# 		ax1.plot(np.concatenate([xs_dg1, xs_pg1]), 
-# 			     np.concatenate([f[dg1_indices] , f[postg1_indices]]), color=color, lw=1)
-# 		ax1.set_ylim(ylim)
-# 		ax1.set_yticks([])
-# 		ax1.set_title("Daughter")
-# 		ax1.set_xlim(0, xs_pg1.max())
-
-
-# 		i += 1
-		
-# 	ax0.legend(ncol=4, fontsize=9)
-# 	plt.suptitle(f"DG1 curves, alpha={alpha}, Replicate={replicate}")
-# 	return fig
-
-
-# def perform_alpha_search_gene(gene_name, alphas = np.arange(0, 40, 3), replicate=None, timer=None):
-# 	"""
-# 	Performs the DG1 proportion calculation for each alpha value and returns
-# 	a dataframe of the results
-# 	"""
+		# Calculate and plot averages across genes
+		if all_t_values and all_b_values:
+			# Determine maximum length for each branch
+			max_t_len = max([len(vals) for vals in all_t_values]) if all_t_values else 0
+			max_b_len = max([len(vals) for vals in all_b_values]) if all_b_values else 0
+			
+			# Create arrays for averaging, filling with NaN for missing values
+			t_array = np.full((len(all_t_values), max_t_len), np.nan)
+			b_array = np.full((len(all_b_values), max_b_len), np.nan)
+			
+			# Fill the arrays with actual values
+			for k, vals in enumerate(all_t_values):
+				t_array[k, :len(vals)] = vals
+			
+			for k, vals in enumerate(all_b_values):
+				b_array[k, :len(vals)] = vals
+			
+			# Calculate average for each position (ignoring NaN values)
+			avg_t_values = np.nanmean(t_array, axis=0)
+			avg_b_values = np.nanmean(b_array, axis=0)
+			
+			# Clean up NaNs for plotting
+			avg_t_values = avg_t_values[~np.isnan(avg_t_values)]
+			avg_b_values = avg_b_values[~np.isnan(avg_b_values)]
+			
+			# Plot averages
+			ax = axes[i, n_genes]
+			ax.plot(t_tps, avg_t_values, lw=5, color=t_color, label='Top Branch')
+			ax.plot(b_tps, avg_b_values, lw=5, color=b_color, label='Bottom Branch')
+			ax.set_yticks([])
+			ax.axvline(0, c='#ddd', lw=1)
+			
+			# Set title and labels
+			ax.set_title(f'Average', fontsize=16, pad=5)
+			
+			# Add legend
+			ax.legend()
 	
-# 	if replicate == 1:
-# 		posteriors_filepath = 'data/2019_cloccs_fits/yl_2019_replicate1/posteriors.txt'
-# 	elif replicate == 2:
-# 		posteriors_filepath = 'data/2019_cloccs_fits/yl_2019_replicate2/posteriors.txt'
-# 	else:
-# 		raise ValueError(f"Invalid replicate {replicate}")
+	# Adjust layout
+	plt.tight_layout(rect=[0, 0, 1, 0.96])  # Make room for suptitle
+
+	# Set overall title
+	fig.suptitle(f'Alpha search, replicate {replicate}', fontsize=32, fontweight='demi')
 	
-# 	if timer is None:
-# 		timer = Timer()
-
-# 	print(f"Computing {len(alphas)} alpha values for {gene_name}...", end="")
-# 	dg1_df = search_alphas(gene_name, posteriors_filepath, alphas, replicate)
-# 	print(f"Done in {timer.get_time()}")
-
-# 	return dg1_df
+	return fig
 
 
-# def main():
-# 	"""
-# 	For DSE1-4, compute the proportion of DG1 for both replicates and save the result to a dataframe. 
-
-# 	Depending on how many alpha values to search through this can take up to an hour. Each alpha value
-# 	can take around 30 seconds, as we are performing a gamma search through for each gene.
-# 	"""
-
-# 	timer = Timer()
-
-# 	xin_dg1_genes = ['ASH1','EGT2','AMN1','DSE3','DSE4','PRY3','SCW11','DSE1','DSE2','CTS1']
-# 	dse_genes = ['DSE1','DSE2','DSE3','DSE4']
-
-# 	min_a, max_a, step_a = 0, 50, 1
-# 	alpha_values = np.arange(min_a, max_a, step_a)
-
-# 	# Perform alpha search for replicate 1
-# 	dg1_rep1_all_genes_df = pd.DataFrame()
-# 	for gene in dse_genes:
-# 		dg1_df = perform_alpha_search_gene(gene, alphas=alpha_values, timer=timer, replicate=1)
-# 		dg1_df['gene'] = gene
-# 		dg1_rep1_all_genes_df = pd.concat([dg1_rep1_all_genes_df, dg1_df])
-
-# 	# Perform alpha search for replicate 2
-# 	dg1_rep2_all_genes_df = pd.DataFrame()
-# 	for gene in dse_genes:
-# 		dg1_df = perform_alpha_search_gene(gene, alphas=alpha_values, timer=timer, replicate=2)
-# 		dg1_df['gene'] = gene
-# 		dg1_rep2_all_genes_df = pd.concat([dg1_rep2_all_genes_df, dg1_df])
-
-# 	# Combine results and save to disk
-# 	dg1_rep1_all_genes_df['replicate'] = 1
-# 	dg1_rep2_all_genes_df['replicate'] = 2
-# 	combined_dg1_df = pd.concat([dg1_rep1_all_genes_df, dg1_rep2_all_genes_df])
-
-# 	save_file = f'output/alpha_search/dg1_alpha_search_{min_a}_{max_a}_{step_a}.csv'
-# 	combined_dg1_df.to_csv(save_file)
-
-# 	print(f"Save to: {save_file}")
-
-# 	return combined_dg1_df
-
-
-
-# if __name__ == '__main__':	
-# 	main()

@@ -172,7 +172,7 @@ class Figure1Deconvolution(object):
 		
 		# Plot H2 on bottom axis with phase annotations
 		plot_H_on_axis(ax2, H2, self.config2, add_annotations=True)
-		ax2.set_xlabel("Single cell deconvolution time", fontsize=FiguresConfig.FIG_LABEL_FONTSIZE,
+		ax2.set_xlabel("Average single cell deconvolution time", fontsize=FiguresConfig.FIG_LABEL_FONTSIZE,
 			labelpad=10)
 
 		# Thicken the spine
@@ -213,6 +213,8 @@ class Figure1Deconvolution(object):
 		)
 
 		bg_ax.add_patch(rect)
+		ax1.set_facecolor('white')
+		ax2.set_facecolor('white')
 
 		return fig, (ax1, ax2)
 
@@ -527,6 +529,9 @@ def layout_figure_panel(save_dir):
 
 	image_paths = [f"{save_dir}/{name}.png" for name in image_names]
 
+	# Use project pathed branching diagram
+	image_paths[0] = "diagrams/Branching_diagram.png"
+
 	# Create compositor with a scale factor of 4
 	# Logical canvas size is 1024x800, but actual output will be 4096x3200
 	compositor = FigureCompositor(1024, 820, debug_mode=True)
@@ -601,7 +606,7 @@ def layout_figure_panel(save_dir):
 	    font_size=20,
 	    font_type='semi_bold')
 
-	save_path = f"{save_dir}/Fig1.png"
+	save_path = f"{save_dir}/Figure1_Deconvolution.png"
 	compositor.save(save_path)
 
 	print(f"Saved figure panel: {save_path}")

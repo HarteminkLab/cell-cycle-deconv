@@ -91,6 +91,13 @@ class DeconvolutionSolver(object):
 			# Bottom padding will be identical to top
 			tb_total_padded_len = compute_closest_pow2(len(f_top_smoothing_indices))
 			tb_padding = tb_total_padded_len-len(f_top_smoothing_indices)
+
+			# Make sure the padding is an even number
+			if tb_padding % 2 == 1:
+				add_tb_padding_right = 1 # add the right of the padding 1 to make a power of 2
+			else:
+				add_tb_padding_right = 0
+
 			tb_padding_2 = tb_padding//2
 
 			# Recovery padding is defined
@@ -98,6 +105,13 @@ class DeconvolutionSolver(object):
 			# power of two, should also be 128 (equal to top and bottom's total padded indices)
 			initial_total_padded_len = compute_closest_pow2(len(f_recovery_smoothing_indices)+1)
 			initial_padding = initial_total_padded_len-len(f_recovery_smoothing_indices)
+
+			# Make sure the padding is an even number
+			if initial_padding % 2 == 1:
+				add_initial_padding_right = 1
+			else:
+				add_initial_padding_right = 0
+
 			initial_padding_2 = initial_padding//2
 
 			# Now we will designate how much to extend the f vector and where to place the new padded indices
@@ -118,7 +132,8 @@ class DeconvolutionSolver(object):
 			#   75 total additional padding
 
 			# Thus we can calculate how much padding we will need for the final padded f vector
-			number_of_unique_padding = initial_padding + tb_padding_2
+			number_of_unique_padding = initial_padding + tb_padding_2 + add_tb_padding_right +\
+				add_initial_padding_right
 
 			f_padded_variation = cp.Variable(m+number_of_unique_padding)
 
@@ -127,7 +142,8 @@ class DeconvolutionSolver(object):
 
 			# Assign the initial branch paddings first
 			left_initial_padding_indices = np.arange(0, initial_padding_2) # 0-32
-			right_initial_padding_indices = np.arange(initial_padding_2, initial_padding) # 32-64
+			right_initial_padding_indices = np.arange(initial_padding_2, 
+				initial_padding+add_initial_padding_right) # 32-64
 
 			# Top and bottom branch paddings (will be duplicated)
 			# Left side is unique and designated for the start of postG1
@@ -135,7 +151,7 @@ class DeconvolutionSolver(object):
 
 			# Right side will be reused from the initial right-padding
 			# 11 of the first indices of the initial right padding (postG1's right side)
-			right_tb_padding_indices = right_initial_padding_indices[0:tb_padding_2] # 32-43
+			right_tb_padding_indices = right_initial_padding_indices[0:(tb_padding_2+add_tb_padding_right)] # 32-43
 
 			# Define the padded indices that will be used for the smoothing
 			f_recovery_padded_indices = np.concatenate([

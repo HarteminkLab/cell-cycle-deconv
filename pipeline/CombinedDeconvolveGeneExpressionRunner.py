@@ -19,6 +19,7 @@ class CombinedDeconvolveGeneExpressionRunner:
 		self.config1 = config1
 		self.config2 = config2
 
+
 	def deconvolve_gene(self, gene_name, replicate='combined', kappa=0.0):
 
 		from src.gene_expression import load_gene_expression
@@ -54,7 +55,7 @@ class CombinedDeconvolveGeneExpressionRunner:
 		else:
 			raise ValueError()
 
-		expression_find_gamma = GeneExpressionFindOptimalGamma(config=self.config1, H=H, 
+		expression_find_gamma = GeneExpressionFindOptimalGamma(config=config, H=H, 
 			gene_expression=G)
 		expression_find_gamma.find_optimal_gamma(plot=False, verbose=False, kappa=kappa)
 		self.expression_find_gamma = expression_find_gamma

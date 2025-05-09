@@ -273,16 +273,23 @@ class RealDataReplicationDeconvolution():
 
 		tps = self.config.timepoints
 		start_indices = self.unnormalized_total_occupancy.index.values
-		extent = [0, start_indices[-1], 0, tps[-1]]
+		extent = [0, start_indices[-1], -5, tps[-1]+5]
 
-		plt.figure(figsize=(13, 3))
-		plt.imshow(self.G, cmap='RdBu_r', vmin=0, vmax=2, 
+
+		# predicted_G = self.N@self.config.H@self.F@self.B
+		G = self.G# @ self.initial_B
+
+		plt.figure(figsize=(13, 4))
+		plt.imshow(G, cmap='RdBu_r', vmin=0, vmax=2, 
 			interpolation='none', aspect='auto',
-			extent=extent)
+			extent=extent, origin='lower')
 		plt.colorbar()
-		plt.title(f"Experiment 10 kb MNase-seq reads, replicate 1, chr{self.chrom}")
+		plt.title(f"Experiment 10 kb MNase-seq reads, replicate {self.config.replicate}, chr{self.chrom}")
 		plt.xlabel("Genomic position, bp")
 		plt.ylabel("Experimental time")
+
+		plt.ylim(tps[-1]+5, -5)
+		plt.yticks(tps)
 
 		plt.subplots_adjust(bottom=0.2)
 

@@ -8,8 +8,8 @@ from src.global_config import GlobalConstants
 # RG1, DG1, and CG1 have an equivalent number of timepoints for ease
 # of computation. This approximation allows for an approximately 1 min per index
 # deconvolution for MG1 and postG1
-G1_NUM_TPS = 22
-POSTG1_NUM_TPS = 42
+DEFAULT_G1_NUM_TPS = 22
+DEFAULT_POSTG1_NUM_TPS = 42
 
 DEFAULT_REPLICATION_PARENT_DIRECTORY = 'output/draft3_run/'
 
@@ -18,9 +18,19 @@ class ModelConfig(object):
 
 	This model will aim to replace the create_models and config classes....
 	"""
-	def __init__(self, config_type='distinct'):
+	def __init__(self, config_type='distinct', g1_num_tps=None, postg1_num_tps=None):
 		# single or distinct mother and daughter g1s
 		self.config_type = config_type
+
+		if g1_num_tps is None:
+			self.g1_num_tps = DEFAULT_G1_NUM_TPS
+		else:
+			self.g1_num_tps = g1_num_tps
+
+		if postg1_num_tps is None:
+			self.postg1_num_tps = DEFAULT_POSTG1_NUM_TPS
+		else:
+			self.postg1_num_tps = DEFAULT_POSTG1_NUM_TPS
 
 	def load_from_posteriors(self, posteriors_filepath, timepoints, alpha=0):
 
@@ -67,6 +77,8 @@ class ModelConfig(object):
 		gamma1 = self.params_dic['gamma1']
 		delta = self.params_dic['delta']
 		start_of_s = gamma1*lambda_val
+		g1_num_tps = self.g1_num_tps
+		postg1_num_tps = self.postg1_num_tps
 
 		alpha = self.alpha
 
@@ -75,26 +87,26 @@ class ModelConfig(object):
 		dg1_time_span = -delta-alpha, start_of_s
 		postg1_time_span = start_of_s, lambda_val-alpha
 
-		rg1_timepoints = np.linspace(rg1_time_span[0], rg1_time_span[1], G1_NUM_TPS+1)
-		cg1_timepoints = np.linspace(cg1_time_span[0], cg1_time_span[1], G1_NUM_TPS+1)
-		dg1_timepoints = np.linspace(dg1_time_span[0], dg1_time_span[1], G1_NUM_TPS+1)
-		postg1_timepoints = np.linspace(postg1_time_span[0], postg1_time_span[1], POSTG1_NUM_TPS+1)
+		rg1_timepoints = np.linspace(rg1_time_span[0], rg1_time_span[1], g1_num_tps+1)
+		cg1_timepoints = np.linspace(cg1_time_span[0], cg1_time_span[1], g1_num_tps+1)
+		dg1_timepoints = np.linspace(dg1_time_span[0], dg1_time_span[1], g1_num_tps+1)
+		postg1_timepoints = np.linspace(postg1_time_span[0], postg1_time_span[1], postg1_num_tps+1)
 
 		if self.config_type == 'shared':
 			Hpositions = np.concatenate([
-						range(0, G1_NUM_TPS), # RG1
-						range(G1_NUM_TPS, G1_NUM_TPS*2), # CG1 and DG1
-						range(G1_NUM_TPS, G1_NUM_TPS*2), # CG1 and DG1
-						range(G1_NUM_TPS*2, G1_NUM_TPS*2+POSTG1_NUM_TPS), # CG1 and DG1
-						[G1_NUM_TPS*2+POSTG1_NUM_TPS], # Halted
+						range(0, g1_num_tps), # RG1
+						range(g1_num_tps, g1_num_tps*2), # CG1 and DG1
+						range(g1_num_tps, g1_num_tps*2), # CG1 and DG1
+						range(g1_num_tps*2, g1_num_tps*2+postg1_num_tps), # CG1 and DG1
+						[g1_num_tps*2+postg1_num_tps], # Halted
 					])
 		elif self.config_type == 'distinct':
 			Hpositions = np.concatenate([
-						range(0, G1_NUM_TPS), # RG1
-						range(G1_NUM_TPS, G1_NUM_TPS*2), # CG1
-						range(G1_NUM_TPS*2, G1_NUM_TPS*3), # DG1 (same indices)
-						range(G1_NUM_TPS*3, G1_NUM_TPS*3+POSTG1_NUM_TPS), # Post G1
-						[G1_NUM_TPS*3+POSTG1_NUM_TPS], # Halted
+						range(0, g1_num_tps), # RG1
+						range(g1_num_tps, g1_num_tps*2), # CG1
+						range(g1_num_tps*2, g1_num_tps*3), # DG1 (same indices)
+						range(g1_num_tps*3, g1_num_tps*3+postg1_num_tps), # Post G1
+						[g1_num_tps*3+postg1_num_tps], # Halted
 					])
 		else:
 			raise ValueError(f"Unknown config type: {self.config_type}")
@@ -116,10 +128,10 @@ class ModelConfig(object):
 				postg1_timepoints[1:], [0]],),
 
 			'phase': np.concatenate([
-				np.repeat('RG1', G1_NUM_TPS),
-				np.repeat('CG1', G1_NUM_TPS),
-				np.repeat('DG1', G1_NUM_TPS),
-				np.repeat('postG1', POSTG1_NUM_TPS),
+				np.repeat('RG1', g1_num_tps),
+				np.repeat('CG1', g1_num_tps),
+				np.repeat('DG1', g1_num_tps),
+				np.repeat('postG1', postg1_num_tps),
 				np.repeat('Halted', 1),
 				])
 			,
@@ -162,6 +174,12 @@ class ModelConfig(object):
 		self.branch_Hpos_df = branch_Hpos_df
 
 	def modify_alpha(self, new_alpha):
+
+		total_branch_tps = self.g1_num_tps+self.postg1_num_tps
+
+		self.g1_num_tps = new_alpha
+		self.postg1_num_tps = total_branch_tps-new_alpha
+
 		self.params_dic['alpha'] = new_alpha
 		self.alpha = new_alpha
 		self.update_timepoints()

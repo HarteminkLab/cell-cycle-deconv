@@ -31,6 +31,8 @@ class OriginAlphaSweep:
 		self.replication_timing_loader = ReplicationTiming(output_dir=self.output_dir)
 		self.replication_timing_loader.compute_peak_annotations()
 
+		self.load_configs()
+
 	def load_configs(self, config1=None, config2=None):
 
 		if config1 is None and config2 is None:
@@ -92,7 +94,8 @@ class OriginAlphaSweep:
 			print(f"{row['oridb']} {row['replication_time']} {row['peak_type']} "
 				  f"{row['activation_time']} {row['efficiency']}")
 	
-	def load_origin_mnase_data(self, oridb: str, window: int = 1000) -> None:
+	def load_origin_mnase_data(self, oridb: str, window: int = 1000,
+			impute_50_rep2=True) -> None:
 		"""
 		Load MNase data for a specific origin.
 		
@@ -106,9 +109,6 @@ class OriginAlphaSweep:
 		chrom = origin.chr
 		win_2 = window // 2
 		mnase_span = (origin.pos - win_2, origin.pos + win_2 + 1)
-		
-		# todo: Impute 50 minute timepoint for replicate 2 trial
-		impute_50_rep2 = True
 
 		self.combined_model.load_mnase_span(chrom, mnase_span, impute_50_rep2=impute_50_rep2)
 		self.current_origin = origin
@@ -220,7 +220,7 @@ class OriginAlphaSweep:
 	
 	def analyze_origin(self, oridb: str, window: int = 1000, 
 					 footprint_bounds: List[int] = [-5, 10, 3, 14],
-					 plot=False) -> np.ndarray:
+					 plot=False, impute_50_rep2=True) -> np.ndarray:
 		"""
 		Perform a complete analysis of a single origin.
 		
@@ -233,7 +233,7 @@ class OriginAlphaSweep:
 			NumPy array of selected footprint images
 		"""
 
-		self.load_origin_mnase_data(oridb, window)
+		self.load_origin_mnase_data(oridb, window, impute_50_rep2=impute_50_rep2)
 		self.combined_model.setup_deconv_model()
 
 		if plot:
@@ -278,6 +278,8 @@ class OriginAlphaSweep:
 			H = model.H
 			rep_G_footprint = footprint.reshape((footprint.shape[0], -1))
 			config = self.config1
+		else:
+			raise ValueError(f"Error with replicate: {replicate}")
 
 		self.footprint_config = config
 

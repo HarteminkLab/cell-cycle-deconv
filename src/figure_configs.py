@@ -20,6 +20,6 @@ def save_figure_for_analysis(save_path):
 	plt.savefig(save_path, dpi=200, transparent=False, bbox_inches='tight')
 	print(f"Saved figure to: {save_path}")
 
-def save_figure_for_paper(save_path):
-	plt.savefig(save_path, dpi=350, transparent=True, bbox_inches='tight')
+def save_figure_for_paper(save_path, dpi=350):
+	plt.savefig(save_path, dpi=dpi, transparent=False, bbox_inches='tight')
 	print(f"Saved figure to: {save_path}")

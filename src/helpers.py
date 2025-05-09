@@ -857,7 +857,7 @@ def compute_row_correlations(df1, df2):
 	return results
 
 
-def plot_raw_timepoints(config, s_color='red'):
+def plot_raw_timepoints(config, s_color='red', flip=False, lw=0.5):
 	"""Plot vertical lines along helpful dilineations of the config's cell cycle
 	points"""
 	import matplotlib.pyplot as plt
@@ -865,15 +865,21 @@ def plot_raw_timepoints(config, s_color='red'):
 		cg1_length, s_length, lambda_len = \
 		config.get_key_timepoints_in_raw()
 
+	if flip: 
+		plot_func = plt.axhline
+	else:
+		plot_func = plt.axvline
+
 	# First cell cycle
 	for time in [first_s_start, first_s_end]:
-		plt.axvline(time, c=s_color, lw=0.5, ls='dotted')
-	plt.axvline(end_of_first_lambd, c='black', lw=0.5, ls='solid')
+		plot_func(time, c=s_color, lw=lw, ls='solid')
+
+	plot_func(end_of_first_lambd, c='black', lw=lw, ls='solid')
 	
 	# Second cell cycle
 	for time in [end_of_first_lambd+cg1_length, 
 		end_of_first_lambd+cg1_length+s_length]:
-		plt.axvline(time, c=s_color, lw=0.5, ls='dotted')
+		plot_func(time, c=s_color, lw=lw, ls='solid')
 
 	if end_of_first_lambd+lambda_len <= config.timepoints[-1]:
-		plt.axvline(end_of_first_lambd+lambda_len, c='black', lw=0.5, ls='solid')
+		plot_func(end_of_first_lambd+lambda_len, c='black', lw=lw, ls='solid')
