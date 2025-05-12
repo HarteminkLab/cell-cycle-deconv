@@ -213,6 +213,60 @@ class CombinedReplicationDeconvolution():
 
 		return update_params_df, Hs, Fs, Ns, Bs
 
+	def plot_G_N_H_Fr_B_diagram(self):
+		from src.layout_replication_plots import FlexibleRowLayout
+		from src.RealDataReplication import plot_heatmap
+
+		config1 = self.real_deconv1.config
+		config2 = self.real_deconv2.config
+
+		layout_rows = FlexibleRowLayout(
+			widths=[4, 0.5, 0.6, 4, 1.5],
+			heights = [0.3, 0.3, 0.3, 0.35, 0.85],
+			spacing=[0.05, 0.03, 0.03, 0.03])
+
+		masked_indices = self.retrieve_masked_indices()
+		full_indices = self.real_deconv1.full_start_indices
+
+		ax = layout_rows.axes[0]
+		G = pd.concat([self.real_deconv1.G_df, self.real_deconv2.G_df])
+		plot_heatmap(G, masked_indices, full_indices,
+					plot_cbar=False, ax=ax)
+		ax.set_title("G$_r$", fontsize=48, fontweight='demi', pad=26)
+		ax.set_xlabel("(n x v)", fontsize=26, labelpad=13)
+
+		ax = layout_rows.axes[1]
+		ax.imshow(self.N, vmax=0.05, cmap='Purples', aspect='auto')
+		ax.set_title("N", fontsize=48, fontweight='demi', pad=26)
+		ax.set_xlabel("(n x n)", fontsize=26, labelpad=13)
+		ax.set_ylabel("=", rotation=0, fontsize=39, ha='right', va='center', labelpad=31,
+					 fontweight='demi')
+
+		ax = layout_rows.axes[2]
+		ax.imshow(self.H, vmax=0.05, cmap='Blues', aspect='auto')
+		ax.set_title("H", fontsize=48, fontweight='demi', pad=26)
+		ax.set_xlabel("(n x m)", fontsize=26, labelpad=13)
+		ax.set_ylabel("X", rotation=0, fontsize=23, ha='right', va='center', labelpad=18,
+					 fontweight='demi')
+
+		ax = layout_rows.axes[3]
+
+		plot_heatmap(self.F_df.loc[config1.t_indices()], 
+			masked_indices, full_indices, plot_cbar=False, ax=ax,
+					cmap=plt.cm.Greys, vmin=1, vmax=2.75)
+		ax.set_title("F$_r$", fontsize=48, fontweight='demi', pad=26)
+		ax.set_xlabel("(m x v)", fontsize=26, labelpad=13)
+		ax.set_ylabel("X", rotation=0, fontsize=23, ha='right', va='center', labelpad=18,
+					 fontweight='demi')
+
+		ax = layout_rows.axes[4]
+		ax.imshow(self.B, vmin=-0.5, vmax=0.5, cmap='PiYG', aspect='auto')
+		ax.set_title("B", fontsize=48, fontweight='demi', pad=26)
+		ax.set_xlabel("(v x v)", fontsize=26, labelpad=13)
+		ax.set_ylabel("X", rotation=0, fontsize=23, ha='right', va='center', labelpad=18,
+					 fontweight='demi')
+
+		plt.suptitle("Replication profile deconvolution", fontsize=50, fontweight='demi', y=1.35)
 
 	def plot_N_G_Fr_B_diagram(self):
 		from src.layout_replication_plots import ReplicationSubplotLayout
@@ -236,12 +290,13 @@ class CombinedReplicationDeconvolution():
 		n_1_tps = len(rep1_tps)
 		n_2_tps = len(rep2_tps)
 
+		label_fontsizes = 32
 
 		def plot_N(ax, N, replicate):
 			ax.plot(np.diag(N), np.arange(N.shape[0]), c=plt.cm.Purples(0.5), lw=4)
 			ax.set_ylim(N.shape[0]-1, 0)
 			ax.set_xlim(0.5, 1.25)
-			ax.set_ylabel('diag(N$_' + str(replicate) +'$)', fontsize=20, 
+			ax.set_ylabel('diag(N$_' + str(replicate) +'$)', fontsize=label_fontsizes, 
 						  fontweight='demi', rotation=0, 
 				ha='right', va='center', labelpad=10)
 
@@ -252,9 +307,9 @@ class CombinedReplicationDeconvolution():
 					plot_cbar=False, ax=axes['main_top'])
 		plot_heatmap(self.real_deconv2.G_df, masked_indices, full_indices,
 					plot_cbar=False, ax=axes['main_bottom'])
-		axes['main_bottom'].set_ylabel('G$_2$', fontsize=20, fontweight='demi', rotation=0, 
+		axes['main_bottom'].set_ylabel('G$_2$', fontsize=label_fontsizes, fontweight='demi', rotation=0, 
 									  ha='right', va='center', labelpad=10)
-		axes['main_top'].set_ylabel('G$_1$', fontsize=20, fontweight='demi', rotation=0, 
+		axes['main_top'].set_ylabel('G$_1$', fontsize=label_fontsizes, fontweight='demi', rotation=0, 
 									  ha='right', va='center', labelpad=10)
 
 		B_diag = np.diag(self.B)
@@ -262,12 +317,12 @@ class CombinedReplicationDeconvolution():
 		ax.plot(B_diag, c=plt.cm.Greens(0.65), lw=4)
 		ax.set_ylim(0, 2)
 		ax.set_xlim(0, len(B_diag)-1)
-		ax.set_ylabel('diag(B)', fontsize=20, fontweight='demi', rotation=0, 
+		ax.set_ylabel('diag(B)', fontsize=label_fontsizes, fontweight='demi', rotation=0, 
 									  ha='right', va='center', labelpad=10)
 
 		from src.RealDataReplication import plot_heatmap
 		ax = axes['top']
-		ax.set_ylabel('F$_r$', fontsize=20, fontweight='demi', rotation=0, 
+		ax.set_ylabel('F$_r$', fontsize=label_fontsizes, fontweight='demi', rotation=0, 
 									  ha='right', va='center', labelpad=10)
 
 		plot_heatmap(self.F_df.loc[config1.t_indices()], 
@@ -280,7 +335,7 @@ class CombinedReplicationDeconvolution():
 
 		fig = layout.fig
 		plt.subplots_adjust(right=0.85)
-		plt.suptitle("Replication estimation components", fontsize=32, fontweight='demi', y=1.05)
+		plt.suptitle("Replication profile deconvolution components", fontsize=42, fontweight='demi', y=1.05)
 
 		return fig
 

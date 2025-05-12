@@ -73,7 +73,6 @@ class ReplicationSubplotLayout:
 		self.ax_main_bottom = self.fig.add_subplot(self.gs[3, 2])
 		self.ax_bottom = self.fig.add_subplot(self.gs[5, 2])
 
-
 		for ax in self.get_axes().values():
 			ax.set_xticks([])
 			ax.set_yticks([])
@@ -91,6 +90,111 @@ class ReplicationSubplotLayout:
 			'bottom': self.ax_bottom
 		}
 		
+	def show(self):
+		"""Display the figure"""
+		plt.show()
+		
+	def save(self, filename, dpi=300, **kwargs):
+		"""Save the figure to a file"""
+		self.fig.savefig(filename, dpi=dpi, **kwargs)
+
+
+import matplotlib.pyplot as plt
+import numpy as np
+
+class FlexibleRowLayout:
+	def __init__(self, 
+				 n_plots=5,                     # Number of plots
+				 widths=None,                   # Relative widths of each plot
+				 heights=None,                  # Heights of each plot (or single value)
+				 spacing=0.05,                  # Single value or list of spacing values
+				 figsize=(27, 4),               # Overall figure size
+				 top_margin=0.9,                # Top margin
+				 bottom_margin=0.1,             # Bottom margin
+				 left_margin=0.05,              # Left margin
+				 right_margin=0.05):            # Right margin
+		
+		self.n_plots = n_plots
+		
+		# Process spacing parameter - can be single value or list
+		if isinstance(spacing, (int, float)):
+			self.spacing = [spacing] * (n_plots - 1)  # Same spacing for all gaps
+		else:
+			self.spacing = spacing
+			if len(spacing) != n_plots - 1:
+				raise ValueError(f"Expected {n_plots-1} spacing values, got {len(spacing)}")
+		
+		# Set default widths if not provided
+		if widths is None:
+			self.widths = [1] * n_plots
+		else:
+			self.widths = widths
+			if len(widths) != n_plots:
+				raise ValueError(f"Expected {n_plots} width values, got {len(widths)}")
+		
+		# Handle heights - can be single value or list
+		if heights is None:
+			self.heights = [1] * n_plots  # Default all same height
+		elif isinstance(heights, (int, float)):
+			self.heights = [heights] * n_plots  # Same height for all
+		else:
+			self.heights = heights
+			if len(heights) != n_plots:
+				raise ValueError(f"Expected {n_plots} height values, got {len(heights)}")
+		
+		# Create figure
+		self.fig = plt.figure(figsize=figsize)
+		
+		# Create axes directly with calculated positions
+		self.axes = []
+		
+		# Calculate total width (sum of all relative widths)
+		total_width = sum(self.widths)
+		
+		# Calculate total horizontal space for plots (accounting for margins)
+		available_width = 1.0 - left_margin - right_margin
+		
+		# Calculate total spacing width in figure coordinates
+		total_spacing_width = 0
+		for gap_width in self.spacing:
+			total_spacing_width += gap_width * available_width
+		
+		# Calculate actual width available for all plots
+		plots_width = available_width - total_spacing_width
+		
+		# Calculate vertical position and standard height
+		bottom = bottom_margin
+		std_height = top_margin - bottom_margin
+		
+		# Calculate starting position
+		current_x = left_margin
+		
+		for i in range(n_plots):
+			# Calculate width of this plot in figure coordinates
+			plot_width = (self.widths[i] / total_width) * plots_width
+			
+			# Calculate height for this plot
+			plot_height = std_height * self.heights[i]
+			
+			# Adjust vertical position to center the plot if height is different
+			y_pos = bottom + (std_height - plot_height) / 2
+			
+			# Create axes with exact position
+			ax = self.fig.add_axes([current_x, y_pos, plot_width, plot_height])
+			self.axes.append(ax)
+			
+			# Move to next position (including spacing if not the last plot)
+			if i < n_plots - 1:
+				current_x += plot_width + (self.spacing[i] * available_width)
+	
+		for ax in self.get_axes():
+			ax.set_xticks([])
+			ax.set_yticks([])
+
+	def get_axes(self):
+		"""Return all axes as a list"""
+		return self.axes
+	
 	def show(self):
 		"""Display the figure"""
 		plt.show()
