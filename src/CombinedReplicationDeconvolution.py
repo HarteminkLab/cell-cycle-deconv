@@ -221,8 +221,8 @@ class CombinedReplicationDeconvolution():
 		config2 = self.real_deconv2.config
 
 		layout_rows = FlexibleRowLayout(
-			widths=[4, 0.5, 0.6, 4, 1.5],
-			heights = [0.3, 0.3, 0.3, 0.35, 0.85],
+			widths=[4, 0.7, 0.8, 4, 1.5],
+			heights = [0.45, 0.45, 0.45, 0.55, 0.85],
 			spacing=[0.05, 0.03, 0.03, 0.03])
 
 		masked_indices = self.retrieve_masked_indices()
@@ -232,6 +232,7 @@ class CombinedReplicationDeconvolution():
 		G = pd.concat([self.real_deconv1.G_df, self.real_deconv2.G_df])
 		plot_heatmap(G, masked_indices, full_indices,
 					plot_cbar=False, ax=ax)
+		ax.axhline(len(config1.timepoints), c='black', lw=1.25)
 		ax.set_title("G$_r$", fontsize=48, fontweight='demi', pad=26)
 		ax.set_xlabel("(n x v)", fontsize=26, labelpad=13)
 
@@ -239,14 +240,14 @@ class CombinedReplicationDeconvolution():
 		ax.imshow(self.N, vmax=0.05, cmap='Purples', aspect='auto')
 		ax.set_title("N", fontsize=48, fontweight='demi', pad=26)
 		ax.set_xlabel("(n x n)", fontsize=26, labelpad=13)
-		ax.set_ylabel("=", rotation=0, fontsize=39, ha='right', va='center', labelpad=31,
+		ax.set_ylabel("=", rotation=0, fontsize=43, ha='right', va='center', labelpad=31,
 					 fontweight='demi')
 
 		ax = layout_rows.axes[2]
 		ax.imshow(self.H, vmax=0.05, cmap='Blues', aspect='auto')
 		ax.set_title("H", fontsize=48, fontweight='demi', pad=26)
 		ax.set_xlabel("(n x m)", fontsize=26, labelpad=13)
-		ax.set_ylabel("X", rotation=0, fontsize=23, ha='right', va='center', labelpad=18,
+		ax.set_ylabel("X", rotation=0, fontsize=27, ha='right', va='center', labelpad=18,
 					 fontweight='demi')
 
 		ax = layout_rows.axes[3]
@@ -256,15 +257,19 @@ class CombinedReplicationDeconvolution():
 					cmap=plt.cm.Greys, vmin=1, vmax=2.75)
 		ax.set_title("F$_r$", fontsize=48, fontweight='demi', pad=26)
 		ax.set_xlabel("(m x v)", fontsize=26, labelpad=13)
-		ax.set_ylabel("X", rotation=0, fontsize=23, ha='right', va='center', labelpad=18,
+		ax.set_ylabel("X", rotation=0, fontsize=27, ha='right', va='center', labelpad=18,
 					 fontweight='demi')
 
 		ax = layout_rows.axes[4]
 		ax.imshow(self.B, vmin=-0.5, vmax=0.5, cmap='PiYG', aspect='auto')
 		ax.set_title("B", fontsize=48, fontweight='demi', pad=26)
 		ax.set_xlabel("(v x v)", fontsize=26, labelpad=13)
-		ax.set_ylabel("X", rotation=0, fontsize=23, ha='right', va='center', labelpad=18,
+		ax.set_ylabel("X", rotation=0, fontsize=27, ha='right', va='center', labelpad=18,
 					 fontweight='demi')
+
+		for ax in layout_rows.axes:
+			for spine in ax.spines.values():
+				spine.set_linewidth(1.5)
 
 		plt.suptitle("Replication profile deconvolution", fontsize=50, fontweight='demi', y=1.35)
 
