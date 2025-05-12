@@ -220,7 +220,8 @@ class OriginAlphaSweep:
 	
 	def analyze_origin(self, oridb: str, window: int = 1000, 
 					 footprint_bounds: List[int] = [-5, 10, 3, 14],
-					 plot=False, impute_50_rep2=True) -> np.ndarray:
+					 plot=False, impute_50_rep2=True, copy_correct=True,
+					 alphas=[22, 20]) -> np.ndarray:
 		"""
 		Perform a complete analysis of a single origin.
 		
@@ -234,7 +235,7 @@ class OriginAlphaSweep:
 		"""
 
 		self.load_origin_mnase_data(oridb, window, impute_50_rep2=impute_50_rep2)
-		self.combined_model.setup_deconv_model()
+		self.combined_model.setup_deconv_model(copy_correct=copy_correct, alphas=alphas)
 
 		if plot:
 			self.plot_raw_data()

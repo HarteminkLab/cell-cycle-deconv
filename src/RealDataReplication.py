@@ -506,20 +506,13 @@ def plot_histogram_occupancies_G(config, G):
 	plt.suptitle("Distribution of normalized G data per timepoint")
 	plt.subplots_adjust(hspace=0.5)
 
+def plot_heatmap(dat, column_names, full_column_names, ax=None, cmap=plt.cm.RdBu_r,
+	vmin=0, vmax=2, plot_cbar=True, **kwargs):
 
-def plot_heatmaps(N, F, H, B, G, column_names, full_column_names,
-		figsize=(13, 11)):
+	if ax is None:
+		ax = plt.gca()
 
-	RdBu_cmap = plt.cm.RdBu_r
-	RdBu_cmap.set_bad('#aaaaaa')  # Set the color for NaN values
-
-	inv_B = np.linalg.inv(B)
-
-	HF = H@F
-	Ninv_G_B_inv = (np.linalg.inv(N)@G@inv_B)
-	predicted_G = N@H@F@B
-	residual_diff = G-(N@H@F@B)
-
+	cmap.set_bad('#c0c0c0')  # Set the color for NaN values
 	def create_df_and_full_cols(dat, column_names, full_column_names):
 		"""Insert back in the nan columns for plotting using reindex"""
 		# Create the initial dataframe with existing data
@@ -531,49 +524,53 @@ def plot_heatmaps(N, F, H, B, G, column_names, full_column_names,
 		
 		return complete_dat
 
-	F = create_df_and_full_cols(F, column_names, full_column_names)
-	G = create_df_and_full_cols(G, column_names, full_column_names)
-	HF = create_df_and_full_cols(HF, column_names, full_column_names)
-	Ninv_G_B_inv = create_df_and_full_cols(Ninv_G_B_inv, column_names, full_column_names)
-	predicted_G = create_df_and_full_cols(predicted_G, column_names, full_column_names)
-	residual_diff = create_df_and_full_cols(residual_diff, column_names, full_column_names)
+	masked_dat = create_df_and_full_cols(dat, column_names, full_column_names)
+	im = ax.imshow(masked_dat, cmap=cmap, vmin=vmin, vmax=vmax, interpolation='none', aspect='auto',
+		**kwargs)
+
+	if plot_cbar: plt.colorbar(im)
+
+
+def plot_heatmaps(N, F, H, B, G, column_names, full_column_names,
+		figsize=(13, 11)):
+
+	inv_B = np.linalg.inv(B)
+
+	HF = H@F
+	Ninv_G_B_inv = (np.linalg.inv(N)@G@inv_B)
+	predicted_G = N@H@F@B
+	residual_diff = G-(N@H@F@B)
 
 	fig = plt.figure(figsize=figsize)
 
 	plt.subplot(6, 1, 1)
-	plt.imshow(F, cmap=RdBu_cmap, vmin=0, vmax=2, interpolation='none', aspect='auto')
+	plot_heatmap(F, column_names, full_column_names)
 	plt.xticks([])
-	plt.colorbar()
 	plt.title("$F$")
 	plt.ylim(F.shape[0], 0)
 
 	plt.subplot(6, 1, 2)
-	plt.imshow(HF, cmap=RdBu_cmap, vmin=0, vmax=2, interpolation='none', aspect='auto')
-	plt.colorbar()
+	plot_heatmap(HF, column_names, full_column_names)
 	plt.xticks([])
 	plt.title("$HF$")
 
 	plt.subplot(6, 1, 3)
-	plt.imshow(Ninv_G_B_inv, cmap=RdBu_cmap, vmin=0, vmax=2, interpolation='none', aspect='auto')
-	plt.colorbar()
+	plot_heatmap(Ninv_G_B_inv, column_names, full_column_names)
 	plt.title("$(N^{-1})G(B^{-1})$")
 	plt.xticks([])
 
 	plt.subplot(6, 1, 4)
-	plt.imshow(predicted_G, cmap=RdBu_cmap, vmin=0, vmax=2, interpolation='none', aspect='auto')
+	plot_heatmap(predicted_G, column_names, full_column_names)
 	plt.xticks([])
-	plt.colorbar()
 	plt.title("Predicted G: $NHFB$")
 
 	plt.subplot(6, 1, 5)
-	plt.imshow(G, cmap=RdBu_cmap, vmin=0, vmax=2, interpolation='none', aspect='auto')
-	plt.colorbar()
+	plot_heatmap(G, column_names, full_column_names)
 	plt.xticks([])
 	plt.title("$G$")
 
 	plt.subplot(6, 1, 6)
-	plt.imshow(residual_diff, vmin=-1, vmax=1, cmap=RdBu_cmap, interpolation='none', aspect='auto')
-	plt.colorbar()
+	plot_heatmap(residual_diff, column_names, full_column_names, vmin=-1, vmax=1)
 	plt.title("$G - NHFB$")
 	plt.subplots_adjust(hspace=0.5, top=0.9)
 

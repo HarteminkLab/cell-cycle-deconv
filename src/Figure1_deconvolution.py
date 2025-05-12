@@ -176,7 +176,6 @@ class Figure1Deconvolution(object):
 			labelpad=10)
 
 		# Thicken the spine
-		# Or more concisely:
 		for ax in [ax1, ax2]:
 			for spine in ax.spines.values():
 				spine.set_linewidth(1.25)

@@ -173,12 +173,15 @@ class ModelConfig(object):
 
 		self.branch_Hpos_df = branch_Hpos_df
 
-	def modify_alpha(self, new_alpha):
+	def modify_alpha(self, new_alpha, num_g1_tps=None):
 
 		total_branch_tps = self.g1_num_tps+self.postg1_num_tps
 
-		self.g1_num_tps = new_alpha
-		self.postg1_num_tps = total_branch_tps-new_alpha
+		if num_g1_tps is None:
+			num_g1_tps = new_alpha
+
+		self.g1_num_tps = num_g1_tps
+		self.postg1_num_tps = total_branch_tps-num_g1_tps
 
 		self.params_dic['alpha'] = new_alpha
 		self.alpha = new_alpha

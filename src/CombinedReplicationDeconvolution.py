@@ -213,6 +213,85 @@ class CombinedReplicationDeconvolution():
 
 		return update_params_df, Hs, Fs, Ns, Bs
 
+
+	def plot_N_G_Fr_B_diagram(self):
+		from src.layout_replication_plots import ReplicationSubplotLayout
+		from src.RealDataReplication import plot_heatmap
+
+		# Create a layout with default parameters
+		layout = ReplicationSubplotLayout(figsize=(24, 8))
+
+		# Get all axes
+		axes = layout.get_axes()
+
+		masked_indices = self.retrieve_masked_indices()
+		full_indices = self.real_deconv1.full_start_indices
+
+		# Create a plot laying out the N H Fr B = G model
+		config1 = self.real_deconv1.config
+		config2 = self.real_deconv2.config
+
+		rep1_tps = self.real_deconv1.config.timepoints
+		rep2_tps = self.real_deconv2.config.timepoints
+		n_1_tps = len(rep1_tps)
+		n_2_tps = len(rep2_tps)
+
+
+		def plot_N(ax, N, replicate):
+			ax.plot(np.diag(N), np.arange(N.shape[0]), c=plt.cm.Purples(0.5), lw=4)
+			ax.set_ylim(N.shape[0]-1, 0)
+			ax.set_xlim(0.5, 1.25)
+			ax.set_ylabel('diag(N$_' + str(replicate) +'$)', fontsize=20, 
+						  fontweight='demi', rotation=0, 
+				ha='right', va='center', labelpad=10)
+
+		plot_N(axes['left_top'], self.N[:n_1_tps, :][:, :n_1_tps], 1)
+		plot_N(axes['left_bottom'], self.N[n_1_tps:, :][:, n_1_tps:], 2)
+
+		plot_heatmap(self.real_deconv1.G_df, masked_indices, full_indices,
+					plot_cbar=False, ax=axes['main_top'])
+		plot_heatmap(self.real_deconv2.G_df, masked_indices, full_indices,
+					plot_cbar=False, ax=axes['main_bottom'])
+		axes['main_bottom'].set_ylabel('G$_2$', fontsize=20, fontweight='demi', rotation=0, 
+									  ha='right', va='center', labelpad=10)
+		axes['main_top'].set_ylabel('G$_1$', fontsize=20, fontweight='demi', rotation=0, 
+									  ha='right', va='center', labelpad=10)
+
+		B_diag = np.diag(self.B)
+		ax = axes['bottom']
+		ax.plot(B_diag, c=plt.cm.Greens(0.65), lw=4)
+		ax.set_ylim(0, 2)
+		ax.set_xlim(0, len(B_diag)-1)
+		ax.set_ylabel('diag(B)', fontsize=20, fontweight='demi', rotation=0, 
+									  ha='right', va='center', labelpad=10)
+
+		from src.RealDataReplication import plot_heatmap
+		ax = axes['top']
+		ax.set_ylabel('F$_r$', fontsize=20, fontweight='demi', rotation=0, 
+									  ha='right', va='center', labelpad=10)
+
+		plot_heatmap(self.F_df.loc[config1.t_indices()], 
+			masked_indices, full_indices, plot_cbar=False, ax=ax,
+					cmap=plt.cm.Greys, vmin=1, vmax=2.75)
+
+		for ax in axes.values():
+			for spine in ax.spines.values():
+				spine.set_linewidth(1.5)
+
+		fig = layout.fig
+		plt.subplots_adjust(right=0.85)
+		plt.suptitle("Replication estimation components", fontsize=32, fontweight='demi', y=1.05)
+
+		return fig
+
+
+	def retrieve_masked_indices(self):
+		masked_indices1 = self.real_deconv1.masked_start_indices
+		masked_indices2 = self.real_deconv2.masked_start_indices
+		masked_indices_combined = sorted(list(set(masked_indices1).union(set(masked_indices2))))
+		return masked_indices_combined
+
+
 	def plot_heatmaps(self):
 		from src.RealDataReplication import plot_heatmaps
 
