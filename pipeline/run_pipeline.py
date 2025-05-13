@@ -317,6 +317,19 @@ def main():
 		fig1.run_and_save_all()
 		fig1.create_panel()
 
+	elif command == 'figure2_replication':
+
+		from src.Figure2_Replication import Figure2ReplicationDeconvolution
+		
+		(_, command, output_dir) = system_args
+
+		fig2 = Figure2ReplicationDeconvolution(output_dir)
+		fig2.setup_data()
+		fig2.plot_N_G_Fr_B_components()
+		fig2.plot_GNHFrB_diagram()
+		fig2.plot_diagram_replication()
+		fig2.layout_panel()
+
 	else:
 
 		raise ValueError(f"Invalid command" + command)
@@ -373,7 +386,7 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 
 		combined_model.plot_branches(figsize=(50, 11))
 		plt.savefig(f"{deconv_plots_directory}/deconv_{save_title}.png")
-		plt.close(fig)
+		plt.close(fig)z
 
 	window_set = pd.read_csv(window_set_path)
 	row = window_set.iloc[index]
