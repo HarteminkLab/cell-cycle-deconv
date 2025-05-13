@@ -60,12 +60,12 @@ class Figure2ReplicationDeconvolution():
 				if i >= repl_index:
 					plot_strand(start_x+x,  start_y+y+0.5, color)            
 
-		plt.figure(figsize=(12, 9))
+		plt.figure(figsize=(19, 2))
 
 		early_repl = 3
 		late_repl = 5
 
-		plt.subplot(3, 1, 1)
+		plt.subplot(1, 3, 1)
 		xs = np.arange(0, 16, 2)
 		ys = np.repeat(0, len(xs))
 
@@ -82,14 +82,14 @@ class Figure2ReplicationDeconvolution():
 		plt.xlim(0, 16)
 		# plt.yticks([-1.25, 1.25], ['Late replicating', 'Early replicating'], fontsize=14)
 		plt.yticks([])
-		plt.xticks([])
 		plt.title("Genomic DNA", fontsize=18, pad=10)
 		plt.axvspan(6, 10, 0, 1, color='black', alpha=0.05, lw=0)
+		plt.xticks([3, 8, 13], ['G1', 'S', 'G2/M'], fontsize=14)
+		plt.tick_params(axis='x', length=0, pad=10)
 
 		# ------------------------
 
-		plt.subplot(3, 1, 2)
-		plt.xticks([])
+		plt.subplot(1, 3, 2)
 		plt.yticks([])
 
 		num_tps = 17
@@ -115,10 +115,12 @@ class Figure2ReplicationDeconvolution():
 		plt.xlim(0, 16)
 		plt.legend(fontsize=13, loc='lower right')
 		plt.ylim(0.75, 2.25)
+		plt.xticks([3, 8, 13], ['G1', 'S', 'G2/M'], fontsize=14)
+		plt.tick_params(axis='x', length=0, pad=10)
 
 		# ------------------------
 
-		plt.subplot(3, 1, 3)
+		plt.subplot(1, 3, 3)
 
 		plt.plot(xs, early_repl_ys)
 		plt.plot(xs, late_repl_ys)
@@ -140,9 +142,9 @@ class Figure2ReplicationDeconvolution():
 		plt.title("Relative proportion of total DNA", fontsize=18, pad=10)
 		plt.plot(xs, late_repl_ys, lw=2, c='black', solid_joinstyle='miter')
 
-		plt.subplots_adjust(hspace=0.4)
+		plt.subplots_adjust(hspace=0.4, top=0.85)
 		plt.suptitle("Normalization of genomic DNA through replication", 
-			fontweight='demi', fontsize=26, y=0.98)
+			fontweight='demi', fontsize=26, y=1.37)
 		save_figure_for_paper(f"{self.save_dir}/DNA_replication_diagram.png")
 
 	def plot_N_G_Fr_B_components(self):
@@ -156,11 +158,11 @@ class Figure2ReplicationDeconvolution():
 
 	def layout_panel(self):
 		from pipeline.figure_composer import FigureCompositor
-		from pipeline.figure_composer_helpers import layout_images_horizontally, place_image_below,\
+		from pipeline.figure_composer_helpers import layout_images_vertically,\
 		    add_panel_labels_to_images
 
 
-		compositor = FigureCompositor(1024, 380, debug_mode=True)
+		compositor = FigureCompositor(1024, 960, debug_mode=True)
 
 		image_paths = [
 		    f'{self.save_dir}/DNA_replication_diagram.png',
@@ -168,23 +170,20 @@ class Figure2ReplicationDeconvolution():
 		    f'{self.save_dir}/Replication_components.png',
 		]
 
-		placed_images = layout_images_horizontally(
+		placed_images = layout_images_vertically(
 		    compositor,
-		    image_paths[0:2],
-		    width_proportions=[0.8, 1],  # First image gets 2x width of others
-		    between_padding=60,
-		    margin=(50, 30),
-		    image_keys=['DNA', 'Replication']  # Custom keys for the images
+		    image_paths,
+		    height_proportions=[0.35, 0.4, 0.6],
+		    between_padding=40,
+		    margin=(30, 30),
+		    image_keys=['DNA', 'Replication', 'Components']  # Custom keys for the images
 		)
-
-		place_image_below(compositor, image_paths[2], 'Replication',
-		                 vertical_padding=30, new_key='Components')
 
 		add_panel_labels_to_images(
 		    compositor, 
 		    compositor.placed_images,
-		    font_size=30,
-		    offset=(-28, -16)
+		    font_size=36,
+		    offset=(-10, -12)
 		)
 
 		compositor.save(f'{self.save_dir}/Figure2_Replication.png')
