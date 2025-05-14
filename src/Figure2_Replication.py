@@ -16,6 +16,9 @@ class Figure2ReplicationDeconvolution():
 		self.output_directory = output_directory
 		self.save_dir = f'{self.output_directory}/replication_figures'
 
+		# Set the math text parameters to computer modern
+		plt.rcParams['mathtext.fontset'] = 'cm'
+
 		mkdir_safe(self.save_dir)
 
 		# Examine the replication data, does replicate 2's cell cycle length need to be longer?
@@ -60,13 +63,15 @@ class Figure2ReplicationDeconvolution():
 				if i >= repl_index:
 					plot_strand(start_x+x,  start_y+y+0.5, color)            
 
-		plt.figure(figsize=(19, 2))
+		fig = plt.figure(figsize=(19, 2))
 
 		early_repl = 3
 		late_repl = 5
 
+		xlims = 0, 18
+
 		plt.subplot(1, 3, 1)
-		xs = np.arange(0, 16, 2)
+		xs = np.arange(0, 18, 2)
 		ys = np.repeat(0, len(xs))
 
 		early_color = plt.cm.Reds(0.65)
@@ -75,31 +80,36 @@ class Figure2ReplicationDeconvolution():
 		early_color = adjust_lightness_saturation(early_color, 1.0, 0.75)
 
 		num_tps = len(xs)
-		plot_strand_series(0.5, 1.25, xs, ys, early_repl, early_color)
-		plot_strand_series(0.5, -1.25, xs, ys, late_repl, late_color)
+		plot_strand_series(0.5, -1.25, xs, ys, early_repl, early_color)
+		plot_strand_series(0.5,  1.25, xs, ys, late_repl, late_color)
 
 		plt.ylim(-3, 3)
-		plt.xlim(0, 16)
-		# plt.yticks([-1.25, 1.25], ['Late replicating', 'Early replicating'], fontsize=14)
+		plt.xlim(*xlims)
 		plt.yticks([])
 		plt.title("Genomic DNA", fontsize=18, pad=10)
-		plt.axvspan(6, 10, 0, 1, color='black', alpha=0.05, lw=0)
-		plt.xticks([3, 8, 13], ['G1', 'S', 'G2/M'], fontsize=14)
+		plt.axvspan(6, 12, 0, 1, color='black', alpha=0.05, lw=0)
+		plt.xticks([3, 9, 15], ['G1', 'S', 'G2/M'], fontsize=14)
 		plt.tick_params(axis='x', length=0, pad=10)
+		ax1 = plt.gca()
 
 		# ------------------------
 
 		plt.subplot(1, 3, 2)
 		plt.yticks([])
 
-		num_tps = 17
-		xs = np.arange(0, num_tps)
+		num_tps = 19
+		xs = np.arange(0, num_tps).astype(float)
 
 		early_repl = 6
-		late_repl = 10
+		late_repl = 12
 
 		xs[early_repl-1] = xs[early_repl]
 		xs[late_repl-1] = xs[late_repl]
+
+		# Inset the replication timings a bit
+		# visual clarity
+		xs[early_repl-1:early_repl+1] = xs[early_repl]+0.5
+		xs[late_repl-1:late_repl+1] = xs[late_repl]-0.75
 
 		early_repl_ys = np.ones(num_tps)
 		early_repl_ys[early_repl:] = 2
@@ -107,16 +117,25 @@ class Figure2ReplicationDeconvolution():
 		late_repl_ys = np.ones(num_tps)
 		late_repl_ys[late_repl:] = 2
 
-		plt.plot(xs, early_repl_ys+0.01, label="Early replicating", c=early_color, lw=4)
-		plt.plot(xs, late_repl_ys-0.01, label="Late replicating", c=late_color, lw=4)
+		line1 = plt.plot(xs, early_repl_ys+0.01, label="Early replicating", c=early_color, lw=4)[0]
+		line2 = plt.plot(xs, late_repl_ys-0.01, label="Late replicating", c=late_color, lw=4)[0]
 
-		plt.title("Replication profile comparison", fontsize=18, pad=10)
-		plt.axvspan(6, 10, 0, 1, color='black', alpha=0.05, lw=0)
-		plt.xlim(0, 16)
-		plt.legend(fontsize=13, loc='lower right')
+		plt.title("Replication profiles", fontsize=18, pad=10)
+		plt.xlim(*xlims)
 		plt.ylim(0.75, 2.25)
-		plt.xticks([3, 8, 13], ['G1', 'S', 'G2/M'], fontsize=14)
+		plt.axvspan(6, 12, 0, 1, color='black', alpha=0.05, lw=0)
+		plt.xticks([3, 9, 15], ['G1', 'S', 'G2/M'], fontsize=14)
 		plt.tick_params(axis='x', length=0, pad=10)
+
+		fig.legend(
+		    [line1, line2],
+		    ['Early replicating', 'Late replicating'],
+			loc='upper center',
+    		bbox_to_anchor=(0.25, -0.0), # Place below the first subplot
+		    ncol=2,
+		    fontsize=14,
+		    frameon=False
+		)
 
 		# ------------------------
 
@@ -129,22 +148,21 @@ class Figure2ReplicationDeconvolution():
 		early_repl_ys = early_repl_ys / total_repls
 		late_repl_ys = late_repl_ys / total_repls
 
-		plt.fill_between(xs, late_repl_ys, 0, color=late_color)
-		plt.fill_between(xs, early_repl_ys+late_repl_ys, late_repl_ys, color=early_color)
+		plt.fill_between(xs, early_repl_ys, 0, color=early_color)
+		plt.fill_between(xs, early_repl_ys+late_repl_ys, early_repl_ys, color=late_color)
 
 		plt.ylim(0, 1)
-		plt.xlim(0, 16)
-		# plt.yticks([0.25, 0.75], ['Late replicating', 'Early replicating'], fontsize=14)
+		plt.xlim(*xlims)
 		plt.yticks([])
-		plt.xticks([3, 8, 13], ['G1', 'S', 'G2/M'], fontsize=14)
+		plt.xticks([3, 9, 15], ['G1', 'S', 'G2/M'], fontsize=14)
 		plt.tick_params(axis='x', length=0, pad=10)
-		plt.axvspan(6, 10, 0, 1, color='white', alpha=0.125, lw=0)
+		plt.axvspan(6, 12, 0, 1, color='white', alpha=0.05, lw=0)
 		plt.title("Relative proportion of total DNA", fontsize=18, pad=10)
-		plt.plot(xs, late_repl_ys, lw=2, c='black', solid_joinstyle='miter')
+		plt.plot(xs, early_repl_ys, lw=2, c='black', solid_joinstyle='miter')
 
-		plt.subplots_adjust(hspace=0.4, top=0.85)
-		plt.suptitle("Normalization of genomic DNA through replication", 
-			fontweight='demi', fontsize=26, y=1.37)
+		plt.subplots_adjust(hspace=0.4, top=0.85, bottom=0.2)
+		plt.suptitle("Effect of replication on normalized DNA counts",
+			fontweight='demi', fontsize=29, y=1.37)
 		save_figure_for_paper(f"{self.save_dir}/DNA_replication_diagram.png")
 
 	def plot_N_G_Fr_B_components(self):
