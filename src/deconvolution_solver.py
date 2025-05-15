@@ -50,11 +50,8 @@ class DeconvolutionSolver(object):
 		f_postg1 = self.config.get_Hpositions_for_phase('postG1')
 		f_halted = self.config.get_Hpositions_for_phase('Halted')
 
-		# Smoothing will be enforced by each branch separately,
-		# and by enforcing smoothing going into each of the mother/daughter branches
-
-		# The left end of the recovery branch is mirrored, the right end is smooth
-		# into the start of the top branch
+		# The left end of the recovery branch is mirrored, the right end is periodically
+		# smooth into the start of the top branch
 		half_len_i = len(f_i) // 2
 		f_i_mirror = np.concatenate([np.flip(f_i[:half_len_i]), f_i, f_t[-half_len_i:]])
 
@@ -63,7 +60,7 @@ class DeconvolutionSolver(object):
 		# the top branch is continuous from the end of the top branch, etc...
 		half_len_t_b = len(f_t)//2
 		f_t_periodic = np.concatenate([f_t[half_len_t_b:], f_t, f_t[:half_len_t_b]])
-		f_b_periodic = np.concatenate([f_t[half_len_t_b:], f_b, f_b[:half_len_t_b]])
+		f_b_periodic = np.concatenate([f_b[half_len_t_b:], f_b, f_b[:half_len_t_b]])
 
 		from src.helpers import compute_closest_pow2
 
@@ -114,7 +111,7 @@ class DeconvolutionSolver(object):
 		smooth_f_b_result = cp.sum(cp.abs(coeffs_b))
 
 		fit_norm_result = cp.square(cp.norm(elementwise_result, 2))
-		smooth_result = (smooth_f_i_result * 2.0 +
+		smooth_result = (smooth_f_i_result * 2. +
 						 smooth_f_t_result * 1 +
 						 smooth_f_b_result * 1)
 
