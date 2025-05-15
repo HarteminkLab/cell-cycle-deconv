@@ -75,8 +75,8 @@ class DeconvolutionSolver(object):
 
 		# Create block matrix structures for wavelets
 		W_i = get_wavelet_kernel(len(f_i_mirror), par=5)
-		W_t = W_i #get_wavelet_kernel(len(f_t_periodic), par=5)
-		W_b = W_i #get_wavelet_kernel(len(f_b_periodic), par=5)
+		W_t = get_wavelet_kernel(len(f_t_periodic), par=5)
+		W_b = W_t #get_wavelet_kernel(len(f_b_periodic), par=5)
 
 		# Model a baseline value, so smoothing constraints are applied to
 		# variations on the baseline
@@ -114,7 +114,7 @@ class DeconvolutionSolver(object):
 		smooth_f_b_result = cp.sum(cp.abs(coeffs_b))
 
 		fit_norm_result = cp.square(cp.norm(elementwise_result, 2))
-		smooth_result = (smooth_f_i_result * 1 +
+		smooth_result = (smooth_f_i_result * 2.0 +
 						 smooth_f_t_result * 1 +
 						 smooth_f_b_result * 1)
 
