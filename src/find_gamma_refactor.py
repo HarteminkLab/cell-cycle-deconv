@@ -169,11 +169,11 @@ class GammaOptimizer:
 
 		plt.figure(figsize=(11, 2))
 		plt.subplot(1, 3, 1)
-		plt.plot(self.elbow_results_df.rn, self.elbow_results_df.sn)
+		plt.plot(self.elbow_results_df.rn, self.elbow_results_df.sn, '-o')
 		plt.xlabel("Residual norm, rn")
 		plt.ylabel("Smoothing norm, sn")
 
 		optimal_gamma = self.optimal_gamma
 		plt.scatter(self.elbow_results_df.loc[optimal_gamma].rn,
 					self.elbow_results_df.loc[optimal_gamma].sn,
-				   c='red')
+				   c='red', zorder=2)

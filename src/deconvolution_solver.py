@@ -52,9 +52,18 @@ class DeconvolutionSolver(object):
 
 		# Smoothing will be enforced by each branch separately,
 		# and by enforcing smoothing going into each of the mother/daughter branches
-		f_i_mirror = np.concatenate([np.flip(f_i), f_i])
-		f_t_duplicate = np.concatenate([f_t, f_t])
-		f_b_duplicate = np.concatenate([f_b, f_b])
+
+		# The left end of the recovery branch is mirrored, the right end is smooth
+		# into the start of the top branch
+		half_len_i = len(f_i) // 2
+		f_i_mirror = np.concatenate([np.flip(f_i[:half_len_i]), f_i, f_t[-half_len_i:]])
+
+		# The top and bottom branches are padded on each side with the
+		# periodic signal of the half ends of each side. e.g. the start of 
+		# the top branch is continuous from the end of the top branch, etc...
+		half_len_t_b = len(f_t)//2
+		f_t_periodic = np.concatenate([f_t[half_len_t_b:], f_t, f_t[:half_len_t_b]])
+		f_b_periodic = np.concatenate([f_t[half_len_t_b:], f_b, f_b[:half_len_t_b]])
 
 		from src.helpers import compute_closest_pow2
 
@@ -66,8 +75,8 @@ class DeconvolutionSolver(object):
 
 		# Create block matrix structures for wavelets
 		W_i = get_wavelet_kernel(len(f_i_mirror), par=5)
-		W_t = W_i #get_wavelet_kernel(len(f_t_duplicate), par=5)
-		W_b = W_i #get_wavelet_kernel(len(f_b_duplicate), par=5)
+		W_t = W_i #get_wavelet_kernel(len(f_t_periodic), par=5)
+		W_b = W_i #get_wavelet_kernel(len(f_b_periodic), par=5)
 
 		# Model a baseline value, so smoothing constraints are applied to
 		# variations on the baseline
@@ -97,8 +106,8 @@ class DeconvolutionSolver(object):
 		# weights = get_level_based_weights(W_i.shape[0])
 
 		coeffs_i = W_i@(f_variation[f_i_mirror])
-		coeffs_t = W_t@(f_variation[f_t_duplicate])
-		coeffs_b = W_b@(f_variation[f_b_duplicate])
+		coeffs_t = W_t@(f_variation[f_t_periodic])
+		coeffs_b = W_b@(f_variation[f_b_periodic])
 
 		smooth_f_i_result = cp.sum(cp.abs(coeffs_i))
 		smooth_f_t_result = cp.sum(cp.abs(coeffs_t))
@@ -149,8 +158,8 @@ class DeconvolutionSolver(object):
 		self.f = f
 
 		self.f_i_mirror = f_i_mirror
-		self.f_t_duplicate = f_t_duplicate
-		self.f_b_duplicate = f_b_duplicate
+		self.f_t_periodic = f_t_periodic
+		self.f_b_periodic = f_b_periodic
 
 		self.W_i = W_i
 
