@@ -8,7 +8,7 @@ from src.chromatin_deconvolution_solver import ChromatinDeconvolveSolver
 class GeneExpressionFindOptimalGamma(object):
 	"""Wrapper to find optimal gamma for a window of gene expression reads"""
 
-	def __init__(self, config, H, gene_expression, gamma_min=0.01, gamma_max=1, verbose=True):
+	def __init__(self, config, H, gene_expression, gamma_min=0.01, gamma_max=10, verbose=True):
 
 		from src.deconvolution_solver import DeconvolutionSolver
 
@@ -166,6 +166,8 @@ class GeneExpressionFindOptimalGamma(object):
 				lw=3)
 		ax.set_ylim(*ylims)
 		ax.set_title("Bottom branch")
+
+		plt.suptitle(f"$\\gamma$ = {self.gamma_optimizer.optimal_gamma:.4g}", y=1.1, fontsize=16, fontweight='demi')
 
 		return fig
 

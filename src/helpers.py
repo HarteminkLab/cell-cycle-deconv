@@ -188,7 +188,7 @@ def createF(Hpos, phaseMap):
 	return np.array(f_partial), f_partial_list
 
 
-def get_wavelet_kernel(N, type="Symmlet", par=8):
+def get_wavelet_kernel(N, type="Symmlet", par=5):
 	wavelet_kernel = WavMat(MakeONFilter(type, par), N)
 	return wavelet_kernel
 
@@ -301,6 +301,8 @@ def MakeONFilter(Type, Par):
 						  -0.045240772218, 0.070703567550, 0.008152816799,
 						  -0.028786231926, -0.001137535314, 0.006495728375,
 						  0.000080661204, -0.000649589896])
+		else:
+			raise ValueError(f"Invalid par: = {Par}")
 
 		f = f / np.linalg.norm(f)
 

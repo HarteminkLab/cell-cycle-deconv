@@ -20,7 +20,7 @@ class CombinedDeconvolveGeneExpressionRunner:
 		self.config2 = config2
 
 
-	def deconvolve_gene(self, gene_name, replicate='combined', kappa=0.0):
+	def deconvolve_gene_find_gamma(self, gene_name, replicate='combined', kappa=0.0, verbose=False):
 
 		from src.gene_expression import load_gene_expression
 		from src.sgd import get_orfname
@@ -57,7 +57,7 @@ class CombinedDeconvolveGeneExpressionRunner:
 
 		expression_find_gamma = GeneExpressionFindOptimalGamma(config=config, H=H, 
 			gene_expression=G)
-		expression_find_gamma.find_optimal_gamma(plot=False, verbose=False, kappa=kappa)
+		expression_find_gamma.find_optimal_gamma(plot=False, verbose=verbose, kappa=kappa)
 		self.expression_find_gamma = expression_find_gamma
 
 		return expression_find_gamma

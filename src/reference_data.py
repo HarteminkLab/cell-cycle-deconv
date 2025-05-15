@@ -156,42 +156,49 @@ def load_chrom_replication_timing():
 	return replication_timing
 
 
-def plot_guo_gene_expression(gene_name):
+def plot_guo_gene_expression(gene_name, log_transform=False):
 
 	from src.sgd import get_orfname
+	import numpy as np
+
 	orf_name = get_orfname(gene_name)
 	guo_f_df = pd.read_csv('datasets/datasets_from_web_deconvolution.cs.duke.edu/deconvolved_profiles.tsv', 
 		sep='\t').set_index('SystematicName')
 	tp_cols = guo_f_df.columns[2:]
 
-	gene = guo_f_df.loc[orf_name][tp_cols]
+	gene_data = guo_f_df.loc[orf_name][tp_cols]
 
 	df_index = tp_cols
 
-	r_values = [x for x in df_index if x.startswith('R')]
-	d_values = [x for x in df_index if x.startswith('D')]
-	c_values = [x for x in df_index if x.startswith('C')]
+	r_columns = [x for x in df_index if x.startswith('R')]
+	d_columns = [x for x in df_index if x.startswith('D')]
+	c_columns = [x for x in df_index if x.startswith('C')]
+
+	if log_transform:
+		all_cols = np.concatenate([r_columns, d_columns, c_columns])
+		values = gene_data[all_cols].values.astype(float)
+		gene_data.loc[:] = np.log2(values+1)
 
 	# To get just the numbers for each:
-	r_numbers = [int(x.split(':')[1].rstrip(')')) for x in r_values]
-	d_numbers = [int(x.split(':')[1].rstrip(')')) for x in d_values]
-	c_numbers = [int(x.split(':')[1].rstrip(')')) for x in c_values]
+	r_timepoints = [int(x.split(':')[1].rstrip(')')) for x in r_columns]
+	d_timepoints = [int(x.split(':')[1].rstrip(')')) for x in d_columns]
+	c_timepoints = [int(x.split(':')[1].rstrip(')')) for x in c_columns]
 
 	plt.figure(figsize=(9, 2))
 	plt.subplot(1, 3, 1)
-	plt.plot(r_numbers, gene[r_values])
+	plt.plot(r_timepoints, gene_data[r_columns])
 	plt.title("Recovery")
-	plt.ylim(0, gene.max()*1.1)
+	plt.ylim(0, gene_data.max()*1.1)
 
 	plt.subplot(1, 3, 2)
-	plt.plot(c_numbers, gene[c_values])
+	plt.plot(c_timepoints, gene_data[c_columns])
 	plt.title("Mother")
-	plt.ylim(0, gene.max()*1.1)
+	plt.ylim(0, gene_data.max()*1.1)
 
 	plt.subplot(1, 3, 3)
-	plt.plot(d_numbers, gene[d_values])
+	plt.plot(d_timepoints, gene_data[d_columns])
 	plt.title("Daughter")
-	plt.ylim(0, gene.max()*1.1)
+	plt.ylim(0, gene_data.max()*1.1)
 
 
 def load_plus_ones():

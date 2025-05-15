@@ -64,11 +64,11 @@ class ImprovedDeconvolutionSolver:
         # Prepare final result vector
         f_final = np.zeros(m)
         
-        # ============= FIRST OPTIMIZATION (RIGHT MIRRORING) =============
+        # ============= (LEFT MIRRORING) =============
         
         # Create branch-specific edge handling
-        # Recovery branch: right mirroring (for left edge)
-        f_i_right_mirror = np.concatenate([f_i, np.flip(f_i)])
+        # Recovery branch: left mirroring (for right edge)
+        f_i_left_mirror = np.concatenate([np.flip(f_i), f_i])
         
         # Top branch: duplication for cyclicity
         f_t_duplication = np.concatenate([f_t, f_t])
@@ -86,18 +86,6 @@ class ImprovedDeconvolutionSolver:
         W_t_padded = self._create_block_wavelet(W_t, mirror=False)  # No mirroring for duplication
         W_b_padded = self._create_block_wavelet(W_b, mirror=False)  # No mirroring for duplication
         
-        # Run first optimization
-        f_right_mirror = self._run_optimization(
-            f_i_right_mirror, f_t_duplication, f_b_duplication,
-            W_i_padded, W_t_padded, W_b_padded,
-            f_cg1, f_dg1
-        )
-        
-        # ============= SECOND OPTIMIZATION (LEFT MIRRORING) =============
-        
-        # Recovery branch: left mirroring (for right edge)
-        f_i_left_mirror = np.concatenate([np.flip(f_i), f_i])
-        
         # Run second optimization (top and bottom branches remain the same)
         f_left_mirror = self._run_optimization(
             f_i_left_mirror, f_t_duplication, f_b_duplication,
@@ -105,23 +93,10 @@ class ImprovedDeconvolutionSolver:
             f_cg1, f_dg1
         )
         
-        # ================ COMBINE RESULTS ================
-        
-        # Recovery branch: use right mirroring for left half, left mirroring for right half
-        mid_i = len(f_i) // 2
-        f_final[f_i[:mid_i]] = f_right_mirror[f_i[:mid_i]]
-        f_final[f_i[mid_i:]] = f_left_mirror[f_i[mid_i:]]
-        
-        # Top branch: average results from both optimizations
-        f_final[f_t] = (f_right_mirror[f_t] + f_left_mirror[f_t]) / 2
-        
-        # Bottom branch: average results from both optimizations
-        f_final[f_b] = (f_right_mirror[f_b] + f_left_mirror[f_b]) / 2
+        f_final = f_left_mirror
         
         # Store results
         self.f = f_final
-        self.f_right_mirror = f_right_mirror
-        self.f_left_mirror = f_left_mirror
         
         # Calculate norms
         self.rn = self._calculate_residual_norm(f_final)
@@ -148,7 +123,7 @@ class ImprovedDeconvolutionSolver:
             Wavelet kernel matrix
         """
         from src.helpers import get_wavelet_kernel
-        return get_wavelet_kernel(length)
+        return get_wavelet_kernel(length, par=5)
     
     def _create_block_wavelet(self, W, mirror=True):
         """
@@ -235,7 +210,7 @@ class ImprovedDeconvolutionSolver:
         
         # Scale factors based on branch proportions (recovery is shortest, bottom is longest)
         # You may need to adjust these weights
-        i_weight = 2  # Recovery branch
+        i_weight = 1  # Recovery branch
         t_weight = 1  # Top branch
         b_weight = 1  # Bottom branch (longest)
         
@@ -322,9 +297,9 @@ class ImprovedDeconvolutionSolver:
         b_smoothness = self._calculate_branch_smoothness(f, f_b)
         
         # Weight factors matching those in optimization
-        i_weight = 0.9
-        t_weight = 1.0
-        b_weight = 1.2
+        i_weight = 1
+        t_weight = 1
+        b_weight = 1
         
         return i_weight * i_smoothness + t_weight * t_smoothness + b_weight * b_smoothness
     
@@ -409,33 +384,30 @@ class ImprovedDeconvolutionSolver:
         
         # Recovery branch
         ax = axs[0]
-        ax.plot(self.f_right_mirror[i_indices], 'r-', label='Right mirror solution')
-        ax.plot(self.f_left_mirror[i_indices], 'b-', label='Left mirror solution')
         ax.plot(self.f[i_indices], 'k--', linewidth=2, label='Combined solution')
         ax.set_title("Recovery Branch Edge Handling")
         ax.legend()
         ax.set_xlabel("Position")
         ax.set_ylabel("Expression")
-        
+        ax.set_ylim(0, self.f.max()*1.2)
+
         # Top branch
         ax = axs[1]
-        ax.plot(self.f_right_mirror[t_indices], 'r-', label='Right mirror solution')
-        ax.plot(self.f_left_mirror[t_indices], 'b-', label='Left mirror solution')
         ax.plot(self.f[t_indices], 'k--', linewidth=2, label='Combined solution')
         ax.set_title("Top Branch Edge Handling")
         ax.legend()
         ax.set_xlabel("Position")
         ax.set_ylabel("Expression")
-        
+        ax.set_ylim(0, self.f.max()*1.2)
+
         # Bottom branch
         ax = axs[2]
-        ax.plot(self.f_right_mirror[b_indices], 'r-', label='Right mirror solution')
-        ax.plot(self.f_left_mirror[b_indices], 'b-', label='Left mirror solution')
         ax.plot(self.f[b_indices], 'k--', linewidth=2, label='Combined solution')
         ax.set_title("Bottom Branch Edge Handling")
         ax.legend()
         ax.set_xlabel("Position")
         ax.set_ylabel("Expression")
+        ax.set_ylim(0, self.f.max()*1.2)
         
         plt.tight_layout()
         return fig, axs
