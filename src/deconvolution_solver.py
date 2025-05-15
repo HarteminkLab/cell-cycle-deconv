@@ -27,6 +27,7 @@ class DeconvolutionSolver(object):
 		self.f_replication = f_replication
 		self.b = b
 		self.kappa = kappa
+		self.verbose = False
 
 		self.gamma = gamma
 		self.padding_type = padding_type
@@ -105,13 +106,6 @@ class DeconvolutionSolver(object):
 			# power of two, should also be 128 (equal to top and bottom's total padded indices)
 			initial_total_padded_len = compute_closest_pow2(len(f_recovery_smoothing_indices)+1)
 			initial_padding = initial_total_padded_len-len(f_recovery_smoothing_indices)
-
-			# Make sure the padding is an even number
-			if initial_padding % 2 == 1:
-				add_initial_padding_right = 1
-			else:
-				add_initial_padding_right = 0
-
 			initial_padding_2 = initial_padding//2
 
 			# Now we will designate how much to extend the f vector and where to place the new padded indices
@@ -132,8 +126,7 @@ class DeconvolutionSolver(object):
 			#   75 total additional padding
 
 			# Thus we can calculate how much padding we will need for the final padded f vector
-			number_of_unique_padding = initial_padding + tb_padding_2 + add_tb_padding_right +\
-				add_initial_padding_right
+			number_of_unique_padding = initial_padding + tb_padding_2 + add_tb_padding_right
 
 			f_padded_variation = cp.Variable(m+number_of_unique_padding)
 
@@ -141,9 +134,9 @@ class DeconvolutionSolver(object):
 			f_padding_indices = np.arange(m, m+number_of_unique_padding)
 
 			# Assign the initial branch paddings first
-			left_initial_padding_indices = np.arange(0, initial_padding_2) # 0-32
+			# left_initial_padding_indices = np.arange(0, initial_padding_2) # 0-32
 			right_initial_padding_indices = np.arange(initial_padding_2, 
-				initial_padding+add_initial_padding_right) # 32-64
+				initial_padding) # 32-64
 
 			# Top and bottom branch paddings (will be duplicated)
 			# Left side is unique and designated for the start of postG1
@@ -153,9 +146,18 @@ class DeconvolutionSolver(object):
 			# 11 of the first indices of the initial right padding (postG1's right side)
 			right_tb_padding_indices = right_initial_padding_indices[0:(tb_padding_2+add_tb_padding_right)] # 32-43
 
+			# ----------------
+
+			# Attempt to mirror the recovery G1 indices rather than pad
+			# Mirror the first x indices of the recovery branch
+			left_initial_mirror_indices = np.flip(f_recovery_smoothing_indices[:initial_padding_2])
+
+			# ----------------
+
 			# Define the padded indices that will be used for the smoothing
 			f_recovery_padded_indices = np.concatenate([
-				f_padding_indices[left_initial_padding_indices], 
+				# f_padding_indices[left_initial_padding_indices], 
+				left_initial_mirror_indices,  # Mirror the initial indices rather than the padding
 				f_recovery_smoothing_indices,
 				f_padding_indices[right_initial_padding_indices]])
 
@@ -213,12 +215,23 @@ class DeconvolutionSolver(object):
 		from src.helpers import get_level_based_weights
 
 		# Add weight to higher frequency coefficients, to discourage jaggedness
-		coefficient_weights_itb = get_level_based_weights(len(f_recovery_padded_indices))
+		# coefficient_weights_itb = np.ones(len(f_recovery_padded_indices))
+		# todo: understand the need for these coefficients adjustments, why did Xin's model not require this?
+		# coefficient_weights_itb = get_level_based_weights(len(f_recovery_padded_indices))
 
 		# Smooth against variations of the baseline
-		smooth_f_i_result = cp.multiply(W_itb@(f_padded_variation[f_recovery_padded_indices]-f_baseline), coefficient_weights_itb)
-		smooth_f_t_result = cp.multiply(W_itb@(f_padded_variation[f_top_padded_indices]-f_baseline), coefficient_weights_itb)
-		smooth_f_b_result = cp.multiply(W_itb@(f_padded_variation[f_bottom_padded_indices]-f_baseline), coefficient_weights_itb)
+		smooth_f_i_result = W_itb@(f_padded_variation[f_recovery_padded_indices])
+		smooth_f_t_result = W_itb@(f_padded_variation[f_top_padded_indices])
+
+		smooth_f_b_result = np.fliplr(W_itb)@(f_padded_variation[f_bottom_padded_indices])#\#W_itb@(f_padded_variation[f_bottom_padded_indices])+\
+							# np.fliplr(W_itb)@(f_padded_variation[f_bottom_padded_indices])
+
+		fit_norm_result = cp.square(cp.norm(elementwise_result, 2))
+
+		# Smooth against variations of the baseline
+		smooth_f_i_result = W_itb@(f_padded_variation[f_recovery_padded_indices])
+		smooth_f_t_result = W_itb@(f_padded_variation[f_top_padded_indices])
+		smooth_f_b_result = W_itb@(f_padded_variation[f_bottom_padded_indices])
 
 		fit_norm_result = cp.square(cp.norm(elementwise_result, 2))
 
@@ -228,7 +241,7 @@ class DeconvolutionSolver(object):
 		# Recovery branch is the shortest 0.9
 		# Top branch: 1.0
 		# Daughter branch: 1.2
-		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 2.0 +
+		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 1 +
 						 cp.sum(cp.abs(smooth_f_t_result)) * 1 +
 						 cp.sum(cp.abs(smooth_f_b_result)) * 1)
 
@@ -269,7 +282,6 @@ class DeconvolutionSolver(object):
 		self.f_padded_variation = f_padded_variation.value
 
 		self.W_itb = W_itb
-		self.coefficient_weights_itb = coefficient_weights_itb
 		self.f_recovery_padded_indices = f_recovery_padded_indices
 		self.f_top_padded_indices = f_top_padded_indices
 		self.f_bottom_padded_indices = f_bottom_padded_indices
@@ -279,7 +291,14 @@ class DeconvolutionSolver(object):
 		self.rn = fit_norm_result.value
 		self.f = f
 
-	def plot_fit(self):
+		if self.verbose:
+			print("Fit norm:", self.rn)
+			print("Smoothing norm:", self.sn)
+			print("Initial smoothing result: ", np.sum(np.abs(smooth_f_i_result.value)))
+			print("Top smoothing result: ", np.sum(np.abs(smooth_f_t_result.value)))
+			print("Bottom smoothing result: ", np.sum(np.abs(smooth_f_b_result.value)))
+
+	def plot_fit(self, plot_timepoints=False):
 
 		from matplotlib import pyplot as plt
 
@@ -287,6 +306,16 @@ class DeconvolutionSolver(object):
 		i_indices = config.get_Hpositions_for_branch('i')
 		t_indices = config.get_Hpositions_for_branch('t')
 		b_indices = config.get_Hpositions_for_branch('b')
+
+		i_tps = config.get_timepoints_for_branch('i')
+		t_tps = config.get_timepoints_for_branch('t')
+		b_tps = config.get_timepoints_for_branch('b')
+
+		if not plot_timepoints:
+			# Plot by indices
+			i_tps = np.arange(len(i_tps))
+			t_tps = np.arange(len(t_tps))
+			b_tps = np.arange(len(b_tps))
 
 		num_cols = 4
 
@@ -313,23 +342,23 @@ class DeconvolutionSolver(object):
 		ax.set_ylim(*ylims)
 
 		ax = ax_row[1]
-		ax.plot(f[i_indices], c='red',
+		ax.plot(i_tps, f[i_indices], c='red',
 				lw=3)
 		ax.set_title("Initial branch")
 		ax.set_ylim(*ylims)
 
 		ax = ax_row[2]
-		ax.plot(f[b_indices], c='blue',
+		ax.plot(b_tps, f[b_indices], c='blue',
 				lw=3, alpha=0.25)
-		ax.plot(f[t_indices], c='red',
+		ax.plot(t_tps, f[t_indices], c='red',
 				lw=3)
 		ax.set_ylim(*ylims)
 		ax.set_title("Top branch")
 
 		ax = ax_row[3]
-		ax.plot(f[t_indices], c='red',
+		ax.plot(t_tps, f[t_indices], c='red',
 				lw=3, alpha=0.25)
-		ax.plot(f[b_indices], c='blue',
+		ax.plot(b_tps, f[b_indices], c='blue',
 				lw=3)
 		ax.set_ylim(*ylims)
 		ax.set_title("Bottom branch")

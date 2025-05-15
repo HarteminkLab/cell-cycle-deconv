@@ -8,7 +8,7 @@ from src.chromatin_deconvolution_solver import ChromatinDeconvolveSolver
 class GeneExpressionFindOptimalGamma(object):
 	"""Wrapper to find optimal gamma for a window of gene expression reads"""
 
-	def __init__(self, config, H, gene_expression, gamma_min=0.001, gamma_max=0.01, verbose=True):
+	def __init__(self, config, H, gene_expression, gamma_min=0.01, gamma_max=1, verbose=True):
 
 		from src.deconvolution_solver import DeconvolutionSolver
 
