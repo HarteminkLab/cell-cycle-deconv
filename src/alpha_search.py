@@ -58,10 +58,12 @@ def plot_alpha_genes_subplots(config, plot_alphas, all_alpha_results_df, replica
 		config.modify_alpha(alpha)
 
 		# Timepoints for branch
+		i_tps = config.get_timepoints_for_branch('i')
 		t_tps = config.get_timepoints_for_branch('t')
 		b_tps = config.get_timepoints_for_branch('b')
 
 		# Get t_indices and b_indices for top and bottom branches
+		i_indices = config.get_Hpositions_for_branch('i')
 		t_indices = config.get_Hpositions_for_branch('t')
 		b_indices = config.get_Hpositions_for_branch('b')
 
@@ -69,9 +71,11 @@ def plot_alpha_genes_subplots(config, plot_alphas, all_alpha_results_df, replica
 		alpha_data = replicate_data.xs(alpha, level='alpha')
 		
 		# Store for averaging
+		all_i_values = []
 		all_t_values = []
 		all_b_values = []
 
+		i_color = '#a0a0a0'
 		t_color = 'black'
 		b_color = color_for_key('DG1')
 
@@ -82,15 +86,18 @@ def plot_alpha_genes_subplots(config, plot_alphas, all_alpha_results_df, replica
 			gene_data = alpha_data.loc[gene]
 			
 			# Directly select the columns for top and bottom branches
+			i_values = gene_data[i_indices].values
 			t_values = gene_data[t_indices].values
 			b_values = gene_data[b_indices].values
 			
 			# Store for averaging
+			all_i_values.append(i_values)
 			all_t_values.append(t_values)
 			all_b_values.append(b_values)
 			
 			# Plot on the corresponding subplot
 			ax = axes[i, j]
+			ax.plot(i_tps, i_values, lw=3, color=i_color, label='Recovery Branch')
 			ax.plot(t_tps, t_values, lw=3, color=t_color, label='Top Branch')
 			ax.plot(b_tps, b_values, lw=3, color=b_color, label='Bottom Branch')
 			
@@ -114,35 +121,20 @@ def plot_alpha_genes_subplots(config, plot_alphas, all_alpha_results_df, replica
 		
 		# Calculate and plot averages across genes
 		if all_t_values and all_b_values:
-			# Determine maximum length for each branch
-			max_t_len = max([len(vals) for vals in all_t_values]) if all_t_values else 0
-			max_b_len = max([len(vals) for vals in all_b_values]) if all_b_values else 0
-			
-			# Create arrays for averaging, filling with NaN for missing values
-			t_array = np.full((len(all_t_values), max_t_len), np.nan)
-			b_array = np.full((len(all_b_values), max_b_len), np.nan)
-			
-			# Fill the arrays with actual values
-			for k, vals in enumerate(all_t_values):
-				t_array[k, :len(vals)] = vals
-			
-			for k, vals in enumerate(all_b_values):
-				b_array[k, :len(vals)] = vals
-			
+
 			# Calculate average for each position (ignoring NaN values)
-			avg_t_values = np.nanmean(t_array, axis=0)
-			avg_b_values = np.nanmean(b_array, axis=0)
-			
-			# Clean up NaNs for plotting
-			avg_t_values = avg_t_values[~np.isnan(avg_t_values)]
-			avg_b_values = avg_b_values[~np.isnan(avg_b_values)]
+			avg_i_values = np.mean(all_i_values, axis=0)
+			avg_t_values = np.mean(all_t_values, axis=0)
+			avg_b_values = np.mean(all_b_values, axis=0)
 			
 			# Plot averages
 			ax = axes[i, n_genes]
+			ax.plot(i_tps, avg_i_values, lw=5, color=i_color, label='Recovery Branch')
 			ax.plot(t_tps, avg_t_values, lw=5, color=t_color, label='Top Branch')
 			ax.plot(b_tps, avg_b_values, lw=5, color=b_color, label='Bottom Branch')
 			ax.set_yticks([])
 			ax.axvline(0, c='#ddd', lw=1)
+			ax.set_ylim(*ylims)
 			
 			# Set title and labels
 			ax.set_title(f'Average', fontsize=16, pad=5)

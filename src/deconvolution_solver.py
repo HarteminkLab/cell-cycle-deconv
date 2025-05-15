@@ -48,6 +48,7 @@ class DeconvolutionSolver(object):
 		f_rg1 = self.config.get_Hpositions_for_phase('RG1')
 		f_dg1 = self.config.get_Hpositions_for_phase('DG1')
 		f_postg1 = self.config.get_Hpositions_for_phase('postG1')
+		f_halted = self.config.get_Hpositions_for_phase('Halted')
 
 		# Smoothing will be enforced by each branch separately,
 		# and by enforcing smoothing going into each of the mother/daughter branches
@@ -64,9 +65,9 @@ class DeconvolutionSolver(object):
 		f_variation = cp.Variable(m)
 
 		# Create block matrix structures for wavelets
-		W_i_padded = get_wavelet_kernel(len(f_i_mirror), par=5)
-		W_t_padded = get_wavelet_kernel(len(f_t_duplicate), par=5)
-		W_b_padded = get_wavelet_kernel(len(f_b_duplicate), par=5)
+		W_i = get_wavelet_kernel(len(f_i_mirror), par=5)
+		W_t = W_i #get_wavelet_kernel(len(f_t_duplicate), par=5)
+		W_b = W_i #get_wavelet_kernel(len(f_b_duplicate), par=5)
 
 		# Model a baseline value, so smoothing constraints are applied to
 		# variations on the baseline
@@ -92,33 +93,25 @@ class DeconvolutionSolver(object):
 		else:
 			raise ValueError(f"Unimplemented objective error mode: {self.obj_error_mode}")
 
-		# Add weight to higher frequency coefficients, to discourage jaggedness
-		# Smooth against variations of the baseline
-		smooth_f_i_result = W_i_padded@f_variation[f_i_mirror]
-		smooth_f_t_result = W_t_padded@f_variation[f_t_duplicate]
-		smooth_f_b_result = W_b_padded@f_variation[f_b_duplicate]
+		# from src.helpers import get_level_based_weights
+		# weights = get_level_based_weights(W_i.shape[0])
+
+		coeffs_i = W_i@(f_variation[f_i_mirror])
+		coeffs_t = W_t@(f_variation[f_t_duplicate])
+		coeffs_b = W_b@(f_variation[f_b_duplicate])
+
+		smooth_f_i_result = cp.sum(cp.abs(coeffs_i))
+		smooth_f_t_result = cp.sum(cp.abs(coeffs_t))
+		smooth_f_b_result = cp.sum(cp.abs(coeffs_b))
 
 		fit_norm_result = cp.square(cp.norm(elementwise_result, 2))
-
-		# Smooth each branch separately and weigh by the proportional length of the
-		# branch relative to the bottom branch (the longest)
-
-		# Recovery branch is the shortest 0.9
-		# Top branch: 1.0
-		# Daughter branch: 1.2
-		smooth_result = (cp.sum(cp.abs(smooth_f_i_result)) * 1 +
-						 cp.sum(cp.abs(smooth_f_t_result)) * 1 +
-						 cp.sum(cp.abs(smooth_f_b_result)) * 1)
-
-		# todo: These weights may be too low for the bottom branch, and introduces the
-		#       DG1 bias which depicts a greater amount of variability.
+		smooth_result = (smooth_f_i_result * 1 +
+						 smooth_f_t_result * 1 +
+						 smooth_f_b_result * 1)
 
 		kappa = self.kappa
 
 		tb_regularization_result = f_variation[f_dg1] - f_variation[f_cg1]
-
-		# L2 norm
-		# cg1_dg1_regularization_result = cp.square(cp.norm(tb_regularization_result, 2))
 
 		# L1 norm
 		cg1_dg1_regularization_result = cp.sum(cp.abs(tb_regularization_result))
@@ -133,7 +126,12 @@ class DeconvolutionSolver(object):
 
 		# Constraint for halted cells, non-negativity, and upper bounds to improve speed
 		constraints = [f_variation >= 0, f_baseline >= 0, # non-negativity
-			f_variation[f_i[0]] == f_variation[f_t[-1]+1], # halted cells
+
+			# Hard constraint on halted cells creates issues with smoothing for the recovery branch, 
+			# especially when the halted cells appears to be much different RG1 (in cases for which
+			# halted cells has 0 expression) another way to address this may be to apply a regularized 
+			# objective constraint for the halted cells.
+			# f_variation[f_rg1[-1]] == f_variation[f_halted[0]+1], # halted cells
 		]
 
 		prob = cp.Problem(objective, constraints)
@@ -150,12 +148,18 @@ class DeconvolutionSolver(object):
 		self.rn = fit_norm_result.value
 		self.f = f
 
+		self.f_i_mirror = f_i_mirror
+		self.f_t_duplicate = f_t_duplicate
+		self.f_b_duplicate = f_b_duplicate
+
+		self.W_i = W_i
+
 		if self.verbose:
 			print("Fit norm:", self.rn)
 			print("Smoothing norm:", self.sn)
-			print("Initial smoothing result: ", np.sum(np.abs(smooth_f_i_result.value)))
-			print("Top smoothing result: ", np.sum(np.abs(smooth_f_t_result.value)))
-			print("Bottom smoothing result: ", np.sum(np.abs(smooth_f_b_result.value)))
+			print("Initial smoothing result: ", smooth_f_i_result.value)
+			print("Top smoothing result: ", smooth_f_t_result.value)
+			print("Bottom smoothing result: ", smooth_f_b_result.value)
 
 
 	def plot_fit(self, plot_timepoints=False):
