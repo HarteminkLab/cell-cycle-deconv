@@ -59,9 +59,18 @@ class DeconvolutionSolver(object):
 		f_t_periodic = np.concatenate([f_t, f_t])
 		f_b_periodic = np.concatenate([f_b, f_b])
 
-		padding_left_t = branch_len_itb # Start of MG1 padding
-		padding_left_b = branch_len_itb # Start of DG1 padding
-		padding_right = branch_len_itb # End of post G1 padding
+		enable_padding = False
+
+		# Seems like padding may not be necessary
+		if enable_padding:
+			padding_left_t = branch_len_itb # Start of MG1 padding
+			padding_left_b = branch_len_itb # Start of DG1 padding
+			padding_right = branch_len_itb # End of post G1 padding
+		else:
+			padding_left_t = 0
+			padding_left_b = 0
+			padding_right = 0
+
 		total_padding = padding_left_t+padding_left_b+padding_right
 
 		from src.helpers import compute_closest_pow2
@@ -155,7 +164,7 @@ class DeconvolutionSolver(object):
 		)
 
 		# Constraint for halted cells, non-negativity, and upper bounds to improve speed
-		constraints = [f_variation >= 0, f_baseline >= 0, # non-negativity
+		constraints = [f_variation >= 0, f_baseline == 0, # non-negativity
 
 			# Hard constraint on halted cells creates issues with smoothing for the recovery branch, 
 			# especially when the halted cells appears to be much different RG1 (in cases for which

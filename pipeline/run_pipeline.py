@@ -69,6 +69,9 @@ def main():
 
 		(_, command, output_directory) = system_args
 
+		gene_names = ['DSE1', 'DSE2', 'DSE3', 'DSE4',
+			'ASH1', 'EGT2', 'AMN1', 'PRY3', 'SCW11', 'CTS1']
+
 		finder = FindAlphaSweepDS(output_directory=output_directory, 
 		    gene_names=['DSE1', 'DSE2', 'DSE3', 'DSE4'])
 		finder.run_alpha_sweep(alphas=np.arange(4, 48, 4))

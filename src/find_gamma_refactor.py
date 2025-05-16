@@ -9,6 +9,9 @@ from matplotlib import pyplot as plt
 
 class GammaOptimizer:
 
+	# Micro-array error terms for reference, with the log-TPM values,
+	# these ratios become too stringent, the right side specifically.
+	
 	# LEFT_ERROR_RATIO = 1.05
 	# LEFT_ERROR_OFFSET = 0.04
 	# RIGHT_ERROR_RATIO = 1.40 
@@ -17,10 +20,9 @@ class GammaOptimizer:
 	LEFT_ERROR_RATIO = 1.05
 	LEFT_ERROR_OFFSET = 0.04
 
-	# Higher for gene expression to allow for greater smoothing, todo: adjust for chromatin 
-	# which has a smaller error scale
+	# Higher for gene expression to allow for greater smoothing
 	EXP_RIGHT_ERROR_RATIO = 4.0
-	EXP_RIGHT_ERROR_OFFSET = 11.
+	EXP_RIGHT_ERROR_OFFSET = 11.32
 
 	CHROM_RIGHT_ERROR_RATIO = 1.40 
 	CHROM_RIGHT_ERROR_OFFSET = 0.32
