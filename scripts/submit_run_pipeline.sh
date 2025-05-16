@@ -24,6 +24,11 @@ OUTDIR=output/draft3_run/
 # ARGS="deconvolve_expression ${OUTDIR}"
 # sbatch -D ./slurm-logs/ --job-name="rep" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
+# ---------- Find Alpha ----------------
+
+ARGS="find_alpha ${OUTDIR}"
+sbatch -D ./slurm-logs/ --job-name="alpha" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+
 # ---------- Test Chromatin Windows -------------------
 
 # ARGS="deconvolve_chromatin_staging ${OUTDIR} 0"
