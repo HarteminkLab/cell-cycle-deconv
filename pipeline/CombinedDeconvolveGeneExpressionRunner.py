@@ -55,12 +55,11 @@ class CombinedDeconvolveGeneExpressionRunner:
 		else:
 			raise ValueError()
 
-		expression_find_gamma = GeneExpressionFindOptimalGamma(config=config, H=H, 
+		self.expression_find_gamma = GeneExpressionFindOptimalGamma(config=config, H=H, 
 			gene_expression=G)
-		expression_find_gamma.find_optimal_gamma(plot=False, verbose=verbose, kappa=kappa)
-		self.expression_find_gamma = expression_find_gamma
+		self.expression_find_gamma.find_optimal_gamma(plot=False, verbose=verbose, kappa=kappa)
 
-		return expression_find_gamma
+		return self.expression_find_gamma
 
 
 	def save_to_disk(self, output_directory):

@@ -1,15 +1,19 @@
-
 import numpy as np
 import cvxpy as cp
+import torch
+from cvxpylayers.torch import CvxpyLayer
 from src.helpers import get_wavelet_kernel
 
 class DeconvolutionSolver(object):
 
 	def __init__(self, config, g, H, gamma, N=None, f_replication=None,
 		b=None, padding_type='both', obj_error_mode='additive', kappa=5e-3,
-		data_is_logged=True, unlog_transform=False, log_transform=False):
+		data_is_logged=True, unlog_transform=False, log_transform=False,
+		use_gpu=True, verbose=False):
 
 		n, m = H.shape
+
+		self.verbose = verbose
 
 		if N is None:
 			N = np.eye(n)
@@ -34,13 +38,14 @@ class DeconvolutionSolver(object):
 		self.f_replication = f_replication
 		self.b = b
 		self.kappa = kappa
-		self.verbose = False
-
+		self.use_gpu = use_gpu
+		
 		self.gamma = gamma
 		self.padding_type = padding_type
-		
+	
 	def deconvolve(self):
 
+		# Set up all the problem components as before
 		f_i = self.config.get_Hpositions_for_branch('i')
 		f_t = self.config.get_Hpositions_for_branch('t')
 		f_b = self.config.get_Hpositions_for_branch('b')
@@ -61,7 +66,7 @@ class DeconvolutionSolver(object):
 
 		enable_padding = False
 
-		# Seems like padding may not be necessary
+		# Seems like padding may not be necessary, so we'll set these all to zero
 		if enable_padding:
 			padding_left_t = branch_len_itb # Start of MG1 padding
 			padding_left_b = branch_len_itb # Start of DG1 padding
@@ -72,8 +77,6 @@ class DeconvolutionSolver(object):
 			padding_right = 0
 
 		total_padding = padding_left_t+padding_left_b+padding_right
-
-		from src.helpers import compute_closest_pow2
 
 		# Convex optimization
 		n, m = self.H.shape
@@ -111,42 +114,67 @@ class DeconvolutionSolver(object):
 		# Model a baseline value, so smoothing constraints are applied to
 		# variations on the baseline
 		f_baseline = cp.Variable(1)
-		f_non_replicative = f_variation+f_baseline
-		self.f_baseline = f_baseline
-
-		f_replication = self.f_replication
-
-		f_combined = cp.multiply(f_non_replicative, f_replication)
 
 		H = self.H
 		g = self.g
 		N = self.N
 		b = self.b
 
-		eps = 1e-5
+		def compute_fit_result(N, H, f_variation, f_baseline, b,
+			is_cvxpy=True):
 
-		if self.obj_error_mode == 'multiplicative':
-			elementwise_result = (N@H@f_combined*b)/(g+eps) - 1
-		elif self.obj_error_mode == 'additive':
-			elementwise_result = N@H@f_combined*b - g
-		else:
-			raise ValueError(f"Unimplemented objective error mode: {self.obj_error_mode}")
+			if is_cvxpy:
+				norm_func = cp.norm
+				square_func = cp.square
+				mult_func = cp.multiply
+			else:
+				norm_func = np.linalg.norm
+				square_func = np.square
+				mult_func = np.multiply
 
-		# from src.helpers import get_level_based_weights
-		# weights = get_level_based_weights(W_i.shape[0])
+			f_non_replicative = f_variation+f_baseline
+			f_replication = self.f_replication
+			f_combined = mult_func(f_non_replicative, f_replication)
 
-		coeffs_i = W_i@(f_variation_padded[f_padded_i])
-		coeffs_t = W_t@(f_variation_padded[f_padded_t])
-		coeffs_b = W_b@(f_variation_padded[f_padded_b])
+			if self.obj_error_mode == 'multiplicative':
+				eps = 1e-5
+				elementwise_result = (N@H@f_combined*b)/(g+eps) - 1
+			elif self.obj_error_mode == 'additive':
+				elementwise_result = N@H@f_combined*b - g
+			else:
+				raise ValueError(f"Unimplemented objective error mode: {self.obj_error_mode}")
 
-		smooth_f_i_result = cp.sum(cp.abs(coeffs_i))
-		smooth_f_t_result = cp.sum(cp.abs(coeffs_t))
-		smooth_f_b_result = cp.sum(cp.abs(coeffs_b))
+			fit_norm_result = square_func(norm_func(elementwise_result, 2))
+			return fit_norm_result
 
-		fit_norm_result = cp.square(cp.norm(elementwise_result, 2))
-		smooth_result = (smooth_f_i_result * 2 +
-						 smooth_f_t_result * 1 +
-						 smooth_f_b_result * 1)
+		def compute_smoothing_result(f_variation_padded, f_padded_i, f_padded_t, f_padded_b,
+			W_i, W_t, W_b, is_cvxpy):
+
+			if is_cvxpy:
+				sum_func = cp.sum
+				abs_func = cp.abs
+			else:
+				sum_func = np.sum
+				abs_func = np.abs
+
+			coeffs_i = W_i@(f_variation_padded[f_padded_i])
+			coeffs_t = W_t@(f_variation_padded[f_padded_t])
+			coeffs_b = W_b@(f_variation_padded[f_padded_b])
+
+			smooth_f_i_result = sum_func(abs_func(coeffs_i))
+			smooth_f_t_result = sum_func(abs_func(coeffs_t))
+			smooth_f_b_result = sum_func(abs_func(coeffs_b))
+
+			smooth_result = (smooth_f_i_result * 2 +
+							 smooth_f_t_result * 1 +
+							 smooth_f_b_result * 1)
+
+			return smooth_result
+
+		fit_norm_result = compute_fit_result(N, H, f_variation, f_baseline, b, True)
+		smooth_result = compute_smoothing_result(f_variation_padded, 
+			f_padded_i, f_padded_t, f_padded_b,
+			W_i, W_t, W_b, True)
 
 		kappa = self.kappa
 
@@ -155,52 +183,84 @@ class DeconvolutionSolver(object):
 		# L1 norm
 		cg1_dg1_regularization_result = cp.sum(cp.abs(tb_regularization_result))
 
-		objective = cp.Minimize(
+		# Create a dummy parameter for CVXPYLayers (since all other values are constants)
+		dummy_param = cp.Parameter(nonneg=True)
+		dummy_param.value = 1.0
 
+		objective = cp.Minimize(
 			# L2 fitting norm
 			fit_norm_result + 
 			self.gamma * smooth_result +
-			self.kappa * cg1_dg1_regularization_result
+			self.kappa * cg1_dg1_regularization_result +
+			0 * dummy_param  # Add dummy parameter with zero coefficient
 		)
 
 		# Constraint for halted cells, non-negativity, and upper bounds to improve speed
-		constraints = [f_variation >= 0, f_baseline == 0, # non-negativity
-
-			# Hard constraint on halted cells creates issues with smoothing for the recovery branch, 
-			# especially when the halted cells appears to be much different RG1 (in cases for which
-			# halted cells has 0 expression) another way to address this may be to apply a regularized 
-			# objective constraint for the halted cells.
-			# f_variation[f_rg1[-1]] == f_variation[f_halted[0]+1], # halted cells
-		]
+		constraints = [f_variation >= 0, f_baseline == 0] # non-negativity
 
 		prob = cp.Problem(objective, constraints)
-		prob.solve()
-
-		# Convert it into a numpy array
-		f = f_variation.value+f_baseline.value
-
-		self.f = f
-		self.f_variation = f_variation.value
-		self.f_full = f_variation_padded.value
-
-		self.tb_regularization_result = cg1_dg1_regularization_result.value
-		self.sn = smooth_result.value
-		self.rn = fit_norm_result.value
-		self.f = f
-
+		
+		# Use CVXPYLayers with GPU acceleration if requested
+		if self.use_gpu:
+			# Create the layer with our dummy parameter
+			layer = CvxpyLayer(prob, 
+							 parameters=[dummy_param], 
+							 variables=[f_variation_padded, f_baseline])
+			
+			# Determine device (GPU or CPU)
+			device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+			if device.type == 'cpu' and self.use_gpu:
+				print("Warning: GPU requested but not available. Using CPU instead.")
+			
+			# Create the dummy tensor and move to device
+			dummy_tensor = torch.tensor([1.0], dtype=torch.float32).to(device)
+			
+			# Solve the problem with GPU acceleration
+			f_variation_padded_torch, f_baseline_torch = layer(dummy_tensor)
+			
+			# Convert PyTorch tensors back to numpy arrays
+			f_variation_padded_value = f_variation_padded_torch.detach().cpu().numpy()[0]
+			f_baseline_value = f_baseline_torch.detach().cpu().numpy()[0]
+			
+			# Extract the relevant portion of the solution
+			f_variation_value = f_variation_padded_value[f_indices]
+			
+		else:
+			# Use traditional CVXPY solving with MOSEK or other solver
+			result = prob.solve(solver=cp.MOSEK)
+			
+			# Extract solution values
+			f_variation_padded_value = f_variation_padded.value
+			f_baseline_value = f_baseline.value
+			f_variation_value = f_variation.value
+		
+		# Store the results
+		self.f = f_variation_value + f_baseline_value
+		self.f_variation = f_variation_value
+		self.f_full = f_variation_padded_value
+		
+		# Store the other optimization results
+		self.rn = compute_fit_result(N, H, f_variation_value, f_baseline_value, b, False)
+		self.sn = compute_smoothing_result(f_variation_padded_value, 
+			f_padded_i, f_padded_t, f_padded_b,
+			W_i, W_t, W_b, False)
+		
+		# Store processed data for later use
 		self.f_i_mirror = f_i_mirror
 		self.f_t_periodic = f_t_periodic
 		self.f_b_periodic = f_b_periodic
-
 		self.W_i = W_i
-
+		
 		if self.verbose:
 			print("Fit norm:", self.rn)
 			print("Smoothing norm:", self.sn)
-			print("Initial smoothing result: ", smooth_f_i_result.value)
-			print("Top smoothing result: ", smooth_f_t_result.value)
-			print("Bottom smoothing result: ", smooth_f_b_result.value)
-
+			print("Initial smoothing result:", smooth_f_i_result.value)
+			print("Top smoothing result:", smooth_f_t_result.value)
+			print("Bottom smoothing result:", smooth_f_b_result.value)
+			if self.use_gpu:
+				print("Solved using GPU acceleration via CVXPYLayers")
+		
+		return self.f
 
 	def plot_fit(self, plot_timepoints=True):
 
