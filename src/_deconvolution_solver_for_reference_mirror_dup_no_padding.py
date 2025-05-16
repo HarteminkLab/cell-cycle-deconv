@@ -52,16 +52,15 @@ class DeconvolutionSolver(object):
 
 		# The left end of the recovery branch is mirrored, the right end is periodically
 		# smooth into the start of the top branch
-		branch_len_itb = len(f_i) # assume each branch is the same length
-		half_branch_len_itb = branch_len_itb // 2
+		half_len_i = len(f_i) // 2
+		f_i_mirror = np.concatenate([np.flip(f_i[:half_len_i]), f_i, f_t[-half_len_i:]])
 
-		f_i_mirror = np.concatenate([np.flip(f_i), f_i])
-		f_t_periodic = np.concatenate([f_t, f_t])
-		f_b_periodic = np.concatenate([f_b, f_b])
-
-		padding_left = 64 # Start of MG1 and DG1 padding
-		padding_right = 64 # End of post G1 padding
-		total_padding = padding_left+padding_right
+		# The top and bottom branches are padded on each side with the
+		# periodic signal of the half ends of each side. e.g. the start of 
+		# the top branch is continuous from the end of the top branch, etc...
+		half_len_t_b = len(f_t)//2
+		f_t_periodic = np.concatenate([f_t[half_len_t_b:], f_t, f_t[:half_len_t_b]])
+		f_b_periodic = np.concatenate([f_b[half_len_t_b:], f_b, f_b[:half_len_t_b]])
 
 		from src.helpers import compute_closest_pow2
 
@@ -69,31 +68,12 @@ class DeconvolutionSolver(object):
 		n, m = self.H.shape
 
 		f_indices = np.arange(m)
-		f_variation_padded = cp.Variable(m+total_padding)
-
-		f_padding_left_indices = np.arange(m, m+padding_left)
-		f_padding_right_indices = np.arange(m+padding_left, 
-			m+padding_left+padding_right)
-
-		# Mirrorred start means we can use the flipped post G1 padding
-		f_padded_i = np.concatenate([np.flip(f_padding_right_indices), 
-									 f_i_mirror,
-									 f_padding_right_indices])
-
-		f_padded_t = np.concatenate([f_padding_left_indices, 
-									 f_t_periodic,
-									 f_padding_right_indices])
-
-		f_padded_b = np.concatenate([f_padding_left_indices, 
-									 f_b_periodic,
-									 f_padding_right_indices])
+		f_variation = cp.Variable(m)
 
 		# Create block matrix structures for wavelets
-		W_i = get_wavelet_kernel(len(f_padded_i), par=5)
-		W_t = get_wavelet_kernel(len(f_padded_t), par=5)
-		W_b = get_wavelet_kernel(len(f_padded_b), par=5)
-
-		f_variation = f_variation_padded[f_indices]
+		W_i = get_wavelet_kernel(len(f_i_mirror), par=5)
+		W_t = get_wavelet_kernel(len(f_t_periodic), par=5)
+		W_b = W_t #get_wavelet_kernel(len(f_b_periodic), par=5)
 
 		# Model a baseline value, so smoothing constraints are applied to
 		# variations on the baseline
@@ -122,16 +102,16 @@ class DeconvolutionSolver(object):
 		# from src.helpers import get_level_based_weights
 		# weights = get_level_based_weights(W_i.shape[0])
 
-		coeffs_i = W_i@(f_variation_padded[f_padded_i])
-		coeffs_t = W_t@(f_variation_padded[f_padded_t])
-		coeffs_b = W_b@(f_variation_padded[f_padded_b])
+		coeffs_i = W_i@(f_variation[f_i_mirror])
+		coeffs_t = W_t@(f_variation[f_t_periodic])
+		coeffs_b = W_b@(f_variation[f_b_periodic])
 
 		smooth_f_i_result = cp.sum(cp.abs(coeffs_i))
 		smooth_f_t_result = cp.sum(cp.abs(coeffs_t))
 		smooth_f_b_result = cp.sum(cp.abs(coeffs_b))
 
 		fit_norm_result = cp.square(cp.norm(elementwise_result, 2))
-		smooth_result = (smooth_f_i_result * 1 +
+		smooth_result = (smooth_f_i_result * 2 +
 						 smooth_f_t_result * 1 +
 						 smooth_f_b_result * 1)
 
@@ -168,7 +148,6 @@ class DeconvolutionSolver(object):
 
 		self.f = f
 		self.f_variation = f_variation.value
-		self.f_full = f_variation_padded.value
 
 		self.tb_regularization_result = cg1_dg1_regularization_result.value
 		self.sn = smooth_result.value
