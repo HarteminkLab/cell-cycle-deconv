@@ -15,7 +15,7 @@ class GeneExpressionFindOptimalGamma(object):
 		# config will be used for indices, so the combined model can use either replicate's config
 		# for the combined model, gene expressn and H are assumed to be concatenated properly
 		deconvolution_solver = DeconvolutionSolver(config, g=gene_expression, H=H, gamma=0.0,
-		                                          obj_error_mode='additive')
+		                                          obj_error_mode='additive', use_gpu=True)
 
 		# Refactoring of the find optimal gamma code
 		from src.find_gamma_refactor import GammaOptimizer

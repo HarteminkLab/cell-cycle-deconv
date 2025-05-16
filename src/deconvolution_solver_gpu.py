@@ -9,7 +9,7 @@ class DeconvolutionSolver(object):
 	def __init__(self, config, g, H, gamma, N=None, f_replication=None,
 		b=None, padding_type='both', obj_error_mode='additive', kappa=5e-3,
 		data_is_logged=True, unlog_transform=False, log_transform=False,
-		use_gpu=False, verbose=False):
+		use_gpu=True, verbose=False):
 
 		n, m = H.shape
 
@@ -230,3 +230,68 @@ class DeconvolutionSolver(object):
 				print("Solved using GPU acceleration via CVXPYLayers")
 		
 		return self.f
+
+	def plot_fit(self, plot_timepoints=True):
+
+		from matplotlib import pyplot as plt
+
+		config = self.config
+		i_indices = config.get_Hpositions_for_branch('i')
+		t_indices = config.get_Hpositions_for_branch('t')
+		b_indices = config.get_Hpositions_for_branch('b')
+
+		i_tps = config.get_timepoints_for_branch('i')
+		t_tps = config.get_timepoints_for_branch('t')
+		b_tps = config.get_timepoints_for_branch('b')
+
+		if not plot_timepoints:
+			# Plot by indices
+			i_tps = np.arange(len(i_tps))
+			t_tps = np.arange(len(t_tps))
+			b_tps = np.arange(len(b_tps))
+
+		num_cols = 4
+
+		fig, axs = plt.subplots(1, num_cols, figsize=(16, 3))
+
+		g = self.g
+
+		f = self.f
+
+		max_value = np.concatenate([g, f]).max()
+		ylims = -((max_value*0.05)), (max_value*1.05)
+
+		gamma_predicted_g = self.H@f
+
+		ax_row = axs
+
+		ax = ax_row[0]
+
+		ax.plot(g[:], c='black', lw=3, label="Raw data")
+		ax.plot(gamma_predicted_g, c='red',
+				lw=3, label="Optimal $\\gamma$ solution")
+		ax.set_title("Data vs Fit")
+		ax.legend()
+		ax.set_ylim(*ylims)
+
+		ax = ax_row[1]
+		ax.plot(i_tps, f[i_indices], c='red',
+				lw=3)
+		ax.set_title("Initial branch")
+		ax.set_ylim(*ylims)
+
+		ax = ax_row[2]
+		ax.plot(b_tps, f[b_indices], c='blue',
+				lw=3, alpha=0.25)
+		ax.plot(t_tps, f[t_indices], c='red',
+				lw=3)
+		ax.set_ylim(*ylims)
+		ax.set_title("Top branch")
+
+		ax = ax_row[3]
+		ax.plot(t_tps, f[t_indices], c='red',
+				lw=3, alpha=0.25)
+		ax.plot(b_tps, f[b_indices], c='blue',
+				lw=3)
+		ax.set_ylim(*ylims)
+		ax.set_title("Bottom branch")

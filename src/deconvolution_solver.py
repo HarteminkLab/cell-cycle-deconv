@@ -202,7 +202,7 @@ class DeconvolutionSolver(object):
 			print("Bottom smoothing result: ", smooth_f_b_result.value)
 
 
-	def plot_fit(self, plot_timepoints=False):
+	def plot_fit(self, plot_timepoints=True):
 
 		from matplotlib import pyplot as plt
 
