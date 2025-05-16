@@ -15,7 +15,7 @@ class GeneExpressionFindOptimalGamma(object):
 		# config will be used for indices, so the combined model can use either replicate's config
 		# for the combined model, gene expressn and H are assumed to be concatenated properly
 		deconvolution_solver = DeconvolutionSolver(config, g=gene_expression, H=H, gamma=0.0,
-		                                          obj_error_mode='additive', use_gpu=True)
+		                                          obj_error_mode='additive')
 
 		# Refactoring of the find optimal gamma code
 		from src.find_gamma_refactor import GammaOptimizer
@@ -47,18 +47,8 @@ class GeneExpressionFindOptimalGamma(object):
 
 		self.gamma_optimizer.verbose = verbose
 		self.gamma_optimizer.calculate_base_error()
-
-		# todo: finding the left and right gamma limits using 
-		#       error boundaries no longer produces consistent results, likely
-		#       due to changes in the original guo model, reverting to 
-		#       a sweep through the minimum and maximum gamma values
-		#
 		self.gamma_optimizer.calculate_error_boundaries()
 		self.gamma_optimizer.find_boundary_gammas()
-
-		# self.gamma_optimizer.gamma_left = self.gamma_optimizer.gamma_min
-		# self.gamma_optimizer.gamma_right = self.gamma_optimizer.gamma_max
-
 		self.gamma_optimizer.find_elbow()
 
 		if plot:

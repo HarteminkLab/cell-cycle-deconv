@@ -1,5 +1,7 @@
 import numpy as np
 import cvxpy as cp
+import torch
+from cvxpylayers.torch import CvxpyLayer
 from src.helpers import get_wavelet_kernel
 
 class DeconvolutionSolver(object):
@@ -7,7 +9,7 @@ class DeconvolutionSolver(object):
 	def __init__(self, config, g, H, gamma, N=None, f_replication=None,
 		b=None, padding_type='both', obj_error_mode='additive', kappa=5e-3,
 		data_is_logged=True, unlog_transform=False, log_transform=False,
-		verbose=False):
+		use_gpu=False, verbose=False):
 
 		n, m = H.shape
 
@@ -36,6 +38,7 @@ class DeconvolutionSolver(object):
 		self.f_replication = f_replication
 		self.b = b
 		self.kappa = kappa
+		self.use_gpu = use_gpu
 		
 		self.gamma = gamma
 		self.padding_type = padding_type
@@ -180,11 +183,16 @@ class DeconvolutionSolver(object):
 		# L1 norm
 		cg1_dg1_regularization_result = cp.sum(cp.abs(tb_regularization_result))
 
+		# Create a dummy parameter for CVXPYLayers (since all other values are constants)
+		dummy_param = cp.Parameter(nonneg=True)
+		dummy_param.value = 1.0
+
 		objective = cp.Minimize(
 			# L2 fitting norm
 			fit_norm_result + 
 			self.gamma * smooth_result +
 			self.kappa * cg1_dg1_regularization_result +
+			0 * dummy_param  # Add dummy parameter with zero coefficient
 		)
 
 		# Constraint for halted cells, non-negativity, and upper bounds to improve speed
@@ -192,13 +200,40 @@ class DeconvolutionSolver(object):
 
 		prob = cp.Problem(objective, constraints)
 		
-		# Use traditional CVXPY solving with MOSEK or other solver
-		result = prob.solve(solver=cp.MOSEK)
-		
-		# Extract solution values
-		f_variation_padded_value = f_variation_padded.value
-		f_baseline_value = f_baseline.value
-		f_variation_value = f_variation.value
+		# Use CVXPYLayers with GPU acceleration if requested
+		if self.use_gpu:
+			# Create the layer with our dummy parameter
+			layer = CvxpyLayer(prob, 
+							 parameters=[dummy_param], 
+							 variables=[f_variation_padded, f_baseline])
+			
+			# Determine device (GPU or CPU)
+			device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+			if device.type == 'cpu' and self.use_gpu:
+				print("Warning: GPU requested but not available. Using CPU instead.")
+			
+			# Create the dummy tensor and move to device
+			dummy_tensor = torch.tensor([1.0], dtype=torch.float32).to(device)
+			
+			# Solve the problem with GPU acceleration
+			f_variation_padded_torch, f_baseline_torch = layer(dummy_tensor,
+				solver_args={"solve_method": "clarabel"})	
+
+			# Convert PyTorch tensors back to numpy arrays
+			f_variation_padded_value = f_variation_padded_torch.detach().cpu().numpy()[0]
+			f_baseline_value = f_baseline_torch.detach().cpu().numpy()[0]
+			
+			# Extract the relevant portion of the solution
+			f_variation_value = f_variation_padded_value[f_indices]
+			
+		else:
+			# Use traditional CVXPY solving with MOSEK or other solver
+			result = prob.solve(solver=cp.MOSEK)
+			
+			# Extract solution values
+			f_variation_padded_value = f_variation_padded.value
+			f_baseline_value = f_baseline.value
+			f_variation_value = f_variation.value
 		
 		# Store the results
 		self.f = f_variation_value + f_baseline_value
@@ -220,6 +255,8 @@ class DeconvolutionSolver(object):
 		if self.verbose:
 			print("Fit norm:", self.rn)
 			print("Smoothing norm:", self.sn)
+			if self.use_gpu:
+				print("Solved using CVXPYLayers")
 		
 		return self.f
 
