@@ -63,6 +63,16 @@ def main():
 			length_dist_calculator2.all_length_dists)
 		plt.savefig(f"{length_replication_directory}/raw_distributions.png")
 
+	elif command == 'find_alpha':
+
+		from src.alpha_search import FindAlphaSweepDS
+
+		(_, command, output_directory) = system_args
+
+		finder = FindAlphaSweepDS(output_directory=output_directory, 
+		    gene_names=['DSE1', 'DSE2', 'DSE3', 'DSE4'])
+		finder.run_alpha_sweep(alphas=np.arange(4, 48, 4))
+		finder.plot_and_save_results()
 
 	# 1. Deconvolve individual replication profiles, learn cell cycle parameters from MNase-seq
 	elif command == 'replication':
@@ -386,7 +396,7 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 
 		combined_model.plot_branches(figsize=(50, 11))
 		plt.savefig(f"{deconv_plots_directory}/deconv_{save_title}.png")
-		plt.close(fig)z
+		plt.close(fig)
 
 	window_set = pd.read_csv(window_set_path)
 	row = window_set.iloc[index]
