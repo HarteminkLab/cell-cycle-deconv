@@ -30,7 +30,7 @@ OUTDIR=output/draft3_run/
 # sbatch -D ./slurm-logs/ --job-name="alpha" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
 ARGS="find_alpha ${OUTDIR}"
-sbatch -D ./slurm-logs/ --job-name="alpha" -p compsci --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/gpu_job.sh
+sbatch -D ./slurm-logs/ --job-name="gpu" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/gpu_job.sh
 
 # ---------- Test Chromatin Windows -------------------
 

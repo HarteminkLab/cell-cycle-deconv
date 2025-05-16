@@ -1,11 +1,10 @@
 #!/bin/bash
-#SBATCH --time=168:00:00
-#SBATCH --mem 200G
-#SBATCH --gres=gpu:1
-#SBATCH -p compsci-gpu
+##SBATCH --time=12:00:00
+##SBATCH --mem=16G
+#SBATCH --gres=gpu:a5000:1
 
 # Example run:
-# sbatch -D ./slurm-logs/ --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS='output orfname'" scripts/cpu_script.sh
+# sbatch -D ./slurm-logs/ --export="PYFILE=src/deconvolve_chromatin_runner.py,ARGS='output orfname'" scripts/gpu_script.sh
 
 cd /usr/xtmp/tqtran/deconvolution-project
 

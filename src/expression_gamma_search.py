@@ -10,7 +10,7 @@ class GeneExpressionFindOptimalGamma(object):
 
 	def __init__(self, config, H, gene_expression, gamma_min=0.001, gamma_max=1, verbose=True):
 
-		from src.deconvolution_solver import DeconvolutionSolver
+		from src.deconvolution_solver_gpu import DeconvolutionSolver
 
 		# config will be used for indices, so the combined model can use either replicate's config
 		# for the combined model, gene expressn and H are assumed to be concatenated properly
