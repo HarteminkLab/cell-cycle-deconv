@@ -8,8 +8,9 @@ from src.global_config import GlobalConstants
 # RG1, DG1, and CG1 have an equivalent number of timepoints for ease
 # of computation. This approximation allows for an approximately 1 min per index
 # deconvolution for MG1 and postG1
-DEFAULT_G1_NUM_TPS = 22
-DEFAULT_POSTG1_NUM_TPS = 42
+DEFAULT_G1_NUM_TPS = 44
+DEFAULT_POSTG1_NUM_TPS = 84
+APPROX_MIN_PER_NUM_INDICES = 0.5
 
 DEFAULT_REPLICATION_PARENT_DIRECTORY = 'output/draft3_run/'
 
@@ -178,7 +179,7 @@ class ModelConfig(object):
 		total_branch_tps = self.g1_num_tps+self.postg1_num_tps
 
 		if num_g1_tps is None:
-			num_g1_tps = new_alpha
+			num_g1_tps = int(new_alpha/APPROX_MIN_PER_NUM_INDICES)
 
 		self.g1_num_tps = num_g1_tps
 		self.postg1_num_tps = total_branch_tps-num_g1_tps

@@ -59,9 +59,10 @@ class DeconvolutionSolver(object):
 		f_t_periodic = np.concatenate([f_t, f_t])
 		f_b_periodic = np.concatenate([f_b, f_b])
 
-		padding_left = 64 # Start of MG1 and DG1 padding
-		padding_right = 64 # End of post G1 padding
-		total_padding = padding_left+padding_right
+		padding_left_t = branch_len_itb # Start of MG1 padding
+		padding_left_b = branch_len_itb # Start of DG1 padding
+		padding_right = branch_len_itb # End of post G1 padding
+		total_padding = padding_left_t+padding_left_b+padding_right
 
 		from src.helpers import compute_closest_pow2
 
@@ -71,20 +72,23 @@ class DeconvolutionSolver(object):
 		f_indices = np.arange(m)
 		f_variation_padded = cp.Variable(m+total_padding)
 
-		f_padding_left_indices = np.arange(m, m+padding_left)
-		f_padding_right_indices = np.arange(m+padding_left, 
-			m+padding_left+padding_right)
+		# Define the indices in the full f vector for the padding
+		f_padding_left_t_indices = np.arange(m, m+padding_left_t)
+		f_padding_left_b_indices = np.arange(m+padding_left_t, 
+			m+padding_left_t+padding_left_b)
+		f_padding_right_indices = np.arange(m+padding_left_t+padding_left_b, 
+			m+padding_left_t+padding_left_b+padding_right)
 
 		# Mirrorred start means we can use the flipped post G1 padding
 		f_padded_i = np.concatenate([np.flip(f_padding_right_indices), 
 									 f_i_mirror,
 									 f_padding_right_indices])
 
-		f_padded_t = np.concatenate([f_padding_left_indices, 
+		f_padded_t = np.concatenate([f_padding_left_t_indices, 
 									 f_t_periodic,
 									 f_padding_right_indices])
 
-		f_padded_b = np.concatenate([f_padding_left_indices, 
+		f_padded_b = np.concatenate([f_padding_left_b_indices, 
 									 f_b_periodic,
 									 f_padding_right_indices])
 
@@ -131,7 +135,7 @@ class DeconvolutionSolver(object):
 		smooth_f_b_result = cp.sum(cp.abs(coeffs_b))
 
 		fit_norm_result = cp.square(cp.norm(elementwise_result, 2))
-		smooth_result = (smooth_f_i_result * 1 +
+		smooth_result = (smooth_f_i_result * 2 +
 						 smooth_f_t_result * 1 +
 						 smooth_f_b_result * 1)
 
