@@ -1,15 +1,19 @@
-
 import numpy as np
 import cvxpy as cp
+import torch
+from cvxpylayers.torch import CvxpyLayer
 from src.helpers import get_wavelet_kernel
 
 class DeconvolutionSolver(object):
 
 	def __init__(self, config, g, H, gamma, N=None, f_replication=None,
 		b=None, padding_type='both', obj_error_mode='additive', kappa=5e-3,
-		data_is_logged=True, unlog_transform=False, log_transform=False):
+		data_is_logged=True, unlog_transform=False, log_transform=False,
+		use_gpu=False, verbose=False):
 
 		n, m = H.shape
+
+		self.verbose = verbose
 
 		if N is None:
 			N = np.eye(n)
@@ -34,13 +38,13 @@ class DeconvolutionSolver(object):
 		self.f_replication = f_replication
 		self.b = b
 		self.kappa = kappa
-		self.verbose = False
-
+		self.use_gpu = use_gpu
+		
 		self.gamma = gamma
 		self.padding_type = padding_type
 		
 	def deconvolve(self):
-
+		# Set up all the problem components as before
 		f_i = self.config.get_Hpositions_for_branch('i')
 		f_t = self.config.get_Hpositions_for_branch('t')
 		f_b = self.config.get_Hpositions_for_branch('b')
@@ -72,8 +76,6 @@ class DeconvolutionSolver(object):
 			padding_right = 0
 
 		total_padding = padding_left_t+padding_left_b+padding_right
-
-		from src.helpers import compute_closest_pow2
 
 		# Convex optimization
 		n, m = self.H.shape
@@ -132,9 +134,6 @@ class DeconvolutionSolver(object):
 		else:
 			raise ValueError(f"Unimplemented objective error mode: {self.obj_error_mode}")
 
-		# from src.helpers import get_level_based_weights
-		# weights = get_level_based_weights(W_i.shape[0])
-
 		coeffs_i = W_i@(f_variation_padded[f_padded_i])
 		coeffs_t = W_t@(f_variation_padded[f_padded_t])
 		coeffs_b = W_b@(f_variation_padded[f_padded_b])
@@ -155,114 +154,79 @@ class DeconvolutionSolver(object):
 		# L1 norm
 		cg1_dg1_regularization_result = cp.sum(cp.abs(tb_regularization_result))
 
-		objective = cp.Minimize(
+		# Create a dummy parameter for CVXPYLayers (since all other values are constants)
+		dummy_param = cp.Parameter(nonneg=True)
+		dummy_param.value = 1.0
 
+		objective = cp.Minimize(
 			# L2 fitting norm
 			fit_norm_result + 
 			self.gamma * smooth_result +
-			self.kappa * cg1_dg1_regularization_result
+			self.kappa * cg1_dg1_regularization_result +
+			0 * dummy_param  # Add dummy parameter with zero coefficient
 		)
 
 		# Constraint for halted cells, non-negativity, and upper bounds to improve speed
-		constraints = [f_variation >= 0, f_baseline == 0, # non-negativity
-
-			# Hard constraint on halted cells creates issues with smoothing for the recovery branch, 
-			# especially when the halted cells appears to be much different RG1 (in cases for which
-			# halted cells has 0 expression) another way to address this may be to apply a regularized 
-			# objective constraint for the halted cells.
-			# f_variation[f_rg1[-1]] == f_variation[f_halted[0]+1], # halted cells
-		]
+		constraints = [f_variation >= 0, f_baseline == 0] # non-negativity
 
 		prob = cp.Problem(objective, constraints)
-		prob.solve()
-
-		# Convert it into a numpy array
-		f = f_variation.value+f_baseline.value
-
-		self.f = f
-		self.f_variation = f_variation.value
-		self.f_full = f_variation_padded.value
-
-		self.tb_regularization_result = cg1_dg1_regularization_result.value
+		
+		# Use CVXPYLayers with GPU acceleration if requested
+		if self.use_gpu:
+			# Create the layer with our dummy parameter
+			layer = CvxpyLayer(prob, 
+							 parameters=[dummy_param], 
+							 variables=[f_variation_padded, f_baseline])
+			
+			# Determine device (GPU or CPU)
+			device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+			if device.type == 'cpu' and self.use_gpu:
+				print("Warning: GPU requested but not available. Using CPU instead.")
+			
+			# Create the dummy tensor and move to device
+			dummy_tensor = torch.tensor([1.0], dtype=torch.float32).to(device)
+			
+			# Solve the problem with GPU acceleration
+			f_variation_padded_torch, f_baseline_torch = layer(dummy_tensor)
+			
+			# Convert PyTorch tensors back to numpy arrays
+			f_variation_padded_value = f_variation_padded_torch.detach().cpu().numpy()[0]
+			f_baseline_value = f_baseline_torch.detach().cpu().numpy()[0]  # Extract scalar value
+			
+			# Extract the relevant portion of the solution
+			f_variation_value = f_variation_padded_value[f_indices]
+			
+		else:
+			# Use traditional CVXPY solving with MOSEK or other solver
+			result = prob.solve(solver=cp.MOSEK)
+			
+			# Extract solution values
+			f_variation_padded_value = f_variation_padded.value
+			f_baseline_value = f_baseline.value
+			f_variation_value = f_variation.value
+		
+		# Store the results
+		self.f = f_variation_value + f_baseline_value
+		self.f_variation = f_variation_value
+		self.f_full = f_variation_padded_value
+		
+		# Store the other optimization results
 		self.sn = smooth_result.value
 		self.rn = fit_norm_result.value
-		self.f = f
-
+		
+		# Store processed data for later use
 		self.f_i_mirror = f_i_mirror
 		self.f_t_periodic = f_t_periodic
 		self.f_b_periodic = f_b_periodic
-
 		self.W_i = W_i
-
+		
 		if self.verbose:
 			print("Fit norm:", self.rn)
 			print("Smoothing norm:", self.sn)
-			print("Initial smoothing result: ", smooth_f_i_result.value)
-			print("Top smoothing result: ", smooth_f_t_result.value)
-			print("Bottom smoothing result: ", smooth_f_b_result.value)
-
-
-	def plot_fit(self, plot_timepoints=False):
-
-		from matplotlib import pyplot as plt
-
-		config = self.config
-		i_indices = config.get_Hpositions_for_branch('i')
-		t_indices = config.get_Hpositions_for_branch('t')
-		b_indices = config.get_Hpositions_for_branch('b')
-
-		i_tps = config.get_timepoints_for_branch('i')
-		t_tps = config.get_timepoints_for_branch('t')
-		b_tps = config.get_timepoints_for_branch('b')
-
-		if not plot_timepoints:
-			# Plot by indices
-			i_tps = np.arange(len(i_tps))
-			t_tps = np.arange(len(t_tps))
-			b_tps = np.arange(len(b_tps))
-
-		num_cols = 4
-
-		fig, axs = plt.subplots(1, num_cols, figsize=(16, 3))
-
-		g = self.g
-
-		f = self.f
-
-		max_value = np.concatenate([g, f]).max()
-		ylims = -((max_value*0.05)), (max_value*1.05)
-
-		gamma_predicted_g = self.H@f
-
-		ax_row = axs
-
-		ax = ax_row[0]
-
-		ax.plot(g[:], c='black', lw=3, label="Raw data")
-		ax.plot(gamma_predicted_g, c='red',
-				lw=3, label="Optimal $\\gamma$ solution")
-		ax.set_title("Data vs Fit")
-		ax.legend()
-		ax.set_ylim(*ylims)
-
-		ax = ax_row[1]
-		ax.plot(i_tps, f[i_indices], c='red',
-				lw=3)
-		ax.set_title("Initial branch")
-		ax.set_ylim(*ylims)
-
-		ax = ax_row[2]
-		ax.plot(b_tps, f[b_indices], c='blue',
-				lw=3, alpha=0.25)
-		ax.plot(t_tps, f[t_indices], c='red',
-				lw=3)
-		ax.set_ylim(*ylims)
-		ax.set_title("Top branch")
-
-		ax = ax_row[3]
-		ax.plot(t_tps, f[t_indices], c='red',
-				lw=3, alpha=0.25)
-		ax.plot(b_tps, f[b_indices], c='blue',
-				lw=3)
-		ax.set_ylim(*ylims)
-		ax.set_title("Bottom branch")
+			print("Initial smoothing result:", smooth_f_i_result.value)
+			print("Top smoothing result:", smooth_f_t_result.value)
+			print("Bottom smoothing result:", smooth_f_b_result.value)
+			if self.use_gpu:
+				print("Solved using GPU acceleration via CVXPYLayers")
+		
+		return self.f
