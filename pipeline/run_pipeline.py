@@ -198,8 +198,8 @@ def main():
 		(_, command, output_directory, index) = system_args
 
 		# Some sparse differences between mothers and daughters are allowed
-		kappa = 0.03
-		gamma = 0.0066
+		kappa = 0.01
+		gamma = 0.12
 		print("Deconvolving the chromatin with a partial regularization on CG1/DG1 differences"
 			  f" kappa of {kappa}")
 
