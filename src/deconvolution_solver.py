@@ -184,11 +184,11 @@ class DeconvolutionSolver(object):
 			# L2 fitting norm
 			fit_norm_result + 
 			self.gamma * smooth_result +
-			self.kappa * cg1_dg1_regularization_result +
+			self.kappa * cg1_dg1_regularization_result
 		)
 
 		# Constraint for halted cells, non-negativity, and upper bounds to improve speed
-		constraints = [f_variation >= 0, f_baseline == 0] # non-negativity
+		constraints = [f_variation >= 0, f_baseline >= 0] # non-negativity
 
 		prob = cp.Problem(objective, constraints)
 		

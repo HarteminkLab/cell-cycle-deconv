@@ -8,8 +8,12 @@ from src.global_config import GlobalConstants
 # RG1, DG1, and CG1 have an equivalent number of timepoints for ease
 # of computation. This approximation allows for an approximately 1 min per index
 # deconvolution for MG1 and postG1
-DEFAULT_G1_NUM_TPS = 44
-DEFAULT_POSTG1_NUM_TPS = 84
+# DEFAULT_G1_NUM_TPS = 44
+# DEFAULT_POSTG1_NUM_TPS = 84
+
+DEFAULT_G1_NUM_TPS = 64
+DEFAULT_POSTG1_NUM_TPS = 64
+
 APPROX_MIN_PER_NUM_INDICES = 0.5
 
 DEFAULT_REPLICATION_PARENT_DIRECTORY = 'output/draft3_run/'
@@ -408,13 +412,15 @@ class ModelConfig(object):
 
 		plt.suptitle("Replicate 1", fontsize=18, fontweight='demi', y=1.05)
 
-	def plot_H(self, vmax=None, plot_S=False):
+	def plot_H(self, H=None, vmax=None, plot_S=False):
 
 		from src.plot_helpers import color_for_key
 		import matplotlib.pyplot as plt
 		from src.figure_configs import FiguresConfig
 
-		H = self.H
+		if H is None:
+			H = self.H
+
 		rg1_cols = self.get_Hpositions_for_phase('RG1')
 		cg1_cols = self.get_Hpositions_for_phase('CG1')
 		dg1_cols = self.get_Hpositions_for_phase('DG1')
@@ -442,7 +448,12 @@ class ModelConfig(object):
 		plt.subplot(1, 2, 2)
 
 		plt.title("Phase proportions over time", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
-		x = self.timepoints
+
+		if H is None:
+			x = self.timepoints
+		else:
+			x = np.arange(H.shape[0])
+
 		prev = np.zeros(len(x))
 
 		label_mapping = {

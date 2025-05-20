@@ -62,15 +62,10 @@ class CombinedChromatinModel:
 
 
 	def	setup_deconv_model(self, gamma=0.007, G=None, G1=None, G2=None, wavelet="Symmlet",
-			padding_type='both', copy_correct=True, alphas=[22, 20]):
+			padding_type='both', copy_correct=True):
 
 		chrom1_model = self.chrom1_model
 		chrom2_model = self.chrom2_model
-
-		# Modify the alphas, but fix the number of g1 timepoints to 22 for the combined
-		# model's consistency of the H matrix
-		chrom1_model.config.modify_alpha(alphas[0], num_g1_tps=22)
-		chrom2_model.config.modify_alpha(alphas[1], num_g1_tps=22)
 
 		# Load N, freplication and b replication data for correction
 		self.load_copy_correction_data()
@@ -87,7 +82,7 @@ class CombinedChromatinModel:
 		# Disable copy correction
 		if not copy_correct:
 			print("Disabling copy correction, using identity functions for N, b, and fr")
-			self.N = np.eye(self.N.shape[0])
+			self.N = np.eye(self.H.shape[0])
 			self.f_replication = np.ones(self.H.shape[1])
 			self.b = 1
 
