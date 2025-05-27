@@ -1,26 +1,31 @@
 
 import numpy as np
+from src.global_config import GlobalConstants
 
 
 class CombinedDeconvolveGeneExpressionRunner:
 
-	def __init__(self, output_directory, should_load_cloccs_configs=False):
+	def __init__(self, output_directory):
 
 		from src.config import load_default_expression_configs, load_cloccs_configs
 
 		# Load the config parameters from disk, for gene expression, the copy
 		# correction information will not be used, so we can just use the learned cell cycle
 		# parameters
-		if should_load_cloccs_configs:
-			config1, config2 = load_cloccs_configs(mode='expression')
-		else:
-			config1, config2 = load_default_expression_configs()
+		config1, config2 = load_cloccs_configs(mode='expression')
+		combined_config, _ = load_cloccs_configs(mode='expression')
 
 		self.config1 = config1
 		self.config2 = config2
 
+		# Create another config for the combined model, 
+		# in case we want to modify alpha if either single replicate configs
+		self.combined_config = combined_config 
+		self.combined_config.timepoints = np.concatenate([GlobalConstants.EXPRESSION_WT1_TIMEPOINTS, 
+				GlobalConstants.EXPRESSION_WT2_TIMEPOINTS])
 
-	def deconvolve_gene_find_gamma(self, gene_name, replicate='combined', kappa=0.0, verbose=False):
+	def deconvolve_gene_find_gamma(self, gene_name, replicate='combined', kappa=0.0, verbose=False,
+		alphas=None, num_g1_indices=None):
 
 		from src.gene_expression import load_gene_expression
 		from src.sgd import get_orfname
@@ -33,6 +38,14 @@ class CombinedDeconvolveGeneExpressionRunner:
 		gene_expression_replicate1 = load_gene_expression(gene_name, 1, log_transform=True)
 		gene_expression_replicate2 = load_gene_expression(gene_name, 2, log_transform=True)
 
+		# Modify alphas if specified
+		if alphas is not None:
+			self.config1.modify_alpha(alphas[0], num_g1_indices)
+			self.config2.modify_alpha(alphas[1], num_g1_indices)
+
+			# Use for indices lookup and timepoints
+			self.combined_config.modify_alpha(alphas[0], num_g1_indices)
+
 		H1 = self.config1.H
 		H2 = self.config2.H
 
@@ -40,9 +53,8 @@ class CombinedDeconvolveGeneExpressionRunner:
 
 		if replicate == 'combined':
 			H, G = concatenate_H_G(H1, H2, gene_expression_replicate1, gene_expression_replicate2)
-			config = self.config1
-			config.timepoints = np.concatenate([GlobalConstants.EXPRESSION_WT1_TIMEPOINTS, 
-				GlobalConstants.EXPRESSION_WT2_TIMEPOINTS])
+			self.combined_config.H = H
+			config = self.combined_config
 
 		elif replicate == 1:
 			H = H1

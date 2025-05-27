@@ -99,7 +99,7 @@ class OriginAlphaSweep:
 				  f"{row['activation_time']} {row['efficiency']}")
 	
 	def load_origin_mnase_data(self, oridb: str, window: int = 1000,
-			impute_50_rep2=True) -> None:
+			impute_50_rep2=False, verbose=True) -> None:
 		"""
 		Load MNase data for a specific origin.
 		
@@ -114,7 +114,8 @@ class OriginAlphaSweep:
 		win_2 = window // 2
 		mnase_span = (origin.pos - win_2, origin.pos + win_2 + 1)
 
-		self.combined_model.load_mnase_span(chrom, mnase_span, impute_50_rep2=impute_50_rep2)
+		self.combined_model.load_mnase_span(chrom, mnase_span, impute_50_rep2=impute_50_rep2, 
+			verbose=verbose)
 		self.current_origin = origin
 			
 		
@@ -223,7 +224,7 @@ class OriginAlphaSweep:
 		return origin_selection_imgs
 	
 	def analyze_origin(self, oridb: str, window: int = 1000, 
-					 footprint_bounds: List[int] = [-5, 10, 3, 14],
+					 footprint_bounds: List[int] = [-5, 10, 3, 14], verbose=True,
 					 plot=False, impute_50_rep2=True, copy_correct=True) -> np.ndarray:
 		"""
 		Perform a complete analysis of a single origin.
@@ -237,7 +238,8 @@ class OriginAlphaSweep:
 			NumPy array of selected footprint images
 		"""
 
-		self.load_origin_mnase_data(oridb, window, impute_50_rep2=impute_50_rep2)
+		self.load_origin_mnase_data(oridb, window, impute_50_rep2=impute_50_rep2,
+			verbose=verbose)
 		self.combined_model.setup_deconv_model(copy_correct=copy_correct)
 
 		if plot:
@@ -293,9 +295,9 @@ class OriginAlphaSweep:
 
 		self.solver = solver
 
-	def deconvolve_footprint(self, gamma=0.01, kappa=1):
+	def deconvolve_footprint(self, gamma=0.01, kappa=1, verbose=True):
 		footprint_img_shape = self.footprint.shape
-		self.footprint_F = self.solver.deconvolve_G_iteratively(gamma=gamma, kappa=kappa, verbose=True)
+		self.footprint_F = self.solver.deconvolve_G_iteratively(gamma=gamma, kappa=kappa, verbose=verbose)
 		self.footprint_F_imgs = self.footprint_F.reshape((-1, 
 			footprint_img_shape[1], footprint_img_shape[2]))
 

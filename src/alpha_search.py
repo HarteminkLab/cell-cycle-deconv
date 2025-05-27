@@ -20,7 +20,9 @@ class FindAlphaSweepDS:
 	"""
 	
 	def __init__(self, output_directory, gene_names=['DSE1', 'DSE2', 'DSE3', 'DSE4'],
-		verbose=True):
+			 selected_origins=['oridb_10', 'oridb_295', 'oridb_289', 'oridb_193', 
+							  'oridb_558', 'oridb_498', 'oridb_68', 'oridb_817'],
+			 verbose=True):
 		"""
 		Initialize the FindAlphaSweepDS class.
 		
@@ -30,6 +32,8 @@ class FindAlphaSweepDS:
 			Directory where results will be saved
 		gene_names : list, optional
 			List of daughter-specific genes to analyze (default: DSE1-4)
+		selected_origins : list, optional
+			List of origin IDs to analyze for footprint deconvolution
 		verbose : bool, optional
 			Whether to print verbose output (default: True)
 		"""
@@ -38,11 +42,17 @@ class FindAlphaSweepDS:
 		self.verbose = verbose
 		self.timer = Timer()
 		self.gene_names = gene_names
-			
+		self.selected_origins = selected_origins
+		
+		# Chromatin deconvolution parameters
+		self.origin_gamma = 0.14
+		self.origin_kappa = 0.01
+		self.gene_kappa = 0.0
+		
 		# Load CLOCCS configs and initialize runner
 		from pipeline.CombinedDeconvolveGeneExpressionRunner import CombinedDeconvolveGeneExpressionRunner
 		self.config1, self.config2 = load_cloccs_configs()
-		self.runner = CombinedDeconvolveGeneExpressionRunner(output_directory, False)
+		self.runner = CombinedDeconvolveGeneExpressionRunner(output_directory)
 
 		# Create output directory
 		mkdir_safe(self.save_dir)
@@ -52,6 +62,8 @@ class FindAlphaSweepDS:
 		self.dg1_mg1_ratios = None
 		self.correlation_results = None
 		self.thresholded_ratios = None
+		self.combined_gene_results = None
+		self.combined_origin_results = None
 
 	def gene_alpha_search(self, gene_name, kappa, replicate, alphas):
 		"""
@@ -424,7 +436,7 @@ class FindAlphaSweepDS:
 			index='alpha1', columns='alpha2', values='correlation'
 		)
 		
-		fig, ax = plt.subplots(figsize=(5, 4.5))
+		fig, ax = plt.subplots(figsize=(5, 4))
 		
 		# Display the heatmap
 		im = ax.imshow(correlation_pivot, cmap='RdBu_r', aspect='auto', vmin=-1, vmax=1,
@@ -433,8 +445,8 @@ class FindAlphaSweepDS:
 							   correlation_pivot.index[0]-1, correlation_pivot.index[-1]+1])
 		
 		# Set the ticks and labels
-		ax.set_xticks(correlation_pivot.columns)
-		ax.set_yticks(correlation_pivot.index)
+		ax.set_xticks(correlation_pivot.columns[::2])  # Show every other tick to avoid crowding
+		ax.set_yticks(correlation_pivot.index[::2])
 		ax.tick_params(axis='both', which='major', labelsize=8)
 		
 		# Add colorbar
@@ -560,40 +572,163 @@ class FindAlphaSweepDS:
 		
 		return results
 
-	def plot_and_save_results(self, alphas=None, save=True):
+	def _plot_single_alpha_row(self, ax_row, alpha, alpha_data, config1,
+		config2=None, genes=None):
 		"""
-		Plot and save the results of the alpha sweep.
+		Base function to plot a single row (all genes + average) for given alpha value(s).
 		
 		Parameters:
 		-----------
-		alphas : array-like, optional
-			Alpha values to plot. If None, uses all alphas in results.
-		save : bool, optional
-			Whether to save results and plots (default: True)
+		ax_row : array of matplotlib axes
+			Row of axes to plot on
+		alpha_data : pd.DataFrame
+			Data for this alpha combination, indexed by gene
+		config1 : object
+			Primary configuration object
+		config2 : object, optional
+			Second configuration object for combined model
+		genes : list, optional
+			List of genes to plot. If None, uses all genes in alpha_data
+		"""
+		if genes is None:
+			genes = sorted(alpha_data.index.unique())
+		
+		n_genes = len(genes)
+		
+		# Get timepoints and indices (use config1 as primary, assuming indices match for combined)
+		i_tps = config1.get_timepoints_for_branch('i')
+		t_tps = config1.get_timepoints_for_branch('t') 
+		b_tps = config1.get_timepoints_for_branch('b')
+		
+		i_indices = config1.get_Hpositions_for_branch('i')
+		t_indices = config1.get_Hpositions_for_branch('t')
+		b_indices = config1.get_Hpositions_for_branch('b')
+		
+		# Colors
+		i_color = '#a0a0a0'
+		t_color = 'black'
+		b_color = color_for_key('DG1')
+		
+		# Store for averaging
+		all_i_values = []
+		all_t_values = []
+		all_b_values = []
+		
+		# Plot each gene
+		for j, gene in enumerate(genes):
+			gene_data = alpha_data.loc[gene]
+			
+			# Extract branch data
+			i_values = gene_data[i_indices].values
+			t_values = gene_data[t_indices].values
+			b_values = gene_data[b_indices].values
+			
+			# Store for averaging
+			all_i_values.append(i_values)
+			all_t_values.append(t_values)
+			all_b_values.append(b_values)
+			
+			# Plot on corresponding subplot
+			ax = ax_row[j]
+			ax.plot(i_tps, i_values, lw=3, color=i_color, label='Recovery Branch')
+			ax.plot(t_tps, t_values, lw=3, color=t_color, label='Top Branch')
+			ax.plot(b_tps, b_values, lw=3, color=b_color, label='Bottom Branch')
+			
+			ax.axvline(0, c='#ddd', lw=1)
+			ax.legend()
+		
+		# Plot average in last column
+		if all_i_values and all_t_values and all_b_values:
+			avg_i_values = np.mean(all_i_values, axis=0)
+			avg_t_values = np.mean(all_t_values, axis=0)
+			avg_b_values = np.mean(all_b_values, axis=0)
+			
+			ax = ax_row[n_genes]  # Last column for average
+			ax.plot(i_tps, avg_i_values, lw=5, color=i_color, label='Recovery Branch')
+			ax.plot(t_tps, avg_t_values, lw=5, color=t_color, label='Top Branch')
+			ax.plot(b_tps, avg_b_values, lw=5, color=b_color, label='Bottom Branch')
+			ax.axvline(0, c='#ddd', lw=1)
+			ax.legend()
+
+	def plot_alpha_genes_subplots(self, plot_alphas, replicate):
+		"""
+		Plot data for a specific replicate showing values for each alpha and gene combination.
+		
+		Parameters:
+		-----------
+		plot_alphas : array-like
+			Alpha values to plot
+		replicate : int
+			The replicate number to plot (1 or 2)
+		
+		Returns:
+		--------
+		matplotlib.figure.Figure
+			The figure containing all subplots
 		"""
 		if self.all_alpha_results_df is None:
-			raise ValueError("No results to plot. Run 'run_alpha_sweep' first.")
+			raise ValueError("No results available. Run alpha sweep or load existing results first.")
+		
+		# Select data for the specified replicate
+		replicate_data = self.all_alpha_results_df.loc[replicate]
+		genes = sorted(replicate_data.index.get_level_values('gene').unique())
+		
+		n_alphas = len(plot_alphas)
+		n_genes = len(genes)
+		
+		# Create figure
+		fig, axes = plt.subplots(n_alphas, n_genes + 1, figsize=(3. * (n_genes + 1), 3. * n_alphas))
+		
+		# Handle axis indexing for edge cases
+		if n_alphas == 1 and n_genes == 1:
+			axes = np.array([[axes[0], axes[1]]])
+		elif n_alphas == 1:
+			axes = axes.reshape(1, -1)
+		elif n_genes == 1:
+			axes = axes.reshape(-1, 2)
+		
+		# Set consistent y-limits
+		all_data_no_nans = replicate_data.copy().fillna(0)
+		ylims = 0, all_data_no_nans.values.max() * 1.2
+		
+		config = self.config1 if replicate == 1 else self.config2
+		
+		# Plot each alpha row
+		for i, alpha in enumerate(plot_alphas):
+			alpha_data = replicate_data.xs(alpha, level='alpha')
+			ax_row = axes[i] if n_alphas > 1 else axes[0]
+
+			config.modify_alpha(alpha)
 			
-		if alphas is None:
-			# Extract unique alphas from the results
-			alphas = self.all_alpha_results_df.reset_index()['alpha'].unique()
-
-		# Plot and save for replicate 1
-		fig1 = plot_alpha_genes_subplots(self.config1, alphas, self.all_alpha_results_df, 1)
-
-		if save:
-			self.all_alpha_results_df.to_csv(f"{self.save_dir}/alphas_repl1.csv")
-			save_figure_for_paper(f"{self.save_dir}/alphas_repl1.png", dpi=80)
+			# Use base plotting function
+			self._plot_single_alpha_row(ax_row, alpha, alpha_data, config, genes=genes)
+			
+			# Set labels and formatting for this row
+			for j in range(n_genes + 1):
+				ax = ax_row[j]
+				ax.set_ylim(*ylims)
+				
+				if j == 0:  # First column - add y-label with alpha
+					ax.set_ylabel(f"α={alpha}", fontsize=24)
+				else:
+					ax.set_yticks([])
+				
+				if i == 0:  # Top row - add gene titles
+					if j < n_genes:
+						ax.set_title('$\\it{' + genes[j] + '}$', fontsize=24, pad=5)
+					else:
+						ax.set_title('Average', fontsize=16, pad=5)
+				
+				if i == n_alphas - 1:  # Bottom row - add x-label
+					if j == 0:  # Only on first subplot to avoid clutter
+						ax.set_xlabel('Average single cell time, min', fontsize=16)
 		
-		# Plot and save for replicate 2
-		fig2 = plot_alpha_genes_subplots(self.config2, alphas, self.all_alpha_results_df, 2)
-
-		if save:
-			self.all_alpha_results_df.to_csv(f"{self.save_dir}/alphas_repl2.csv")
-			save_figure_for_paper(f"{self.save_dir}/alphas_repl2.png", dpi=80)
+		# Adjust layout and add title
+		plt.tight_layout(rect=[0, 0, 1, 0.96])
+		fig.suptitle(f'Alpha search, replicate {replicate}', fontsize=38, fontweight='demi', y=1.05)
 		
-		if self.verbose:
-			print_fl(f"Results saved to {self.save_dir}")
+		return fig
+
 
 	def run_full_analysis(self, alphas=None, kappa=0.0, threshold=1.6, load_existing=False, existing_filepath=None):
 		"""
@@ -630,141 +765,478 @@ class FindAlphaSweepDS:
 		
 		return correlation_results
 
-
-def plot_alpha_genes_subplots(config, plot_alphas, all_alpha_results_df, replicate):
-	"""
-	Plot data for a specific replicate showing values for t_indices and b_indices for each alpha and gene combination.
-	
-	Parameters:
-	-----------
-	config : object
-		Configuration object with methods get_Hpositions_for_branch() to get top and bottom branch indices
-	plot_alphas : array-like
-		Alpha values to plot
-	all_alpha_results_df : pandas.DataFrame
-		DataFrame with MultiIndex ['replicate', 'alpha', 'gene'] and numeric value columns
-	replicate : int
-		The replicate number to plot
-	
-	Returns:
-	--------
-	matplotlib.figure.Figure
-		The figure containing all subplots
-	"""
-	
-	# Select data for the specified replicate using loc
-	replicate_data = all_alpha_results_df.loc[replicate]
-	
-	# Get unique alpha values and genes from the index
-	alphas = plot_alphas
-	genes = sorted(replicate_data.index.get_level_values('gene').unique())
-	
-	# Create a figure with subplots for each alpha-gene combination plus averages
-	n_alphas = len(plot_alphas)
-	n_genes = len(genes)
-	
-	# Create a grid of subplots
-	fig, axes = plt.subplots(n_alphas, n_genes + 1, figsize=(3. * (n_genes + 1), 2. * n_alphas))
-	
-	# Make sure axes is 2D for consistent indexing
-	if n_alphas == 1 and n_genes == 1:
-		axes = np.array([[axes[0], axes[1]]])
-	elif n_alphas == 1:
-		axes = axes.reshape(1, -1)
-	elif n_genes == 1:
-		axes = axes.reshape(-1, 2)
-
-	# Make all the ylims the same and set colors
-	all_data_no_nans = replicate_data.copy().fillna(0)
-	ylims = 0, all_data_no_nans.values.max()*1.2
-
-	# Process each alpha value
-	for i, alpha in enumerate(alphas):
-		config.modify_alpha(alpha)
-
-		# Timepoints for branch
-		i_tps = config.get_timepoints_for_branch('i')
-		t_tps = config.get_timepoints_for_branch('t')
-		b_tps = config.get_timepoints_for_branch('b')
-
-		# Get indices for branches
-		i_indices = config.get_Hpositions_for_branch('i')
-		t_indices = config.get_Hpositions_for_branch('t')
-		b_indices = config.get_Hpositions_for_branch('b')
-
-		# Get data for this alpha
-		alpha_data = replicate_data.xs(alpha, level='alpha')
+	def plot_combined_alpha_results(self, alpha_pairs, combined_data, italics_title=True):
+		"""
+		Plot combined model results for alpha pair combinations.
 		
-		# Store for averaging
-		all_i_values = []
-		all_t_values = []
-		all_b_values = []
-
-		i_color = '#a0a0a0'
-		t_color = 'black'
-		b_color = color_for_key('DG1')
-
-		# Process each gene
-		for j, gene in enumerate(genes):
-			# Get the row for this gene
-			gene_data = alpha_data.loc[gene]
-			
-			# Select the columns for branches
-			i_values = gene_data[i_indices].values
-			t_values = gene_data[t_indices].values
-			b_values = gene_data[b_indices].values
-			
-			# Store for averaging
-			all_i_values.append(i_values)
-			all_t_values.append(t_values)
-			all_b_values.append(b_values)
-			
-			# Plot on the corresponding subplot
-			ax = axes[i, j]
-			ax.plot(i_tps, i_values, lw=3, color=i_color, label='Recovery Branch')
-			ax.plot(t_tps, t_values, lw=3, color=t_color, label='Top Branch')
-			ax.plot(b_tps, b_values, lw=3, color=b_color, label='Bottom Branch')
-			
-			if j == 0:
-				ax.set_ylabel(f"α={alpha}", fontsize=24)
-			else:
-				ax.set_yticks([])
-
-			if i == 0:
-				ax.set_title('$\\it{' + gene + '}$', fontsize=24, pad=5)
-
-			if i == n_alphas-1:
-				if i == 0:
-					ax.set_xlabel('Average single cell time, min', fontsize=16)
-
-			ax.set_ylim(*ylims)
-			ax.axvline(0, c='#ddd', lw=1)
-			ax.legend()
+		Parameters:
+		-----------
+		alpha_pairs : list of tuples
+			List of (alpha1, alpha2) pairs to plot
+		combined_data : pd.DataFrame  
+			DataFrame with MultiIndex [(alpha1, alpha2), gene] containing combined model results
 		
-		# Calculate and plot averages across genes
-		if all_t_values and all_b_values:
-			# Calculate average for each position
-			avg_i_values = np.mean(all_i_values, axis=0)
-			avg_t_values = np.mean(all_t_values, axis=0)
-			avg_b_values = np.mean(all_b_values, axis=0)
+		Returns:
+		--------
+		matplotlib.figure.Figure
+			The figure containing all subplots
+		"""
+		# Get genes from the data
+		genes = sorted(combined_data.index.get_level_values(1).unique())
+		
+		n_pairs = len(alpha_pairs)
+		n_genes = len(genes)
+		
+		# Create figure
+		fig, axes = plt.subplots(n_pairs, n_genes + 1, figsize=(3. * (n_genes + 1), 3. * n_pairs))
+		
+		# Handle axis indexing for edge cases
+		if n_pairs == 1 and n_genes == 1:
+			axes = np.array([[axes[0], axes[1]]])
+		elif n_pairs == 1:
+			axes = axes.reshape(1, -1)
+		elif n_genes == 1:
+			axes = axes.reshape(-1, 2)
+		
+		# Set consistent y-limits
+		all_data_no_nans = combined_data.copy().fillna(0)
+		ylims = 0, all_data_no_nans.values.max() * 1.2
+		
+		# Plot each alpha pair row
+		for i, (alpha1, alpha2) in enumerate(alpha_pairs):
+			alpha_data = combined_data.xs((alpha1, alpha2), level=0)
+			ax_row = axes[i] if n_pairs > 1 else axes[0]
+
+			num_g1 = alpha1+alpha2
+			self.config1.modify_alpha(alpha1, num_g1)
+			self.config2.modify_alpha(alpha2, num_g1)
 			
-			# Plot averages
-			ax = axes[i, n_genes]
-			ax.plot(i_tps, avg_i_values, lw=5, color=i_color, label='Recovery Branch')
-			ax.plot(t_tps, avg_t_values, lw=5, color=t_color, label='Top Branch')
-			ax.plot(b_tps, avg_b_values, lw=5, color=b_color, label='Bottom Branch')
-			ax.set_yticks([])
-			ax.axvline(0, c='#ddd', lw=1)
-			ax.set_ylim(*ylims)
+			# Use base plotting function
+			self._plot_single_alpha_row(ax_row, (alpha1, alpha2), alpha_data, 
+									   self.config1, self.config2, genes=genes)
 			
-			# Set title and labels
-			ax.set_title(f'Average', fontsize=16, pad=5)
-			ax.legend()
-	
-	# Adjust layout
-	plt.tight_layout(rect=[0, 0, 1, 0.96])
-	
-	# Set overall title
-	fig.suptitle(f'Alpha search, replicate {replicate}', fontsize=32, fontweight='demi')
-	
-	return fig
+			# Set labels and formatting for this row
+			for j in range(n_genes + 1):
+				ax = ax_row[j]
+				ax.set_ylim(*ylims)
+				
+				if j == 0:  # First column - add y-label with alpha pair
+					ax.set_ylabel(f"α₁={alpha1}, α₂={alpha2}", fontsize=20)
+				else:
+					ax.set_yticks([])
+				
+				if i == 0:  # Top row - add gene titles
+					if j < n_genes:
+
+						if italics_title:
+							ax.set_title('$\\it{' + genes[j] + '}$', fontsize=24)
+						else:
+							ax.set_title(genes[j], fontsize=24)
+					else:
+						ax.set_title('Average', fontsize=16, pad=5)
+				
+				if i == n_pairs - 1:  # Bottom row - add x-label
+					if j == 0:  # Only on first subplot to avoid clutter
+						ax.set_xlabel('Average single cell time, min', fontsize=16)
+		
+		# Adjust layout and add title
+		plt.tight_layout(rect=[0, 0, 1, 0.96])
+		fig.suptitle('Combined model alpha search', fontsize=38, fontweight='demi', y=1.05)
+		
+		return fig
+
+	def plot_and_save_results(self, alphas=None, save=True):
+		"""
+		Plot and save the results of the alpha sweep.
+		
+		Parameters:
+		-----------
+		alphas : array-like, optional
+			Alpha values to plot. If None, uses all alphas in results.
+		save : bool, optional
+			Whether to save results and plots (default: True)
+		"""
+		if self.all_alpha_results_df is None:
+			raise ValueError("No results to plot. Run 'run_alpha_sweep' first.")
+			
+		if alphas is None:
+			# Extract unique alphas from the results
+			alphas = self.all_alpha_results_df.reset_index()['alpha'].unique()
+
+		# Plot and save for replicate 1
+		fig1 = self.plot_alpha_genes_subplots(alphas, 1)
+
+		if save:
+			self.all_alpha_results_df.to_csv(f"{self.save_dir}/alphas_repl1.csv")
+			save_figure_for_paper(f"{self.save_dir}/alphas_repl1.png", dpi=80)
+		
+		# Plot and save for replicate 2
+		fig2 = self.plot_alpha_genes_subplots(alphas, 2)
+
+		if save:
+			self.all_alpha_results_df.to_csv(f"{self.save_dir}/alphas_repl2.csv")
+			save_figure_for_paper(f"{self.save_dir}/alphas_repl2.png", dpi=80)
+		
+		if self.verbose:
+			print_fl(f"Results saved to {self.save_dir}")
+
+
+	def run_combined_gene_deconvolution(self, top_n_pairs=8):
+		"""
+		Run combined gene deconvolution for optimal alpha pairs.
+		
+		Parameters:
+		-----------
+		top_n_pairs : int, optional
+			Number of top alpha pairs to analyze (default: 8)
+			
+		Returns:
+		--------
+		pd.DataFrame
+			Combined gene deconvolution results for all alpha pairs and genes
+		"""
+		if self.correlation_results is None:
+			raise ValueError("Correlations not computed. Run correlation analysis first.")
+		
+		# Get optimal alpha pairs
+		optimal_pairs = self.find_optimal_alpha_pairs(top_n_pairs)
+		alpha_pairs = optimal_pairs.index[:top_n_pairs]
+		
+		if self.verbose:
+			print_fl(f"Running combined gene deconvolution for {len(alpha_pairs)} alpha pairs...")
+		
+		timer = Timer()
+		all_alpha_gene_solutions = []
+		
+		for alphas in alpha_pairs:
+			if self.verbose:
+				print_fl(f"Deconvolving combined alphas: {alphas}")
+			
+			gene_solutions = []
+			num_g1 = alphas[0] + alphas[1]
+			
+			for gene_name in self.gene_names:
+				if self.verbose:
+					print_fl(f"{gene_name}...", end='')
+				
+				# Run combined deconvolution
+				self.runner.deconvolve_gene_find_gamma(
+					gene_name, alphas=alphas, num_g1_indices=num_g1
+				)
+				F = self.runner.expression_find_gamma.retrieve_solution()
+				gene_solutions.append(F)
+				
+				if self.verbose:
+					timer.print_time()
+			
+			# Create DataFrame for this alpha pair
+			gene_solutions_df = pd.DataFrame(gene_solutions, index=self.gene_names)
+			gene_solutions_df.index.name = 'gene'
+			gene_solutions_df['alphas'] = [alphas] * len(gene_solutions)
+			gene_solutions_df = gene_solutions_df.reset_index().set_index(['alphas', 'gene'])
+			
+			all_alpha_gene_solutions.append(gene_solutions_df)
+		
+		self.combined_gene_results = pd.concat(all_alpha_gene_solutions)
+		
+		if self.verbose:
+			print_fl("Combined gene deconvolution completed")
+		
+		return self.combined_gene_results
+
+
+	def run_combined_origin_deconvolution(self, top_n_pairs=8, copy_correct=False):
+		"""
+		Run combined origin deconvolution for optimal alpha pairs.
+		
+		Parameters:
+		-----------
+		top_n_pairs : int, optional
+			Number of top alpha pairs to analyze (default: 8)
+		copy_correct : bool, optional
+			Whether to apply copy correction (default: False)
+			
+		Returns:
+		--------
+		pd.DataFrame
+			Combined origin deconvolution results for all alpha pairs and origins
+		"""
+		if self.correlation_results is None:
+			raise ValueError("Correlations not computed. Run correlation analysis first.")
+		
+		# Import origin sweep class
+		from pipeline.origin_alpha_sweep import OriginAlphaSweep
+		origin_sweep = OriginAlphaSweep(self.output_directory)
+		
+		# Get optimal alpha pairs
+		optimal_pairs = self.find_optimal_alpha_pairs(top_n_pairs)
+		alpha_pairs = optimal_pairs.index[:top_n_pairs]
+		
+		if self.verbose:
+			print_fl(f"Running combined origin deconvolution for {len(alpha_pairs)} alpha pairs...")
+		
+		timer = Timer()
+		all_alpha_origin_results = []
+		
+		for alphas in alpha_pairs:
+			if self.verbose:
+				print_fl(f"Alphas: {alphas}")
+			
+			origin_footprint_results = []
+			num_g1 = alphas[0] + alphas[1]
+			origin_sweep.load_configs(modify_alphas=alphas, num_g1_indices=num_g1)
+			
+			for oridb in self.selected_origins:
+				if self.verbose:
+					print_fl(f"Deconvolving origin: {oridb}")
+				
+				# Analyze the origin
+				footprint = origin_sweep.analyze_origin(
+					oridb, copy_correct=copy_correct, verbose=False
+				)
+				
+				origin_sweep.setup_footprint_deconvolution(
+					replicate='combined', copy_correct=copy_correct
+				)
+				origin_sweep.deconvolve_footprint(
+					gamma=self.origin_gamma, kappa=self.origin_kappa, verbose=False
+				)
+				
+				footprint_F_mean = origin_sweep.footprint_F_imgs.mean((1, 2))
+				origin_footprint_results.append(footprint_F_mean)
+				
+				if self.verbose:
+					timer.print_time("\n")
+			
+			# Create DataFrame for this alpha pair
+			origin_footprints_df = pd.DataFrame(
+				origin_footprint_results, index=self.selected_origins
+			)
+			origin_footprints_df['alphas'] = [alphas] * len(origin_footprints_df)
+			origin_footprints_df.index.name = 'origin_id'
+			origin_footprints_df = origin_footprints_df.reset_index().set_index(
+				['alphas', 'origin_id']
+			)
+			
+			all_alpha_origin_results.append(origin_footprints_df)
+		
+		self.combined_origin_results = pd.concat(all_alpha_origin_results)
+		
+		if self.verbose:
+			print_fl("Combined origin deconvolution completed")
+		
+		return self.combined_origin_results
+
+
+	def save_combined_gene_results(self, filename=None):
+		"""
+		Save combined gene deconvolution results to CSV.
+		
+		Parameters:
+		-----------
+		filename : str, optional
+			Custom filename. If None, uses default naming.
+		"""
+		if self.combined_gene_results is None:
+			raise ValueError("No combined gene results to save. Run combined gene deconvolution first.")
+		
+		if filename is None:
+			filename = f"{self.save_dir}/combined_gene_results.csv"
+		
+		self.combined_gene_results.to_csv(filename)
+		
+		if self.verbose:
+			print_fl(f"Combined gene results saved to {filename}")
+
+
+	def save_combined_origin_results(self, filename=None):
+		"""
+		Save combined origin deconvolution results to CSV.
+		
+		Parameters:
+		-----------
+		filename : str, optional
+			Custom filename. If None, uses default naming.
+		"""
+		if self.combined_origin_results is None:
+			raise ValueError("No combined origin results to save. Run combined origin deconvolution first.")
+		
+		if filename is None:
+			filename = f"{self.save_dir}/combined_origin_results.csv"
+		
+		self.combined_origin_results.to_csv(filename)
+		
+		if self.verbose:
+			print_fl(f"Combined origin results saved to {filename}")
+
+
+	def save_combined_gene_figures(self, alpha_pairs=None, filename=None, **kwargs):
+		"""
+		Save combined gene deconvolution figures.
+		
+		Parameters:
+		-----------
+		alpha_pairs : list, optional
+			Specific alpha pairs to plot. If None, uses all available.
+		filename : str, optional
+			Custom filename. If None, uses default naming.
+		**kwargs : dict
+			Additional arguments passed to plot_combined_alpha_results
+		"""
+		if self.combined_gene_results is None:
+			raise ValueError("No combined gene results to plot. Run combined gene deconvolution first.")
+		
+		if alpha_pairs is None:
+			alpha_pairs = self.combined_gene_results.index.get_level_values(0).unique()
+		
+		fig = self.plot_combined_alpha_results(alpha_pairs, self.combined_gene_results, **kwargs)
+		
+		if filename is None:
+			filename = f"{self.save_dir}/combined_gene_deconvolution.png"
+		
+		save_figure_for_paper(filename, dpi=80)
+		
+		if self.verbose:
+			print_fl(f"Combined gene figures saved to {filename}")
+		
+		return fig
+
+
+	def save_combined_origin_figures(self, alpha_pairs=None, filename=None, **kwargs):
+		"""
+		Save combined origin deconvolution figures.
+		
+		Parameters:
+		-----------
+		alpha_pairs : list, optional
+			Specific alpha pairs to plot. If None, uses all available.
+		filename : str, optional
+			Custom filename. If None, uses default naming.
+		**kwargs : dict
+			Additional arguments passed to plot_combined_alpha_results
+		"""
+		if self.combined_origin_results is None:
+			raise ValueError("No combined origin results to plot. Run combined origin deconvolution first.")
+		
+		if alpha_pairs is None:
+			alpha_pairs = self.combined_origin_results.index.get_level_values(0).unique()
+		
+		fig = self.plot_combined_alpha_results(alpha_pairs, self.combined_origin_results, 
+											  italics_title=False, **kwargs)
+		
+		if filename is None:
+			filename = f"{self.save_dir}/combined_origin_deconvolution.png"
+		
+		save_figure_for_paper(filename, dpi=80)
+		
+		if self.verbose:
+			print_fl(f"Combined origin figures saved to {filename}")
+		
+		return fig
+
+
+	def run_full_combined_analysis(self, top_n_pairs=8, copy_correct=False, 
+								  save_results=True, save_figures=True):
+		"""
+		Run the complete combined analysis workflow including genes and origins.
+		
+		Parameters:
+		-----------
+		top_n_pairs : int, optional
+			Number of top alpha pairs to analyze (default: 8)
+		copy_correct : bool, optional
+			Whether to apply copy correction for origins (default: False)
+		save_results : bool, optional
+			Whether to save results to CSV (default: True)
+		save_figures : bool, optional
+			Whether to save figures (default: True)
+			
+		Returns:
+		--------
+		dict
+			Dictionary containing all combined analysis results
+		"""
+		if self.verbose:
+			print_fl("Starting full combined analysis workflow...")
+		
+		# Run combined gene deconvolution
+		gene_results = self.run_combined_gene_deconvolution(top_n_pairs)
+		
+		# Run combined origin deconvolution  
+		origin_results = self.run_combined_origin_deconvolution(top_n_pairs, copy_correct)
+		
+		# Save results if requested
+		if save_results:
+			self.save_combined_gene_results()
+			self.save_combined_origin_results()
+		
+		# Save figures if requested
+		if save_figures:
+			# Get alpha pairs for plotting (limit to reasonable number for figures)
+			plot_pairs = min(4, top_n_pairs)  # Limit to 4 pairs for readability
+			alpha_pairs_to_plot = gene_results.index.get_level_values(0).unique()[:plot_pairs]
+			
+			self.save_combined_gene_figures(alpha_pairs_to_plot)
+			self.save_combined_origin_figures(alpha_pairs_to_plot)
+		
+		results = {
+			'gene_results': gene_results,
+			'origin_results': origin_results,
+			'n_pairs_analyzed': top_n_pairs,
+			'copy_correct': copy_correct
+		}
+		
+		if self.verbose:
+			print_fl("Full combined analysis completed successfully")
+		
+		return results
+
+
+	def load_combined_gene_results(self, filename=None):
+		"""
+		Load combined gene results from CSV file.
+		
+		Parameters:
+		-----------
+		filename : str, optional
+			Path to CSV file. If None, uses default path.
+		"""
+		if filename is None:
+			filename = f"{self.save_dir}/combined_gene_results.csv"
+		
+		self.combined_gene_results = pd.read_csv(filename).set_index(['alphas', 'gene'])
+		# Convert column names to integers if they represent timepoints
+		try:
+			self.combined_gene_results.columns = self.combined_gene_results.columns.astype(int)
+		except (ValueError, TypeError):
+			pass  # Keep original column names if conversion fails
+		
+		if self.verbose:
+			print_fl(f"Combined gene results loaded from {filename}")
+		
+		return self.combined_gene_results
+
+
+	def load_combined_origin_results(self, filename=None):
+		"""
+		Load combined origin results from CSV file.
+		
+		Parameters:
+		-----------
+		filename : str, optional
+			Path to CSV file. If None, uses default path.
+		"""
+		if filename is None:
+			filename = f"{self.save_dir}/combined_origin_results.csv"
+		
+		self.combined_origin_results = pd.read_csv(filename).set_index(['alphas', 'origin_id'])
+		# Convert column names to integers if they represent timepoints
+		try:
+			self.combined_origin_results.columns = self.combined_origin_results.columns.astype(int)
+		except (ValueError, TypeError):
+			pass  # Keep original column names if conversion fails
+		
+		if self.verbose:
+			print_fl(f"Combined origin results loaded from {filename}")
+		
+		return self.combined_origin_results

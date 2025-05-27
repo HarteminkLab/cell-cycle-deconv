@@ -68,6 +68,7 @@ class GeneExpressionFindOptimalGamma(object):
 		optimal_solution_index = int(gamma_optimizer.elbow_results_df.loc[gamma_optimizer.optimal_gamma].solution_index)
 
 		config = self.deconvolution_solver.config
+
 		i_indices = config.get_Hpositions_for_branch('i')
 		t_indices = config.get_Hpositions_for_branch('t')
 		b_indices = config.get_Hpositions_for_branch('b')
