@@ -424,7 +424,7 @@ class FindAlphaSweepDS:
 			index='alpha1', columns='alpha2', values='correlation'
 		)
 		
-		fig, ax = plt.subplots(figsize=(5, 4))
+		fig, ax = plt.subplots(figsize=(5, 4.5))
 		
 		# Display the heatmap
 		im = ax.imshow(correlation_pivot, cmap='RdBu_r', aspect='auto', vmin=-1, vmax=1,
@@ -433,8 +433,8 @@ class FindAlphaSweepDS:
 							   correlation_pivot.index[0]-1, correlation_pivot.index[-1]+1])
 		
 		# Set the ticks and labels
-		ax.set_xticks(correlation_pivot.columns[::2])  # Show every other tick to avoid crowding
-		ax.set_yticks(correlation_pivot.index[::2])
+		ax.set_xticks(correlation_pivot.columns)
+		ax.set_yticks(correlation_pivot.index)
 		ax.tick_params(axis='both', which='major', labelsize=8)
 		
 		# Add colorbar
