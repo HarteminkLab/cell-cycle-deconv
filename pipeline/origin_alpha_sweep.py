@@ -33,13 +33,17 @@ class OriginAlphaSweep:
 
 		self.load_configs()
 
-	def load_configs(self, config1=None, config2=None):
+	def load_configs(self, config1=None, config2=None, modify_alphas=None, num_g1_indices=None):
 
 		if config1 is None and config2 is None:
 			self.config1, self.config2 = load_cloccs_configs()
 		else:
 			self.config1 = config1
 			self.config2 = config2
+
+		if modify_alphas is not None:
+			self.config1.modify_alpha(modify_alphas[0], num_g1_tps=num_g1_indices)
+			self.config2.modify_alpha(modify_alphas[1], num_g1_tps=num_g1_indices)
 			
 		self.combined_model = CombinedChromatinModel(
 			config1=self.config1,

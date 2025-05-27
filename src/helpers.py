@@ -887,3 +887,28 @@ def plot_raw_timepoints(config, s_color='red', flip=False, lw=0.5):
 
 	if end_of_first_lambd+lambda_len <= config.timepoints[-1]:
 		plot_func(end_of_first_lambd+lambda_len, c='black', lw=lw, ls='solid')
+
+
+def interpolate_increase_length(vec, new_size):
+    """
+    Interpolate a vector to increase its length using linear interpolation.
+
+    Current usage: Computing the correlation between two runs of F with varying branch length.
+    Applicable in the find optimal alpha stage when individual replicates are computing different
+    alpha values with varying G1 length (number of G1 indices).
+    """
+    vec = np.array(vec)
+    
+    if new_size <= len(vec):
+        raise ValueError(f"new_size ({new_size}) must be larger than current size ({len(vec)})")
+    
+    # Create original indices (0, 1, 2, ..., n-1)
+    old_indices = np.arange(len(vec))
+    
+    # Create new indices (0, 0.5, 1, 1.5, ..., n-1) scaled appropriately
+    new_indices = np.linspace(0, len(vec) - 1, new_size)
+    
+    # Interpolate
+    interpolated_vec = np.interp(new_indices, old_indices, vec)
+    
+    return interpolated_vec

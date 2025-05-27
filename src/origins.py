@@ -69,3 +69,78 @@ def get_origin_title_name(origin):
 	title = ("$\\it{" + origin.ars_name + "}$")
 
 	return title
+
+
+def identify_origins_of_interest(origin_dataset, genes_dataset, origins_of_interest,
+	gene_names_of_interest, window=6000):
+	"""
+	Identify origins that have genes of interest within a specified window.
+	"""
+
+	from src.sgd import get_orfnames
+	import pandas as pd
+	
+	# Filter genes to those of interest that exist in the dataset
+	orfnames = get_orfnames(gene_names_of_interest)
+	genes_filtered = genes_dataset.loc[orfnames].copy()
+	
+	# Initialize result dataframe with False values
+	result = pd.DataFrame(
+		index=origin_dataset.index, 
+		columns=orfnames,
+		dtype=bool
+	)
+	result[:] = False
+	
+	# For each origin
+	for origin_idx in origin_dataset.index:
+		origin_row = origin_dataset.loc[origin_idx]
+		origin_chr = origin_row['chr']
+		origin_pos = origin_row['pos']
+		
+		# Define window around origin (window/2 on each side)
+		half_window = window // 2
+		window_start = origin_pos - half_window
+		window_end = origin_pos + half_window
+		
+		# Check each gene of interest on the same chromosome
+		same_chr_genes = genes_filtered[genes_filtered['chr'] == origin_chr]
+			
+		for gene_name in same_chr_genes.index:
+			gene_row = same_chr_genes.loc[gene_name]
+			gene_start = gene_row['start']
+			gene_end = gene_row['stop']
+
+			# Check if gene overlaps with window around origin
+			if gene_start <= window_end and gene_end >= window_start:
+				result.loc[origin_idx, gene_name] = True
+	
+	return result
+
+def identify_interesting_origins():
+
+	from src.origins import load_origins
+	from src.sgd import read_nondubious_genes_dataset
+
+	genes = read_nondubious_genes_dataset()
+
+	eff_key = 'derived_origin_efficiency_from_mcguffee_et_al_2013'
+	origins = load_origins(full=True).sort_values(eff_key, ascending=False)
+	interesting_origins = origins[(origins['activation_time'] == 'early')
+	        & ~(origins.mcm_loading_class.isna()) & 
+	       (origins[eff_key] > 0.5)]
+	interesting_origins
+
+	# Define key gene sets based on literature
+	MCM_GENES = ['MCM2', 'MCM3', 'MCM4', 'MCM5', 'MCM6', 'MCM7']
+	REPLICATION_GENES = ['CDC6', 'CDC45', 'DBF4', 'ORC1', 'ORC2', 'ORC3', 'ORC4', 'ORC5', 'ORC6']
+	CYCLIN_GENES = ['CLN1', 'CLN2', 'CLN3', 'CLB1', 'CLB2', 'CLB3', 'CLB4', 'CLB5', 'CLB6']
+
+	# Combined gene set
+	ALL_CELL_CYCLE_GENES = MCM_GENES + REPLICATION_GENES + CYCLIN_GENES
+	gene_names_of_interest = ALL_CELL_CYCLE_GENES
+
+	cc_origins_genes_intersection = identify_origins_of_interest(interesting_origins, genes, 
+		interesting_origins, 
+		gene_names_of_interest, window=12000)
+

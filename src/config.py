@@ -608,8 +608,11 @@ def load_from_dic(filepath, replicate=None, config_type='distinct', mode='chroma
 
 def load_default_configs(config_type='distinct', mode='chromatin'):
 
-	# Load config parameters from json file from disk
-	# Deprecated, using CLOCCS configs
+	# Using the CLOCCS configs, the refined model had some issues with fitting. e.g.
+	# the narrower sigma0 made gave less room for smoothness during the first cell cycle. But
+	# there may have been other details that needed to be resolved as well. Such as the number of 
+	# indices to deconvolve, and the selection of alphas. However, with the default CLOCCS parameters
+	# the fits for both expression and the chromatin make sense.
 
 	#config1 = load_from_dic(f"models/yl_cell_cycle/refined_rep1.json", 1, config_type, mode)
 	#config2 = load_from_dic(f"models/yl_cell_cycle/refined_rep2.json", 2, config_type, mode)
