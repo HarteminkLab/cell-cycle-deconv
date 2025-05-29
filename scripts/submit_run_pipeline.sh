@@ -16,8 +16,8 @@ OUTDIR=output/draft3_run/
 #ARGS="replication ${OUTDIR} ${REPLICATE} ${CHROM} ${NUM_EPOCHS} True"
 #sbatch -D ./slurm-logs/ --job-name="rep${REPLICATE}" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
-ARGS="combined_replication ${OUTDIR}"
-sbatch -D ./slurm-logs/ --job-name="rep${REPLICATE}" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+#ARGS="combined_replication ${OUTDIR}"
+#sbatch -D ./slurm-logs/ --job-name="rep${REPLICATE}" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
 # ---------- Expression deconvolution ----------------
 
@@ -26,8 +26,8 @@ sbatch -D ./slurm-logs/ --job-name="rep${REPLICATE}" --export="PYFILE=pipeline/r
 
 # ---------- Find Alpha ----------------
 
-# ARGS="find_alpha ${OUTDIR}"
-# sbatch -D ./slurm-logs/ --job-name="alpha" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+ARGS="find_alpha ${OUTDIR}"
+sbatch -D ./slurm-logs/ --job-name="alpha" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
 # ---------- Test Chromatin Windows -------------------
 

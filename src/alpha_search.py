@@ -170,7 +170,7 @@ class FindAlphaSweepDS:
 			Path to the CSV file. If None, uses default path.
 		"""
 		if filepath is None:
-			filepath = f"{self.save_dir}/alphas_repl1.csv"
+			filepath = f"{self.save_dir}/full_single_replicate_alpha_results.csv"
 		
 		if self.verbose:
 			print_fl(f"Loading existing results from {filepath}")
@@ -873,14 +873,13 @@ class FindAlphaSweepDS:
 		fig1 = self.plot_alpha_genes_subplots(alphas, 1)
 
 		if save:
-			self.all_alpha_results_df.to_csv(f"{self.save_dir}/alphas_repl1.csv")
 			save_figure_for_paper(f"{self.save_dir}/alphas_repl1.png", dpi=80)
 		
 		# Plot and save for replicate 2
 		fig2 = self.plot_alpha_genes_subplots(alphas, 2)
 
 		if save:
-			self.all_alpha_results_df.to_csv(f"{self.save_dir}/alphas_repl2.csv")
+			self.all_alpha_results_df.to_csv(f"{self.save_dir}/full_single_replicate_alpha_results.csv")
 			save_figure_for_paper(f"{self.save_dir}/alphas_repl2.png", dpi=80)
 		
 		if self.verbose:
