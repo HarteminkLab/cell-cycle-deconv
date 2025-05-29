@@ -65,9 +65,9 @@ sbatch -D ./slurm-logs/ --job-name="alpha" --export="PYFILE=pipeline/run_pipelin
 
 # -------------- Partial daughter-specificity ------------------
 
-ARGS="deconvolve_chromatin_partial_daughter ${OUTDIR}"
-sbatch -a 0-999%24 -D ./slurm-logs/ --job-name="pdg1_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
-# sbatch -a 0-216%24 -D ./slurm-logs/ --job-name="pdg1_2" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
+#ARGS="deconvolve_chromatin_partial_daughter ${OUTDIR}"
+#sbatch -a 0-999%24 -D ./slurm-logs/ --job-name="pdg1_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+#sbatch -a 0-216%24 -D ./slurm-logs/ --job-name="pdg1_2" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
 
 # -------------- Impute 50' replicate 2 ------------------
 
