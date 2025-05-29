@@ -69,12 +69,38 @@ def main():
 
 		(_, command, output_directory) = system_args
 
-		gene_names = ['DSE1', 'DSE2', 'DSE3', 'DSE4', 'ASH1', 'EGT2', 'AMN1', 'PRY3', 'SCW11', 'CTS1']
+		gene_names = ['DSE1', 'DSE2', 'DSE3', 'DSE4', 'ASH1', 'EGT2', 'AMN1', 
+			'PRY3', 'SCW11', 'CTS1']
 
 		finder = FindAlphaSweepDS(output_directory=output_directory, 
 		    gene_names=gene_names)
 		finder.run_alpha_sweep(alphas=np.arange(4, 48, 2))
 		finder.plot_and_save_results()
+
+		# Compute the dg1/mg1 ratios
+		finder.compute_dg1_mg1_ratios()
+
+		# Create plots for the threshold analysis
+		finder.threshold_ratios(1.6)
+		finder.plot_ratio_analysis()
+
+		# Compute the correlation between the two replicate results
+		finder.compute_correlations()
+		finder.plot_correlation_heatmap()
+
+		# Sort optimal pairs
+		all_pairs = finder.find_optimal_alpha_pairs()
+
+		# Deconvolve and create figures of combined model results, expression
+		finder.run_combined_gene_deconvolution(top_n_pairs=10)
+		finder.save_combined_gene_results()
+		fig = finder.save_combined_gene_figures()
+
+		# Deconvolve and create figures of combined model results, origin footprint
+		finder.run_combined_origin_deconvolution(top_n_pairs=10)
+		finder.save_combined_origin_results()
+		fig = finder.save_combined_origin_figures()
+
 
 	# 1. Deconvolve individual replication profiles, learn cell cycle parameters from MNase-seq
 	elif command == 'replication':

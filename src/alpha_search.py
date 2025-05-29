@@ -19,7 +19,8 @@ class FindAlphaSweepDS:
 	between replicates.
 	"""
 	
-	def __init__(self, output_directory, gene_names=['DSE1', 'DSE2', 'DSE3', 'DSE4'],
+	def __init__(self, output_directory, gene_names=['DSE1', 'DSE2', 'DSE3', 'DSE4', 'ASH1', 
+		'EGT2', 'AMN1', 'PRY3', 'SCW11', 'CTS1'],
 			 selected_origins=['oridb_10', 'oridb_295', 'oridb_289', 'oridb_193', 
 							  'oridb_558', 'oridb_498', 'oridb_68', 'oridb_817'],
 			 verbose=True):
@@ -218,6 +219,9 @@ class FindAlphaSweepDS:
 		
 		if self.verbose:
 			print_fl("DG1/MG1 ratios computed successfully")
+			save_path = f"{self.save_dir}/dg1_mg1_ratios.csv"
+			self.dg1_mg1_ratios.to_csv(save_path)
+			print_fl("Saved ratios to", save_path)
 		
 		return self.dg1_mg1_ratios
 
@@ -453,7 +457,7 @@ class FindAlphaSweepDS:
 		cbar = ax.figure.colorbar(im, ax=ax)
 		cbar.ax.set_ylabel('Pearson Correlation', rotation=-90, va="bottom")
 		
-		ax.set_title("Correlation of replicate\\ndaughter-specific gene expression", 
+		ax.set_title("Correlation of replicate\ndaughter-specific gene expression", 
 					fontweight='demi', fontsize=13, y=1.02)
 		ax.set_xlabel('Replicate 2 $\\alpha$')
 		ax.set_ylabel('Replicate 1 $\\alpha$')
@@ -765,7 +769,8 @@ class FindAlphaSweepDS:
 		
 		return correlation_results
 
-	def plot_combined_alpha_results(self, alpha_pairs, combined_data, italics_title=True):
+	def plot_combined_alpha_results(self, alpha_pairs, combined_data, italics_title=True,
+		title=f"Combined deconvolution results"):
 		"""
 		Plot combined model results for alpha pair combinations.
 		
@@ -841,7 +846,8 @@ class FindAlphaSweepDS:
 		
 		# Adjust layout and add title
 		plt.tight_layout(rect=[0, 0, 1, 0.96])
-		fig.suptitle('Combined model alpha search', fontsize=38, fontweight='demi', y=1.05)
+		fig.suptitle(title, fontsize=38, fontweight='demi',
+			y=1.)
 		
 		return fig
 
@@ -1089,7 +1095,9 @@ class FindAlphaSweepDS:
 		if alpha_pairs is None:
 			alpha_pairs = self.combined_gene_results.index.get_level_values(0).unique()
 		
-		fig = self.plot_combined_alpha_results(alpha_pairs, self.combined_gene_results, **kwargs)
+		fig = self.plot_combined_alpha_results(alpha_pairs, self.combined_gene_results,
+			title=f"Combined model gene expression, top={len(alpha_pairs)} correlated alpha values",
+			**kwargs)
 		
 		if filename is None:
 			filename = f"{self.save_dir}/combined_gene_deconvolution.png"
@@ -1122,7 +1130,9 @@ class FindAlphaSweepDS:
 			alpha_pairs = self.combined_origin_results.index.get_level_values(0).unique()
 		
 		fig = self.plot_combined_alpha_results(alpha_pairs, self.combined_origin_results, 
-											  italics_title=False, **kwargs)
+											  italics_title=False, 
+			title=f"Combined model origin footprints, top={len(alpha_pairs)} correlated alpha values",
+			**kwargs)
 		
 		if filename is None:
 			filename = f"{self.save_dir}/combined_origin_deconvolution.png"
