@@ -692,20 +692,33 @@ def load_replication_Fr_df(output_dir, chrom, with_replication_timing=False):
 	Fr_df = Fr_df[Fr_df.columns[1:]]
 	Fr_df.columns = Fr_df.columns.astype(int)
 
-	replication_indices = Fr_df.idxmax(0)
+	# Use the top branch indices to identify the replication timing
+	# in case the timing is within G1
+	# To take the average of the top and bottom branch's timing (in case
+	# replication 'occurs' in late G1)
+	replication_indices_b = Fr_df.loc[config1.b_indices()].idxmax(0)
+	replication_indices_t = Fr_df.loc[config1.t_indices()].idxmax(0)
 
 	if with_replication_timing:
-		replication_timings = retrieve_replication_timing(config1, config2, 
-			replication_indices.values)
+
+		replication_timings_t = retrieve_replication_timing(config1, config2, 
+			replication_indices_t.values)
+		replication_timings_b = retrieve_replication_timing(config1, config2, 
+			replication_indices_b.values)
+		replication_timings = (replication_timings_t.values + replication_timings_b.values)/2
+
 		repl_df = pd.DataFrame({
-			'replication_index': replication_indices,
-			'replication_time': replication_timings.values
-		}, index=replication_indices.index)
+			'replication_index_t': replication_indices_t,
+			'replication_index_b': replication_indices_b,
+			'replication_time': replication_timings
+		}, index=replication_indices_t.index)
 		repl_df.index.name = 'start'
 
 		return Fr_df, repl_df
 
-	return Fr_df, replication_indices
+	# Use the top branch replication indices as default, we should work with the
+	# timing though, which handles the top and bottom branch replication timing together
+	return Fr_df, replication_indices_t
 
 def load_B_df(output_dir, chrom, starts=None):
 	B = np.load(f'{output_dir}/combined_replication/combined_chr{chrom}_B.npy')

@@ -208,17 +208,6 @@ def main():
 		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
 		deconvolve_chromatin(chromatin_save_directory, window_set_path, index)
 
-	elif command == 'deconvolve_chromatin_no_daughter':
-
-		(_, command, output_directory, index) = system_args
-		chromatin_save_directory = f"{output_directory}/chromatin_deconvolution_no_daughter/"
-		mkdirs_safe([chromatin_save_directory])
-		index = int(index)
-
-		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
-		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
-			kappa=1.0)
-
 	elif command == 'deconvolve_chromatin_partial_daughter':
 
 		(_, command, output_directory, index) = system_args
@@ -237,35 +226,20 @@ def main():
 		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 			kappa=kappa, gamma=gamma)
 
-	elif command == 'deconvolve_chromatin_partial_daughter_drop_rep2_50':
-
-		(_, command, output_directory, index) = system_args
-
-		# Some sparse differences between mothers and daughters are allowed
-		kappa = 0.03
-		gamma = 0.0066
-		print("Deconvolving the chromatin with a partial regularization on CG1/DG1 differences"
-			  f" kappa of {kappa}")
-
-		chromatin_save_directory = f"{output_directory}/chromatin_deconvolution_partial_daughter_impute50/"
-		mkdirs_safe([chromatin_save_directory])
-		index = int(index)
-
-		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
-		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
-			kappa=kappa, gamma=gamma, impute_50_rep2=True)
-
-	elif command == 'deconvolve_chromatin_full_no_copy':
+	elif command == 'deconvolve_chromatin_partial_no_copy':
 
 		(_, command, output_directory, index) = system_args
 		chromatin_save_directory = f"{output_directory}/chromatin_deconvolution_no_copy/"
 		mkdirs_safe([chromatin_save_directory])
 
+		# Same settings with partial daughter, direct comparison
 		index = int(index)
+		kappa = 0.01
+		gamma = 0.12
 
 		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
 		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
-			copy_correct=False)
+			copy_correct=False, kappa=kappa, gamma=gamma)
 
 	# elif command == 'expression_chromatin_analysis':
 		# Deprecated command, see old_pipeline.py
