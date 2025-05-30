@@ -47,10 +47,10 @@ class DeconvolutionChromatinExpressionPlotter:
 		self.chromatin_F = None
 		
 		# Set row parameters
-		self.num_rows = 12
+		self.num_rows = 11
 		self.vmax = 40
-		self.num_g1_rows = 5
-		self.num_s_rows = 2
+		self.num_g1_rows = 6
+		self.num_s_rows = 3
 		self.num_g2m_rows = self.num_rows - self.num_g1_rows - self.num_s_rows
 		self.plot_expression = plot_expression
 
@@ -76,22 +76,46 @@ class DeconvolutionChromatinExpressionPlotter:
 		
 	def _initialize_axes(self):
 		"""Setup the axes with proper formatting"""
-		def hide_ticks(ax):
+
+		spine_border_width = 1.5
+
+		def format_axes(ax):
 			ax.set_xticks([])
 			ax.set_yticks([])
-		
-		# Hide ticks on all axes
-		[hide_ticks(ax) for ax in np.array(self.chrom_axs).flatten()]
-		[hide_ticks(ax) for ax in self.exp_axs]
-		[hide_ticks(ax) for ax in self.ann_axs]
-		[hide_ticks(ax) for ax in self.cell_cycle_axes]
+			ax.spines['top'].set_linewidth(spine_border_width)
+			ax.spines['bottom'].set_linewidth(spine_border_width)
+			ax.spines['left'].set_linewidth(spine_border_width)
+			ax.spines['right'].set_linewidth(spine_border_width)
+
+		# Format all axes
+		[format_axes(ax) for ax in np.array(self.chrom_axs).flatten()]
+		[format_axes(ax) for ax in self.exp_axs]
+		[format_axes(ax) for ax in self.ann_axs]
+		[format_axes(ax) for ax in self.cell_cycle_axes]
+
+		for chrom_branch_ax in self.chrom_axs:
+			for i, ax in enumerate(chrom_branch_ax):
+				internal_spine_width = 1
+				top_spine = ax.spines['top']
+				bottom_spine = ax.spines['bottom']
+				internal_spines = []
+				if i == 0:
+					internal_spines = [bottom_spine]
+				elif i == self.num_rows-1:
+					internal_spines = [top_spine]
+					top_spine.set_linewidth(internal_spine_width)
+				else:
+					internal_spines = [top_spine, bottom_spine]
+
+				for spine in internal_spines:
+					spine.set_linewidth(internal_spine_width)
+					spine.set_color('#b0a996')
 
 		# Hide expression spines for difference branches (they don't have expression data)
 		for i, branch_type in enumerate(self.branches_to_plot):
 			if branch_type == "difference_mother_daughter":
 				hide_spines(self.exp_axs[i])
 
-		[hide_spines(ax) for ax in self.cell_cycle_axes]
 
 	def clear_axes(self):
 		"""Clear all axes in the plot"""
@@ -268,6 +292,11 @@ class DeconvolutionChromatinExpressionPlotter:
 		"""
 		self.chromatin_F = F
 
+	def plot_im(self, ax, img, cmap=plt.cm.magma_r, vmin=0, vmax=None):
+		if vmax is None: vmax = self.vmax
+		ax.imshow(img, aspect='auto', cmap=cmap, origin='lower', interpolation='none',
+			vmin=vmin, vmax=vmax, extent=[self.span[0], self.span[1], 0, 260])
+
 	def _plot_mean_mother_daughter_chromatin(self, branch_idx):
 		"""Plot the average of mother and daughter chromatin data"""
 		
@@ -286,8 +315,7 @@ class DeconvolutionChromatinExpressionPlotter:
 			mean_img = (dg1_img+mg1_img)/2.
 
 			ax = self.chrom_axs[branch_idx][row_idx]
-			ax.imshow(mean_img, aspect='auto', cmap='magma_r', origin='lower', 
-			vmin=0, vmax=self.vmax)
+			self.plot_im(ax, mean_img)
 
 		self._branch_plot_s_g2m(branch_idx)
 
@@ -298,14 +326,12 @@ class DeconvolutionChromatinExpressionPlotter:
 		# Plot S phase chromatin
 		for row_idx, idx in enumerate(s_indices):
 			ax = self.chrom_axs[branch_idx][row_idx + self.num_g1_rows]
-			ax.imshow(self.chromatin_F[idx], aspect='auto', cmap='magma_r', origin='lower', 
-			vmin=0, vmax=self.vmax)
+			self.plot_im(ax, self.chromatin_F[idx])
 
 		# Plot G2M phase chromatin
 		for row_idx, idx in enumerate(g2m_indices):
 			ax = self.chrom_axs[branch_idx][row_idx + self.num_g1_rows + self.num_s_rows]
-			ax.imshow(self.chromatin_F[idx], aspect='auto', cmap='magma_r', origin='lower', 
-			vmin=0, vmax=self.vmax)
+			self.plot_im(ax, self.chromatin_F[idx])
 
 
 	def _plot_chromatin_branch(self, branch_idx, g1_phase):
@@ -317,8 +343,7 @@ class DeconvolutionChromatinExpressionPlotter:
 		# Plot G1 phase chromatin
 		for row_idx, idx in enumerate(g1_indices):
 			ax = self.chrom_axs[branch_idx][row_idx]
-			ax.imshow(self.chromatin_F[idx], aspect='auto', cmap='magma_r', origin='lower', 
-			vmin=0, vmax=self.vmax)
+			self.plot_im(ax, self.chromatin_F[idx])
 			
 		self._branch_plot_s_g2m(branch_idx)
 
@@ -339,9 +364,7 @@ class DeconvolutionChromatinExpressionPlotter:
 			dg1_dat = self.chromatin_F[dg1_indices[row_idx]]
 			cg1_dat = self.chromatin_F[cg1_indices[row_idx]]
 			diff = dg1_dat-cg1_dat
-
-			ax.imshow(diff, aspect='auto', cmap='RdBu_r', origin='lower', 
-			vmin=-vmax, vmax=vmax)
+			self.plot_im(ax, diff, vmin=-vmax, vmax=vmax, cmap='RdBu_r')
 
 
 	def _plot_chromatin_for_branch_type(self, branch_idx, branch_type):
@@ -413,8 +436,24 @@ class DeconvolutionChromatinExpressionPlotter:
 		title = self.title
 		if title is None:
 			title = f"chr{self.chrom}, {self.span[0]}-{self.span[1]}"
-		plt.suptitle(title, fontsize=36, y=1, fontweight='demi')
-		
+		plt.suptitle(title, fontsize=32, y=1, fontweight='demi')
+
+		# For the last row of the chromatin axs, show ticks for positions 500 kb apart
+		minor_xticks = np.arange(self.span[0], self.span[1]+200, 200)
+		major_xticks = np.arange(self.span[0], self.span[1]+1000, 1000)
+
+		# For each branch (set of chromatin axes), add ticks to the bottom row
+		for branch_axs in self.chrom_axs:
+			ax = branch_axs[-1]
+
+			# Set the tick mark locations
+			ax.set_xticks(minor_xticks, minor=True)
+			ax.set_xticks(major_xticks, minor=False)
+
+			# Formatting
+			ax.tick_params(axis='x', which='major', length=5, width=1.25, labelbottom=False)
+			ax.tick_params(axis='x', which='minor', length=2, width=1, labelbottom=False)
+
 		return self.fig
 
 
@@ -426,11 +465,11 @@ def create_chromatin_expression_layout(
 	expression_width=1.5,  # Width of expression plot relative to chromatin (1/4)
 	cell_cycle_annotations_width=0.25,  # Width of cell cycle annotations plot relative to chromatin (1/4)
 	branch_spacing=0.5,  # Spacing between branches
-	top_margin=0.93,  # Top margin for titles
-	bottom_margin=0.05,  # Bottom margin
+	top_margin=0.95,  # Top margin for titles
+	bottom_margin=0.1,  # Bottom margin
 	height_ratios=None,  # Optional custom height ratios for rows
 	annotation_height=1.2,  # Height of annotation row relative to data rows
-	annotation_spacing=0.15,  # Height of spacing between annotation and data rows
+	annotation_spacing=0.2,  # Height of spacing between annotation and data rows
 	number_of_branches = 4 # Number of branches
 ):
 	"""
