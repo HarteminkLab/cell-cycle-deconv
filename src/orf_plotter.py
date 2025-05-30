@@ -12,9 +12,10 @@ class ORFAnnotationPlotter:
 	Class to plot the gene annotations from SGD.
 	"""
 
-	def __init__(self, orfs):
+	def __init__(self, orfs, origins=None):
 
 		self.orfs = orfs
+		self.origins = origins
 
 		self.show_spines = True
 		self.show_minor_ticks = False
@@ -139,6 +140,31 @@ class ORFAnnotationPlotter:
 		draw_TSS_arrow(ax, TSS, y_baseline+inset[1], flip=not watson, 
 			plot_width=self.triangle_width/2., color=color)
 
+	def plot_origins(self, ax):
+
+		from src.plot_helpers import plot_rect2
+
+		span = self.span
+		chrom = int(self.chrom)
+		origins = self.origins
+
+		origins_to_plot = origins[(origins['chr'] == chrom) & 
+				 ((origins['start'] >= span[0]) & 
+				  (origins['stop'] <= span[1]))]
+
+		for _, origin_sgd in origins_to_plot.iterrows():
+
+			x1, x2 = origin_sgd.start, origin_sgd.stop
+			y1, y2 = -80, 80
+			plot_rect2(ax, x1, y1, x2, y2, facecolor='gray', zorder=0)
+
+			text = ax.text((x1+x2)/2, 0, origin_sgd.ars_name, 
+				rotation=90, color='white', ha='center', fontsize=10,
+				va='center', clip_on=True, zorder=65)
+			text.set_path_effects([path_effects.Stroke(linewidth=1.5, 
+				foreground='gray'), path_effects.Normal()])
+
+
 	def plot_orf_annotations(self, ax, 
 		orf_classes=['Verified', 'Uncharacterized', 'Dubious'],
 		custom_orfs=None, should_auto_offset=True, flip_genome=False):
@@ -197,6 +223,9 @@ class ORFAnnotationPlotter:
 		else:
 			ax.set_xlim(*span)
 
+
+		self.plot_origins(ax)
+
 		ax.set_yticks([])
 		ax.set_ylim(-110, 110)
 
@@ -206,49 +235,49 @@ class ORFAnnotationPlotter:
 			watson=True, offset=False,
 			text_horizontal_offset=None, y=None):
 
-			color='#4A4A4A'
+		color='#4A4A4A'
 
-			rect_width = end - start - self.triangle_width
+		rect_width = end - start - self.triangle_width
 
-			if text_horizontal_offset is None:
-				text_horizontal_offset = self.text_horizontal_offset
+		if text_horizontal_offset is None:
+			text_horizontal_offset = self.text_horizontal_offset
 
-			inset = self.inset
+		inset = self.inset
 
-			if watson:
-				rect_start = start
-				# add one to overlap triangle with rect
-				triangle_start = end - self.triangle_width - self.epsilon*2 
+		if watson:
+			rect_start = start
+			# add one to overlap triangle with rect
+			triangle_start = end - self.triangle_width - self.epsilon*2 
 
-				y_baseline = offset * (self.y_padding + self.height)
-				text_start = start
-				ha = 'left'
-			else:
-				# add one to overlap triangle with rect
-				triangle_start = start + self.epsilon 
-				rect_start = start + self.triangle_width
-				y_baseline = (offset+1) * (-self.y_padding-self.height)
-				text_start = end
-				ha = 'right'
+			y_baseline = offset * (self.y_padding + self.height)
+			text_start = start
+			ha = 'left'
+		else:
+			# add one to overlap triangle with rect
+			triangle_start = start + self.epsilon 
+			rect_start = start + self.triangle_width
+			y_baseline = (offset+1) * (-self.y_padding-self.height)
+			text_start = end
+			ha = 'right'
 
-			if y is not None:
-				y_baseline = y
+		if y is not None:
+			y_baseline = y
 
-			# plot pointed rectangle
-			plot_rect(ax, rect_start, y_baseline, rect_width, self.height, color, 
-				inset=inset)
+		# plot pointed rectangle
+		plot_rect(ax, rect_start, y_baseline, rect_width, self.height, color, 
+			inset=inset)
 
-			plot_iso_triangle(ax, triangle_start, y_baseline, 
-				self.triangle_width, self.height, color, facing_right=watson,
-				inset=inset[1])
+		plot_iso_triangle(ax, triangle_start, y_baseline, 
+			self.triangle_width, self.height, color, facing_right=watson,
+			inset=inset[1])
 
-			text = ax.text(text_start, y_baseline+self.text_vertical_offset,
-				name, fontsize=12, clip_on=True, zorder=65, 
-						   rotation=0, va='center', ha=ha,
-						   fontdict={'fontname': 'Open Sans'},
-						   color='white')
-			text.set_path_effects([path_effects.Stroke(linewidth=1.5, foreground=color),
-								   path_effects.Normal()])
+		text = ax.text(text_start, y_baseline+self.text_vertical_offset,
+			name, fontsize=12, clip_on=True, zorder=65, 
+					   rotation=0, va='center', ha=ha,
+					   fontdict={'fontname': 'Open Sans'},
+					   color='white')
+		text.set_path_effects([path_effects.Stroke(linewidth=1.5, foreground=color),
+							   path_effects.Normal()])
 
 
 def plot_TSS_PAS(ax, start, end, TSS, PAS, y, height, color, flipped=False, 
@@ -380,8 +409,9 @@ def plot_gene_annotation(ax, start, end, y_baseline, height, color,
 	# 			y_baseline, height, color, flipped=watson, inset=inset[1])
 
 def load_default_orf_plotter():
-	from src.sgd import read_nondubious_genes_dataset
+	from src.sgd import read_nondubious_genes_dataset, load_origins_sgd
 
+	origins_sgd = load_origins_sgd()
 	geneset = read_nondubious_genes_dataset()
-	orf_plotter = ORFAnnotationPlotter(geneset)
+	orf_plotter = ORFAnnotationPlotter(geneset, origins_sgd)
 	return orf_plotter

@@ -85,6 +85,7 @@ class GenomeDeconvolutionAnalysis():
 		)
 		
 		# Store the results as instance variables
+		self.chrom = chrom
 		self.loaded_subset_data = loaded_subset_data
 		self.loaded_subset_span = loaded_subset_span
 		
@@ -95,7 +96,6 @@ class GenomeDeconvolutionAnalysis():
 		WINDOW_CACHE.clear()
 
 	def plot_gene(self, gene_name, config1, analysis=None):
-		from src.expression_chromatin_plots import DeconvolutionChromatinExpressionPlotter
 
 		gene_metric_regions = load_p1_gene_regions()
 		orfname = get_orfname(gene_name)
@@ -107,24 +107,29 @@ class GenomeDeconvolutionAnalysis():
 		chromatin_gene_data_F, loaded_span = self.load_mnase_span(chrom, 
 		    mnase_span)
 
-		plotter = DeconvolutionChromatinExpressionPlotter(config1)
-		plotter.set_chrom_span(chrom, mnase_span)
-
 		if analysis is not None:
 			expression_f = analysis.deconvolved_genes_F.loc[orfname].values
-			plotter.set_expression_data(expression_f)
 			self.gene_expression_data = expression_f
 
-		plotter.set_chromatin_data(chromatin_gene_data_F)
-
 		from src.sgd import get_gene_title_name
-
 		title = get_gene_title_name(orfname)
-		plotter.plot(title)
+		plotter = self.plot_loaded_data(expression_f, title)
 
-		# For analysis if needed
-		self.gene_chromatin_data = chromatin_gene_data_F
+	def plot_loaded_data(self, config, expression_f=None, title=None,
+		figsize=(15, 5)):
 
+		from src.expression_chromatin_plots import DeconvolutionChromatinExpressionPlotter
+
+		plotter = DeconvolutionChromatinExpressionPlotter(config, 
+			figsize=figsize, branches_to_plot=['mean_mother_daughter'],
+			title=title)
+		plotter.set_chrom_span(self.chrom, self.loaded_subset_span)
+		plotter.set_chromatin_data(self.loaded_subset_data)
+
+		if expression_f is not None:
+			plotter.set_expression_data(expression_f)
+
+		plotter.plot()
 
 
 def get_load_spans(chrom, span, window_size=10000):

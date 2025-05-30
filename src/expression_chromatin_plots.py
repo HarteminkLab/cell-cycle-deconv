@@ -1,4 +1,3 @@
-
 import numpy as np
 import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
@@ -10,7 +9,8 @@ from src.orf_plotter import load_default_orf_plotter
 
 
 class DeconvolutionChromatinExpressionPlotter:
-	def __init__(self, config1):
+	def __init__(self, config1, figsize=(15, 5), plot_expression=False, title=None,
+		branches_to_plot=["recovery", "mother", "daughter", "difference_mother_daughter"]):
 		"""
 		Initialize the plotter with configuration
 		
@@ -20,42 +20,51 @@ class DeconvolutionChromatinExpressionPlotter:
 			Configuration object with methods:
 			- get_Hpositions_for_phase(phase)
 			- get_timepoints_for_phase(phase)
+		branches_to_plot : list
+			List of branch types to plot. Options:
+			- "recovery": Recovery G1 phase
+			- "mother": Mother G1 phase  
+			- "daughter": Daughter G1 phase
+			- "mean_mother_daughter": Average of mother and daughter
+			- "difference_mother_daughter": Difference between daughter and mother
 		"""
 		self.config1 = config1
+		self.title = title
 
 		self.map_phase_name = {
 			'R': "Recovery G1",
 			'RG1': "Recovery G1",
 			'CG1': "Mother G1",
+			'meanG1': "Mean Mother-Daughter G1",
 			'DG1': "Daughter G1",
 			'postG1': "S/G2/M",
 		}
-
+		
+		self.branches_to_plot = branches_to_plot
 		self.expression_F = None
+		self.chromatin_F = None
 		
 		# Set row parameters
-		self.num_rows = 7
+		self.num_rows = 11
 		self.vmax = 40
-		self.num_g1_rows = 4
+		self.num_g1_rows = 6
 		self.num_pg1_rows = self.num_rows - self.num_g1_rows
+		self.plot_expression = plot_expression
 
-		# # Save the current interactive state
-		# was_interactive = plt.isinteractive()
-		
-		# # Temporarily turn off interactive mode
-		# if was_interactive:
-		#   plt.ioff()
+		if plot_expression:
+			expression_width = 1.5
+			branch_spacing = 0.5
+		else:
+			expression_width = 0
+			branch_spacing = 0.1
+
+		number_of_branches = len(self.branches_to_plot)
 
 		# Create the layout
 		self.fig, self.chrom_axs, self.exp_axs, self.ann_axs, self.cell_cycle_axes = \
-			create_chromatin_expression_layout(figsize=(15, 5), n_rows=self.num_rows)
-		
-		# # Restore previous interactive state
-		# if was_interactive:
-		#   plt.ion()
-		
-		# # Make sure the figure doesn't display yet
-		# plt.close(self.fig)
+			create_chromatin_expression_layout(figsize=figsize, n_rows=self.num_rows,
+				expression_width=expression_width, branch_spacing=branch_spacing,
+				number_of_branches=number_of_branches)
 			
 		self.orf_plotter = load_default_orf_plotter()
 
@@ -73,9 +82,12 @@ class DeconvolutionChromatinExpressionPlotter:
 		[hide_ticks(ax) for ax in self.exp_axs]
 		[hide_ticks(ax) for ax in self.ann_axs]
 		[hide_ticks(ax) for ax in self.cell_cycle_axes]
-		
-		# Hide spines on specific axes
-		hide_spines(self.exp_axs[3])
+
+		# Hide expression spines for difference branches (they don't have expression data)
+		for i, branch_type in enumerate(self.branches_to_plot):
+			if branch_type == "difference_mother_daughter":
+				hide_spines(self.exp_axs[i])
+
 		[hide_spines(ax) for ax in self.cell_cycle_axes]
 
 	def clear_axes(self):
@@ -138,7 +150,37 @@ class DeconvolutionChromatinExpressionPlotter:
 		# Round to the nearest
 		ax.set_xticks(np.arange(0, max_xlim+2, 2))
 
-	def _plot_cell_cycle_annotations(self, axis_idx, g1_phase):
+	def _get_phase_for_branch_type(self, branch_type):
+		"""Get the phase string for cell cycle annotations based on branch type"""
+		if branch_type == "recovery":
+			return 'RG1'
+		elif branch_type == "mother":
+			return 'CG1'
+		elif branch_type == "daughter":
+			return 'DG1'
+		elif branch_type == "mean_mother_daughter":
+			return 'meanG1'
+		elif branch_type == "difference_mother_daughter":
+			return 'meanG1'  # Use mean for the difference display
+		else:
+			raise ValueError(f"Unknown branch type: {branch_type}")
+
+	def _get_expression_phase_for_branch_type(self, branch_type):
+		"""Get the phase string for expression plotting based on branch type"""
+		if branch_type == "recovery":
+			return 'RG1'
+		elif branch_type == "mother":
+			return 'CG1'
+		elif branch_type == "daughter":
+			return 'DG1'
+		elif branch_type == "mean_mother_daughter":
+			return 'CG1'  # Use CG1 as representative for mean
+		elif branch_type == "difference_mother_daughter":
+			return None  # No expression for difference
+		else:
+			raise ValueError(f"Unknown branch type: {branch_type}")
+
+	def _plot_cell_cycle_annotations(self, axis_idx, branch_type):
 		"""
 		Plot cell cycle phase annotations with colored rectangles and text
 		
@@ -146,16 +188,17 @@ class DeconvolutionChromatinExpressionPlotter:
 		-----------
 		axis_idx : int
 			Index of the cell cycle axis to plot on
-		g1_phase : str
-			The G1 phase to plot ('RG1', 'CG1', or 'DG1')
+		branch_type : str
+			The branch type being plotted
 		"""
 
 		# Constants for positioning
-		bar_width = 0.3
-		bar_x = 0.7  # Position bar on right side
-		text_x = 0.4  # Position text on left side
+		bar_width = 1.0
+		bar_x = 0.0  # Position bar on right side
+		text_x = 0.5 # Centered
 		
 		ax = self.cell_cycle_axes[axis_idx]
+		g1_phase = self._get_phase_for_branch_type(branch_type)
 		
 		# Plot G1 rectangle and text
 		g1_color = color_for_key(g1_phase)
@@ -172,14 +215,14 @@ class DeconvolutionChromatinExpressionPlotter:
 		# Add vertical text labels
 		# G1 phase text
 		g1_center = self.num_g1_rows / 2
-		ax.text(text_x, g1_center, self.map_phase_name[g1_phase],
-				rotation=270, va='center', ha='center', color='black',
+		ax.text(text_x, g1_center, self.map_phase_name[g1_phase], fontsize=18,
+				rotation=270, va='center', ha='center', color='white',
 				fontdict={'fontname': 'Open Sans'})
 		
 		# PostG1 phase text
 		pg1_center = self.num_g1_rows + (self.num_pg1_rows / 2)
-		ax.text(text_x, pg1_center, self.map_phase_name['postG1'],
-				rotation=270, va='center', ha='center', color='black',
+		ax.text(text_x, pg1_center, self.map_phase_name['postG1'], fontsize=18,
+				rotation=270, va='center', ha='center', color='white',
 				fontdict={'fontname': 'Open Sans'})
 		
 		# Set axis limits
@@ -210,11 +253,37 @@ class DeconvolutionChromatinExpressionPlotter:
 		"""
 		self.chromatin_F = F
 
+	def _plot_mean_mother_daughter_chromatin(self, branch_idx):
+		"""Plot the average of mother and daughter chromatin data"""
+		
+		# todo: CG1 == MG1 (as common G1, old nomenclature)
+		dg1_indices = get_sample_indices(self.config1, self.num_g1_rows, 'DG1')
+		mg1_indices = get_sample_indices(self.config1, self.num_g1_rows, 'CG1')
+		pg1_indices = get_sample_indices(self.config1, self.num_pg1_rows, 'postG1')
+		
+		# Plot G1 phase chromatin
+		for row_idx in range(len(mg1_indices)):
+
+			# Take the average of the MG1 and DG1 image
+			dg1_idx = dg1_indices[row_idx]
+			mg1_idx = mg1_indices[row_idx]
+			dg1_img = self.chromatin_F[dg1_idx]
+			mg1_img = self.chromatin_F[mg1_idx]
+			mean_img = (dg1_img+mg1_img)/2.
+
+			ax = self.chrom_axs[branch_idx][row_idx]
+			ax.imshow(mean_img, aspect='auto', cmap='magma_r', origin='lower', 
+			vmin=0, vmax=self.vmax)
+			
+		# Plot postG1 phase chromatin
+		for row_idx, idx in enumerate(pg1_indices):
+			ax = self.chrom_axs[branch_idx][row_idx + self.num_g1_rows]
+			ax.imshow(self.chromatin_F[idx], aspect='auto', cmap='magma_r', origin='lower', 
+			vmin=0, vmax=self.vmax)
+
 	def _plot_chromatin_branch(self, branch_idx, g1_phase):
 		"""Plot chromatin data for a single branch"""
-		if self.chromatin_F is None:
-			raise ValueError("Chromatin data not set. Call set_chromatin_data first.")
-			
+		
 		# Get sampled indices for each phase
 		g1_indices = get_sample_indices(self.config1, self.num_g1_rows, g1_phase)
 		pg1_indices = get_sample_indices(self.config1, self.num_pg1_rows, 'postG1')
@@ -231,19 +300,15 @@ class DeconvolutionChromatinExpressionPlotter:
 			ax.imshow(self.chromatin_F[idx], aspect='auto', cmap='magma_r', origin='lower', 
 			vmin=0, vmax=self.vmax)
 
-
-
-	def _plot_chromatin_branch_difference(self, branch_idx):
-		"""Plot chromatin data for a single branch"""
-		if self.chromatin_F is None:
-			raise ValueError("Chromatin data not set. Call set_chromatin_data first.")
-			
+	def _plot_difference_mother_daughter_chromatin(self, branch_idx):
+		"""Plot difference between daughter and mother chromatin data"""
+		
 		# Get sampled indices for each phase
 		dg1_indices = get_sample_indices(self.config1, self.num_g1_rows, 'DG1')
 		cg1_indices = get_sample_indices(self.config1, self.num_g1_rows, 'CG1')
 		pg1_indices = get_sample_indices(self.config1, self.num_pg1_rows, 'postG1')
-		
-		# Plot G1 phase chromatin
+
+		# Plot G1 phase chromatin difference
 		vmax = 10
 
 		for row_idx in range(len(dg1_indices)):
@@ -256,6 +321,22 @@ class DeconvolutionChromatinExpressionPlotter:
 			ax.imshow(diff, aspect='auto', cmap='RdBu_r', origin='lower', 
 			vmin=-vmax, vmax=vmax)
 
+		# For postG1, we don't plot differences since there's no mother/daughter distinction
+
+	def _plot_chromatin_for_branch_type(self, branch_idx, branch_type):
+		"""Plot chromatin data based on branch type"""
+		if branch_type == "recovery":
+			self._plot_chromatin_branch(branch_idx, 'RG1')
+		elif branch_type == "mother":
+			self._plot_chromatin_branch(branch_idx, 'CG1')
+		elif branch_type == "daughter":
+			self._plot_chromatin_branch(branch_idx, 'DG1')
+		elif branch_type == "mean_mother_daughter":
+			self._plot_mean_mother_daughter_chromatin(branch_idx)
+		elif branch_type == "difference_mother_daughter":
+			self._plot_difference_mother_daughter_chromatin(branch_idx)
+		else:
+			raise ValueError(f"Unknown branch type: {branch_type}")
 
 	def set_chrom_span(self, chrom, span):
 		"""
@@ -277,8 +358,15 @@ class DeconvolutionChromatinExpressionPlotter:
 		for ax in self.ann_axs:
 			self.orf_plotter.plot_orf_annotations(ax)
 
-	def plot(self, title=None):
+	def plot(self):
 		"""Plot the expression data for all branches"""
+		
+		# Validate that required data is available
+		if self.chromatin_F is None:
+			raise ValueError("Chromatin data not set. Call set_chromatin_data first.")
+		
+		if self.plot_expression and self.expression_F is None:
+			raise ValueError("Expression data not set but plot_expression=True. Call set_expression_data first.")
 		
 		# Clear the axes for redraw
 		self.clear_axes()
@@ -286,51 +374,50 @@ class DeconvolutionChromatinExpressionPlotter:
 		# Plot gene annotations
 		self._plot_annotations()
 
-		# Plot cell cycle annotations
-		self._plot_cell_cycle_annotations(0, 'RG1')
-		self._plot_cell_cycle_annotations(1, 'CG1')
-		self._plot_cell_cycle_annotations(2, 'DG1')
-
-		# Plot each branch
-		if self.expression_F is not None:
-			self._plot_expression_branch(0, 'RG1')
-			self._plot_expression_branch(1, 'CG1')
-			self._plot_expression_branch(2, 'DG1')
-
-		# Plot chromatin for each branch
-		self._plot_chromatin_branch(0, 'RG1')
-		self._plot_chromatin_branch(1, 'CG1')
-		self._plot_chromatin_branch(2, 'DG1')
-
-		self._plot_chromatin_branch_difference(3)
+		# Plot each branch based on branches_to_plot
+		for i, branch_type in enumerate(self.branches_to_plot):
+			# Plot cell cycle annotations
+			self._plot_cell_cycle_annotations(i, branch_type)
+			
+			# Plot expression if enabled and available for this branch type
+			if self.plot_expression and self.expression_F is not None:
+				expression_phase = self._get_expression_phase_for_branch_type(branch_type)
+				if expression_phase is not None:
+					self._plot_expression_branch(i, expression_phase)
+			
+			# Plot chromatin data
+			self._plot_chromatin_for_branch_type(i, branch_type)
 
 		# Set title
+		title = self.title
 		if title is None:
 			title = f"chr{self.chrom}, {self.span[0]}-{self.span[1]}"
-		plt.suptitle(title)
+		plt.suptitle(title, fontsize=36, y=1, fontweight='demi')
 		
 		return self.fig
 
 
+# Keep the existing layout function unchanged
 def create_chromatin_expression_layout(
 	n_rows=7,  # Number of rows in chromatin data (excluding annotation)
 	figsize=(10, 5),  # Figure size
 	chromatin_width_ratios=[1, 1, 1, 1, 1],  # Width ratios for chromatin columns, total column width = 4
 	expression_width=1.5,  # Width of expression plot relative to chromatin (1/4)
-	cell_cycle_width=0.75,  # Width of cell cycle plot relative to chromatin (1/4)
+	cell_cycle_annotations_width=0.25,  # Width of cell cycle annotations plot relative to chromatin (1/4)
 	branch_spacing=0.5,  # Spacing between branches
-	top_margin=0.90,  # Top margin for titles
+	top_margin=0.93,  # Top margin for titles
 	bottom_margin=0.05,  # Bottom margin
 	height_ratios=None,  # Optional custom height ratios for rows
-	annotation_height=0.75,  # Height of annotation row relative to data rows
-	annotation_spacing=0.15  # Height of spacing between annotation and data rows
+	annotation_height=1.2,  # Height of annotation row relative to data rows
+	annotation_spacing=0.15,  # Height of spacing between annotation and data rows
+	number_of_branches = 4 # Number of branches
 ):
 	"""
 	Creates a layout for chromatin and expression data visualization with gene annotations
 	and cell cycle indicators.
 	"""
 	# Calculate the number of columns needed
-	n_branches = 4  # Recovery, Mother, Daughter
+	n_branches = number_of_branches  # Recovery, Mother, Daughter
 	cols_per_branch = 3  # Cell cycle, chromatin, and expression
 	
 	# Create figure
@@ -340,7 +427,7 @@ def create_chromatin_expression_layout(
 	width_ratios = []
 	for branch in range(n_branches):
 		# Add cell cycle column
-		width_ratios.append(cell_cycle_width)
+		width_ratios.append(cell_cycle_annotations_width)
 		# Add chromatin columns
 		width_ratios.extend(chromatin_width_ratios)
 		# Add expression column
@@ -410,7 +497,7 @@ def create_chromatin_expression_layout(
 	return fig, chromatin_axes, expression_axes, annotation_axes, cell_cycle_axes
 
 
-
+# Keep the existing function unchanged
 def draw_phase_label_annotations(ax, config=None, 
 		phases = ['CG1', 'S', 'G2M'], 
 		phase_names = ['CG1', 'S', 'GSM'],
@@ -462,4 +549,3 @@ def draw_phase_label_annotations(ax, config=None,
 
 		ax.text(text_x, text_y, phase_name, va='center', ha='center', fontsize=10,
 			color='white', rotation=rotation)
-

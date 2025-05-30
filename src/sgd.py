@@ -171,6 +171,16 @@ def read_nondubious_genes_dataset():
 	return genes_nondub
 
 
+def load_origins_sgd():
+    sgd = read_sgd_file()
+    origins_sgd = sgd[sgd['cat'] == 'ARS'].copy()
+    arsname = extract_desc_val(origins_sgd, 'Name')
+    origins_sgd['ars_name'] = arsname
+    chroms = origins_sgd.chr.str.replace('chr', '').apply(_fromRoman)
+    origins_sgd.chr = chroms
+    return origins_sgd
+
+
 def read_sgd_w_go():
 
 	from pandas import Series
