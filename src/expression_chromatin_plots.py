@@ -38,6 +38,8 @@ class DeconvolutionChromatinExpressionPlotter:
 			'meanG1': "Mean Mother-Daughter G1",
 			'DG1': "Daughter G1",
 			'postG1': "S/G2/M",
+			'S': 'S',
+			'G2M': 'G2/M',
 		}
 		
 		self.branches_to_plot = branches_to_plot
@@ -45,10 +47,11 @@ class DeconvolutionChromatinExpressionPlotter:
 		self.chromatin_F = None
 		
 		# Set row parameters
-		self.num_rows = 11
+		self.num_rows = 12
 		self.vmax = 40
-		self.num_g1_rows = 6
-		self.num_pg1_rows = self.num_rows - self.num_g1_rows
+		self.num_g1_rows = 5
+		self.num_s_rows = 2
+		self.num_g2m_rows = self.num_rows - self.num_g1_rows - self.num_s_rows
 		self.plot_expression = plot_expression
 
 		if plot_expression:
@@ -206,11 +209,17 @@ class DeconvolutionChromatinExpressionPlotter:
 							  facecolor=g1_color, alpha=1)
 		ax.add_patch(g1_rect)
 		
-		# Plot postG1 rectangle and text
-		pg1_color = color_for_key('postG1')
-		pg1_rect = plt.Rectangle((bar_x, self.num_g1_rows), bar_width, self.num_pg1_rows, 
-							   facecolor=pg1_color, alpha=1)
-		ax.add_patch(pg1_rect)
+		# Plot S rectangle and text
+		s_color = color_for_key('S')
+		s_rect = plt.Rectangle((bar_x, self.num_g1_rows), bar_width, self.num_s_rows, 
+							   facecolor=s_color, alpha=1)
+		ax.add_patch(s_rect)
+
+		# Plot G2/M rectangle and text
+		g2m_color = color_for_key('G2M')
+		g2m_rect = plt.Rectangle((bar_x, self.num_g1_rows + self.num_s_rows), bar_width, self.num_g2m_rows, 
+							   facecolor=g2m_color, alpha=1)
+		ax.add_patch(g2m_rect)
 
 		# Add vertical text labels
 		# G1 phase text
@@ -219,9 +228,15 @@ class DeconvolutionChromatinExpressionPlotter:
 				rotation=270, va='center', ha='center', color='white',
 				fontdict={'fontname': 'Open Sans'})
 		
-		# PostG1 phase text
-		pg1_center = self.num_g1_rows + (self.num_pg1_rows / 2)
-		ax.text(text_x, pg1_center, self.map_phase_name['postG1'], fontsize=18,
+		# S phase text
+		s_center = self.num_g1_rows + (self.num_s_rows / 2)
+		ax.text(text_x, s_center, self.map_phase_name['S'], fontsize=18,
+				rotation=270, va='center', ha='center', color='white',
+				fontdict={'fontname': 'Open Sans'})
+
+		# G2/M phase text
+		g2m_center = self.num_g1_rows + self.num_s_rows + (self.num_g2m_rows / 2)
+		ax.text(text_x, g2m_center, self.map_phase_name['G2M'], fontsize=18,
 				rotation=270, va='center', ha='center', color='white',
 				fontdict={'fontname': 'Open Sans'})
 		
@@ -259,7 +274,6 @@ class DeconvolutionChromatinExpressionPlotter:
 		# todo: CG1 == MG1 (as common G1, old nomenclature)
 		dg1_indices = get_sample_indices(self.config1, self.num_g1_rows, 'DG1')
 		mg1_indices = get_sample_indices(self.config1, self.num_g1_rows, 'CG1')
-		pg1_indices = get_sample_indices(self.config1, self.num_pg1_rows, 'postG1')
 		
 		# Plot G1 phase chromatin
 		for row_idx in range(len(mg1_indices)):
@@ -274,31 +288,40 @@ class DeconvolutionChromatinExpressionPlotter:
 			ax = self.chrom_axs[branch_idx][row_idx]
 			ax.imshow(mean_img, aspect='auto', cmap='magma_r', origin='lower', 
 			vmin=0, vmax=self.vmax)
-			
-		# Plot postG1 phase chromatin
-		for row_idx, idx in enumerate(pg1_indices):
+
+		self._branch_plot_s_g2m(branch_idx)
+
+	def _branch_plot_s_g2m(self, branch_idx):
+		s_indices = get_sample_indices(self.config1, self.num_s_rows, 'S')
+		g2m_indices = get_sample_indices(self.config1, self.num_g2m_rows, 'G2M')
+		
+		# Plot S phase chromatin
+		for row_idx, idx in enumerate(s_indices):
 			ax = self.chrom_axs[branch_idx][row_idx + self.num_g1_rows]
 			ax.imshow(self.chromatin_F[idx], aspect='auto', cmap='magma_r', origin='lower', 
 			vmin=0, vmax=self.vmax)
+
+		# Plot G2M phase chromatin
+		for row_idx, idx in enumerate(g2m_indices):
+			ax = self.chrom_axs[branch_idx][row_idx + self.num_g1_rows + self.num_s_rows]
+			ax.imshow(self.chromatin_F[idx], aspect='auto', cmap='magma_r', origin='lower', 
+			vmin=0, vmax=self.vmax)
+
 
 	def _plot_chromatin_branch(self, branch_idx, g1_phase):
 		"""Plot chromatin data for a single branch"""
 		
 		# Get sampled indices for each phase
 		g1_indices = get_sample_indices(self.config1, self.num_g1_rows, g1_phase)
-		pg1_indices = get_sample_indices(self.config1, self.num_pg1_rows, 'postG1')
-		
+	
 		# Plot G1 phase chromatin
 		for row_idx, idx in enumerate(g1_indices):
 			ax = self.chrom_axs[branch_idx][row_idx]
 			ax.imshow(self.chromatin_F[idx], aspect='auto', cmap='magma_r', origin='lower', 
 			vmin=0, vmax=self.vmax)
 			
-		# Plot postG1 phase chromatin
-		for row_idx, idx in enumerate(pg1_indices):
-			ax = self.chrom_axs[branch_idx][row_idx + self.num_g1_rows]
-			ax.imshow(self.chromatin_F[idx], aspect='auto', cmap='magma_r', origin='lower', 
-			vmin=0, vmax=self.vmax)
+		self._branch_plot_s_g2m(branch_idx)
+
 
 	def _plot_difference_mother_daughter_chromatin(self, branch_idx):
 		"""Plot difference between daughter and mother chromatin data"""
@@ -306,7 +329,6 @@ class DeconvolutionChromatinExpressionPlotter:
 		# Get sampled indices for each phase
 		dg1_indices = get_sample_indices(self.config1, self.num_g1_rows, 'DG1')
 		cg1_indices = get_sample_indices(self.config1, self.num_g1_rows, 'CG1')
-		pg1_indices = get_sample_indices(self.config1, self.num_pg1_rows, 'postG1')
 
 		# Plot G1 phase chromatin difference
 		vmax = 10
@@ -321,7 +343,6 @@ class DeconvolutionChromatinExpressionPlotter:
 			ax.imshow(diff, aspect='auto', cmap='RdBu_r', origin='lower', 
 			vmin=-vmax, vmax=vmax)
 
-		# For postG1, we don't plot differences since there's no mother/daughter distinction
 
 	def _plot_chromatin_for_branch_type(self, branch_idx, branch_type):
 		"""Plot chromatin data based on branch type"""
