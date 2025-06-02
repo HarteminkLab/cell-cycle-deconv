@@ -122,7 +122,8 @@ def compute_sliding_window(data, window_size, step):
 	return result
 
 
-def get_bin_for_position(position, start_indices, win=10000, step=2000):
+def get_bin_for_position(position, start_indices, win=10000, step=2000,
+	bp_only=False):
 	"""Get the bin in which the position is the closest to the center of the bin"""
 	win_2 = win//2
 	
@@ -134,6 +135,9 @@ def get_bin_for_position(position, start_indices, win=10000, step=2000):
 	
 	bin_start = start_indices[position_bin_idx]
 	bin_end = bin_start + win
+
+	if bp_only:
+		return bin_start
 	
 	return position_bin_idx, bin_start
 

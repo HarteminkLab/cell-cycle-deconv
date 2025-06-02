@@ -41,10 +41,10 @@ def load_plus_ones(replicate=1):
 
 
 def read_brogaard_nucleosomes():
-    brogaard = pd.read_csv('data/reference_data/Brogaard_nuc_positions.sacCer3.top2000.tsv', sep='\t',
-        names=['chromosome',  'position', 'NCP_score', 'NCP_score/noise_ratio'])
-    brogaard.chromosome = brogaard.chromosome.apply(_fromRoman)
-    return brogaard
+	brogaard = pd.read_csv('data/reference_data/Brogaard_nuc_positions.sacCer3.top2000.tsv', sep='\t',
+		names=['chromosome',  'position', 'NCP_score', 'NCP_score/noise_ratio'])
+	brogaard.chromosome = brogaard.chromosome.apply(_fromRoman)
+	return brogaard
 
 
 def read_macisaac_sites():
@@ -230,7 +230,7 @@ def load_p1_gene_regions():
 	gene_body_span = (-80, 420) # Inclusion of +1, +2, +3 nucleosomes
 
 	gene_metric_boundaries = genes.join(plus_one_locations[['combined_+1']])\
-	    [['gene', 'strand', 'length', 'chr', 'combined_+1', ]]
+		[['gene', 'strand', 'length', 'chr', 'combined_+1', ]]
 
 	is_watson = gene_metric_boundaries.strand == '+'
 	is_crick = gene_metric_boundaries.strand == '-'
@@ -255,3 +255,56 @@ def load_p1_gene_regions():
 	gene_metric_boundaries.loc[is_crick, 'gene_body_end'] = crick_p1s-gene_body_span[0]
 
 	return gene_metric_boundaries
+
+
+def load_muller_replication_timing_copy_number_ratio():
+	"""Load the haploid strain from the wig file from the Muller data set.
+
+	Two wig files here, haploid and diploid. Haploid is saved to GSM1036187_T7107_normalised.wig
+
+	Contents contain position and copy number ratio (higher values correspond to early replication)
+
+	https://www.ncbi.nlm.nih.gov/geo/query/acc.cgi?acc=GSE48212
+	"""
+	from pathlib import Path
+
+	def parse_wig_file(file_path):
+		"""
+		Parse a wig file and return a pandas DataFrame with genomic coordinates and values
+		"""
+		data = []
+		current_chrom = None
+		
+		with open(file_path, 'r') as f:
+			for line in f:
+				line = line.strip()
+				
+				# Skip empty lines and track lines
+				if not line or line.startswith('track'):
+					continue
+					
+				# Parse chromosome header
+				if line.startswith('variableStep'):
+					# Extract chromosome name
+					chrom_part = line.split('chrom=')[1]
+					current_chrom = chrom_part.split()[0]  # Get just the chromosome name
+					continue
+				
+				# Parse data lines
+				if current_chrom and '\t' in line:
+					position, value = line.split('\t')
+					data.append({
+						'chromosome': current_chrom,
+						'position': int(position),
+						'copy_number_ratio': float(value)
+					})
+		
+		return pd.DataFrame(data)
+
+	t7107_haploid_file = "data/reference_data/GSM1036187_T7107_normalised.wig"
+
+	# Load the data
+	t7107_haploid_file = parse_wig_file(t7107_haploid_file)
+
+	return t7107_haploid_file
+
