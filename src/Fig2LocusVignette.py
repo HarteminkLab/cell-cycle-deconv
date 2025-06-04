@@ -492,10 +492,10 @@ class LocusVignette(object):
 											   labels=['Proximal', 'Distal'],
 											   plot_branches=['i', 'tb'],
 											   branch_names=['Recovery', 'Mother/Daughter'])
-		plt.suptitle("Total window occupancy,\nproximal vs distal to efficient origin", fontsize=16,
+		plt.suptitle("Proximal vs distal occupancy", fontsize=16,
 			fontweight='demi')
 		plt.tight_layout()
-		plt.subplots_adjust(wspace=0)
+		plt.subplots_adjust(wspace=0, top=0.8)
 		return fig
 	
 	def plot_gene_deconvolution(self, gene_name, region_type, analysis_key='efficient_no_copy', 
@@ -665,15 +665,20 @@ class LocusVignette(object):
 
 		num_cols = len(plot_branches)
 
-		fig = plt.figure(figsize=(6, 3))
+		fig = plt.figure(figsize=(9, 3))
 
 		eff_color = plt.cm.Reds(0.65)
 		distal_color = plt.cm.Blues(0.65)
 
 		for col in range(num_cols):
 			plt.subplot(1, num_cols, col+1)
+
 			plot_branch_mean(plot_branches[col], colors=[
 				eff_color, distal_color])
+
+			if col == 0:
+				plt.ylabel("Normalized occupancy")
+
 			plt.title(branch_names[col])
 			if col > 0: plt.yticks([])
 
@@ -821,6 +826,8 @@ class LocusVignette(object):
 				'CLB2': plt.cm.Blues(0.57),
 				'CLB5': plt.cm.Reds(0.67),
 				'THI22': plt.cm.Blues(0.9),
+				'SNT309': plt.cm.Blues(0.9),
+				'PRE22': plt.cm.Reds(0.9),
 				'origin': 'gray'
 			}
 		
@@ -990,13 +997,21 @@ class LocusVignette(object):
 	def plot_distal_gene_metrics(self):
 		"""Plot the distal gene metrics"""
 
-		fig = self.plot_gene_metrics_grouped('PRE2', analysis_key='distal_no_copy', 
+		fig1 = self.plot_gene_metrics_grouped('PRE2', analysis_key='distal_no_copy', 
 			metrics_to_plot=[
 				{'region_type': 'gene_body', 'metric_type': 'entropy', 
 				'label': 'Gene body entropy',
 					 'ylim': (4, 6)}
 			])
-		return [fig]
+
+		fig2 = self.plot_gene_metrics_grouped('SNT309', analysis_key='distal_no_copy', 
+			metrics_to_plot=[
+				{'region_type': 'gene_body', 'metric_type': 'entropy', 
+				'label': 'Gene body entropy',
+					 'ylim': (4, 6)}
+			])
+
+		return [fig1, fig2]
 
 	def plot_proximal_gene_metrics(self):
 		"""Plot the proximal gene metrics"""
@@ -1029,7 +1044,8 @@ class LocusVignette(object):
 		print(f"Created/verified save directory: {self.save_directory}")
 		
 		# Save distal locus plot
-		subset_regions = {'PRE2': ['gene_body_bp_tuple', 'promoter_bp_tuple']}
+		subset_regions = {'PRE2': ['gene_body_bp_tuple'],
+						  'SNT309': ['gene_body_bp_tuple']}
 		fig_distal = self.plot_locus_with_stored_regions(analysis_key='distal_no_copy', 
 			regions_to_plot=subset_regions)
 		save_path = os.path.join(self.save_directory, 'Distal_Locus_Plot.png')
@@ -1037,14 +1053,14 @@ class LocusVignette(object):
 		print(f"Saved: Distal_Locus_Plot.png")
 		
 		# Save proximal locus plot
-		subset_regions = {'CLB5': ['gene_body_bp_tuple', 'promoter_bp_tuple'],
+		subset_regions = {'CLB5': ['gene_body_bp_tuple'],
 						  'THI22': ['gene_body_bp_tuple']}
 		fig_proximal = self.plot_locus_with_stored_regions(analysis_key='efficient_no_copy', 
 			regions_to_plot=subset_regions)
-		save_names = ['Proximal_Clb5_metrics.png', 'Proximal_Thi22_Metrics.png', 
-			'Origin_Footprint_Deconvolution.png']
 
 		# Save proximal gene metrics
+		save_names = ['Proximal_Clb5_metrics.png', 'Proximal_Thi22_Metrics.png', 
+			'Origin_Footprint_Deconvolution.png']
 		figs_proximal = self.plot_proximal_gene_metrics()
 		for i, fig in enumerate(figs_proximal):
 			save_path = os.path.join(self.save_directory, save_names[i])
@@ -1053,7 +1069,7 @@ class LocusVignette(object):
 		
 		# Save distal gene metrics
 		fig_distal_metrics = self.plot_distal_gene_metrics()
-		save_names = ['Distal_Pre22_metrics.png']
+		save_names = ['Distal_Snt309_metrics.png', 'Distal_Pre22_metrics.png']
 		for i, fig in enumerate(fig_distal_metrics):
 			save_path = os.path.join(self.save_directory, save_names[i])
 			save_figure_for_paper(save_path, fig=fig)
@@ -1087,7 +1103,8 @@ class LocusVignette(object):
 		clb5_metrics_path = f'{self.save_directory}/Proximal_Clb5_Metrics.png'
 		thi22_metrics_path = f'{self.save_directory}/Proximal_Thi22_Metrics.png'
 		origin_footprint_path = f'{self.save_directory}/Origin_Footprint_Deconvolution.png'
-		distal_metrics_path = f'{self.save_directory}/Distal_Gene_Metrics.png'
+		pre2_metrics_path = f'{self.save_directory}/Distal_Pre22_Metrics.png'
+		snt309_metrics_path = f'{self.save_directory}/Distal_Snt309_metrics.png'
 		total_comparison_path = f'{self.save_directory}/Total_Window_Comparison.png'
 		
 		# Layout top row (A and B) horizontally
@@ -1121,19 +1138,19 @@ class LocusVignette(object):
 		# Layout right column (F, G) below distal locus
 		right_column_images = layout_images_vertically(
 			compositor,
-			[distal_metrics_path, total_comparison_path],
+			[pre2_metrics_path, snt309_metrics_path, total_comparison_path],
 			between_padding=between_padding,
 			margin=(0, column_start_y),  # No left margin, use calculated y position as top margin
 			x_position=distal_info['logical_position'][0],
-			widths=[distal_info['logical_size'][0]] * 2,  # Same width as distal locus image
-			image_keys=['distal_metrics', 'total_comparison']
+			widths=[distal_info['logical_size'][0]] * 3,  # Same width as distal locus image
+			image_keys=['pre2_metrics', 'snt309', 'total_comparison']
 		)
 		
 		# Add panel labels (A-G) to top-left of each image
 		add_panel_labels_to_images(
 			compositor,
 			compositor.placed_images,
-			labels='ABCDEFG',
+			labels='ABCDEFGH',
 			font_size=36,
 			offset=(-10, -12),  # Slightly above and to the left of each image
 			font_type='bold',
@@ -1151,7 +1168,7 @@ class LocusVignette(object):
 def plot_gene_expression_for_example_genes():
 	"""For reference, the raw gene expression for these genes may be useful"""
 	from src.sgd import get_orfnames
-	gene_names = ['CLB5', 'THI22', 'PRE2']
+	gene_names = ['CLB5', 'THI22', 'PRE2', 'SNT309']
 	orfnames = get_orfnames(gene_names)
 
 	from src.gene_expression import load_gene_expression_data
