@@ -189,24 +189,26 @@ def main():
 			runner.save_to_disk(save_genes_directory)
 			print_fl(f"Done. {timer.get_time()}")
 
-	elif command == 'deconvolve_chromatin_staging':
+	# todo: Currently, using partial daughter as the baseline model
 
-		(_, command, output_directory, index) = system_args
-		chromatin_save_directory = f"{output_directory}/chromatin_deconvolution_staging/"
-		index = int(index)
+	# elif command == 'deconvolve_chromatin_staging':
 
-		window_set_path = "datasets/computed_mnase/test_window_set_2kb.csv"
-		deconvolve_chromatin(chromatin_save_directory, window_set_path, index)
+	# 	(_, command, output_directory, index) = system_args
+	# 	chromatin_save_directory = f"{output_directory}/chromatin_deconvolution_staging/"
+	# 	index = int(index)
 
-	elif command == 'deconvolve_chromatin_full':
+	# 	window_set_path = "datasets/computed_mnase/test_window_set_2kb.csv"
+	# 	deconvolve_chromatin(chromatin_save_directory, window_set_path, index)
 
-		(_, command, output_directory, index) = system_args
-		chromatin_save_directory = f"{output_directory}/chromatin_deconvolution/"
-		mkdirs_safe([chromatin_save_directory])
-		index = int(index)
+	# elif command == 'deconvolve_chromatin_full':
 
-		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
-		deconvolve_chromatin(chromatin_save_directory, window_set_path, index)
+	# 	(_, command, output_directory, index) = system_args
+	# 	chromatin_save_directory = f"{output_directory}/chromatin_deconvolution/"
+	# 	mkdirs_safe([chromatin_save_directory])
+	# 	index = int(index)
+
+	# 	window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
+	# 	deconvolve_chromatin(chromatin_save_directory, window_set_path, index)
 
 	elif command == 'deconvolve_chromatin_partial_daughter':
 
@@ -355,7 +357,7 @@ def main():
 
 
 def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
-	copy_correct=True, no_daughter=False, gamma=0.0066, kappa=0, impute_50_rep2=False):
+	copy_correct=True, gamma=0.0066, kappa=0, impute_50_rep2=False):
 
 	# Deconvolve the initial set of chromatin windows for testing,
 	# priority over deconvolving the most important windows first

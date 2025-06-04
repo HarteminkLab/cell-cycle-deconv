@@ -67,9 +67,10 @@ def get_gene_name(orf_name, genes=read_sgd_genes()):
 	return get_gene(orf_name, genes).gene
 
 
-def get_gene_title_name(orf_name, genes=read_sgd_genes(), include_system=True):
+def get_gene_title_name(gene_or_orf_name, genes=read_sgd_genes(), include_system=True):
 	"""For displaying gene names, avoid displaying None"""
-	gene_name = get_gene_name(orf_name, genes)
+
+	orf_name, gene_name = get_gene_name_orf_name(gene_or_orf_name)
 
 	if gene_name is None:
 		gene_title = ("$\\it{" + orf_name + "}$")

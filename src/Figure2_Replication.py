@@ -25,12 +25,12 @@ class Figure2ReplicationDeconvolution():
 		from src.CombinedReplicateDeconvolutionRunner import CombinedReplicateDeconvolutionRunner
 		from src.config import load_default_chrom_configs
 
-		config1, conself = load_default_chrom_configs()
+		config1, config2 = load_default_chrom_configs()
 		runner = CombinedReplicateDeconvolutionRunner(chrom=4, save_dir=None, 
-			config1=config1, conself=conself)
+			config1=config1, config2=config2)
 		self.runner = runner
 		self.config1 = config1
-		self.conself = conself
+		self.config2 = config2
 
 
 	def setup_data(self):
@@ -204,4 +204,4 @@ class Figure2ReplicationDeconvolution():
 		    offset=(-10, -12)
 		)
 
-		compositor.save(f'{self.save_dir}/Figure2_Replication.png')
+		compositor.save(f'{self.save_dir}/Figure3_Replication.png')

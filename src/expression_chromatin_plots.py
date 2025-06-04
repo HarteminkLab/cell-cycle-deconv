@@ -30,6 +30,7 @@ class DeconvolutionChromatinExpressionPlotter:
 		"""
 		self.config1 = config1
 		self.title = title
+		self.highlight_bins = []
 
 		self.map_phase_name = {
 			'R': "Recovery G1",
@@ -296,6 +297,17 @@ class DeconvolutionChromatinExpressionPlotter:
 		if vmax is None: vmax = self.vmax
 		ax.imshow(img, aspect='auto', cmap=cmap, origin='lower', interpolation='none',
 			vmin=vmin, vmax=vmax, extent=[self.span[0], self.span[1], 0, 260])
+
+		from src.plot_helpers import plot_rect2
+
+		x_bp_start, x_bp_end = self.span
+		for color, bin_tuple in self.highlight_bins:
+			x_bp = bin_tuple[0], bin_tuple[2]
+			y_bp = bin_tuple[1]+5, bin_tuple[3]-5 # Inset slightly for visuals
+
+			plot_rect2(ax, x_bp[0], y_bp[0], 
+					   x_bp[1], y_bp[1], alpha=0.8,
+				lw=0.75, fill=False, edgecolor=color)
 
 	def _plot_mean_mother_daughter_chromatin(self, branch_idx):
 		"""Plot the average of mother and daughter chromatin data"""

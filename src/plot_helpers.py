@@ -116,7 +116,7 @@ def plot_density(data, ax=None, color='red', domain_values=None,
 	return y
 
 def plot_rect2(ax, x1, y1, x2, y2, color=None, facecolor=None, 
-	edgecolor=None, ls='solid', fill_alpha=1., zorder=40, lw=0.0, 
+	edgecolor=None, ls='solid', alpha=1., zorder=40, lw=0.0, 
 	inset=(0.0, 0.0), fill=True, joinstyle='round'):
 	"""
 	Plot a rectangle for ORF plotting, updated to x1 x2 and y1 y2 rather than width height
@@ -143,7 +143,7 @@ def plot_rect2(ax, x1, y1, x2, y2, color=None, facecolor=None,
 						joinstyle=joinstyle,
 						ls=ls,
 						fill=fill,
-						alpha=fill_alpha,
+						alpha=alpha,
 						zorder=zorder,
 					))
 	

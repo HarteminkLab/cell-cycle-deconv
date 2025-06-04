@@ -116,7 +116,7 @@ class GenomeDeconvolutionAnalysis():
 		plotter = self.plot_loaded_data(expression_f, title)
 
 	def plot_loaded_data(self, config, expression_f=None, title=None,
-		figsize=(15, 5)):
+		figsize=(15, 5), highlight_bins=[]):
 
 		from src.expression_chromatin_plots import DeconvolutionChromatinExpressionPlotter
 
@@ -125,6 +125,7 @@ class GenomeDeconvolutionAnalysis():
 			title=title)
 		plotter.set_chrom_span(self.chrom, self.loaded_subset_span)
 		plotter.set_chromatin_data(self.loaded_subset_data)
+		plotter.highlight_bins = highlight_bins
 
 		if expression_f is not None:
 			plotter.set_expression_data(expression_f)

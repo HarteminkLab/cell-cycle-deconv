@@ -734,9 +734,6 @@ def read_n_fr_b(chrom, deconv_span, replicate,
 	parent_directory, log=True):
 	"""Load the N, replication timing, and b from disk"""
 
-	if log:
-		print_fl(f"todo: Loading prototype replication data from: {parent_directory}")
-
 	single_directory = f'{parent_directory}/single_replication'
 	combined_directory = f'{parent_directory}/combined_replication'
 	combined_N = np.load(f'{combined_directory}/N.npy')
