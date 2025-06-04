@@ -1,10 +1,14 @@
 import numpy as np
+
 import pandas as pd
 import matplotlib.pyplot as plt
 from src.origins import load_origins
 from src.GenomeDeconvolutionAnalysis import GenomeDeconvolutionAnalysis
 from src.combined_chromatin_model import CombinedChromatinModel
 from src.config import load_default_chrom_configs, get_average_timepoints_for_branch
+from src.figure_configs import save_figure_for_paper
+import matplotlib.gridspec as gridspec
+import os
 
 class LocusVignette(object):
 	"""Analysis of deconvolved locus.
@@ -24,6 +28,7 @@ class LocusVignette(object):
 		self.origins = load_origins()
 		self.origin = self.origins.loc['oridb_817']
 		self.output_directory = output_directory
+		self.save_directory = output_directory + '/figure2_loci_plots'
 		self.copy_corrected_data_directory = f'{self.output_directory}/chromatin_deconvolution_partial_daughter/deconvolution_data/'
 		self.no_correction_data_directory = f'{self.output_directory}/chromatin_deconvolution_no_copy/deconvolution_data/'
 
@@ -260,18 +265,31 @@ class LocusVignette(object):
 
 
 	def plot_raw_predicted_and_deconvolved(self, analysis_key, metric_type, region_params, 
-										 title_prefix="", figsize=(9, 2), ylim=None):
+										 title_prefix="", figsize=(9, 2.25), ylim=None):
 		"""
 		Create a 4-panel comparison plot of raw, predicted, and deconvolved data.
 		This is a wrapper around plot_raw_predicted_and_deconvolved_on_axes for backward compatibility.
 		"""
 		
-		# Create the plot
-		fig, axes = plt.subplots(1, 4, figsize=figsize)
+		# Create figure with custom gridspec: 5 columns (including spacer) and n_metrics rows
+		fig = plt.figure(figsize=figsize)
+		gs = gridspec.GridSpec(1, 6, figure=fig, 
+							   width_ratios=[1, 0.05, 1, 0.3, 1, 1],  # Spacer columns at 1 and 3
+							   wspace=0.0,  # Small spacing within groups
+							   hspace=0.1)  # Spacing between rows
+		
+		# Create 2D axes array to maintain compatibility with existing code
+		row_axes = [
+			fig.add_subplot(gs[0]),  # First group, column 1
+			fig.add_subplot(gs[2]),  # First group, column 2
+			fig.add_subplot(gs[4]),  # Second group, column 1 (skip spacer at index 2)
+			fig.add_subplot(gs[5])   # Second group, column 2
+		]
+		
 		
 		# Call the new method
 		self.plot_raw_predicted_and_deconvolved_on_axes(
-			row_axes=axes, 
+			row_axes=row_axes, 
 			analysis_key=analysis_key,
 			metric_type=metric_type,
 			region_params=region_params,
@@ -283,22 +301,20 @@ class LocusVignette(object):
 		if title_prefix:
 			plt.suptitle(title_prefix, fontweight='demi', fontsize=16)
 		
-		plt.tight_layout()
-		plt.subplots_adjust(wspace=0)
+		plt.subplots_adjust(top=0.7)
 		
 		return fig
 
 	def plot_gene_metrics_grouped(self, gene_name, metrics_to_plot=None, analysis_key=None,
-									figsize=(9, 4), ylims=None, show_column_titles=True):
+									figsize=(9, 2.25), ylims=None, show_column_titles=True):
 		"""
 		Create a grouped plot for a single gene showing multiple metrics in separate rows.
 		fig = locus_vignette.plot_gene_metrics_grouped('CLB2', metrics)
 		"""
-		import matplotlib.gridspec as gridspec
 
 		default_metrics = [
-		    {'region_type': 'promoter', 'metric_type': 'mean', 'label': 'Promoter occupancy'},
-		    {'region_type': 'gene_body', 'metric_type': 'entropy', 'label': 'Gene body entropy'}
+			{'region_type': 'promoter', 'metric_type': 'mean', 'label': 'Promoter occupancy'},
+			{'region_type': 'gene_body', 'metric_type': 'entropy', 'label': 'Gene body entropy'}
 		]
 
 		if metrics_to_plot is None:
@@ -310,9 +326,9 @@ class LocusVignette(object):
 		
 		# Create figure with custom gridspec: 5 columns (including spacer) and n_metrics rows
 		fig = plt.figure(figsize=figsize)
-		gs = gridspec.GridSpec(n_metrics, 5, figure=fig, 
-							   width_ratios=[1, 1, 0.3, 1, 1],  # Spacer column in middle
-							   wspace=0.1,  # Small spacing within groups
+		gs = gridspec.GridSpec(n_metrics, 6, figure=fig, 
+							   width_ratios=[1, 0.05, 1, 0.3, 1, 1],  # Spacer columns at 1 and 3
+							   wspace=0.0,  # Small spacing within groups
 							   hspace=0.1)  # Spacing between rows
 		
 		# Create 2D axes array to maintain compatibility with existing code
@@ -320,9 +336,9 @@ class LocusVignette(object):
 		for row in range(n_metrics):
 			row_axes = [
 				fig.add_subplot(gs[row, 0]),  # First group, column 1
-				fig.add_subplot(gs[row, 1]),  # First group, column 2
-				fig.add_subplot(gs[row, 3]),  # Second group, column 1 (skip spacer at index 2)
-				fig.add_subplot(gs[row, 4])   # Second group, column 2
+				fig.add_subplot(gs[row, 2]),  # First group, column 2
+				fig.add_subplot(gs[row, 4]),  # Second group, column 1 (skip spacer at index 2)
+				fig.add_subplot(gs[row, 5])   # Second group, column 2
 			]
 			axes.append(row_axes)
 		
@@ -378,16 +394,13 @@ class LocusVignette(object):
 				ylim=ylim,
 				show_legend=(i == 0),  # Only show legend on first row
 				show_titles=(i == 0 and show_column_titles),  # Only show titles on first row
-				show_xticks=(i == len(row_axes)-1) # Show xticks on last row
+				show_xticks=(i == len(axes)-1) # Show xticks on last row
 			)
 		
 		# Set overall title
 		from src.sgd import get_gene_title_name
 		gene_title = get_gene_title_name(gene_name)
 		plt.suptitle(f"{gene_title}", fontweight='demi', fontsize=18)
-		
-		# Apply tight layout
-		plt.tight_layout()
 		plt.subplots_adjust(top=(0.83 if len(axes) == 2 else 0.7))
 		
 		return fig
@@ -457,7 +470,6 @@ class LocusVignette(object):
 		
 		# Adjust layout
 		plt.tight_layout()
-		plt.subplots_adjust(wspace=0, hspace=0.1)
 		
 		return fig
 
@@ -474,16 +486,17 @@ class LocusVignette(object):
 		)
 
 	def plot_total_window_comparision(self, keys=['efficient_no_copy','distal_no_copy']):
-		self.compare_loaded_branch_means(self.genome_analyses[keys[0]],
-										self.genome_analyses[keys[1]],
-										with_b=[False, False],
-										labels=['Proximal', 'Distal'],
-										plot_branches=['i', 'tb'],
-										branch_names=['Recovery', 'Mother/Daughter'])
+		fig = self.compare_loaded_branch_means(self.genome_analyses[keys[0]],
+											   self.genome_analyses[keys[1]],
+											   with_b=[False, False],
+											   labels=['Proximal', 'Distal'],
+											   plot_branches=['i', 'tb'],
+											   branch_names=['Recovery', 'Mother/Daughter'])
 		plt.suptitle("Total window occupancy,\nproximal vs distal to efficient origin", fontsize=16,
 			fontweight='demi')
 		plt.tight_layout()
 		plt.subplots_adjust(wspace=0)
+		return fig
 	
 	def plot_gene_deconvolution(self, gene_name, region_type, analysis_key='efficient_no_copy', 
 							  metric_type='mean', plus_one_adjustment=0, region_params=None, ylim=None):
@@ -583,15 +596,18 @@ class LocusVignette(object):
 			if with_copy_correction: title += ", with copy correction"
 			
 		genome_analysis = self.genome_analyses[analysis_key]
-		genome_analysis.plot_loaded_data(config1, figsize=(12, 12), 
+		fig = genome_analysis.plot_loaded_data(config1, figsize=(12, 12), 
 			title=title, highlight_bins=highlight_bins)
+		
+		return fig
 
 
 	def plot_copy_number_comparison(self):
-		self.compare_loaded_branch_means(self.genome_analysis_with_copy, 
+		fig = self.compare_loaded_branch_means(self.genome_analysis_with_copy, 
 			self.genome_analysis_no_copy)
 		plt.suptitle("Total occupancy, efficient origin $\\it{" + self.origin.ars_name + "}$", 
 			y=1.15, fontweight='demi', fontsize=16)
+		return fig
 
 	def compare_loaded_branch_means(self, analysis1, analysis2, with_b=[True, False],
 		labels=['1', '2'], plot_branches=['i', 't', 'b'], branch_names=['Recovery', 'Mother', 'Daughter']):
@@ -649,7 +665,7 @@ class LocusVignette(object):
 
 		num_cols = len(plot_branches)
 
-		plt.figure(figsize=(6, 3))
+		fig = plt.figure(figsize=(6, 3))
 
 		eff_color = plt.cm.Reds(0.65)
 		distal_color = plt.cm.Blues(0.65)
@@ -660,6 +676,8 @@ class LocusVignette(object):
 				eff_color, distal_color])
 			plt.title(branch_names[col])
 			if col > 0: plt.yticks([])
+
+		return fig
 
 	# Add these methods to your LocusVignette class
 	def define_gene_configurations(self, gene_configs=None):
@@ -710,6 +728,12 @@ class LocusVignette(object):
 			}
 		else:
 			self.gene_configs = gene_configs
+
+	def compute_and_store_regions_all_analyses(self):
+		"""Store metrics for all regions and analyses"""
+		for key in self.genome_analyses.keys():
+			self.compute_and_store_regions(key)
+
 
 	def compute_and_store_regions(self, analysis_key='efficient_no_copy', include_origin=True):
 		"""
@@ -913,8 +937,9 @@ class LocusVignette(object):
 		else:
 			highlight_bins = []
 		
-		self.plot_locus(analysis_key=analysis_key, 
+		fig = self.plot_locus(analysis_key=analysis_key, 
 					   highlight_bins=highlight_bins)
+		return fig
 
 	def plot_stored_gene_deconvolution(self, gene_name, region_type, analysis_key='efficient_no_copy', 
 									 metric_type='mean', ylim=None):
@@ -961,3 +986,186 @@ class LocusVignette(object):
 			title_prefix=title_prefix,
 			ylim=ylim
 		)
+
+	def plot_distal_gene_metrics(self):
+		"""Plot the distal gene metrics"""
+
+		fig = self.plot_gene_metrics_grouped('PRE2', analysis_key='distal_no_copy', 
+			metrics_to_plot=[
+				{'region_type': 'gene_body', 'metric_type': 'entropy', 
+				'label': 'Gene body entropy',
+					 'ylim': (4, 6)}
+			])
+		return [fig]
+
+	def plot_proximal_gene_metrics(self):
+		"""Plot the proximal gene metrics"""
+
+		figs = []
+
+		gb_entropy_metrics_only = [{'region_type': 'gene_body', 'metric_type': 'entropy', 
+			'label': 'Gene body entropy'}]
+		
+		fig1 = self.plot_gene_metrics_grouped('CLB5', analysis_key='efficient_no_copy',
+			metrics_to_plot=gb_entropy_metrics_only)
+		figs.append(fig1)
+		
+		fig2 = self.plot_gene_metrics_grouped('THI22', 
+			metrics_to_plot=gb_entropy_metrics_only, analysis_key='efficient_no_copy', 
+			figsize=(9, 2.25))
+		figs.append(fig2)
+
+		fig3 = self.plot_origin_footprint_deconvolution('efficient_no_copy')
+		figs.append(fig3)
+		
+		return figs
+
+	def run_and_save_all(self):
+		"""
+		Create save directory and save all plots from the notebook analysis.
+		"""
+		# Create save directory if it doesn't exist
+		os.makedirs(self.save_directory, exist_ok=True)
+		print(f"Created/verified save directory: {self.save_directory}")
+		
+		# Save distal locus plot
+		subset_regions = {'PRE2': ['gene_body_bp_tuple', 'promoter_bp_tuple']}
+		fig_distal = self.plot_locus_with_stored_regions(analysis_key='distal_no_copy', 
+			regions_to_plot=subset_regions)
+		save_path = os.path.join(self.save_directory, 'Distal_Locus_Plot.png')
+		save_figure_for_paper(save_path)
+		print(f"Saved: Distal_Locus_Plot.png")
+		
+		# Save proximal locus plot
+		subset_regions = {'CLB5': ['gene_body_bp_tuple', 'promoter_bp_tuple'],
+						  'THI22': ['gene_body_bp_tuple']}
+		fig_proximal = self.plot_locus_with_stored_regions(analysis_key='efficient_no_copy', 
+			regions_to_plot=subset_regions)
+		save_names = ['Proximal_Clb5_metrics.png', 'Proximal_Thi22_Metrics.png', 
+			'Origin_Footprint_Deconvolution.png']
+
+		# Save proximal gene metrics
+		figs_proximal = self.plot_proximal_gene_metrics()
+		for i, fig in enumerate(figs_proximal):
+			save_path = os.path.join(self.save_directory, save_names[i])
+			save_figure_for_paper(save_path, fig=fig)
+			print(f"Saved: {save_path}")
+		
+		# Save distal gene metrics
+		fig_distal_metrics = self.plot_distal_gene_metrics()
+		save_names = ['Distal_Pre22_metrics.png']
+		for i, fig in enumerate(fig_distal_metrics):
+			save_path = os.path.join(self.save_directory, save_names[i])
+			save_figure_for_paper(save_path, fig=fig)
+			print(f"Saved: {save_path}")
+		
+		# Save total window comparison
+		fig_comparison = self.plot_total_window_comparision()
+		save_path = os.path.join(self.save_directory, 'Total_Window_Comparison.png')
+		save_figure_for_paper(save_path)
+		print(f"Saved: Total_Window_Comparison.png")
+		
+		print(f"\nAll plots saved successfully to: {self.save_directory}")
+
+
+	def layout_panel(self, canvas_width=1024, canvas_height=1124, margins=20, 
+					column_padding=30, between_padding=30, debug_mode=True):
+		"""
+		Create a composite figure panel with all locus plots and metrics.
+		"""
+		# Import compositor and helper functions
+		# Note: You may need to adjust these import paths based on your project structure
+		from pipeline.figure_composer import FigureCompositor
+		from pipeline.figure_composer_helpers import layout_images_horizontally, layout_images_vertically, add_panel_labels_to_images
+		
+		# Create compositor 
+		compositor = FigureCompositor(canvas_width, canvas_height, debug_mode=debug_mode)
+		
+		# Define file paths
+		proximal_locus_path = f'{self.save_directory}/Proximal_Locus_Plot.png'
+		distal_locus_path = f'{self.save_directory}/Distal_Locus_Plot.png'
+		clb5_metrics_path = f'{self.save_directory}/Proximal_Clb5_Metrics.png'
+		thi22_metrics_path = f'{self.save_directory}/Proximal_Thi22_Metrics.png'
+		origin_footprint_path = f'{self.save_directory}/Origin_Footprint_Deconvolution.png'
+		distal_metrics_path = f'{self.save_directory}/Distal_Gene_Metrics.png'
+		total_comparison_path = f'{self.save_directory}/Total_Window_Comparison.png'
+		
+		# Layout top row (A and B) horizontally
+		top_row_images = layout_images_horizontally(
+			compositor,
+			[proximal_locus_path, distal_locus_path],
+			width_proportions=[1, 1],  # Equal width for both top images
+			between_padding=column_padding,
+			margin=margins,
+			image_keys=['proximal_locus', 'distal_locus']
+		)
+		
+		# Get information about top row for positioning columns
+		proximal_info = top_row_images['proximal_locus']
+		distal_info = top_row_images['distal_locus']
+		
+		# Calculate starting y position for columns
+		column_start_y = proximal_info['logical_position'][1] + proximal_info['logical_size'][1] + between_padding
+		
+		# Layout left column (C, D, E) below proximal locus
+		left_column_images = layout_images_vertically(
+			compositor,
+			[clb5_metrics_path, thi22_metrics_path, origin_footprint_path],
+			between_padding=between_padding,
+			margin=(0, column_start_y),  # No left margin, use calculated y position as top margin
+			x_position=proximal_info['logical_position'][0],
+			widths=[proximal_info['logical_size'][0]] * 3,  # Same width as proximal locus image
+			image_keys=['clb5_metrics', 'thi22_metrics', 'origin_footprint']
+		)
+		
+		# Layout right column (F, G) below distal locus
+		right_column_images = layout_images_vertically(
+			compositor,
+			[distal_metrics_path, total_comparison_path],
+			between_padding=between_padding,
+			margin=(0, column_start_y),  # No left margin, use calculated y position as top margin
+			x_position=distal_info['logical_position'][0],
+			widths=[distal_info['logical_size'][0]] * 2,  # Same width as distal locus image
+			image_keys=['distal_metrics', 'total_comparison']
+		)
+		
+		# Add panel labels (A-G) to top-left of each image
+		add_panel_labels_to_images(
+			compositor,
+			compositor.placed_images,
+			labels='ABCDEFG',
+			font_size=36,
+			offset=(-10, -12),  # Slightly above and to the left of each image
+			font_type='bold',
+			color=(0, 0, 0)
+		)
+		
+		# Save the composite figure
+		output_path = f'{self.save_directory}/Figure2_Combined_Panel.png'
+		compositor.save(output_path)
+		print(f"Combined panel saved to: {output_path}")
+		
+		return compositor
+
+
+def plot_gene_expression_for_example_genes():
+	"""For reference, the raw gene expression for these genes may be useful"""
+	from src.sgd import get_orfnames
+	gene_names = ['CLB5', 'THI22', 'PRE2']
+	orfnames = get_orfnames(gene_names)
+
+	from src.gene_expression import load_gene_expression_data
+
+	raw_expression_rep1 = load_gene_expression_data(1)
+	raw_expression_rep2 = load_gene_expression_data(2)
+
+	plt.figure(figsize=(9, 2))
+	plt.subplot(1, 2, 1)
+	plt.plot(raw_expression_rep1.loc[orfnames].values.T, label=gene_names)
+	plt.legend()
+	plt.title("Raw gene expression, replicate 1")
+
+	plt.subplot(1, 2, 2)
+	plt.plot(raw_expression_rep2.loc[orfnames].values.T, label=gene_names)
+	plt.legend()
+	plt.title("Raw gene expression, replicate 2")
