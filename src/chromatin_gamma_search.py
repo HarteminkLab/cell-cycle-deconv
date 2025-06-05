@@ -23,6 +23,7 @@ class ChromatinFindOptimalGamma(object):
 														 eta=eta)
 			rn = chromatin_solver.rn
 			sn = chromatin_solver.sn
+
 			return F, sn, rn
 
 		gamma_optimizer = GammaOptimizer(compute_solution, gamma_min=gamma_min, gamma_max=gamma_max,

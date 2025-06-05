@@ -97,10 +97,13 @@ class ChromatinOccupancyIslandDetector:
 		# Calculate statistics
 		mean_diff = self.filtered_differences.mean()
 		std_diff = self.filtered_differences.std()
-		
-		# Calculate symmetric thresholds
-		lower_threshold = mean_diff - std_diff * std_multiplier
-		upper_threshold = mean_diff + std_diff * std_multiplier
+
+		# Calculate symmetric thresholds with minimum threshold
+		min_threshold = 0.1
+		threshold_magnitude = max(std_diff * std_multiplier, min_threshold)
+
+		lower_threshold = mean_diff - threshold_magnitude
+		upper_threshold = mean_diff + threshold_magnitude
 		
 		self.thresholds['std'] = {
 			'lower': lower_threshold,
@@ -597,8 +600,8 @@ class ChromatinOccupancyIslandDetector:
 				'dynamic_islands': 0, 'static_islands': 0, 'dynamic_pixels': 0, 'static_pixels': 0,
 				'dynamic_percent': 0, 'static_percent': 0, 'dynamic_ratio': 0
 			}
-		
-		return {
+
+		self.composition_stats = {
 			**stats,
 			'genome_coverage': (total_chromatin_pixels / total_genome_pixels) * 100,
 			'island_proportions': island_proportions,
@@ -607,3 +610,5 @@ class ChromatinOccupancyIslandDetector:
 			'functional_islands_total': functional_islands,
 			'functional_pixels_total': functional_pixels
 		}
+
+		return self.composition_stats

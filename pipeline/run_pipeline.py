@@ -402,6 +402,9 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 		mkdirs_safe([data_directory, raw_plots_directory, deconv_plots_directory])
 		combined_model = CombinedChromatinModel(config1=config1, config2=config2)
 
+		print("**   TODO  *** Testing deconvolution span")
+		mnase_span = 30000, 30200
+
 		# Load window to deconvolve
 		combined_model.load_mnase_span(chrom, mnase_span)
 
@@ -453,7 +456,11 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 	chrom = row.chr
 	span = row.start, row.end+1 # (Add 1 to include the last base)
 
-	print_fl(f"Deconvolving index:{index}, chr{chrom}, {span[0], span[1]}, k")
+
+	print(" ****  todo: Test span")
+	span = row.start, row.start+81
+
+	print_fl(f"Deconvolving index:{index}, chr{chrom}, {span[0], span[1]}")
 
 	deconv_and_save(chrom, span, chromatin_save_directory)
 
