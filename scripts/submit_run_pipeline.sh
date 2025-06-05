@@ -24,24 +24,15 @@ OUTDIR=output/draft3_run/
 # ARGS="deconvolve_expression ${OUTDIR}"
 # sbatch -D ./slurm-logs/ --job-name="rep" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
+# ---------- Find Gamma ---------------
+
+ARGS="find_gamma_chromatin ${OUTDIR}"
+sbatch -a 0-99%12 -D ./slurm-logs/ --job-name="opt_gamma" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+
 # ---------- Find Alpha ----------------
 
 # ARGS="find_alpha ${OUTDIR}"
 # sbatch -D ./slurm-logs/ --job-name="alpha" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
-
-# ---------- Test Chromatin Windows -------------------
-
-# ARGS="deconvolve_chromatin_staging ${OUTDIR} 0"
-# sbatch -D ./slurm-logs/ --job-name="chrom" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
-
-#for i in {0..28}; do
-
-    # Set the arguments with the current number
-#    ARGS="deconvolve_chromatin_staging ${OUTDIR} $i"
-    
-    # Submit the job
-#    sbatch -D ./slurm-logs/ --job-name="chrom_$i" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
-# done
 
 # ------------- All windows -----------------------------
 

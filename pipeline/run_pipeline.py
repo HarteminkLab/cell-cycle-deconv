@@ -402,9 +402,6 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 		mkdirs_safe([data_directory, raw_plots_directory, deconv_plots_directory])
 		combined_model = CombinedChromatinModel(config1=config1, config2=config2)
 
-		print("**   TODO  *** Testing deconvolution span")
-		mnase_span = 30000, 30200
-
 		# Load window to deconvolve
 		combined_model.load_mnase_span(chrom, mnase_span)
 
