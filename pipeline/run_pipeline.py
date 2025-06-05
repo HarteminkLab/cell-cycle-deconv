@@ -63,6 +63,22 @@ def main():
 			length_dist_calculator2.all_length_dists)
 		plt.savefig(f"{length_replication_directory}/raw_distributions.png")
 
+	elif command == 'find_gamma_chromatin':
+
+		(_, command, output_directory, index) = system_args
+		index = int(index)
+
+		save_directory = f"{output_directory}/chromatin_gamma_100/"
+		mkdirs_safe([save_directory])
+
+		# Select from random windows
+		#genome_random_100_windows = pd.read_csv('data/reference_data/sacCer3_genome_random_1k_windows.csv')
+		genome_random_100_windows_path = 'data/reference_data/sacCer3_genome_random_1k_windows.csv'
+
+		# Set gamma to -1, meaning find the optimal gamma
+		deconvolve_chromatin(save_directory, genome_random_100_windows_path, index,
+			copy_correct=False, kappa=1, gamma=-1, eta=0)
+
 	elif command == 'find_alpha':
 
 		from src.alpha_search import FindAlphaSweepDS
@@ -346,7 +362,7 @@ def main():
 	elif command == 'figure3_replication':
 
 		# Rename to figure 3
-		from src.Figure2_Replication import Figure2ReplicationDeconvolution
+		from src.Figure3_Replication import Figure3ReplicationDeconvolution
 		
 		(_, command, output_dir) = system_args
 
@@ -370,13 +386,12 @@ def main():
 
 
 def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
-	copy_correct=True, gamma=0.0066, kappa=0, impute_50_rep2=False):
-
-	# Deconvolve the initial set of chromatin windows for testing,
-	# priority over deconvolving the most important windows first
+	copy_correct=True, gamma=0.0066, kappa=1, eta=0):
 
 	# Load the configs from disk
 	config1, config2 = load_default_chrom_configs()
+
+	enable_find_gamma = gamma < 0
 
 	def deconv_and_save(chrom, mnase_span, chromatin_save_directory):
 
@@ -387,8 +402,11 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 		mkdirs_safe([data_directory, raw_plots_directory, deconv_plots_directory])
 		combined_model = CombinedChromatinModel(config1=config1, config2=config2)
 
+		print("**   TODO  *** Testing deconvolution span")
+		mnase_span = 30000, 30200
+
 		# Load window to deconvolve
-		combined_model.load_mnase_span(chrom, mnase_span, impute_50_rep2=impute_50_rep2)
+		combined_model.load_mnase_span(chrom, mnase_span)
 
 		save_title = f"chr{chrom}_{mnase_span[0]}_{mnase_span[1]}"
 
@@ -407,14 +425,31 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 		plt.close(fig)
 
 		combined_model.setup_deconv_model(copy_correct=copy_correct)
-		combined_model.deconvolve(gamma=gamma, kappa=kappa, verbose=True)	
 
-		np.save(f"{data_directory}/{save_title}_F.npy", combined_model.F)
+		# Find optimum run, just save gamma and elbow
+		if enable_find_gamma:
+			combined_model.deconvolve_find_optimal_gamma(kappa=kappa, eta=eta,
+				verbose=True)	
 
-		combined_model.plot_branches(figsize=(50, 11))
-		plt.savefig(f"{deconv_plots_directory}/deconv_{save_title}.png")
-		plt.close(fig)
+			# Save the gamma and elbow curve to disk
+			save_gamma_path = f"{data_directory}/{save_title}_gamma.txt"
+			with open(save_gamma_path, 'w') as save_file:
+				save_file.write(f"{combined_model.gamma}")
 
+			save_elbow_path = f"{deconv_plots_directory}/{save_title}_elbow.png"
+			combined_model.find_gamma_chromatin.plot_gamma_sweep()
+			plt.savefig(save_elbow_path)
+
+		# Normal run, deconvolve and save results
+		else:
+			combined_model.deconvolve(gamma=gamma, kappa=kappa, eta=eta,
+			 	verbose=True)	
+			np.save(f"{data_directory}/{save_title}_F.npy", combined_model.F)
+			combined_model.plot_branches(figsize=(50, 11))
+			plt.savefig(f"{deconv_plots_directory}/deconv_{save_title}.png")
+			plt.close(fig)
+
+	# Read the window datas data and load the relevant row
 	window_set = pd.read_csv(window_set_path)
 	row = window_set.iloc[index]
 

@@ -61,7 +61,8 @@ class CombinedChromatinModel:
 		self.N = combined_N
 
 
-	def	setup_deconv_model(self, gamma=0.007, G=None, G1=None, G2=None, wavelet="Symmlet",
+	def	setup_deconv_model(self,
+	 		G=None, G1=None, G2=None, wavelet="Symmlet",
 			padding_type='both', copy_correct=True):
 
 		chrom1_model = self.chrom1_model
@@ -89,7 +90,6 @@ class CombinedChromatinModel:
 		N = self.N
 		f_replication = self.f_replication
 		b = self.b
-		self.gamma = gamma
 
 		# Next we will need to setup the deconvolution model to combine the H
 		# and the deconvolution G data
@@ -120,44 +120,39 @@ class CombinedChromatinModel:
 		self.chrom1_model.solver = self.solver
 		self.chrom2_model.solver = self.solver
 
-		self.found_optimal_success = None
 		self.deconvolved_f_value = None
 
 
-	def deconvolve(self, gamma, kappa, verbose=True):
-		self.F = self.solver.deconvolve_G_iteratively(gamma=gamma, kappa=kappa, verbose=verbose)
+	def deconvolve(self, gamma, kappa, eta=0, verbose=True):
+		self.F = self.solver.deconvolve_G_iteratively(gamma=gamma, kappa=kappa, 
+			eta=eta, verbose=verbose)
 
 
 	def find_origin_p1_and_m1_nucleosome_position(self):
 		self.chrom1_model.find_origin_p1_and_m1_nucleosome_position()
 		self.chrom2_model.find_origin_p1_and_m1_nucleosome_position()
 
-	def deconvolve_find_optimal_gamma(self):
+
+	def deconvolve_find_optimal_gamma(self, kappa=1, eta=0, verbose=True):
 		"""
 		Find the optimal gamma value
 		"""
 		from src.timer import Timer
 
-		from src.find_gamma_chromatin import FindOptimalGammaChromatin
+		from src.chromatin_gamma_search import ChromatinFindOptimalGamma
 
 		timer = Timer()
 
 		self.setup_deconv_model()
-		self.find_gamma_chromatin = FindOptimalGammaChromatin(self.solver)
-		self.found_optimal_success = self.find_gamma_chromatin.find_optimal(silence=False)
-		self.gamma = self.find_gamma_chromatin.gamma
-		self.rn = self.find_gamma_chromatin.rn
-		self.sn = self.find_gamma_chromatin.sn
-		self.deconvolved_f_value = self.find_gamma_chromatin.f
+		self.find_gamma_chromatin = ChromatinFindOptimalGamma(self.solver,
+			verbose=verbose)
+		self.gamma = self.find_gamma_chromatin.find_optimal_gamma()
 
-		self.set_results(self.deconvolved_f_value, 
-						  self.rn, self.sn,
-						  self.gamma)
+		# todo: not guaranteed to be the optimal gamma
+		self.F = self.solver.F
 
-		print_fl(f"Found optimal gamma in: {timer.get_time()}")
-		print_fl(f"Find optimal success: {self.found_optimal_success}")
-		print_fl(f"The fitting norm is {self.rn:.2f}, "
-			  f"the smoothing norm is: {self.sn:.2f}")
+		if verbose:
+			print_fl(f"Found optimal gamma: {self.gamma:.3f} in: {timer.get_time()}")
 
 	def set_results(self, f, rn, sn, gamma):
 		"""Following completion of deconvolution or find gamma deconvolution, we

@@ -1,5 +1,3 @@
-
-
 import numpy as np
 import pandas as pd
 from src.utils import print_fl
@@ -17,26 +15,35 @@ class GammaOptimizer:
 	# RIGHT_ERROR_RATIO = 1.40 
 	# RIGHT_ERROR_OFFSET = 0.32
 
-	LEFT_ERROR_RATIO = 1.05
-	LEFT_ERROR_OFFSET = 0.04
+	EXP_LEFT_ERROR_RATIO = 1.05
+	EXP_LEFT_ERROR_OFFSET = 0.04
 
 	# Higher for gene expression to allow for greater smoothing
 	EXP_RIGHT_ERROR_RATIO = 4.0
 	EXP_RIGHT_ERROR_OFFSET = 11.32
 
+	# Higher right error offset for chromatin
+	CHROM_LEFT_ERROR_RATIO = 1.05
+	CHROM_LEFT_ERROR_OFFSET = 1.0
+
+	# Higher right error offset for chromatin
 	CHROM_RIGHT_ERROR_RATIO = 1.40 
-	CHROM_RIGHT_ERROR_OFFSET = 0.32
+	CHROM_RIGHT_ERROR_OFFSET = 15.0
 
 	ELBOW_BINS = 20
 
 	def __init__(self, compute_solution, gamma_min=0.00001, gamma_max=0.001, verbose=False,
-		mode='expression'):
+		mode='expression', early_stop_enabled=False, early_stop_threshold=1.0):
 
 		self.mode = mode
 		if mode == 'expression':
+			self.LEFT_ERROR_RATIO = self.EXP_LEFT_ERROR_RATIO
+			self.LEFT_ERROR_OFFSET = self.EXP_LEFT_ERROR_OFFSET
 			self.RIGHT_ERROR_RATIO = self.EXP_RIGHT_ERROR_RATIO
 			self.RIGHT_ERROR_OFFSET = self.EXP_RIGHT_ERROR_OFFSET
 		elif mode == 'chromatin':
+			self.LEFT_ERROR_RATIO = self.CHROM_LEFT_ERROR_RATIO
+			self.LEFT_ERROR_OFFSET = self.CHROM_LEFT_ERROR_OFFSET
 			self.RIGHT_ERROR_RATIO = self.CHROM_RIGHT_ERROR_RATIO
 			self.RIGHT_ERROR_OFFSET = self.CHROM_RIGHT_ERROR_OFFSET
 		else:
@@ -46,6 +53,8 @@ class GammaOptimizer:
 		self.gamma_min = gamma_min
 		self.gamma_max = gamma_max
 		self.verbose = verbose
+		self.early_stop_enabled = early_stop_enabled
+		self.early_stop_threshold = early_stop_threshold  # Percentage threshold (e.g., 1.0 for 1%)
 		
 	def calculate_base_error(self):
 		base_solution, base_sn, self.base_error = self.compute_solution(0)
@@ -78,23 +87,41 @@ class GammaOptimizer:
 			
 		return self.left_error, self.right_error
 
-	def find_gamma_for_error(self, target_error, gamma_low, gamma_high, tolerance=1e-6):
+	def find_gamma_for_error(self, target_error, gamma_low, gamma_high, 
+		tolerance=1e-6):
 		"""Binary search to find gamma that achieves target error"""
+		previous_error = None
+		iteration_count = 0
+		
 		while (gamma_high - gamma_low) > tolerance:
 			gamma_mid = (gamma_low + gamma_high) / 2
 			current_solution, current_sn, current_error = self.compute_solution(gamma_mid)
+			iteration_count += 1
 			
 			if self.verbose:
 				print_fl(f"\t\tγ: {gamma_mid:.6g}", end="\t")
 				print_fl(f"rn: {current_error:.4f}", end="\t")
 				print_fl(f"sn: {current_sn:.4f}")
 			
+			# Check for early stopping condition
+			if self.early_stop_enabled and previous_error is not None:
+				# Calculate percentage change in rn (residual norm)
+				percent_change = abs((current_error - previous_error) / previous_error) * 100
+				
+				if percent_change < self.early_stop_threshold:
+					if self.verbose:
+						print_fl(f"\t\tEarly stopping: rn change ({percent_change:.3f}%) < threshold ({self.early_stop_threshold:.1f}%)")
+					return gamma_mid
+			
+			# Check if we've reached the target error within tolerance
 			if abs(current_error - target_error) < tolerance:
 				return gamma_mid
 			elif current_error < target_error:
 				gamma_low = gamma_mid
 			else:
 				gamma_high = gamma_mid
+			
+			previous_error = current_error
 				
 		return (gamma_low + gamma_high) / 2
 
@@ -102,6 +129,9 @@ class GammaOptimizer:
 		"""Find gamma values achieving left and right error boundaries"""
 		if self.verbose:
 			print_fl("\tSearching for left boundary gamma...")
+			if self.early_stop_enabled:
+				print_fl(f"\t\tEarly stopping enabled (threshold: {self.early_stop_threshold:.1f}%)")
+				
 		self.gamma_left = self.find_gamma_for_error(self.left_error, self.gamma_min, self.gamma_max)
 		
 		if self.verbose:

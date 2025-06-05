@@ -9,7 +9,7 @@ from src.figure_configs import save_figure_for_paper
 from src.plot_helpers import adjust_lightness_saturation
 
 
-class Figure2ReplicationDeconvolution():
+class Figure3ReplicationDeconvolution():
 	"""Create figures for the replication deconvolution"""
 
 	def __init__(self, output_directory):
@@ -66,6 +66,7 @@ class Figure2ReplicationDeconvolution():
 		fig = plt.figure(figsize=(19, 2))
 
 		early_repl = 3
+		mid_repl = 4
 		late_repl = 5
 
 		xlims = 0, 18
@@ -75,15 +76,18 @@ class Figure2ReplicationDeconvolution():
 		ys = np.repeat(0, len(xs))
 
 		early_color = plt.cm.Reds(0.65)
+		mid_color = plt.cm.Greys(0.5)
 		late_color = plt.cm.Blues(0.65)
 
 		early_color = adjust_lightness_saturation(early_color, 1.0, 0.75)
+		mid_color = adjust_lightness_saturation(mid_color, 1.0, 0.5)
 
 		num_tps = len(xs)
-		plot_strand_series(0.5, -1.25, xs, ys, early_repl, early_color)
-		plot_strand_series(0.5,  1.25, xs, ys, late_repl, late_color)
+		plot_strand_series(0.5, -1.85, xs, ys, early_repl, early_color)
+		plot_strand_series(0.5, 0, xs, ys, mid_repl, mid_color)
+		plot_strand_series(0.5,  1.85, xs, ys, late_repl, late_color)
 
-		plt.ylim(-3, 3)
+		plt.ylim(-3.5, 3.5)
 		plt.xlim(*xlims)
 		plt.yticks([])
 		plt.title("Genomic DNA", fontsize=18, pad=10)
@@ -101,9 +105,11 @@ class Figure2ReplicationDeconvolution():
 		xs = np.arange(0, num_tps).astype(float)
 
 		early_repl = 6
+		mid_repl = 9
 		late_repl = 12
 
 		xs[early_repl-1] = xs[early_repl]
+		xs[mid_repl-1] = xs[mid_repl]
 		xs[late_repl-1] = xs[late_repl]
 
 		# Inset the replication timings a bit
@@ -114,11 +120,15 @@ class Figure2ReplicationDeconvolution():
 		early_repl_ys = np.ones(num_tps)
 		early_repl_ys[early_repl:] = 2
 
+		mid_repl_ys = np.ones(num_tps)
+		mid_repl_ys[mid_repl:] = 2
+
 		late_repl_ys = np.ones(num_tps)
 		late_repl_ys[late_repl:] = 2
 
-		line1 = plt.plot(xs, early_repl_ys+0.01, label="Early replicating", c=early_color, lw=4)[0]
-		line2 = plt.plot(xs, late_repl_ys-0.01, label="Late replicating", c=late_color, lw=4)[0]
+		line1 = plt.plot(xs, early_repl_ys+0.02, label="Early replicating", c=early_color, lw=4)[0]
+		line2 = plt.plot(xs, mid_repl_ys, label="Intermediate replicating", c=mid_color, lw=4)[0]
+		line3 = plt.plot(xs, late_repl_ys-0.02, label="Late replicating", c=late_color, lw=4)[0]
 
 		plt.title("Replication profiles", fontsize=18, pad=10)
 		plt.xlim(*xlims)
@@ -128,8 +138,8 @@ class Figure2ReplicationDeconvolution():
 		plt.tick_params(axis='x', length=0, pad=10)
 
 		fig.legend(
-		    [line1, line2],
-		    ['Early replicating', 'Late replicating'],
+		    [line1, line2, line3],
+		    ['Early', 'Intermediate', 'Late'],
 			loc='upper center',
     		bbox_to_anchor=(0.25, -0.0), # Place below the first subplot
 		    ncol=2,
@@ -141,15 +151,16 @@ class Figure2ReplicationDeconvolution():
 
 		plt.subplot(1, 3, 3)
 
-		plt.plot(xs, early_repl_ys)
-		plt.plot(xs, late_repl_ys)
-
-		total_repls = early_repl_ys + late_repl_ys
+		total_repls = early_repl_ys + mid_repl_ys + late_repl_ys
+		mid_repl_ys = mid_repl_ys / total_repls
 		early_repl_ys = early_repl_ys / total_repls
 		late_repl_ys = late_repl_ys / total_repls
 
 		plt.fill_between(xs, early_repl_ys, 0, color=early_color)
-		plt.fill_between(xs, early_repl_ys+late_repl_ys, early_repl_ys, color=late_color)
+		plt.fill_between(xs, early_repl_ys+mid_repl_ys, early_repl_ys, 
+			color=mid_color)
+		plt.fill_between(xs, early_repl_ys+mid_repl_ys+late_repl_ys, 
+			early_repl_ys+mid_repl_ys, color=late_color)
 
 		plt.ylim(0, 1)
 		plt.xlim(*xlims)
@@ -159,6 +170,7 @@ class Figure2ReplicationDeconvolution():
 		plt.axvspan(6, 12, 0, 1, color='white', alpha=0.05, lw=0)
 		plt.title("Relative proportion of total DNA", fontsize=18, pad=10)
 		plt.plot(xs, early_repl_ys, lw=2, c='black', solid_joinstyle='miter')
+		plt.plot(xs, early_repl_ys+mid_repl_ys, lw=2, c='black', solid_joinstyle='miter')
 
 		plt.subplots_adjust(hspace=0.4, top=0.85, bottom=0.2)
 		plt.suptitle("Effect of replication on normalized DNA counts",

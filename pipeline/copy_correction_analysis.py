@@ -15,7 +15,7 @@ class CopyCorrectionAnalysis():
 
 	def __init__(self, output_directory):
 		self.output_directory = output_directory
-		self.copy_correction_data_directory = f'{output_directory}/chromatin_deconvolution/'
+		self.copy_correction_data_directory = f'{output_directory}/chromatin_deconvolution_partial_daughter/'
 		self.no_copy_correction_data_directory = f'{output_directory}/chromatin_deconvolution_no_copy/'
 		windows = pd.read_csv('data/reference_data/sacCer3_genome_10k_windows.csv')
 		self.windows = windows
@@ -24,7 +24,7 @@ class CopyCorrectionAnalysis():
 	def initialize_replication_time_colormaps(self):
 
 		import matplotlib as mpl
-		norm = mpl.colors.Normalize(vmin=30, vmax=60)
+		norm = mpl.colors.Normalize(vmin=-10, vmax=30)
 		cmap = plt.cm.RdBu  # The _r suffix reverses the colormap
 
 		# Create a ScalarMappable object with the colormap
@@ -79,21 +79,29 @@ class CopyCorrectionAnalysis():
 		windows = windows[windows.chr == chrom]
 		n = len(windows)
 
-		F_data_cc = np.zeros((n, 149, 26000))
-		F_data_no_cc = np.zeros((n, 149, 26000))
+		F_data_cc = np.zeros((n, 257, 26000))
+		F_data_no_cc = np.zeros((n, 257, 26000))
 
 		i = 0
+		num_skip = 0
 
 		# todo: skipping last index which is not a whole 10kb
 		for idx, row in windows[:-1].iterrows():
 
 			mnase_span = row.start, row.end+1
+
+			no_cc_path = f"{chr1_no_cc_data_directory}/chr{row.chr}_{mnase_span[0]}_{mnase_span[1]}_F.npy"
+			cc_path = f"{chr1_cc_data_directory}/chr{row.chr}_{mnase_span[0]}_{mnase_span[1]}_F.npy"
 			
 			try:
-				data_no_cc = np.load(f"{chr1_no_cc_data_directory}/chr{row.chr}_{mnase_span[0]}_{mnase_span[1]}_F.npy")
-				data_cc = np.load(f"{chr1_cc_data_directory}/chr{row.chr}_{mnase_span[0]}_{mnase_span[1]}_F.npy")
-			except FileNotFoundError:
-				print(f"Skipping index {i}")
+				data_no_cc = np.load(no_cc_path)
+				data_cc = np.load(cc_path)
+			except ValueError:
+				num_skip += 1
+				i += 1
+				continue
+			except FileNotFoundError as e:
+				num_skip += 1
 				i += 1
 				continue
 			
@@ -121,6 +129,8 @@ class CopyCorrectionAnalysis():
 		# To avoid memory issues, we'll delete the data after it has been loaded
 		del F_data_cc
 		del F_data_no_cc
+
+		print(f"Skipped {num_skip} entries")
 
 
 	def plot_heatmap_comparison(self, plot_chrom):
@@ -363,7 +373,7 @@ class CopyCorrectionAnalysis():
 			'no_cc_ptr_i': i_no_cc_ptrs,
 		}, index=self.all_cell_cycle_b_means.index)
 
-	def plot_ptrs(self, key_1, key_2):
+	def plot_ptrs(self, key_1='no_cc_ptr_all', key_2='cc_ptr_all'):
 		ptrs1 = self.ptrs_df[key_1]
 		ptrs2 = self.ptrs_df[key_2]
 		plot_replication_times_df = self.all_replication_times

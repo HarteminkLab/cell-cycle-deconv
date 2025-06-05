@@ -62,6 +62,7 @@ class ChromatinDeconvolveSolver:
 		self.config = config
 		self.H = H
 
+
 	def compute_predicted_G(self, F=None):
 		N, H, b, f_replication = self.N, self.H, self.b, self.f_replication
 
@@ -72,7 +73,7 @@ class ChromatinDeconvolveSolver:
 
 
 	def deconvolve_G_iteratively(self, gamma, verbose=False, verbose_progress=True,
-		kappa=1e-4):
+		kappa=1, eta=0):
 		"""Iteratively deconvolve columns of G, appears to be more accurate
 		as the optimization can strictly treat each problem independently"""
 
@@ -87,6 +88,7 @@ class ChromatinDeconvolveSolver:
 		running_rn = 0
 		self.gamma = gamma
 		self.kappa = kappa
+		self.eta = eta
 
 		eps_cutoff = 1e-5
 		deconvolution_solver = None
@@ -107,7 +109,7 @@ class ChromatinDeconvolveSolver:
 				deconvolution_solver = DeconvolutionSolver(self.config, current_g, 
 					self.H, gamma=gamma, padding_type=self.padding_type,
 					N=self.N, f_replication=self.f_replication, b=self.b,
-					kappa=kappa)
+					kappa=kappa, eta=eta)
 
 				try:
 					deconvolution_solver.deconvolve()

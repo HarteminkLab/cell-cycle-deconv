@@ -5,7 +5,7 @@ from src.helpers import get_wavelet_kernel
 class DeconvolutionSolver(object):
 
 	def __init__(self, config, g, H, gamma, N=None, f_replication=None,
-		b=None, padding_type='both', obj_error_mode='additive', kappa=5e-3,
+		b=None, padding_type='both', obj_error_mode='additive', kappa=5e-3, eta=0,
 		data_is_logged=True, unlog_transform=False, log_transform=False,
 		verbose=False):
 
@@ -35,9 +35,9 @@ class DeconvolutionSolver(object):
 		self.N = N
 		self.f_replication = f_replication
 		self.b = b
-		self.kappa = kappa
-		
-		self.gamma = gamma
+		self.gamma = gamma # Smoothness
+		self.kappa = kappa # MG1/DG1 differences
+		self.eta = eta # RG1-Halted differences
 		self.padding_type = padding_type
 	
 	def deconvolve(self):
@@ -175,16 +175,21 @@ class DeconvolutionSolver(object):
 
 		kappa = self.kappa
 
-		tb_regularization_result = f_variation[f_dg1] - f_variation[f_cg1]
+		# Difference between DG1 and MG1
+		cg1_dg1_difference = f_variation[f_dg1] - f_variation[f_cg1]
+		cg1_dg1_regularization_result = cp.sum(cp.abs(cg1_dg1_difference))
 
-		# L1 norm
-		cg1_dg1_regularization_result = cp.sum(cp.abs(tb_regularization_result))
+		# L1 norm, compare the average of the RG1 branch with the single halted
+		# index
+		rg1_h_difference = cp.mean(f_variation[f_rg1]) - f_variation[f_halted[0]]
+		rg1_h_regularization_result = cp.sum(cp.abs(rg1_h_difference))
 
 		objective = cp.Minimize(
 			# L2 fitting norm
 			fit_norm_result + 
 			self.gamma * smooth_result +
-			self.kappa * cg1_dg1_regularization_result
+			self.kappa * cg1_dg1_regularization_result +
+			self.eta * rg1_h_regularization_result
 		)
 
 		# Constraint for halted cells, non-negativity, and upper bounds to improve speed

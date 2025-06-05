@@ -8,7 +8,8 @@ from src.chromatin_deconvolution_solver import ChromatinDeconvolveSolver
 class ChromatinFindOptimalGamma(object):
 	"""Wrapper to find optimal gamma for a window of chromatin reads"""
 
-	def __init__(self, chromatin_solver, gamma_min=1e-6, gamma_max=1e-5, verbose=True, kappa=None):
+	def __init__(self, chromatin_solver, gamma_min=1e-4, gamma_max=1,
+		verbose=True, kappa=1.0, eta=0):
 
 		# Refactoring of the find optimal gamma code
 		from src.find_gamma_refactor import GammaOptimizer
@@ -18,18 +19,20 @@ class ChromatinFindOptimalGamma(object):
 			F = chromatin_solver.deconvolve_G_iteratively(gamma=gamma_value,
 														 verbose=False,
 														 verbose_progress=False,
-														 kappa=kappa)
+														 kappa=kappa,
+														 eta=eta)
 			rn = chromatin_solver.rn
 			sn = chromatin_solver.sn
 			return F, sn, rn
 
 		gamma_optimizer = GammaOptimizer(compute_solution, gamma_min=gamma_min, gamma_max=gamma_max,
-										 verbose=verbose, mode='chromatin')
+										 verbose=verbose, mode='chromatin',
+										 early_stop_enabled=True)
 
 		self.chromatin_solver = chromatin_solver
 		self.gamma_optimizer = gamma_optimizer
 
-	def find_optimal_gamma(self):
+	def find_optimal_gamma(self, plot=True):
 
 		from src.timer import Timer
 		timer = Timer()
@@ -37,8 +40,14 @@ class ChromatinFindOptimalGamma(object):
 		self.gamma_optimizer.calculate_error_boundaries()
 		self.gamma_optimizer.find_boundary_gammas()
 		self.gamma_optimizer.find_elbow()
-		self.gamma_optimizer.plot_elbow()
+
+		if plot:
+			fig = self.gamma_optimizer.plot_elbow()
+
 		timer.print_time("Completed.")
+
+		return self.gamma_optimizer.optimal_gamma
+
 
 	def plot_gamma_sweep(self):
 
