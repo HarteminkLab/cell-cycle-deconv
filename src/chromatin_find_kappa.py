@@ -19,7 +19,6 @@ class ChromatinKappaOptimizer:
 	"""
 	
 	# Boundary calculation parameters (similar to GammaOptimizer)
-	LEFT_DYNAMICS_RATIO = 0.95  # 95% of max dynamics for left boundary
 	RIGHT_DYNAMICS_THRESHOLD = 0.001  # 0.001% dynamics for right boundary
 	FOCUSED_SEARCH_BINS = 20  # Number of points in focused search
 	TARGET_DYNAMICS_MIN = 2.0  # Minimum target dynamics percentage
@@ -187,12 +186,14 @@ class ChromatinKappaOptimizer:
 		if self.max_dynamics is None:
 			raise ValueError("Must calculate dynamic range first")
 			
-		self.left_threshold = self.LEFT_DYNAMICS_RATIO * self.max_dynamics
+		# Target the threshold that reaches the target max threshold (5%)
+		# And is below/near zero on the right.
+		self.left_threshold = self.TARGET_DYNAMICS_MAX
 		self.right_threshold = self.RIGHT_DYNAMICS_THRESHOLD
 		
 		if verbose:
 			print(f"\tBoundary thresholds:")
-			print(f"\t\tLeft (95% of max): {self.left_threshold:.3f}%")
+			print(f"\t\tLeft (5%): {self.left_threshold:.3f}%")
 			print(f"\t\tRight (over-smoothing): {self.right_threshold:.3f}%")
 			
 		return self.left_threshold, self.right_threshold
@@ -429,7 +430,8 @@ class ChromatinKappaOptimizer:
 		results_df.set_index('kappa', inplace=True)
 		
 		# Find optimal kappa: highest kappa yielding ≥2% dynamics
-		valid_kappas = results_df[results_df['m_d_perc'] >= self.TARGET_DYNAMICS_MIN]
+		valid_kappas = results_df[(results_df['m_d_perc'] >= self.TARGET_DYNAMICS_MIN) &
+			(results_df['m_d_perc'] <= self.TARGET_DYNAMICS_MAX)]
 		
 		if len(valid_kappas) == 0:
 			# Fallback: use kappa giving closest to target minimum
@@ -439,7 +441,7 @@ class ChromatinKappaOptimizer:
 				print(f"\t\tNo kappa found yielding ≥{self.TARGET_DYNAMICS_MIN}% dynamics")
 				print(f"\t\tUsing closest match: κ={optimal_kappa:.6g} ({results_df.loc[optimal_kappa, 'm_d_perc']:.3f}%)")
 		else:
-			# Select highest kappa (most conservative) yielding ≥2% dynamics
+			# Select lowest kappa < 5% dynamic differences
 			optimal_kappa = valid_kappas.index.min()
 			if verbose:
 				print(f"\t\tOptimal kappa found: κ={optimal_kappa:.6g} ({results_df.loc[optimal_kappa, 'm_d_perc']:.3f}% dynamics)")
@@ -569,7 +571,7 @@ class ChromatinKappaOptimizer:
 			f.write(f"  Min dynamics: {self.min_dynamics:.3f}%\n\n")
 			
 			f.write(f"Boundary Thresholds:\n")
-			f.write(f"  Left (95% of max): {self.left_threshold:.3f}%\n")
+			f.write(f"  Left (5%): {self.left_threshold:.3f}%\n")
 			f.write(f"  Right (over-smoothing): {self.right_threshold:.3f}%\n\n")
 			
 			f.write(f"Boundary Kappas:\n")
