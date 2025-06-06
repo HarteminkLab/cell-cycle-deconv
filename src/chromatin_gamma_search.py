@@ -216,3 +216,63 @@ def create_gamma_sweep_plots_single_measure(config, N, H, Fs, f_rep, gamma_sweep
 	plt.subplots_adjust(hspace=0.6, top=0.86)
 
 	plt.suptitle("Gamma sweep of single chromatin metric", fontsize=16)
+
+def find_gamma_chromatin(chromatin_save_directory, window_set_path, index,
+	copy_correct=True, kappa=1, eta=0):
+
+	# Load the configs from disk
+	config1, config2 = load_default_chrom_configs()
+
+	def deconv_and_save(chrom, mnase_span, chromatin_save_directory):
+
+		data_directory = f"{chromatin_save_directory}/deconvolution_data/chr{chrom}"
+		raw_plots_directory = f"{chromatin_save_directory}/raw_plots_directory/chr{chrom}"
+		deconv_plots_directory = f"{chromatin_save_directory}/deconv_plots_directory/chr{chrom}"
+
+		mkdirs_safe([data_directory, raw_plots_directory, deconv_plots_directory])
+		combined_model = CombinedChromatinModel(config1=config1, config2=config2)
+
+		# Load window to deconvolve
+		combined_model.load_mnase_span(chrom, mnase_span)
+
+		save_title = f"chr{chrom}_{mnase_span[0]}_{mnase_span[1]}"
+
+		# Plot normalization check
+		fig = combined_model.plot_normalization_sanity_check()
+		plt.savefig(f"{raw_plots_directory}/normalization_{save_title}.png")
+		plt.close(fig)
+
+		# Plot raw data
+		fig = combined_model.chrom1_model.plot_raw_data(figsize=(11, 11))
+		plt.savefig(f"{raw_plots_directory}/raw_rep1_{save_title}.png")
+		plt.close(fig)
+
+		fig = combined_model.chrom2_model.plot_raw_data(figsize=(11, 11))
+		plt.savefig(f"{raw_plots_directory}/raw_rep2_{save_title}.png")
+		plt.close(fig)
+
+		combined_model.setup_deconv_model(copy_correct=copy_correct)
+
+		# Find optimum run, just save gamma and elbow
+		combined_model.deconvolve_find_optimal_gamma(kappa=kappa, eta=eta,
+			verbose=True)	
+
+		# Save the gamma and elbow curve to disk
+		save_gamma_path = f"{data_directory}/{save_title}_gamma.txt"
+		with open(save_gamma_path, 'w') as save_file:
+			save_file.write(f"{combined_model.gamma}")
+
+		save_elbow_path = f"{deconv_plots_directory}/{save_title}_elbow.png"
+		combined_model.find_gamma_chromatin.plot_gamma_sweep()
+		plt.savefig(save_elbow_path)
+
+	# Read the window datas data and load the relevant row
+	window_set = pd.read_csv(window_set_path)
+	row = window_set.iloc[index]
+
+	chrom = row.chr
+	span = row.start, row.end+1 # (Add 1 to include the last base)
+
+	print_fl(f"Deconvolving index:{index}, chr{chrom}, {span[0], span[1]}")
+
+	deconv_and_save(chrom, span, chromatin_save_directory)

@@ -26,8 +26,18 @@ OUTDIR=output/draft3_run/
 
 # ---------- Find Gamma ---------------
 
-ARGS="find_gamma_chromatin ${OUTDIR}"
-sbatch -a 0-99%12 -D ./slurm-logs/ --job-name="opt_gamma" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+#ARGS="find_gamma_chromatin ${OUTDIR}"
+#sbatch -a 0-99%12 -D ./slurm-logs/ --job-name="opt_gamma" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+
+# ---------- Find Kappa ---------------
+
+ARGS="find_kappa_chromatin ${OUTDIR}"
+sbatch -a 0-99%12 -D ./slurm-logs/ --job-name="opt_kappa" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+
+# ---------- Find Eta ---------------
+
+ARGS="find_eta_chromatin ${OUTDIR}"
+sbatch -a 0-99%12 -D ./slurm-logs/ --job-name="opt_eta" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
 
 # ---------- Find Alpha ----------------
 
@@ -50,9 +60,9 @@ sbatch -a 0-99%12 -D ./slurm-logs/ --job-name="opt_gamma" --export="PYFILE=pipel
 
 # -------------- No copy correction ---------------------
 
-ARGS="deconvolve_chromatin_partial_no_copy ${OUTDIR}"
-sbatch -a 0-999%24 -D ./slurm-logs/ --job-name="nocc_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
-sbatch -a 0-216%24 -D ./slurm-logs/ --job-name="nocc_2" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
+#ARGS="deconvolve_chromatin_partial_no_copy ${OUTDIR}"
+#sbatch -a 0-999%24 -D ./slurm-logs/ --job-name="nocc_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+#sbatch -a 0-216%24 -D ./slurm-logs/ --job-name="nocc_2" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
 
 # -------------- Impute 50' replicate 2 ------------------
 

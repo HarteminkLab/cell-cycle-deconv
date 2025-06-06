@@ -68,16 +68,84 @@ def main():
 		(_, command, output_directory, index) = system_args
 		index = int(index)
 
+		from src.chromatin_gamma_search import find_gamma_chromatin
+
 		save_directory = f"{output_directory}/chromatin_gamma_100/"
 		mkdirs_safe([save_directory])
 
 		# Select from random windows
-		#genome_random_100_windows = pd.read_csv('data/reference_data/sacCer3_genome_random_1k_windows.csv')
 		genome_random_100_windows_path = 'data/reference_data/sacCer3_genome_random_1k_windows.csv'
 
 		# Set gamma to -1, meaning find the optimal gamma
-		deconvolve_chromatin(save_directory, genome_random_100_windows_path, index,
-			copy_correct=False, kappa=1, gamma=-1, eta=0)
+		find_gamma_chromatin(save_directory, genome_random_100_windows_path, index,
+			copy_correct=False, kappa=1, eta=0)
+
+	elif command == 'find_kappa_chromatin':
+
+		(_, command, output_directory, index) = system_args
+		index = int(index)
+
+		save_directory = f"{output_directory}/chromatin_kappa_100/"
+		mkdirs_safe([save_directory])
+
+		# Select from random windows
+		genome_random_100_windows_path = 'data/reference_data/sacCer3_genome_random_1k_windows.csv'
+		genome_random_100_windows = pd.read_csv(genome_random_100_windows_path)
+
+		# Find kappa chromatin
+		from src.chromatin_find_kappa import ChromatinKappaOptimizer
+
+		# Initialize for a specific gamma value
+		optimizer = ChromatinKappaOptimizer(
+		    output_dir=output_directory,
+		    save_dir=save_directory,
+		    gamma=0.05
+		)
+
+		row = genome_random_100_windows.loc[index]
+		chrom = row.chr
+		span = row.start, row.end+1
+
+		print_fl(f"Finding optimal kappa for index:{index}, chr{chrom}, {span[0], span[1]}")
+
+	    optimizer.set_chromosome_span(chrom, span)
+	    results = optimizer.find_optimal_kappa_focused(
+	    kappa_min=1e-5, 
+	    kappa_max=1.0,
+	    verbose=True,
+	    save_results=True)
+
+	elif command == 'find_eta_chromatin':
+
+		(_, command, output_directory, index) = system_args
+		index = int(index)
+
+		save_directory = f"{output_directory}/chromatin_kappa_100/"
+		mkdirs_safe([save_directory])
+
+		# Select from random windows
+		genome_random_100_windows_path = 'data/reference_data/sacCer3_genome_random_1k_windows.csv'
+		genome_random_100_windows = pd.read_csv(genome_random_100_windows_path)
+
+		# Find eta chromatin
+		from src.chromatin_find_eta import EtaOptimizer
+
+		# Initialize with fixed gamma/kappa
+		# Gamma and kappa are TBD
+		optimizer = EtaOptimizer(output_directory, save_directory, gamma=0.05,
+			kappa=0.01)
+
+		row = genome_random_100_windows.loc[index]
+		chrom = row.chr
+		span = row.start, row.end+1
+
+		print_fl(f"Finding optimal eta for index:{index}, chr{chrom}, {span[0], span[1]}")
+
+		# Set region
+		optimizer.set_chromosome_span(chrom=chrom, mnase_span=span)
+
+		# Find optimal eta
+		optimal_eta, results_df = optimizer.find_optimal_eta_linear()
 
 	elif command == 'find_alpha':
 
@@ -402,9 +470,6 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 		mkdirs_safe([data_directory, raw_plots_directory, deconv_plots_directory])
 		combined_model = CombinedChromatinModel(config1=config1, config2=config2)
 
-		print("**   TODO  *** Testing deconvolution span")
-		mnase_span = 30000, 30200
-
 		# Load window to deconvolve
 		combined_model.load_mnase_span(chrom, mnase_span)
 
@@ -455,10 +520,6 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 
 	chrom = row.chr
 	span = row.start, row.end+1 # (Add 1 to include the last base)
-
-
-	print(" ****  todo: Test span")
-	span = row.start, row.start+81
 
 	print_fl(f"Deconvolving index:{index}, chr{chrom}, {span[0], span[1]}")
 
