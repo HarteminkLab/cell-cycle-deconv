@@ -97,9 +97,9 @@ def main():
 
 		# Initialize for a specific gamma value
 		optimizer = ChromatinKappaOptimizer(
-		    output_dir=output_directory,
-		    save_dir=save_directory,
-		    gamma=0.05
+			output_dir=output_directory,
+			save_dir=save_directory,
+			gamma=0.05
 		)
 
 		row = genome_random_100_windows.loc[index]
@@ -108,12 +108,12 @@ def main():
 
 		print_fl(f"Finding optimal kappa for index:{index}, chr{chrom}, {span[0], span[1]}")
 
-	    optimizer.set_chromosome_span(chrom, span)
-	    results = optimizer.find_optimal_kappa_focused(
-	    kappa_min=1e-5, 
-	    kappa_max=1.0,
-	    verbose=True,
-	    save_results=True)
+		optimizer.set_chromosome_span(chrom, span)
+		results = optimizer.find_optimal_kappa_focused(
+		kappa_min=1e-5, 
+		kappa_max=1.0,
+		verbose=True,
+		save_results=True)
 
 	elif command == 'find_eta_chromatin':
 
@@ -157,7 +157,7 @@ def main():
 			'PRY3', 'SCW11', 'CTS1']
 
 		finder = FindAlphaSweepDS(output_directory=output_directory, 
-		    gene_names=gene_names)
+			gene_names=gene_names)
 		finder.run_alpha_sweep(alphas=np.arange(4, 48, 2))
 		finder.plot_and_save_results()
 
@@ -355,7 +355,7 @@ def main():
 
 		# Plot the CG1 DG1 analysis plot
 		fig = expression_analysis.plot_volcano_cg1_dg1(genes_callout=['DSE1', 'DSE2', 'DSE3', 'DSE4', 'PHO5',
-		                                            'HO', 'SPL2', 'PIR1', 'EGT2', 'TOS6'])
+													'HO', 'SPL2', 'PIR1', 'EGT2', 'TOS6'])
 		save_figure_for_paper(f"{save_directory}/cg1_dg1_expression.png")
 		plt.close(fig)
 
@@ -398,7 +398,7 @@ def main():
 
 		# Plot example gene context
 		genome_analysis = GenomeDeconvolutionAnalysis(outdir=
-		    f"{output_directory}/chromatin_deconvolution/deconvolution_data")
+			f"{output_directory}/chromatin_deconvolution/deconvolution_data")
 		fig = genome_analysis.plot_gene('DSE3', config1, expression_analysis)
 		save_figure_for_paper(f"{save_directory}/locus_DSE3.png")
 		plt.close(fig)
@@ -508,7 +508,7 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 		# Normal run, deconvolve and save results
 		else:
 			combined_model.deconvolve(gamma=gamma, kappa=kappa, eta=eta,
-			 	verbose=True)	
+				verbose=True)	
 			np.save(f"{data_directory}/{save_title}_F.npy", combined_model.F)
 			combined_model.plot_branches(figsize=(50, 11))
 			plt.savefig(f"{deconv_plots_directory}/deconv_{save_title}.png")
