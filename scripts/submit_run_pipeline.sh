@@ -26,18 +26,18 @@ OUTDIR=output/draft3_run/
 
 # ---------- Find Gamma ---------------
 
-#ARGS="find_gamma_chromatin ${OUTDIR}"
-#sbatch -a 0-99%12 -D ./slurm-logs/ --job-name="opt_gamma" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+ARGS="find_gamma_chromatin ${OUTDIR}"
+sbatch -a 0-99%12 -D ./slurm-logs/ --job-name="opt_gamma" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
 
 # ---------- Find Kappa ---------------
 
-ARGS="find_kappa_chromatin ${OUTDIR}"
-sbatch -a 0-99%12 -D ./slurm-logs/ --job-name="opt_kappa" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+#ARGS="find_kappa_chromatin ${OUTDIR}"
+#sbatch -a 0-99%12 -D ./slurm-logs/ --job-name="opt_kappa" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
 
 # ---------- Find Eta ---------------
 
-ARGS="find_eta_chromatin ${OUTDIR}"
-sbatch -a 0-99%12 -D ./slurm-logs/ --job-name="opt_eta" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+#ARGS="find_eta_chromatin ${OUTDIR}"
+#sbatch -a 0-99%12 -D ./slurm-logs/ --job-name="opt_eta" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
 
 # ---------- Find Alpha ----------------
 

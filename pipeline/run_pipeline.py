@@ -120,7 +120,7 @@ def main():
 		(_, command, output_directory, index) = system_args
 		index = int(index)
 
-		save_directory = f"{output_directory}/chromatin_kappa_100/"
+		save_directory = f"{output_directory}/chromatin_eta_100/"
 		mkdirs_safe([save_directory])
 
 		# Select from random windows

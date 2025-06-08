@@ -221,7 +221,6 @@ def find_gamma_chromatin(chromatin_save_directory, window_set_path, index,
 	copy_correct=True, kappa=1, eta=0):
 
 	from src.utils import mkdirs_safe, parse_bool, print_fl
-
 	from src.combined_chromatin_model import CombinedChromatinModel
 	from src.chromatin_model import ChromatinModel
 	from src.config import load_default_chrom_configs, load_cloccs_configs
