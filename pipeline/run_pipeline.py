@@ -327,6 +327,11 @@ def main():
 		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 			copy_correct=False, kappa=kappa, gamma=gamma)
 
+	elif command == 'parameter_summary':
+
+		(_, command, output_directory) = system_args
+		run_gamma_kappa_eta_summary(output_directory)
+
 	# elif command == 'expression_chromatin_analysis':
 		# Deprecated command, see old_pipeline.py
 
@@ -524,6 +529,70 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 	print_fl(f"Deconvolving index:{index}, chr{chrom}, {span[0], span[1]}")
 
 	deconv_and_save(chrom, span, chromatin_save_directory)
+
+
+def run_gamma_kappa_eta_summary(output_directory):
+	from glob import glob
+	gammas = []
+	for filepath in glob(f'{output_directory}/chromatin_gamma_100/deconvolution_data/chr*/*.txt'):
+		with open(filepath, 'r') as f:
+			gamma = float(f.read())
+			gammas.append(gamma)
+
+	from glob import glob
+	kappas = []
+	for filepath in glob(f'{output_directory}/chromatin_kappa_100/*.csv'):
+		kappa = pd.read_csv(filepath).iloc[0].kappa
+		kappas.append(kappa)
+
+	from glob import glob
+	etas = []
+	for filepath in glob(f'{output_directory}/chromatin_eta_100/*.txt'):
+		eta = pd.read_csv(filepath)
+		
+		with open(filepath, 'r') as f:
+			for line in f.readlines():
+				if line.startswith('  Optimal eta'):
+					eta = float(line.split(' ')[-1])
+		etas.append(eta)
+
+	import statistics
+
+	optimal_gamma = statistics.mode(gammas)
+	optimal_eta = statistics.mode(etas)
+	optimal_kappa = statistics.mode(kappas)
+
+	plt.figure(figsize=(9, 2))
+	plt.subplot(1, 3, 1)
+	plt.hist(gammas)
+	plt.axvline(optimal_gamma, c='red')
+	plt.xlim(0, 0.1)
+	plt.title("Optimal $\\gamma$ for 100 windows")
+	plt.xlabel("$\\gamma$")
+	plt.ylabel("Frequency")
+
+	plt.subplot(1, 3, 2)
+	plt.xlim(0.005, 0.02)
+	plt.hist(kappas)
+	plt.axvline(optimal_kappa, c='red')
+	plt.title("Optimal $\\kappa$ for 100 windows")
+	plt.xlabel("$\\kappa$")
+
+	plt.subplot(1, 3, 3)
+	plt.hist(etas, bins=20)
+	plt.xlim(0, 4)
+	plt.axvline(optimal_eta, c='red')
+	plt.title("Optimal $\\eta$ for 100 windows")
+	plt.xlabel("$\\eta$")
+
+	plt.tight_layout()
+
+	print(f"Optimal:\n"
+		  f"\tgamma:\t{optimal_gamma:.3f}\n" 
+		  f"\tkappa:\t{optimal_kappa:.3f}\n"
+		  f"\teta:\t{optimal_eta:.3f}")
+
+
 
 
 if __name__ == '__main__':
