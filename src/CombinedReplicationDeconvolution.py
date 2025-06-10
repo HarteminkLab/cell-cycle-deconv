@@ -387,12 +387,17 @@ def load_config_from_replication_runs(output_directory, chrom, mode='chromatin')
 
 
 def concatenate_H_G(H1, H2, G1, G2):
-	H = np.concatenate([H1, H2], axis=0)
+	H = concatenate_H(H1, H2)
+	G = concatenate_G(G1, G2)
+	return H, G
 
+def concatenate_H(H1, H2):
+	H = np.concatenate([H1, H2], axis=0)
+	return H
+
+def concatenate_G(G1, G2):
 	if len(G1.shape) == 2:
 		G = np.concatenate([G1, G2], axis=0)
 	else:
 		G = np.concatenate([G1, G2])
-
-	return H, G
-
+	return G

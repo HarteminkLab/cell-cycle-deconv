@@ -37,7 +37,7 @@ class GeneExpressionFindOptimalGamma(object):
 		self.deconvolution_solver = deconvolution_solver
 		self.gamma_optimizer = gamma_optimizer
 
-	def find_optimal_gamma(self, plot=True, verbose=True, kappa=None):
+	def find_optimal_gamma(self, plot=True, verbose=True, kappa=None, eta=0):
 
 		from src.timer import Timer
 		timer = Timer()
@@ -45,6 +45,7 @@ class GeneExpressionFindOptimalGamma(object):
 		if kappa is not None:
 			self.deconvolution_solver.kappa = kappa
 
+		self.deconvolution_solver.eta = eta
 		self.gamma_optimizer.verbose = verbose
 		self.gamma_optimizer.calculate_base_error()
 		self.gamma_optimizer.calculate_error_boundaries()
@@ -72,6 +73,7 @@ class GeneExpressionFindOptimalGamma(object):
 		i_indices = config.get_Hpositions_for_branch('i')
 		t_indices = config.get_Hpositions_for_branch('t')
 		b_indices = config.get_Hpositions_for_branch('b')
+		h_indices = config.get_Hpositions_for_phase('Halted')
 
 		i_tps = config.get_timepoints_for_branch('i')
 		t_tps = config.get_timepoints_for_branch('t')
@@ -97,6 +99,8 @@ class GeneExpressionFindOptimalGamma(object):
 			g = 2**g
 			f_gamma_solutions = 2**f_gamma_solutions
 			gamma_predicted_gs = 2**gamma_predicted_gs
+
+		f_optimal = f_gamma_solutions[optimal_solution_index] 
 
 		g_vmax = g.max()
 		vmax = max(g.max(), f_gamma_solutions[optimal_solution_index].max())
@@ -137,15 +141,19 @@ class GeneExpressionFindOptimalGamma(object):
 		for j in range(f_gamma_solutions.shape[0]):
 			ax.plot(i_tps, f_gamma_solutions[j, i_indices].T, c=cmap(j/len(f_gamma_solutions)))
 
-		ax.plot(i_tps, f_gamma_solutions[optimal_solution_index, i_indices].T, c='red',
+		ax.plot(i_tps, f_optimal[i_indices].T, c='red',
 				lw=3)
+
+		halted_tx = f_optimal[h_indices[0]]
+		ax.axhline(halted_tx, ls='dotted', color='#555', lw=1)
+
 		ax.set_title("Initial branch")
 		ax.set_ylim(*ylims)
 
 		ax = ax_row[2]
 		for j in range(f_gamma_solutions.shape[0]):
 			ax.plot(t_tps, f_gamma_solutions[j, t_indices].T, c=cmap(j/len(f_gamma_solutions)))
-		ax.plot(t_tps, f_gamma_solutions[optimal_solution_index, t_indices].T, c='red',
+		ax.plot(t_tps, f_optimal[t_indices].T, c='red',
 				lw=3)
 		ax.set_ylim(*ylims)
 		ax.set_title("Top branch")
@@ -153,7 +161,7 @@ class GeneExpressionFindOptimalGamma(object):
 		ax = ax_row[3]
 		for j in range(f_gamma_solutions.shape[0]):
 			ax.plot(b_tps, f_gamma_solutions[j, b_indices].T, c=cmap(j/len(f_gamma_solutions)))
-		ax.plot(b_tps, f_gamma_solutions[optimal_solution_index, b_indices].T, c='red',
+		ax.plot(b_tps, f_optimal[b_indices].T, c='red',
 				lw=3)
 		ax.set_ylim(*ylims)
 		ax.set_title("Bottom branch")

@@ -24,7 +24,24 @@ def extract_desc_val(data, key):
 	return vals
 
 
-def read_sgd_file(filename='data/reference_data/sgd_R64-1-1_20110208.gff'):
+def load_aux_annotations():
+    """Read non-genic, non-origin, annotations of interest. Useful for plotting."""
+    
+    # Select subset of categories to include, from: sgd_all_annotations.cat.unique()
+    categories_of_interest = ['centromere', 'repeat_region', 'tRNA',
+                              'rRNA', 'long_terminal_repeat']
+
+    sgd_all_annotations = read_sgd_file(convert_chr_from_roman=True)
+    name = extract_desc_val(sgd_all_annotations, 'Name')
+    sgd_all_annotations['name'] = name
+
+    aux_annotations = sgd_all_annotations[sgd_all_annotations.cat.isin(categories_of_interest)
+                                         & (sgd_all_annotations.chr > 0)].copy()
+    return aux_annotations
+
+
+def read_sgd_file(filename='data/reference_data/sgd_R64-1-1_20110208.gff',
+	convert_chr_from_roman=False):
 	"""Read sgd orf/genes file as tsv file from gff file with fasta data removed."""
 
 	data = pd.read_csv(filename, sep='\t', skiprows=19, 
@@ -32,9 +49,14 @@ def read_sgd_file(filename='data/reference_data/sgd_R64-1-1_20110208.gff'):
 								  "strand", "", "desc"])
 	data = data[data.columns[[0, 2, 3, 4, 6, 8]]]
 	data.columns = ["chr", "cat", "start", "stop", "strand", "desc"]
+
+	if convert_chr_from_roman:
+		data.chr = data.chr.str.replace('chr', '').apply(_fromRoman)
+
 	return data
 
-def read_sgd_genes(filename='data/reference_data/sgd_R64-1-1_20110208.gff'):
+def read_sgd_genes(filename='data/reference_data/sgd_R64-1-1_20110208.gff',
+	remove_chr_roman=False):
 	"""Read sgd orf/genes file as tsv file from gff file with fasta data removed."""
 
 	data = read_sgd_file(filename)
@@ -51,6 +73,9 @@ def read_sgd_genes(filename='data/reference_data/sgd_R64-1-1_20110208.gff'):
 	data = data[['orf_name', 'gene', "chr", "cat", "start", "stop", "strand", 
 		'classification', ]]
 	data['length'] = data['stop'] - data['start']
+
+	if remove_chr_roman:
+		data['chr'] = data.chr.str.replace('chr', '').apply(_fromRoman)
 
 	return data.set_index('orf_name')
 
@@ -296,10 +321,16 @@ def get_intergenic_regions(genes_df, buffer_genes=500, buffer_chrom_end=10000,
 def select_genes_in_window(orfs, chrom, span, orf_classes=
 	['Verified', 'Uncharacterized', 'Dubious']):
 
-	genes = orfs[(orfs['chr'] == chrom) & 
-	 			 ((orfs['right_end'] >= span[0]) & 
-	   			  (orfs['left_end'] <= span[1])) &
-	 			  (orfs.classification.isin(orf_classes))]
+	if 'left_end' in orfs.columns and 'right_end' in orfs.columns:
+		genes = orfs[(orfs['chr'] == chrom) & 
+		 			 ((orfs['right_end'] >= span[0]) & 
+		   			  (orfs['left_end'] <= span[1])) &
+		 			  (orfs.classification.isin(orf_classes))]
+	else:
+		genes = orfs[(orfs['chr'] == chrom) & 
+		 			 ((orfs['stop'] >= span[0]) & 
+		   			  (orfs['start'] <= span[1])) &
+		 			  (orfs.classification.isin(orf_classes))]
 
 	return genes
 

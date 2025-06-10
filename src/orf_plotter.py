@@ -12,10 +12,11 @@ class ORFAnnotationPlotter:
 	Class to plot the gene annotations from SGD.
 	"""
 
-	def __init__(self, orfs, origins=None):
+	def __init__(self, orfs, origins, aux_annotations):
 
 		self.orfs = orfs
 		self.origins = origins
+		self.aux_annotations = aux_annotations
 
 		self.show_spines = True
 		self.show_minor_ticks = False
@@ -140,6 +141,37 @@ class ORFAnnotationPlotter:
 		draw_TSS_arrow(ax, TSS, y_baseline+inset[1], flip=not watson, 
 			plot_width=self.triangle_width/2., color=color)
 
+	def plot_auxiliary(self, ax):
+		from src.plot_helpers import plot_rect2
+
+		span = self.span
+		chrom = int(self.chrom)
+		aux_annotations = self.aux_annotations
+
+		aux_annotations_to_plot = aux_annotations[(aux_annotations['chr'] == chrom) & 
+				 ((aux_annotations['start'] >= span[0]) & 
+				  (aux_annotations['stop'] <= span[1]))]
+
+		for _, aux in aux_annotations_to_plot.iterrows():
+
+			x1, x2 = aux.start, aux.stop
+
+			height = 30
+			h_2 = height//2
+			offset = 20
+			if aux.strand == '+':
+				y1, y2 = -h_2+offset, h_2+offset
+			else:
+				y1, y2 = -h_2-offset, h_2-offset
+
+			plot_rect2(ax, x1, y1, x2, y2, facecolor='#ba9b8d', zorder=0)
+
+			text = ax.text((x1+x2)/2, offset, aux['name'], 
+				rotation=0, color='white', ha='center', fontsize=5,
+				va='center', clip_on=True, zorder=65)
+			text.set_path_effects([path_effects.Stroke(linewidth=1.5, 
+				foreground='#ba9b8d'), path_effects.Normal()])
+
 	def plot_origins(self, ax):
 
 		from src.plot_helpers import plot_rect2
@@ -223,8 +255,8 @@ class ORFAnnotationPlotter:
 		else:
 			ax.set_xlim(*span)
 
-
 		self.plot_origins(ax)
+		self.plot_auxiliary(ax)
 
 		ax.set_yticks([])
 		ax.set_ylim(-110, 110)
@@ -409,9 +441,18 @@ def plot_gene_annotation(ax, start, end, y_baseline, height, color,
 	# 			y_baseline, height, color, flipped=watson, inset=inset[1])
 
 def load_default_orf_plotter():
-	from src.sgd import read_nondubious_genes_dataset, load_origins_sgd
+	from src.sgd import read_sgd_genes, read_nondubious_genes_dataset, \
+		load_origins_sgd, load_aux_annotations
+	from src.orf_plotter import ORFAnnotationPlotter
 
-	origins_sgd = load_origins_sgd()
-	geneset = read_nondubious_genes_dataset()
-	orf_plotter = ORFAnnotationPlotter(geneset, origins_sgd)
+	aux_annotations = load_aux_annotations()
+	origins = load_origins_sgd()
+	# All genes, dubious genes may be relevant
+	all_genes = read_sgd_genes(remove_chr_roman=True)
+
+	# Nondubious genes, these have the proper columns for orf plotting
+	nondub_genes = read_nondubious_genes_dataset()
+	all_genes = all_genes.join(nondub_genes[['TSS', 'PAS']])
+
+	orf_plotter = ORFAnnotationPlotter(all_genes, origins, aux_annotations)
 	return orf_plotter
