@@ -11,6 +11,12 @@ from src.combined_chromatin_model import CombinedChromatinModel
 from src.chromatin_model import ChromatinModel
 from src.config import load_default_chrom_configs, load_cloccs_configs
 
+# Global parameters
+WINDOWS_ALL_10K_PATH = "data/reference_data/sacCer3_genome_10k_windows.csv"
+DEFAULT_GAMMA = 0.05
+DEFAULT_KAPPA = 0.01
+DEFAULT_ETA = 0.264
+
 def main():
 
 	system_args = tuple(sys.argv)
@@ -185,29 +191,6 @@ def main():
 		finder.save_combined_origin_results()
 		fig = finder.save_combined_origin_figures()
 
-
-	# 1. Deconvolve individual replication profiles, learn cell cycle parameters from MNase-seq
-	elif command == 'replication':
-
-		# Deprecated, we'll go straight into the combined replication model without
-		# parameter searching
-		pass
-
-		# (_, command, output_directory, replicate, chrom, num_epochs, cold_start) = system_args
-
-		# single_replication_directory = f"{output_directory}/single_replication"
-		# mkdirs_safe([output_directory, single_replication_directory])
-
-		# cold_start = parse_bool(cold_start) # Unused parameter, may deprecate
-		# chrom = int(chrom)
-		# replicate = int(replicate)
-		# num_epochs = int(num_epochs)
-
-		# # 1. Compute replication profiles for each replicate using chromosome 4
-		# from pipeline.fit_replication_profiles import main as fit_replication_profile
-		# fit_replication_profile(chrom=chrom, replicate=replicate, num_epochs=num_epochs, 
-		# 	output_directory=single_replication_directory)
-
 	# 2. Compute combined replication profiles for all chromosomes
 	elif command == 'combined_replication':
 
@@ -273,44 +256,17 @@ def main():
 			runner.save_to_disk(save_genes_directory)
 			print_fl(f"Done. {timer.get_time()}")
 
-	# todo: Currently, using partial daughter as the baseline model
-
-	# elif command == 'deconvolve_chromatin_staging':
-
-	# 	(_, command, output_directory, index) = system_args
-	# 	chromatin_save_directory = f"{output_directory}/chromatin_deconvolution_staging/"
-	# 	index = int(index)
-
-	# 	window_set_path = "datasets/computed_mnase/test_window_set_2kb.csv"
-	# 	deconvolve_chromatin(chromatin_save_directory, window_set_path, index)
-
-	# elif command == 'deconvolve_chromatin_full':
-
-	# 	(_, command, output_directory, index) = system_args
-	# 	chromatin_save_directory = f"{output_directory}/chromatin_deconvolution/"
-	# 	mkdirs_safe([chromatin_save_directory])
-	# 	index = int(index)
-
-	# 	window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
-	# 	deconvolve_chromatin(chromatin_save_directory, window_set_path, index)
-
-	elif command == 'deconvolve_chromatin_partial_daughter':
+	elif command == 'deconvolve_chromatin':
 
 		(_, command, output_directory, index) = system_args
 
-		# Some sparse differences between mothers and daughters are allowed
-		kappa = 0.01
-		gamma = 0.12
-		print("Deconvolving the chromatin with a partial regularization on CG1/DG1 differences"
-			  f" kappa of {kappa}")
-
-		chromatin_save_directory = f"{output_directory}/chromatin_deconvolution_partial_daughter/"
+		chromatin_save_directory = f"{output_directory}/chromatin_deconvolution/"
 		mkdirs_safe([chromatin_save_directory])
 		index = int(index)
 
-		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
-		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
-			kappa=kappa, gamma=gamma)
+		chrom, span = parse_windows_csv(WINDOWS_ALL_10K_PATH, index)
+		deconvolve_chromatin(chromatin_save_directory, chrom, span,
+			kappa=DEFAULT_KAPPA, gamma=DEFAULT_GAMMA, eta=DEFAULT_ETA)
 
 	elif command == 'deconvolve_chromatin_partial_no_copy':
 
@@ -318,14 +274,11 @@ def main():
 		chromatin_save_directory = f"{output_directory}/chromatin_deconvolution_no_copy/"
 		mkdirs_safe([chromatin_save_directory])
 
-		# Same settings with partial daughter, direct comparison
+		# Exact settings, with copy correction turned off
 		index = int(index)
-		kappa = 0.01
-		gamma = 0.12
-
-		window_set_path = "data/reference_data/sacCer3_genome_10k_windows.csv"
+		chrom, span = parse_windows_csv(WINDOWS_ALL_10K_PATH, index)
 		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
-			copy_correct=False, kappa=kappa, gamma=gamma)
+			copy_correct=False,k appa=DEFAULT_KAPPA, gamma=DEFAULT_GAMMA, eta=DEFAULT_ETA)
 
 	elif command == 'parameter_summary':
 
@@ -458,7 +411,7 @@ def main():
 	# generate_replication_profiles()
 
 
-def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
+def deconvolve_chromatin(chromatin_save_directory, chrom, span,
 	copy_correct=True, gamma=0.0066, kappa=1, eta=0):
 
 	# Load the configs from disk
@@ -519,17 +472,19 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 			plt.savefig(f"{deconv_plots_directory}/deconv_{save_title}.png")
 			plt.close(fig)
 
+	deconv_and_save(chrom, span, chromatin_save_directory)
+
+def parse_windows_csv(path, index)
+
 	# Read the window datas data and load the relevant row
-	window_set = pd.read_csv(window_set_path)
+	window_set = pd.read_csv(path)
 	row = window_set.iloc[index]
 
 	chrom = row.chr
 	span = row.start, row.end+1 # (Add 1 to include the last base)
-
 	print_fl(f"Deconvolving index:{index}, chr{chrom}, {span[0], span[1]}")
 
-	deconv_and_save(chrom, span, chromatin_save_directory)
-
+	return chrom, span
 
 def run_gamma_kappa_eta_summary(output_directory):
 	from glob import glob
