@@ -15,7 +15,7 @@ def get_parameter_indices(parameter_names):
 
 def get_parameter_index(parameter_name):
 
-	param_indices = {'mu0': 0,
+	param_index_mapping = {'mu0': 0,
 		'lambda_val': 1,
 		'lambda': 1,
 		'delta': 2,
@@ -27,7 +27,10 @@ def get_parameter_index(parameter_name):
 		'gamma2': 8,
 		'halted': 9}
 
-	return param_indices[parameter_name]
+	if parameter_name is not in param_index_mapping:
+		return None
+
+	return param_index_mapping[parameter_name]
 
 def calcH(model_intervals, timepoints):
 	parameters, relations, initial_timepoints, top_timepoints, bottom_timepoints, _ = model_intervals

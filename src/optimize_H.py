@@ -29,12 +29,6 @@ class ParameterOptimizer:
 		# Compute initial loss 
 		self.compute_loss(params=None)
 
-		# Get the indices of the parameters to be updated
-		# this is needed because both config and the optimizer require
-		# the parameters to be in the form of a list, we will keep track of
-		# which parameters we are updating with this field
-		self.parameter_indices = get_parameter_indices(init_params_df.index)
-
 		# Keep track of the paramater values to update in this dataframe
 		self.params_df = init_params_df.copy()
 
