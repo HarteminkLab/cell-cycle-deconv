@@ -7,5 +7,6 @@
     "gamma1": 0.0041,
     "gamma2": 0.2547,
     "halted": 0.2245,
-    "alpha": 32
+    "alpha": 34,
+    "num_g1_indices": 62
 }

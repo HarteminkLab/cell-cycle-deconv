@@ -62,6 +62,11 @@ class ModelConfig(object):
 		# No longer using alpha after the CLOCCS model
 		# this should be set to 0 when it is not used
 		self.alpha = self.params_dic['alpha'] 
+
+		# If the indices does exist in the dictionary, set it
+		if "num_g1_indices" in self.params_dic:
+			self.num_g1_tps = self.params_dic['num_g1_indices']
+
 		self.timepoints = timepoints
 		self.update_timepoints()
 		self.calculate_H()
