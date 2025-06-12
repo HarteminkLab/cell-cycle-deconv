@@ -27,7 +27,7 @@ def get_parameter_index(parameter_name):
 		'gamma2': 8,
 		'halted': 9}
 
-	if parameter_name is not in param_index_mapping:
+	if not parameter_name in param_index_mapping:
 		return None
 
 	return param_index_mapping[parameter_name]
