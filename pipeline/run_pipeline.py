@@ -278,7 +278,7 @@ def main():
 		index = int(index)
 		chrom, span = parse_windows_csv(WINDOWS_ALL_10K_PATH, index)
 		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
-			copy_correct=False,k appa=DEFAULT_KAPPA, gamma=DEFAULT_GAMMA, eta=DEFAULT_ETA)
+			copy_correct=False, kappa=DEFAULT_KAPPA, gamma=DEFAULT_GAMMA, eta=DEFAULT_ETA)
 
 	elif command == 'parameter_summary':
 
@@ -474,7 +474,7 @@ def deconvolve_chromatin(chromatin_save_directory, chrom, span,
 
 	deconv_and_save(chrom, span, chromatin_save_directory)
 
-def parse_windows_csv(path, index)
+def parse_windows_csv(path, index):
 
 	# Read the window datas data and load the relevant row
 	window_set = pd.read_csv(path)
