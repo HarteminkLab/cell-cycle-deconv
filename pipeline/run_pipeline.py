@@ -268,7 +268,7 @@ def main():
 		deconvolve_chromatin(chromatin_save_directory, chrom, span,
 			kappa=DEFAULT_KAPPA, gamma=DEFAULT_GAMMA, eta=DEFAULT_ETA)
 
-	elif command == 'deconvolve_chromatin_partial_no_copy':
+	elif command == 'deconvolve_chromatin_no_copy':
 
 		(_, command, output_directory, index) = system_args
 		chromatin_save_directory = f"{output_directory}/chromatin_deconvolution_no_copy/"
