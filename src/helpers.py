@@ -890,25 +890,74 @@ def plot_raw_timepoints(config, s_color='red', flip=False, lw=0.5):
 
 
 def interpolate_increase_length(vec, new_size):
-    """
-    Interpolate a vector to increase its length using linear interpolation.
+	"""
+	Interpolate a vector to increase its length using linear interpolation.
 
-    Current usage: Computing the correlation between two runs of F with varying branch length.
-    Applicable in the find optimal alpha stage when individual replicates are computing different
-    alpha values with varying G1 length (number of G1 indices).
-    """
-    vec = np.array(vec)
-    
-    if new_size <= len(vec):
-        raise ValueError(f"new_size ({new_size}) must be larger than current size ({len(vec)})")
-    
-    # Create original indices (0, 1, 2, ..., n-1)
-    old_indices = np.arange(len(vec))
-    
-    # Create new indices (0, 0.5, 1, 1.5, ..., n-1) scaled appropriately
-    new_indices = np.linspace(0, len(vec) - 1, new_size)
-    
-    # Interpolate
-    interpolated_vec = np.interp(new_indices, old_indices, vec)
-    
-    return interpolated_vec
+	Current usage: Computing the correlation between two runs of F with varying branch length.
+	Applicable in the find optimal alpha stage when individual replicates are computing different
+	alpha values with varying G1 length (number of G1 indices).
+	"""
+	vec = np.array(vec)
+	
+	if new_size <= len(vec):
+		raise ValueError(f"new_size ({new_size}) must be larger than current size ({len(vec)})")
+	
+	# Create original indices (0, 1, 2, ..., n-1)
+	old_indices = np.arange(len(vec))
+	
+	# Create new indices (0, 0.5, 1, 1.5, ..., n-1) scaled appropriately
+	new_indices = np.linspace(0, len(vec) - 1, new_size)
+	
+	# Interpolate
+	interpolated_vec = np.interp(new_indices, old_indices, vec)
+	
+	return interpolated_vec
+
+def find_mode_float(data, bin_width):
+	"""
+	Find the mode of floating-point data by binning.
+	
+	Parameters:
+	-----------
+	data : array-like
+		The input data (numpy array or list of floats)
+	bin_width : float
+		The width of each bin for grouping values
+	
+	Returns:
+	--------
+	float
+		The estimated mode (center of the bin with highest frequency)
+	
+	Raises:
+	-------
+	ValueError
+		If data is empty or bin_width is not positive
+	"""
+	data = np.asarray(data)
+	
+	# Input validation
+	if len(data) == 0:
+		raise ValueError("Data array cannot be empty")
+	if bin_width <= 0:
+		raise ValueError("Bin width must be positive")
+	
+	# Calculate the range of the data
+	data_min, data_max = np.min(data), np.max(data)
+	
+	# Create bin edges
+	# We extend slightly beyond the data range to ensure all values are included
+	start = data_min - (data_min % bin_width)
+	end = data_max + bin_width - (data_max % bin_width)
+	bin_edges = np.arange(start, end + bin_width, bin_width)
+	
+	# Create histogram
+	counts, edges = np.histogram(data, bins=bin_edges)
+	
+	# Find the bin with maximum count
+	max_bin_index = np.argmax(counts)
+	
+	# Return the center of the bin with highest frequency
+	mode_estimate = (edges[max_bin_index] + edges[max_bin_index + 1]) / 2
+	
+	return mode_estimate

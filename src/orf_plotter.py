@@ -166,7 +166,7 @@ class ORFAnnotationPlotter:
 
 			plot_rect2(ax, x1, y1, x2, y2, facecolor='#ba9b8d', zorder=0)
 
-			text = ax.text((x1+x2)/2, offset, aux['name'], 
+			text = ax.text((x1+x2)/2, (y1+y2)/2., aux['name'], 
 				rotation=0, color='white', ha='center', fontsize=5,
 				va='center', clip_on=True, zorder=65)
 			text.set_path_effects([path_effects.Stroke(linewidth=1.5, 

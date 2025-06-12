@@ -141,53 +141,6 @@ class ChromatinOccupancyIslandDetector:
 		
 		return self.thresholds['std']
 	
-	def step3_detect_islands(self, threshold_method='std', max_distance=2, min_size=3):
-		"""
-		Step 3: Detect islands using thresholds on 2D differences
-		
-		Parameters:
-		- threshold_method: Which threshold to use ('std')
-		- max_distance: Maximum distance for connecting pixels into islands
-		- min_size: Minimum island size (number of pixels)
-		"""
-		print("=== Step 3: Island Detection ===")
-		
-		if threshold_method not in self.thresholds:
-			raise ValueError(f"Threshold method '{threshold_method}' not calculated. Run step2 first.")
-		
-		if self.differences_2d is None:
-			raise ValueError("Must run step1_preprocess_data() first")
-		
-		thresh = self.thresholds[threshold_method]
-		
-		# Create binary masks for positive and negative islands
-		positive_mask = self.differences_2d > thresh['upper']
-		negative_mask = self.differences_2d < thresh['lower']
-		
-		print(f"Positive outlier pixels: {positive_mask.sum()}")
-		print(f"Negative outlier pixels: {negative_mask.sum()}")
-		
-		# Detect islands for each direction
-		positive_islands = self._detect_islands_from_mask(
-			positive_mask, 'positive', max_distance, min_size)
-		negative_islands = self._detect_islands_from_mask(
-			negative_mask, 'negative', max_distance, min_size)
-		
-		self.islands[threshold_method] = {
-			'positive': positive_islands,
-			'negative': negative_islands,
-			'parameters': {
-				'max_distance': max_distance,
-				'min_size': min_size,
-				'threshold_method': threshold_method
-			}
-		}
-		
-		print(f"Detected {len(positive_islands)} positive islands")
-		print(f"Detected {len(negative_islands)} negative islands")
-		
-		return positive_islands, negative_islands
-	
 	def _detect_islands_from_mask(self, mask, direction, max_distance, min_size):
 		"""Use manual island detection instead of scipy"""
 		
@@ -337,89 +290,138 @@ class ChromatinOccupancyIslandDetector:
 		
 		return total_islands, occupancy_mask
 	
-	def detect_all_island_types(self, threshold_method='std', occupancy_threshold=1, 
-							   max_distance=2, min_size=3):
+	def detect_all_island_types(self, threshold_method='std', 
+
+							   # Total islands (step 1)
+							   occupancy_threshold=5, total_max_distance=2, total_min_size=3,
+
+							   # M/D islands (step 2) 
+							   md_max_distance=8, md_min_size=2):
 		"""
-		Step 4: Master method to detect all four island types
-		
-		Parameters:
-		- threshold_method: Which threshold to use for M/D islands
-		- occupancy_threshold: Threshold for total occupancy islands
-		- max_distance: Maximum distance for connectivity  
-		- min_size: Minimum island size
+		3-step comprehensive island detection:
+		1. Find total chromatin islands (occupancy-based noise removal)
+		2. Find M/D signal islands within chromatin pixels  
+		3. Classify all chromatin pixels as mother/daughter/unchanging
 		"""
-		print("=== Step 4: Comprehensive Island Detection ===")
+		print("=== Step 4: 3-Step Comprehensive Island Detection ===")
 		
-		# Step 4a: Find total occupancy islands
-		total_islands, total_occupancy_mask = self.detect_total_occupancy_islands(
-			occupancy_threshold, max_distance, min_size)
+		# Step 1: Find total chromatin landscape
+		print("Step 1: Detecting total chromatin islands...")
+		total_islands, total_chromatin_mask = self.detect_total_occupancy_islands(
+			occupancy_threshold, total_max_distance, total_min_size)
 		
-		# Step 4b: Find mother/daughter islands (reuse existing logic)
-		if threshold_method not in self.islands:
-			print(f"Running step3 to detect {threshold_method} islands...")
-			self.step3_detect_islands(threshold_method, max_distance, min_size)
+		print(f"  Found {len(total_islands)} total chromatin islands")
+		print(f"  Total chromatin pixels: {total_chromatin_mask.sum()}")
 		
-		mother_islands = self.islands[threshold_method]['negative']  # negative differences = mother-specific
-		daughter_islands = self.islands[threshold_method]['positive']  # positive differences = daughter-specific
+		# Step 2: Detect M/D signal islands within chromatin regions
+		print("Step 2: Detecting mother/daughter signal islands...")
 		
-		# Step 4c: Create combined M/D pixel mask
-		md_pixels_mask = np.zeros_like(total_occupancy_mask, dtype=bool)
+		if threshold_method not in self.thresholds:
+			print(f"  Running step2 to calculate {threshold_method} thresholds...")
+			self.step2_analyze_distribution()
 		
-		# Add mother island pixels
-		for island in mother_islands:
-			md_pixels_mask[island['positions']] = True
-			
-		# Add daughter island pixels  
-		for island in daughter_islands:
-			md_pixels_mask[island['positions']] = True
+		thresh = self.thresholds[threshold_method]
+		print(f"  Using thresholds: lower={thresh['lower']:.3f}, upper={thresh['upper']:.3f}")
 		
-		print(f"Mother/Daughter pixels: {md_pixels_mask.sum()}")
+		# Classify pixels within chromatin regions only
+		mother_pixel_mask = np.zeros_like(total_chromatin_mask, dtype=bool)
+		daughter_pixel_mask = np.zeros_like(total_chromatin_mask, dtype=bool)
 		
-		# Step 4d: Subtract M/D pixels from total occupancy and re-detect
-		remaining_mask = total_occupancy_mask & ~md_pixels_mask
-		print(f"Remaining pixels after M/D subtraction: {remaining_mask.sum()}")
+		# Get chromatin pixel positions and their difference values
+		chromatin_positions = np.where(total_chromatin_mask)
+		chromatin_differences = self.differences_2d[chromatin_positions]
 		
-		# Re-run island detection on remaining mask
-		detector = IslandDetector(max_distance=max_distance)
-		unchanging_island_masks = detector.find_islands(remaining_mask, min_size=min_size)
+		# Classify chromatin pixels by threshold
+		mother_indices = chromatin_differences < thresh['lower']
+		daughter_indices = chromatin_differences > thresh['upper']
 		
-		# Convert unchanging islands to info format
-		unchanging_islands = []
-		for i, island_mask in enumerate(unchanging_island_masks):
+		# Create M/D pixel masks (only within chromatin regions)
+		mother_pixel_mask[chromatin_positions[0][mother_indices], 
+						  chromatin_positions[1][mother_indices]] = True
+		daughter_pixel_mask[chromatin_positions[0][daughter_indices], 
+							chromatin_positions[1][daughter_indices]] = True
+		
+		print(f"  Mother pixels: {mother_pixel_mask.sum()}")
+		print(f"  Daughter pixels: {daughter_pixel_mask.sum()}")
+		print(f"  Unchanging pixels: {total_chromatin_mask.sum() - mother_pixel_mask.sum() - daughter_pixel_mask.sum()}")
+		
+		# Group M/D pixels into islands for noise removal
+		detector = IslandDetector(max_distance=md_max_distance)
+		
+		mother_island_masks = detector.find_islands(mother_pixel_mask, min_size=md_min_size)
+		mother_islands = self._convert_masks_to_islands(mother_island_masks, 'mother')
+		
+		daughter_island_masks = detector.find_islands(daughter_pixel_mask, min_size=md_min_size)
+		daughter_islands = self._convert_masks_to_islands(daughter_island_masks, 'daughter')
+		
+		print(f"  → Mother islands: {len(mother_islands)} (after size/distance filtering)")
+		print(f"  → Daughter islands: {len(daughter_islands)} (after size/distance filtering)")
+		
+		# Step 3: Classify remaining chromatin pixels as unchanging
+		print("Step 3: Classifying remaining pixels as unchanging...")
+		
+		# Create mask of all M/D island pixels (post-filtering)
+		md_islands_mask = np.zeros_like(total_chromatin_mask, dtype=bool)
+		for island in mother_islands + daughter_islands:
+			md_islands_mask[island['positions']] = True
+		
+		# Remaining chromatin pixels = unchanging
+		unchanging_pixel_mask = total_chromatin_mask & ~md_islands_mask
+		
+		# Group unchanging pixels into islands
+		unchanging_island_masks = detector.find_islands(unchanging_pixel_mask, min_size=md_min_size)
+		unchanging_islands = self._convert_masks_to_islands(unchanging_island_masks, 'unchanging')
+		
+		print(f"  → Unchanging islands: {len(unchanging_islands)}")
+		
+		# Verification: Check that all chromatin pixels are classified
+		total_classified = md_islands_mask.sum() + unchanging_pixel_mask.sum()
+		print(f"\nVerification:")
+		print(f"  Total chromatin pixels: {total_chromatin_mask.sum()}")
+		print(f"  Classified pixels: {total_classified}")
+		print(f"  Coverage: {total_classified/total_chromatin_mask.sum()*100:.1f}%")
+		
+		# Store results
+		self.all_islands = {
+			'total': total_islands,
+			'mother': mother_islands,
+			'daughter': daughter_islands,
+			'unchanging': unchanging_islands,
+			'parameters': {
+				'threshold_method': threshold_method,
+				'occupancy_threshold': occupancy_threshold,
+				'total_max_distance': total_max_distance,
+				'total_min_size': total_min_size,
+				'md_max_distance': md_max_distance,
+				'md_min_size': md_min_size,
+				'classification_method': '3_step_pixel_based'
+			}
+		}
+		
+		return self.all_islands
+
+	def _convert_masks_to_islands(self, island_masks, direction):
+		"""Convert island masks to island info format"""
+		islands = []
+		for i, island_mask in enumerate(island_masks):
 			positions = np.where(island_mask)
-			island_differences = self.differences_2d[positions]  # Use differences for signal
+			island_values = self.differences_2d[positions]
 			
 			island_info = {
 				'id': i + 1,
-				'direction': 'unchanging',
+				'direction': direction,
 				'size': island_mask.sum(),
-				'mean_signal': np.mean(island_differences),  # Should be close to 0
+				'mean_signal': np.mean(island_values),
 				'positions': positions,
 				'mask': island_mask,
 				'fragment_span': (np.min(positions[0]), np.max(positions[0])),
 				'genomic_span': (np.min(positions[1]), np.max(positions[1]))
 			}
-			unchanging_islands.append(island_info)
+			islands.append(island_info)
 		
-		print(f"Detected {len(unchanging_islands)} unchanging islands")
-		
-		# Store all island types
-		self.all_islands = {
-			'total': total_islands,
-			'mother': mother_islands,
-			'daughter': daughter_islands, 
-			'unchanging': unchanging_islands,
-			'parameters': {
-				'threshold_method': threshold_method,
-				'occupancy_threshold': occupancy_threshold,
-				'max_distance': max_distance,
-				'min_size': min_size
-			}
-		}
-		
-		return self.all_islands
+		return islands
 	
-	def plot_all_islands_overview(self, figsize=(20, 4)):
+	def plot_all_islands_overview(self, figsize=(16, 4)):
 		"""Plot overview of all four island types"""
 		if not hasattr(self, 'all_islands'):
 			raise ValueError("Must run detect_all_island_types() first")
@@ -432,19 +434,28 @@ class ChromatinOccupancyIslandDetector:
 		colors = ['viridis', 'Greys', 'Blues', 'Reds']
 
 		ax = all_axes[0]
-		im = ax.imshow(self.F_imgs.mean(0), cmap='magma_r', vmin=0, vmax=40,
-			origin='lower', aspect='auto')
+		mean_f_img = self.F_imgs.mean(0)
+		extent = [0, mean_f_img.shape[1]*10, 0, 260]
+
+		im = ax.imshow(mean_f_img, cmap='magma_r', vmin=0, vmax=40,
+			origin='lower', aspect='auto', 
+			extent=extent)
 		plt.colorbar(im, ax=ax)
 		ax.set_title("Average MG1/DG1 data")
+		ax.set_xticks([])
 
 		ax = all_axes[2]
 		im = ax.imshow(self.differences_2d, cmap='RdBu_r', vmin=-20, vmax=20,
-			origin='lower', aspect='auto')
+			origin='lower', aspect='auto', extent=extent)
 		plt.colorbar(im, ax=ax)
 		ax.set_title("Difference DG1 - MG1")
+		ax.set_yticks([])
+		ax.set_xticks([])
 
 		axes = np.concatenate([all_axes[1:2], all_axes[3:]])
 		for i, (island_type, cmap) in enumerate(zip(island_types, colors)):
+
+			ax = axes[i]
 			islands = self.all_islands[island_type]
 			
 			# Create overlay
@@ -452,13 +463,16 @@ class ChromatinOccupancyIslandDetector:
 			for island in islands:
 				overlay[island['positions']] = abs(island['mean_signal'])
 			
-			im = axes[i].imshow(overlay, cmap=cmap, aspect='auto', 
-							  origin='lower', interpolation='none')
-			axes[i].set_title(f'{island_type.capitalize()} Islands\n(n={len(islands)})')
-			axes[i].set_xlabel('Genomic Position')
-			if i == 0:
-				axes[i].set_ylabel('Fragment Length')
-			plt.colorbar(im, ax=axes[i])
+			im = ax.imshow(overlay > 0, cmap=cmap, aspect='auto', extent=extent,
+							  origin='lower', interpolation='none', vmin=0, vmax=1)
+			ax.set_title(f'{island_type.capitalize()}')
+			plt.colorbar(im, ax=ax)
+
+			if i < 1:
+				ax.set_xticks([])
+
+			if not i == 1:
+				ax.set_yticks([])
 		
 		plt.tight_layout()
 		plt.show()
@@ -468,6 +482,9 @@ class ChromatinOccupancyIslandDetector:
 		if not hasattr(self, 'all_islands'):
 			print("No comprehensive islands detected. Run detect_all_island_types() first.")
 			return
+
+		# Add this line:
+		classification_method = self.all_islands['parameters'].get('classification_method', 'pixel_first')
 		
 		# Calculate all metrics
 		composition_stats = self.calculate_chromatin_composition()
@@ -490,6 +507,11 @@ class ChromatinOccupancyIslandDetector:
 		print(f"   • Mother-specific:    {composition_stats['pixel_proportions']['mother']:.1f}%")
 		print(f"   • Daughter-specific:  {composition_stats['pixel_proportions']['daughter']:.1f}%")
 		print(f"   • Unchanging:         {composition_stats['pixel_proportions']['unchanging']:.1f}%")
+
+		print("\n" + "="*60)
+		print("CHROMATIN LANDSCAPE COMPOSITION ANALYSIS")
+		print(f"Classification method: {classification_method}")  # Add this line
+		print("="*60)
 		
 		if detail:
 			# Detailed breakdown
@@ -612,3 +634,267 @@ class ChromatinOccupancyIslandDetector:
 		}
 
 		return self.composition_stats
+
+
+	def detect_all_island_types_strategy_b(self, threshold_method='std', 
+										   # Total islands (step 1)
+										   occupancy_threshold=5, total_max_distance=2, total_min_size=3,
+										   # M/D islands (step 2) 
+										   md_max_distance=8, md_min_size=2):
+		"""
+		Strategy B: Classify M/D/unchanging ONLY within significant total islands
+		
+		1. Find total chromatin islands (with size/distance filtering)
+		2. Classify M/D/unchanging ONLY within those island pixels
+		3. Group classified pixels into islands
+		"""
+		print("=== Strategy B: Island-First Classification ===")
+		
+		# Step 1: Find significant total chromatin islands
+		print("Step 1: Detecting significant total chromatin islands...")
+		total_islands, total_chromatin_mask = self.detect_total_occupancy_islands(
+			occupancy_threshold, total_max_distance, total_min_size)
+		
+		# Create mask of pixels that made it into total islands (post-filtering)
+		total_islands_mask = np.zeros_like(total_chromatin_mask, dtype=bool)
+		for island in total_islands:
+			total_islands_mask[island['positions']] = True
+		
+		print(f"  Found {len(total_islands)} total chromatin islands")
+		print(f"  Raw chromatin pixels: {total_chromatin_mask.sum()}")
+		print(f"  Significant island pixels: {total_islands_mask.sum()}")
+		print(f"  Filtering removed: {total_chromatin_mask.sum() - total_islands_mask.sum()} pixels")
+		
+		# Step 2: Classify pixels ONLY within significant total islands
+		print("Step 2: Classifying pixels within significant islands...")
+		
+		if threshold_method not in self.thresholds:
+			print(f"  Running step2 to calculate {threshold_method} thresholds...")
+			self.step2_analyze_distribution()
+		
+		thresh = self.thresholds[threshold_method]
+		print(f"  Using thresholds: lower={thresh['lower']:.3f}, upper={thresh['upper']:.3f}")
+		
+		# Get ONLY the island pixel positions and their difference values
+		island_positions = np.where(total_islands_mask)
+		island_differences = self.differences_2d[island_positions]
+		
+		# Classify island pixels by threshold
+		mother_indices = island_differences < thresh['lower']
+		daughter_indices = island_differences > thresh['upper']
+		unchanging_indices = ~mother_indices & ~daughter_indices
+		
+		# Create pixel classification masks (only within total islands)
+		mother_pixel_mask = np.zeros_like(total_chromatin_mask, dtype=bool)
+		daughter_pixel_mask = np.zeros_like(total_chromatin_mask, dtype=bool)
+		unchanging_pixel_mask = np.zeros_like(total_chromatin_mask, dtype=bool)
+		
+		mother_pixel_mask[island_positions[0][mother_indices], 
+						  island_positions[1][mother_indices]] = True
+		daughter_pixel_mask[island_positions[0][daughter_indices], 
+							island_positions[1][daughter_indices]] = True
+		unchanging_pixel_mask[island_positions[0][unchanging_indices], 
+							  island_positions[1][unchanging_indices]] = True
+		
+		print(f"  Pixel classification within islands:")
+		print(f"    Mother pixels: {mother_pixel_mask.sum()}")
+		print(f"    Daughter pixels: {daughter_pixel_mask.sum()}")
+		print(f"    Unchanging pixels: {unchanging_pixel_mask.sum()}")
+		print(f"    Total classified: {mother_pixel_mask.sum() + daughter_pixel_mask.sum() + unchanging_pixel_mask.sum()}")
+		
+		# Verification: All classified pixels should be within total islands
+		all_classified = mother_pixel_mask | daughter_pixel_mask | unchanging_pixel_mask
+		assert np.array_equal(all_classified, total_islands_mask), "Classification error: not all island pixels classified!"
+		print(f"  ✅ Verification passed: All island pixels classified exactly once")
+		
+		# Step 3: Group classified pixels into islands (for analysis)
+		print("Step 3: Grouping classified pixels into islands...")
+		
+		detector = IslandDetector(max_distance=md_max_distance)
+		
+		# Find islands within each pixel type
+		mother_island_masks = detector.find_islands(mother_pixel_mask, min_size=md_min_size)
+		mother_islands = self._convert_masks_to_islands(mother_island_masks, 'mother')
+		
+		daughter_island_masks = detector.find_islands(daughter_pixel_mask, min_size=md_min_size)
+		daughter_islands = self._convert_masks_to_islands(daughter_island_masks, 'daughter')
+		
+		unchanging_island_masks = detector.find_islands(unchanging_pixel_mask, min_size=md_min_size)
+		unchanging_islands = self._convert_masks_to_islands(unchanging_island_masks, 'unchanging')
+		
+		print(f"  Island detection results:")
+		print(f"    Mother islands: {len(mother_islands)}")
+		print(f"    Daughter islands: {len(daughter_islands)}")
+		print(f"    Unchanging islands: {len(unchanging_islands)}")
+		
+		# Step 4: Calculate island coverage (pixels that made it into M/D/unchanging islands)
+		island_pixels = {
+			'mother': sum(island['size'] for island in mother_islands),
+			'daughter': sum(island['size'] for island in daughter_islands),
+			'unchanging': sum(island['size'] for island in unchanging_islands)
+		}
+		
+		total_pixel_counts = {
+			'mother': mother_pixel_mask.sum(),
+			'daughter': daughter_pixel_mask.sum(),
+			'unchanging': unchanging_pixel_mask.sum()
+		}
+		
+		print(f"  Island coverage:")
+		for pixel_type in ['mother', 'daughter', 'unchanging']:
+			coverage = island_pixels[pixel_type] / max(total_pixel_counts[pixel_type], 1) * 100
+			lost = total_pixel_counts[pixel_type] - island_pixels[pixel_type]
+			print(f"    {pixel_type.capitalize()}: {island_pixels[pixel_type]}/{total_pixel_counts[pixel_type]} pixels ({coverage:.1f}% coverage, {lost} lost to size filtering)")
+		
+		# Final verification
+		total_island_pixels_analyzed = sum(total_pixel_counts.values())
+		print(f"\nFinal verification:")
+		print(f"  Total island pixels: {total_islands_mask.sum()}")
+		print(f"  Pixels analyzed: {total_island_pixels_analyzed}")
+		print(f"  Match: {total_islands_mask.sum() == total_island_pixels_analyzed}")
+		
+		# Store results
+		self.all_islands = {
+			'total': total_islands,
+			'mother': mother_islands,
+			'daughter': daughter_islands,
+			'unchanging': unchanging_islands,
+			'pixel_masks': {
+				'total_chromatin': total_chromatin_mask,  # Raw chromatin (pre-filtering)
+				'total_islands': total_islands_mask,      # Significant islands (post-filtering)
+				'mother': mother_pixel_mask,
+				'daughter': daughter_pixel_mask,
+				'unchanging': unchanging_pixel_mask
+			},
+			'pixel_counts': total_pixel_counts,
+			'island_coverage': island_pixels,
+			'filtering_stats': {
+				'raw_chromatin_pixels': total_chromatin_mask.sum(),
+				'significant_island_pixels': total_islands_mask.sum(),
+				'pixels_lost_to_total_filtering': total_chromatin_mask.sum() - total_islands_mask.sum()
+			},
+			'parameters': {
+				'threshold_method': threshold_method,
+				'occupancy_threshold': occupancy_threshold,
+				'total_max_distance': total_max_distance,
+				'total_min_size': total_min_size,
+				'md_max_distance': md_max_distance,
+				'md_min_size': md_min_size,
+				'classification_method': 'strategy_b_island_first'
+			}
+		}
+		
+		return self.all_islands
+
+	def plot_all_islands_strategy_b(self, show_filtering=True, figsize=(18, 4)):
+		"""
+		Plot overview for Strategy B with optional filtering comparison
+		"""
+		if not hasattr(self, 'all_islands'):
+			raise ValueError("Must run detect_all_island_types_strategy_b() first")
+		
+		n_rows = 2 if show_filtering else 1
+		n_cols = 5 if show_filtering else 4
+		fig, axes = plt.subplots(n_rows, n_cols, figsize=figsize)
+		
+		if n_rows == 1:
+			axes = [axes]
+		
+		# Common extent
+		mean_f_img = self.F_imgs.mean(0)
+		extent = [0, mean_f_img.shape[1]*10, 0, 260]
+		
+		# Row 1: Show filtering process (if requested)
+		if show_filtering:
+			# Raw chromatin
+			ax = axes[0][0]
+			mask = self.all_islands['pixel_masks']['total_chromatin']
+			im = ax.imshow(mean_f_img, cmap='magma_r', aspect='auto', extent=extent,
+						  origin='lower', interpolation='none', vmin=0, vmax=40)
+			ax.set_title(f'Raw Chromatin')
+			plt.colorbar(im, ax=ax)
+			ax.set_xticks([])
+			
+			# Filtered total islands
+			ax = axes[0][1]
+			mask = self.all_islands['pixel_masks']['total_islands']
+			im = ax.imshow(mask, cmap='viridis', aspect='auto', extent=extent,
+						  origin='lower', interpolation='none')
+			lost = self.all_islands['filtering_stats']['pixels_lost_to_total_filtering']
+			ax.set_title(f'Significant Islands')
+			plt.colorbar(im, ax=ax)
+			ax.set_xticks([])
+			ax.set_yticks([])
+			
+			# M/D/unchanging classification
+			pixel_types = ['mother', 'daughter', 'unchanging']
+			pixel_colors = ['Blues', 'Reds', 'Greys']
+			
+			for i, (pixel_type, cmap) in enumerate(zip(pixel_types, pixel_colors)):
+				ax = axes[0][i+2]
+				mask = self.all_islands['pixel_masks'][pixel_type]
+				im = ax.imshow(mask, cmap=cmap, aspect='auto', extent=extent,
+							  origin='lower', interpolation='none')
+				count = mask.sum()
+				ax.set_title(f'{pixel_type.capitalize()}\n({count} pixels)')
+				plt.colorbar(im, ax=ax)
+				ax.set_xticks([])
+				ax.set_yticks([])
+		
+		# Bottom row: Island detection results
+		island_row = 1 if show_filtering else 0
+		col_offset = 2 if show_filtering else 0
+		
+
+		# Differences
+		ax = axes[island_row][0]
+		im1 = ax.imshow(self.differences_2d, cmap='RdBu_r', aspect='auto', 
+							origin='lower', interpolation='none', vmin=-5, vmax=5,
+							extent=extent)
+		ax.set_title('Mean G1 differences')
+		ax.set_xlabel('Genomic Position')
+		ax.set_ylabel('Fragment Length')
+		plt.colorbar(im1, ax=ax)
+
+		# Total islands
+		# ax = axes[island_row][1]
+		# total_overlay = np.zeros_like(self.differences_2d)
+		# for island in self.all_islands['total']:
+		# 	total_overlay[island['positions']] = 1
+		
+		# im = ax.imshow(total_overlay, cmap='viridis', aspect='auto', extent=extent,
+		# 			   origin='lower', interpolation='none')
+		# ax.set_title(f'Total Islands\n({len(self.all_islands["total"])} islands)')
+		# plt.colorbar(im, ax=ax)
+		# if show_filtering:
+		# 	ax.set_xticks([])
+		
+		# M/D/unchanging islands
+		island_types = ['mother', 'daughter', 'unchanging']
+		colors = ['Blues', 'Reds', 'Greys']
+		
+		for i, (island_type, cmap) in enumerate(zip(island_types, colors)):
+			ax = axes[island_row][i+col_offset]
+			islands = self.all_islands[island_type]
+			
+			overlay = np.zeros_like(self.differences_2d)
+			for island in islands:
+				overlay[island['positions']] = 1
+			
+			im = ax.imshow(overlay, cmap=cmap, aspect='auto', extent=extent,
+						   origin='lower', interpolation='none', vmin=0, vmax=1)
+			
+			# Show both island count and pixel coverage
+			island_pixels = self.all_islands['island_coverage'][island_type]
+			total_pixels = self.all_islands['pixel_counts'][island_type]
+			coverage = island_pixels / max(total_pixels, 1) * 100
+			
+			ax.set_title(f'{island_type.capitalize()} Islands\n({len(islands)} islands, {coverage:.0f}% coverage)')
+			plt.colorbar(im, ax=ax)
+			
+			ax.set_yticks([])
+			if show_filtering:
+				ax.set_xticks([])
+		
+		plt.tight_layout()
+		plt.show()

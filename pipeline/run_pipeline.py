@@ -557,33 +557,44 @@ def run_gamma_kappa_eta_summary(output_directory):
 		etas.append(eta)
 
 	import statistics
+	from src.helpers import find_mode_float
 
 	optimal_gamma = statistics.mode(gammas)
 	optimal_eta = statistics.mode(etas)
-	optimal_kappa = statistics.mode(kappas)
 
-	plt.figure(figsize=(9, 2))
+	plt.figure(figsize=(9, 2.5))
 	plt.subplot(1, 3, 1)
-	plt.hist(gammas)
-	plt.axvline(optimal_gamma, c='red')
+	plt.hist(gammas, bins=40)
+	plt.axvline(optimal_gamma, c='red', lw=1.5, ls='dotted')
 	plt.xlim(0, 0.1)
-	plt.title("Optimal $\\gamma$ for 100 windows")
+	plt.title(f"$\\gamma^*=${optimal_gamma:.3f}")
 	plt.xlabel("$\\gamma$")
 	plt.ylabel("Frequency")
 
 	plt.subplot(1, 3, 2)
-	plt.xlim(0.005, 0.02)
-	plt.hist(kappas)
-	plt.axvline(optimal_kappa, c='red')
-	plt.title("Optimal $\\kappa$ for 100 windows")
+
+	kappa_bin_width = 0.001
+
+	# Let the function create its own bins
+	optimal_kappa = find_mode_float(kappas, kappa_bin_width)
+	kappas = np.array(kappas)
+
+	# Use the same number of bins for matplotlib
+	n_bins = int((kappas.max() - kappas.min()) / kappa_bin_width)
+	plt.hist(kappas, bins=n_bins)
+	plt.axvline(optimal_kappa, c='red', lw=1.5, ls='dotted')
+	plt.title(f"$\\kappa^*=${optimal_kappa:.3f}")
 	plt.xlabel("$\\kappa$")
 
 	plt.subplot(1, 3, 3)
 	plt.hist(etas, bins=20)
 	plt.xlim(0, 4)
-	plt.axvline(optimal_eta, c='red')
-	plt.title("Optimal $\\eta$ for 100 windows")
+	plt.axvline(optimal_eta, c='red', lw=1.5, ls='dotted')
+	plt.title(f"$\\eta^*=${optimal_eta:.3f}")
 	plt.xlabel("$\\eta$")
+
+	plt.suptitle("Optimal regularization parameters for 100 random windows (of width 1000 bp)",
+		fontweight='demi', fontsize=16)
 
 	plt.tight_layout()
 
@@ -591,6 +602,8 @@ def run_gamma_kappa_eta_summary(output_directory):
 		  f"\tgamma:\t{optimal_gamma:.3f}\n" 
 		  f"\tkappa:\t{optimal_kappa:.3f}\n"
 		  f"\teta:\t{optimal_eta:.3f}")
+
+	return kappas
 
 
 

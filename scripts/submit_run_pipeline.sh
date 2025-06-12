@@ -1,7 +1,7 @@
 #!/bin/bash
 # Script to create jobs to create locus plots for all genes across all chromosomes
 
-OUTDIR=output/draft3_run/
+OUTDIR=output/draft4_run/
 
 # ---------- Replication deconvolution ----------------
 
@@ -16,8 +16,8 @@ OUTDIR=output/draft3_run/
 #ARGS="replication ${OUTDIR} ${REPLICATE} ${CHROM} ${NUM_EPOCHS} True"
 #sbatch -D ./slurm-logs/ --job-name="rep${REPLICATE}" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
-#ARGS="combined_replication ${OUTDIR}"
-#sbatch -D ./slurm-logs/ --job-name="rep${REPLICATE}" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+ARGS="combined_replication ${OUTDIR}"
+sbatch -D ./slurm-logs/ --job-name="rep${REPLICATE}" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
 # ---------- Expression deconvolution ----------------
 
@@ -26,8 +26,8 @@ OUTDIR=output/draft3_run/
 
 # ---------- Find Gamma ---------------
 
-ARGS="find_gamma_chromatin ${OUTDIR}"
-sbatch -a 0-99%12 -D ./slurm-logs/ --job-name="opt_gamma" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+# ARGS="find_gamma_chromatin ${OUTDIR}"
+# sbatch -a 0-99%12 -D ./slurm-logs/ --job-name="opt_gamma" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
 
 # ---------- Find Kappa ---------------
 
