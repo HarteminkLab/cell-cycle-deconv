@@ -327,6 +327,11 @@ def main():
 		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 			copy_correct=False, kappa=kappa, gamma=gamma)
 
+	elif command == 'parameter_summary':
+
+		(_, command, output_directory) = system_args
+		run_gamma_kappa_eta_summary(output_directory)
+
 	# elif command == 'expression_chromatin_analysis':
 		# Deprecated command, see old_pipeline.py
 
@@ -524,6 +529,83 @@ def deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
 	print_fl(f"Deconvolving index:{index}, chr{chrom}, {span[0], span[1]}")
 
 	deconv_and_save(chrom, span, chromatin_save_directory)
+
+
+def run_gamma_kappa_eta_summary(output_directory):
+	from glob import glob
+	gammas = []
+	for filepath in glob(f'{output_directory}/chromatin_gamma_100/deconvolution_data/chr*/*.txt'):
+		with open(filepath, 'r') as f:
+			gamma = float(f.read())
+			gammas.append(gamma)
+
+	from glob import glob
+	kappas = []
+	for filepath in glob(f'{output_directory}/chromatin_kappa_100/*.csv'):
+		kappa = pd.read_csv(filepath).iloc[0].kappa
+		kappas.append(kappa)
+
+	from glob import glob
+	etas = []
+	for filepath in glob(f'{output_directory}/chromatin_eta_100/*.txt'):
+		eta = pd.read_csv(filepath)
+		
+		with open(filepath, 'r') as f:
+			for line in f.readlines():
+				if line.startswith('  Optimal eta'):
+					eta = float(line.split(' ')[-1])
+		etas.append(eta)
+
+	import statistics
+	from src.helpers import find_mode_float
+
+	optimal_gamma = statistics.mode(gammas)
+	optimal_eta = statistics.mode(etas)
+
+	plt.figure(figsize=(9, 2.5))
+	plt.subplot(1, 3, 1)
+	plt.hist(gammas, bins=40)
+	plt.axvline(optimal_gamma, c='red', lw=1.5, ls='dotted')
+	plt.xlim(0, 0.1)
+	plt.title(f"$\\gamma^*=${optimal_gamma:.3f}")
+	plt.xlabel("$\\gamma$")
+	plt.ylabel("Frequency")
+
+	plt.subplot(1, 3, 2)
+
+	kappa_bin_width = 0.001
+
+	# Let the function create its own bins
+	optimal_kappa = find_mode_float(kappas, kappa_bin_width)
+	kappas = np.array(kappas)
+
+	# Use the same number of bins for matplotlib
+	n_bins = int((kappas.max() - kappas.min()) / kappa_bin_width)
+	plt.hist(kappas, bins=n_bins)
+	plt.axvline(optimal_kappa, c='red', lw=1.5, ls='dotted')
+	plt.title(f"$\\kappa^*=${optimal_kappa:.3f}")
+	plt.xlabel("$\\kappa$")
+
+	plt.subplot(1, 3, 3)
+	plt.hist(etas, bins=20)
+	plt.xlim(0, 4)
+	plt.axvline(optimal_eta, c='red', lw=1.5, ls='dotted')
+	plt.title(f"$\\eta^*=${optimal_eta:.3f}")
+	plt.xlabel("$\\eta$")
+
+	plt.suptitle("Optimal regularization parameters for 100 random windows (of width 1000 bp)",
+		fontweight='demi', fontsize=16)
+
+	plt.tight_layout()
+
+	print(f"Optimal:\n"
+		  f"\tgamma:\t{optimal_gamma:.3f}\n" 
+		  f"\tkappa:\t{optimal_kappa:.3f}\n"
+		  f"\teta:\t{optimal_eta:.3f}")
+
+	return kappas
+
+
 
 
 if __name__ == '__main__':

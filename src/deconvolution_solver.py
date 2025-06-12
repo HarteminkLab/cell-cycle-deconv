@@ -106,18 +106,20 @@ class DeconvolutionSolver(object):
 		W_t = get_wavelet_kernel(len(f_padded_t), par=5)
 		W_b = get_wavelet_kernel(len(f_padded_b), par=5)
 
+		# Add bias term to kernel, for proper fitting of constant value
+		# input
+		len_W = len(f_padded_i)
+		W_i[0, :] = 1 / len_W
+		W_t[0, :] = 1 / len_W
+		W_b[0, :] = 1 / len_W
+
 		f_variation = f_variation_padded[f_indices]
-
-		# Model a baseline value, so smoothing constraints are applied to
-		# variations on the baseline
-		f_baseline = cp.Variable(1)
-
 		H = self.H
 		g = self.g
 		N = self.N
 		b = self.b
 
-		def compute_fit_result(N, H, f_variation, f_baseline, b,
+		def compute_fit_result(N, H, f_variation, b,
 			is_cvxpy=True):
 
 			if is_cvxpy:
@@ -129,7 +131,7 @@ class DeconvolutionSolver(object):
 				square_func = np.square
 				mult_func = np.multiply
 
-			f_non_replicative = f_variation+f_baseline
+			f_non_replicative = f_variation
 			f_replication = self.f_replication
 			f_combined = mult_func(f_non_replicative, f_replication)
 
@@ -168,7 +170,7 @@ class DeconvolutionSolver(object):
 
 			return smooth_result
 
-		fit_norm_result = compute_fit_result(N, H, f_variation, f_baseline, b, True)
+		fit_norm_result = compute_fit_result(N, H, f_variation, b, True)
 		smooth_result = compute_smoothing_result(f_variation_padded, 
 			f_padded_i, f_padded_t, f_padded_b,
 			W_i, W_t, W_b, True)
@@ -193,7 +195,7 @@ class DeconvolutionSolver(object):
 		)
 
 		# Constraint for halted cells, non-negativity, and upper bounds to improve speed
-		constraints = [f_variation >= 0, f_baseline >= 0] # non-negativity
+		constraints = [f_variation >= 0] # non-negativity
 
 		prob = cp.Problem(objective, constraints)
 		
@@ -202,16 +204,15 @@ class DeconvolutionSolver(object):
 		
 		# Extract solution values
 		f_variation_padded_value = f_variation_padded.value
-		f_baseline_value = f_baseline.value
 		f_variation_value = f_variation.value
 		
 		# Store the results
-		self.f = f_variation_value + f_baseline_value
+		self.f = f_variation_value
 		self.f_variation = f_variation_value
 		self.f_full = f_variation_padded_value
 		
 		# Store the other optimization results
-		self.rn = compute_fit_result(N, H, f_variation_value, f_baseline_value, b, False)
+		self.rn = compute_fit_result(N, H, f_variation_value, b, False)
 		self.sn = compute_smoothing_result(f_variation_padded_value, 
 			f_padded_i, f_padded_t, f_padded_b,
 			W_i, W_t, W_b, False)
