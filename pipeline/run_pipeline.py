@@ -277,7 +277,7 @@ def main():
 		# Exact settings, with copy correction turned off
 		index = int(index)
 		chrom, span = parse_windows_csv(WINDOWS_ALL_10K_PATH, index)
-		deconvolve_chromatin(chromatin_save_directory, window_set_path, index,
+		deconvolve_chromatin(chromatin_save_directory, chrom, span,
 			copy_correct=False, kappa=DEFAULT_KAPPA, gamma=DEFAULT_GAMMA, eta=DEFAULT_ETA)
 
 	elif command == 'parameter_summary':
