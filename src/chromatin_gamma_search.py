@@ -22,10 +22,39 @@ class ChromatinFindOptimalGamma(object):
 														 verbose_progress=False,
 														 kappa=kappa,
 														 eta=eta)
+
+			# Average residual norm for each bin
 			rn = chromatin_solver.rn
+
+			# Average smoothing norm for each bin
 			sn = chromatin_solver.sn
 
-			return F, sn, rn
+			# -- Computation of the smoothing norm over the total occupancy of the solution --
+			mean_F = F.mean(1)
+
+			# Take the wavelet W_i (identical to t and b)
+			deconvolution_solver = chromatin_solver.deconvolution_solver
+			wavelet_mat = deconvolution_solver.W_i
+
+			# Compute the smoothing norm on the mean_F as an auxiliary term
+			from src.deconvolution_solver import compute_smoothing_result
+
+			mean_sn = compute_smoothing_result(g, mean_F, 
+				deconvolution_solver.f_i_mirror, 
+				deconvolution_solver.f_t_periodic,
+				deconvolution_solver.f_b_periodic,
+				wavelet_mat, wavelet_mat, wavelet_mat, is_cvxpy=False)
+
+			# ---------------------------------------------------------------------------------
+
+			return_dictionary = {
+				'solution_F': F,
+				'sn': sn,
+				'rn': rn,
+				'mean_sn': mean_sn
+			}
+
+			return return_dictionary
 
 		gamma_optimizer = GammaOptimizer(compute_solution, gamma_min=gamma_min, gamma_max=gamma_max,
 										 verbose=verbose, mode='chromatin',

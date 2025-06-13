@@ -29,7 +29,14 @@ class GeneExpressionFindOptimalGamma(object):
 			rn = deconvolution_solver.rn
 			sn = deconvolution_solver.sn
 			f = deconvolution_solver.f
-			return f, sn, rn
+
+			return_dictionary = {
+				'solution_F': f,
+				'sn': sn,
+				'rn': rn,
+			}
+
+			return return_dictionary
 
 		gamma_optimizer = GammaOptimizer(compute_solution, gamma_min=gamma_min, gamma_max=gamma_max,
 										 verbose=verbose)

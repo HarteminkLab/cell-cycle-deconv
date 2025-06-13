@@ -39,7 +39,7 @@ class DeconvolutionSolver(object):
 		self.kappa = kappa # MG1/DG1 differences
 		self.eta = eta # RG1-Halted differences
 		self.padding_type = padding_type
-	
+
 	def deconvolve(self):
 
 		# Set up all the problem components as before
@@ -79,7 +79,7 @@ class DeconvolutionSolver(object):
 		n, m = self.H.shape
 
 		f_indices = np.arange(m)
-		f_variation_padded = cp.Variable(m+total_padding)
+		f_solution_padded = cp.Variable(m+total_padding)
 
 		# Define the indices in the full f vector for the padding
 		f_padding_left_t_indices = np.arange(m, m+padding_left_t)
@@ -113,77 +113,27 @@ class DeconvolutionSolver(object):
 		W_t[0, :] = 1 / len_W
 		W_b[0, :] = 1 / len_W
 
-		f_variation = f_variation_padded[f_indices]
+		f_solution = f_solution_padded[f_indices]
 		H = self.H
 		g = self.g
 		N = self.N
 		b = self.b
 
-		def compute_fit_result(N, H, f_variation, b,
-			is_cvxpy=True):
-
-			if is_cvxpy:
-				norm_func = cp.norm
-				square_func = cp.square
-				mult_func = cp.multiply
-			else:
-				norm_func = np.linalg.norm
-				square_func = np.square
-				mult_func = np.multiply
-
-			f_non_replicative = f_variation
-			f_replication = self.f_replication
-			f_combined = mult_func(f_non_replicative, f_replication)
-
-			if self.obj_error_mode == 'multiplicative':
-				eps = 1e-5
-				elementwise_result = (N@H@f_combined*b)/(g+eps) - 1
-			elif self.obj_error_mode == 'additive':
-				elementwise_result = N@H@f_combined*b - g
-			else:
-				raise ValueError(f"Unimplemented objective error mode: {self.obj_error_mode}")
-
-			fit_norm_result = square_func(norm_func(elementwise_result, 2))
-			return fit_norm_result
-
-		def compute_smoothing_result(f_variation_padded, f_padded_i, f_padded_t, f_padded_b,
-			W_i, W_t, W_b, is_cvxpy):
-
-			if is_cvxpy:
-				sum_func = cp.sum
-				abs_func = cp.abs
-			else:
-				sum_func = np.sum
-				abs_func = np.abs
-
-			coeffs_i = W_i@(f_variation_padded[f_padded_i])
-			coeffs_t = W_t@(f_variation_padded[f_padded_t])
-			coeffs_b = W_b@(f_variation_padded[f_padded_b])
-
-			smooth_f_i_result = sum_func(abs_func(coeffs_i))
-			smooth_f_t_result = sum_func(abs_func(coeffs_t))
-			smooth_f_b_result = sum_func(abs_func(coeffs_b))
-
-			smooth_result = (smooth_f_i_result * 2 +
-							 smooth_f_t_result * 1 +
-							 smooth_f_b_result * 1)
-
-			return smooth_result
-
-		fit_norm_result = compute_fit_result(N, H, f_variation, b, True)
-		smooth_result = compute_smoothing_result(f_variation_padded, 
+		fit_norm_result = compute_fit_result(g, N, H, f_solution, self.f_replication, b, 
+			self.obj_error_mode, is_cvxpy=True)
+		smooth_result = compute_smoothing_result(f_solution_padded, 
 			f_padded_i, f_padded_t, f_padded_b,
 			W_i, W_t, W_b, True)
 
 		kappa = self.kappa
 
 		# Difference between DG1 and MG1
-		cg1_dg1_difference = f_variation[f_dg1] - f_variation[f_cg1]
+		cg1_dg1_difference = f_solution[f_dg1] - f_solution[f_cg1]
 		cg1_dg1_regularization_result = cp.sum(cp.abs(cg1_dg1_difference))
 
 		# L1 norm, compare the average of the RG1 branch with the single halted
 		# index
-		rg1_h_difference = cp.mean(f_variation[f_rg1]) - f_variation[f_halted[0]]
+		rg1_h_difference = cp.mean(f_solution[f_rg1]) - f_solution[f_halted[0]]
 		rg1_h_regularization_result = cp.sum(cp.abs(rg1_h_difference))
 
 		objective = cp.Minimize(
@@ -195,7 +145,7 @@ class DeconvolutionSolver(object):
 		)
 
 		# Constraint for halted cells, non-negativity, and upper bounds to improve speed
-		constraints = [f_variation >= 0] # non-negativity
+		constraints = [f_solution >= 0] # non-negativity
 
 		prob = cp.Problem(objective, constraints)
 		
@@ -203,17 +153,18 @@ class DeconvolutionSolver(object):
 		result = prob.solve(solver=cp.MOSEK)
 		
 		# Extract solution values
-		f_variation_padded_value = f_variation_padded.value
-		f_variation_value = f_variation.value
+		f_solution_padded_value = f_solution_padded.value
+		f_solution_value = f_solution.value
 		
 		# Store the results
-		self.f = f_variation_value
-		self.f_variation = f_variation_value
-		self.f_full = f_variation_padded_value
+		self.f = f_solution_value
+		self.f_solution = f_solution_value
+		self.f_full = f_solution_padded_value
 		
 		# Store the other optimization results
-		self.rn = compute_fit_result(N, H, f_variation_value, b, False)
-		self.sn = compute_smoothing_result(f_variation_padded_value, 
+		self.rn = compute_fit_result(g, N, H, f_solution_value, self.f_replication, b, 
+			obj_error_mode=self.obj_error_mode, is_cvxpy=False)
+		self.sn = compute_smoothing_result(f_solution_padded_value, 
 			f_padded_i, f_padded_t, f_padded_b,
 			W_i, W_t, W_b, False)
 		
@@ -293,3 +244,54 @@ class DeconvolutionSolver(object):
 				lw=3)
 		ax.set_ylim(*ylims)
 		ax.set_title("Bottom branch")
+
+def compute_fit_result(g, N, H, f_solution, f_replication, b, obj_error_mode,
+	is_cvxpy=True):
+
+	if is_cvxpy:
+		norm_func = cp.norm
+		square_func = cp.square
+		mult_func = cp.multiply
+	else:
+		norm_func = np.linalg.norm
+		square_func = np.square
+		mult_func = np.multiply
+
+	f_non_replicative = f_solution
+	f_replication = f_replication
+	f_combined = mult_func(f_non_replicative, f_replication)
+
+	if obj_error_mode == 'multiplicative':
+		eps = 1e-5
+		elementwise_result = (N@H@f_combined*b)/(g+eps) - 1
+	elif obj_error_mode == 'additive':
+		elementwise_result = N@H@f_combined*b - g
+	else:
+		raise ValueError(f"Unimplemented objective error mode: {obj_error_mode}")
+
+	fit_norm_result = square_func(norm_func(elementwise_result, 2))
+	return fit_norm_result
+
+def compute_smoothing_result(f_solution_padded, f_padded_i, f_padded_t, f_padded_b,
+			W_i, W_t, W_b, is_cvxpy):
+
+	if is_cvxpy:
+		sum_func = cp.sum
+		abs_func = cp.abs
+	else:
+		sum_func = np.sum
+		abs_func = np.abs
+
+	coeffs_i = W_i@(f_solution_padded[f_padded_i])
+	coeffs_t = W_t@(f_solution_padded[f_padded_t])
+	coeffs_b = W_b@(f_solution_padded[f_padded_b])
+
+	smooth_f_i_result = sum_func(abs_func(coeffs_i))
+	smooth_f_t_result = sum_func(abs_func(coeffs_t))
+	smooth_f_b_result = sum_func(abs_func(coeffs_b))
+
+	smooth_result = (smooth_f_i_result * 2 +
+					 smooth_f_t_result * 1 +
+					 smooth_f_b_result * 1)
+
+	return smooth_result
