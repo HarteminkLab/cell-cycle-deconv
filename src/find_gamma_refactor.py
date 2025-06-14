@@ -192,7 +192,7 @@ class GammaOptimizer:
 
 		for gamma in gamma_array:
 
-			solution, sn, rn, mean_sn = self.compute_solution_dictionary(gamma_mid)
+			solution, sn, rn, mean_sn = self.compute_solution_dictionary(gamma)
 
 			if self.verbose:
 				print_fl(f"\t\tγ: {gamma:.6g}\trn: {rn:.4f}\tsn: {sn:.4f}\tmean_sn: {mean_sn:.4f} - {self.timer.get_time()}")
@@ -213,6 +213,7 @@ class GammaOptimizer:
 		from kneed import KneeLocator
 		kn = KneeLocator(rn_values, sn_values, curve='convex', direction='decreasing')
 
+		self.optimal_knee_indices = kn.maxima_indices
 		self.optimal_gamma = gamma_array[kn.maxima_indices[0]]
 
 		if self.verbose:

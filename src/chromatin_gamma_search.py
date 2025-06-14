@@ -9,7 +9,7 @@ from src.chromatin_deconvolution_solver import ChromatinDeconvolveSolver
 class ChromatinFindOptimalGamma(object):
 	"""Wrapper to find optimal gamma for a window of chromatin reads"""
 
-	def __init__(self, chromatin_solver, gamma_min=1e-4, gamma_max=1,
+	def __init__(self, chromatin_solver, gamma_min=1e-3, gamma_max=10,
 		verbose=True, kappa=1.0, eta=0):
 
 		# Refactoring of the find optimal gamma code
@@ -31,6 +31,7 @@ class ChromatinFindOptimalGamma(object):
 
 			# -- Computation of the smoothing norm over the total occupancy of the solution --
 			mean_F = F.mean(1)
+			mean_G = chromatin_solver.G.mean(1)
 
 			# Take the wavelet W_i (identical to t and b)
 			deconvolution_solver = chromatin_solver.deconvolution_solver
@@ -39,7 +40,7 @@ class ChromatinFindOptimalGamma(object):
 			# Compute the smoothing norm on the mean_F as an auxiliary term
 			from src.deconvolution_solver import compute_smoothing_result
 
-			mean_sn = compute_smoothing_result(g, mean_F, 
+			mean_sn = compute_smoothing_result(mean_F, 
 				deconvolution_solver.f_i_mirror, 
 				deconvolution_solver.f_t_periodic,
 				deconvolution_solver.f_b_periodic,
