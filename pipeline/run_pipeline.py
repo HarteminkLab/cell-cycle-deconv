@@ -13,7 +13,7 @@ from src.config import load_default_chrom_configs, load_cloccs_configs
 
 # Global parameters
 WINDOWS_ALL_10K_PATH = "data/reference_data/sacCer3_genome_10k_windows.csv"
-DEFAULT_GAMMA = 0.05
+DEFAULT_GAMMA = 0.07
 DEFAULT_KAPPA = 0.01
 DEFAULT_ETA = 0.264
 
