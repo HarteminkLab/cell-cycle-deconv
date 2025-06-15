@@ -514,8 +514,15 @@ def run_gamma_kappa_eta_summary(output_directory):
 	import statistics
 	from src.helpers import find_mode_float
 
-	optimal_gamma = statistics.mode(gammas)
-	optimal_eta = statistics.mode(etas)
+	if len(gammas) > 0:
+		optimal_gamma = statistics.mode(gammas)
+	else:
+		optimal_gamma = None
+
+	if len(etas) > 0:
+		optimal_eta = statistics.mode(etas)
+	else:
+		optimal_eta = None
 
 	plt.figure(figsize=(9, 2.5))
 	plt.subplot(1, 3, 1)
@@ -528,11 +535,15 @@ def run_gamma_kappa_eta_summary(output_directory):
 
 	plt.subplot(1, 3, 2)
 
-	kappa_bin_width = 0.001
 
-	# Let the function create its own bins
-	optimal_kappa = find_mode_float(kappas, kappa_bin_width)
-	kappas = np.array(kappas)
+	if len(kappas) > 0:
+		optimal_kappa = statistics.mode(kappas)
+		# Let the function create its own bins
+		kappa_bin_width = 0.001
+		optimal_kappa = find_mode_float(kappas, kappa_bin_width)
+		kappas = np.array(kappas)
+	else:
+		optimal_kappa = None
 
 	# Use the same number of bins for matplotlib
 	n_bins = int((kappas.max() - kappas.min()) / kappa_bin_width)

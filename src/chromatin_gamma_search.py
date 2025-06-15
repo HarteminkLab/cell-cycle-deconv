@@ -9,7 +9,7 @@ from src.chromatin_deconvolution_solver import ChromatinDeconvolveSolver
 class ChromatinFindOptimalGamma(object):
 	"""Wrapper to find optimal gamma for a window of chromatin reads"""
 
-	def __init__(self, chromatin_solver, gamma_min=1e-3, gamma_max=10,
+	def __init__(self, chromatin_solver, gamma_min=1e-2, gamma_max=10,
 		verbose=True, kappa=1.0, eta=0):
 
 		# Refactoring of the find optimal gamma code
@@ -70,7 +70,14 @@ class ChromatinFindOptimalGamma(object):
 		timer = Timer()
 		self.gamma_optimizer.calculate_base_error()
 		self.gamma_optimizer.calculate_error_boundaries()
-		self.gamma_optimizer.find_boundary_gammas()
+
+		#self.gamma_optimizer.find_boundary_gammas()
+
+		self.gamma_optimizer.gamma_left = 0.01
+		self.gamma_optimizer.gamma_right = 10.0
+		print(f"Using manual left and right gamma settings: {self.gamma_optimizer.gamma_left} - "
+			 f"{self.gamma_optimizer.gamma_right}")
+
 		self.gamma_optimizer.find_elbow()
 
 		if plot:
