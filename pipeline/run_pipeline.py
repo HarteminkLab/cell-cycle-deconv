@@ -13,7 +13,7 @@ from src.config import load_default_chrom_configs, load_cloccs_configs
 
 # Global parameters
 WINDOWS_ALL_10K_PATH = "data/reference_data/sacCer3_genome_10k_windows.csv"
-DEFAULT_GAMMA = 0.07
+DEFAULT_GAMMA = 0.2
 DEFAULT_KAPPA = 0.01
 DEFAULT_ETA = 0.264
 
@@ -528,7 +528,7 @@ def run_gamma_kappa_eta_summary(output_directory):
 	plt.subplot(1, 3, 1)
 	plt.hist(gammas, bins=40)
 	plt.axvline(optimal_gamma, c='red', lw=1.5, ls='dotted')
-	plt.xlim(0, 0.1)
+	# plt.xlim(0, 0.1)
 	plt.title(f"$\\gamma^*=${optimal_gamma:.3f}")
 	plt.xlabel("$\\gamma$")
 	plt.ylabel("Frequency")
@@ -536,40 +536,40 @@ def run_gamma_kappa_eta_summary(output_directory):
 	plt.subplot(1, 3, 2)
 
 
-	if len(kappas) > 0:
-		optimal_kappa = statistics.mode(kappas)
-		# Let the function create its own bins
-		kappa_bin_width = 0.001
-		optimal_kappa = find_mode_float(kappas, kappa_bin_width)
-		kappas = np.array(kappas)
-	else:
-		optimal_kappa = None
+	# if len(kappas) > 0:
+	# 	kappas = np.array(kappas)
+	# 	optimal_kappa = statistics.mode(kappas)
+	# 	# Let the function create its own bins
+	# 	kappa_bin_width = 0.001
+	# 	optimal_kappa = find_mode_float(kappas, kappa_bin_width)
+	# else:
+	# 	optimal_kappa = None
 
-	# Use the same number of bins for matplotlib
-	n_bins = int((kappas.max() - kappas.min()) / kappa_bin_width)
-	plt.hist(kappas, bins=n_bins)
-	plt.axvline(optimal_kappa, c='red', lw=1.5, ls='dotted')
-	plt.title(f"$\\kappa^*=${optimal_kappa:.3f}")
-	plt.xlabel("$\\kappa$")
+	# # Use the same number of bins for matplotlib
+	# n_bins = int((kappas.max() - kappas.min()) / kappa_bin_width)
+	# plt.hist(kappas, bins=n_bins)
+	# plt.axvline(optimal_kappa, c='red', lw=1.5, ls='dotted')
+	# plt.title(f"$\\kappa^*=${optimal_kappa:.3f}")
+	# plt.xlabel("$\\kappa$")
 
-	plt.subplot(1, 3, 3)
-	plt.hist(etas, bins=20)
-	plt.xlim(0, 4)
-	plt.axvline(optimal_eta, c='red', lw=1.5, ls='dotted')
-	plt.title(f"$\\eta^*=${optimal_eta:.3f}")
-	plt.xlabel("$\\eta$")
+	# plt.subplot(1, 3, 3)
+	# plt.hist(etas, bins=20)
+	# plt.xlim(0, 4)
+	# plt.axvline(optimal_eta, c='red', lw=1.5, ls='dotted')
+	# plt.title(f"$\\eta^*=${optimal_eta:.3f}")
+	# plt.xlabel("$\\eta$")
 
 	plt.suptitle("Optimal regularization parameters for 100 random windows (of width 1000 bp)",
 		fontweight='demi', fontsize=16)
 
 	plt.tight_layout()
 
-	print(f"Optimal:\n"
-		  f"\tgamma:\t{optimal_gamma:.3f}\n" 
-		  f"\tkappa:\t{optimal_kappa:.3f}\n"
-		  f"\teta:\t{optimal_eta:.3f}")
+	# print(f"Optimal:\n"
+	# 	  f"\tgamma:\t{optimal_gamma:.3f}\n" 
+	# 	  f"\tkappa:\t{optimal_kappa:.3f}\n"
+	# 	  f"\teta:\t{optimal_eta:.3f}")
 
-	return kappas
+	# return kappas
 
 
 
