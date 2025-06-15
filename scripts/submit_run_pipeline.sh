@@ -16,8 +16,8 @@ OUTDIR=output/draft4_run/
 #ARGS="replication ${OUTDIR} ${REPLICATE} ${CHROM} ${NUM_EPOCHS} True"
 #sbatch -D ./slurm-logs/ --job-name="rep${REPLICATE}" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
-ARGS="combined_replication ${OUTDIR}"
-sbatch -D ./slurm-logs/ --job-name="rep${REPLICATE}" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+# ARGS="combined_replication ${OUTDIR}"
+# sbatch -D ./slurm-logs/ --job-name="rep${REPLICATE}" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
 # ---------- Expression deconvolution ----------------
 
@@ -70,4 +70,19 @@ sbatch -D ./slurm-logs/ --job-name="rep${REPLICATE}" --export="PYFILE=pipeline/r
 #sbatch -a 0-999%24 -D ./slurm-logs/ --job-name="imp_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
 #sbatch -a 0-216%24 -D ./slurm-logs/ --job-name="imp_2" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
 
-# ----------------------------------------------------------
+# ------------- Test windows for copy correction -----------------------------------
+
+ARGS="deconvolve_chromatin ${OUTDIR} 1037"
+sbatch -D ./slurm-logs/ --job-name="cc_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+ARGS="deconvolve_chromatin ${OUTDIR} 809"
+sbatch -D ./slurm-logs/ --job-name="cc_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+ARGS="deconvolve_chromatin ${OUTDIR} 1198"
+sbatch -D ./slurm-logs/ --job-name="cc_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+
+# No copy correction sample runs
+ARGS="deconvolve_chromatin_no_copy ${OUTDIR} 1037"
+sbatch -D ./slurm-logs/ --job-name="nocc_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+ARGS="deconvolve_chromatin_no_copy ${OUTDIR} 809"
+sbatch -D ./slurm-logs/ --job-name="nocc_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+ARGS="deconvolve_chromatin_no_copy ${OUTDIR} 1198"
+sbatch -D ./slurm-logs/ --job-name="nocc_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
