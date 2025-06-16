@@ -1,6 +1,6 @@
 #!/bin/bash
 #SBATCH --time=48:00:00
-#SBATCH --mem 12G
+#SBATCH --mem 128G
 #SBATCH -p compsci
 
 # Example run:

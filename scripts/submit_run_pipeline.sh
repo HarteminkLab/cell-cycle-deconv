@@ -35,15 +35,15 @@ OUTDIR=output/draft4_run/
 
 # -------------- Copy corrected full deconvolution ------------------
 
-ARGS="deconvolve_chromatin ${OUTDIR}"
-sbatch -a 0-999%16 -D ./slurm-logs/ --job-name="cc_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
-sbatch -a 0-216%16 -D ./slurm-logs/ --job-name="cc_2" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
+#ARGS="deconvolve_chromatin ${OUTDIR}"
+#sbatch -a 0-999%16 -D ./slurm-logs/ --job-name="cc_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+#sbatch -a 0-216%16 -D ./slurm-logs/ --job-name="cc_2" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
 
 # -------------- No copy correction ---------------------
 
-ARGS="deconvolve_chromatin_no_copy ${OUTDIR}"
-sbatch -a 0-999%16 -D ./slurm-logs/ --job-name="ncc_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
-sbatch -a 0-216%16 -D ./slurm-logs/ --job-name="ncc_2" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
+#ARGS="deconvolve_chromatin_no_copy ${OUTDIR}"
+#sbatch -a 0-999%16 -D ./slurm-logs/ --job-name="ncc_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+#sbatch -a 0-216%16 -D ./slurm-logs/ --job-name="ncc_2" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
 
 # --------------- Find antisense transcripts -----------------------
 
