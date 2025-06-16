@@ -413,6 +413,20 @@ def main():
 		fig3.plot_diagram_replication()
 		fig3.layout_panel()
 
+	elif command == 'figure4_copy_correction':
+
+		from pipeline.figure4_copy_correction import Figure4CopyCorrection
+
+		(_, command, output_dir) = system_args
+
+		fig4 = Figure4CopyCorrection(output_directory=output_dir)
+		fig4.load_copy_correction()
+		fig4.plot_all()
+		fig4.layout_panel()
+		from IPython.display import Image, display
+
+		display(Image(f'{fig4.save_dir}/Figure4_Copy_Correction_debug.png'))
+
 	else:
 
 		raise ValueError(f"Invalid command" + command)

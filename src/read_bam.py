@@ -130,8 +130,11 @@ def get_rna_seq_filepaths_df():
 	# First make a dataframe that contains the metadata and filepaths
 	# for the RNA-seq data. This will make things convenient
 	# for when we want to read from disk
-	path1 = '/Users/trung/Research/_archive/data/bam/cell_cycle/rna/replicate_1/'
-	path2 = '/Users/trung/Research/_archive/data/bam/cell_cycle/rna/replicate_2/'
+	parent_directory = '/Users/trung/Research/_archive/data/bam/cell_cycle/rna'
+
+	path1 = f'{parent_directory}/replicate_1/'
+	path2 = f'{parent_directory}/replicate_2/'
+
 	rows = []
 
 	rep1_ls = os.listdir(path1)
