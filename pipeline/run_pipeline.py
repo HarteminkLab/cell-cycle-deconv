@@ -69,6 +69,20 @@ def main():
 			length_dist_calculator2.all_length_dists)
 		plt.savefig(f"{length_replication_directory}/raw_distributions.png")
 
+	elif command == 'call_antisense':
+
+		from pipeline.antisense_transcripts_runner import AntisenseTranscriptRunner
+
+		(_, command, output_directory, chrom) = system_args
+		chrom = int(chrom)
+
+		antisense_runner = AntisenseTranscriptRunner(
+			output_directory=output_directory,
+			chromosome=chrom
+		)
+		
+		results = antisense_runner.run()
+
 	elif command == 'find_gamma_chromatin':
 
 		(_, command, output_directory, index) = system_args
