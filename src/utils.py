@@ -1,6 +1,7 @@
 
 import sys
 import os
+import psutil
 
 
 def parse_bool(s): return s.lower() in ['true', '1', 't', 'y', 'yes']
@@ -73,3 +74,12 @@ def load_dict_from_json(filepath):
 	with open(filepath, 'r') as file:
 		dictionary = json.load(file)
 	return dictionary
+
+
+def print_memory_usage(label=""):
+	process = psutil.Process(os.getpid())
+	memory_info = process.memory_info()
+	memory_mb = memory_info.rss / 1024 / 1024  # Convert to MB
+	memory_gb = memory_mb / 1024  # Convert to GB
+	print(f"Memory usage {label}: {memory_mb:.1f} MB ({memory_gb:.2f} GB)")
+	sys.stdout.flush()

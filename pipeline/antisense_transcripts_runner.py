@@ -6,7 +6,8 @@ from src.read_bam import read_rna_bam, get_rna_seq_filepaths_df
 from src.transcript_boundary_caller import AntisenseTranscriptCaller
 from src.transcript_boundary_visualizer import AntisenseTranscriptVisualizer
 from src.figure_configs import save_figure_for_paper
-from src.utils import mkdir_safe
+from src.utils import mkdir_safe, print_memory_usage
+import gc
 
 
 class AntisenseTranscriptRunner:
@@ -78,7 +79,7 @@ class AntisenseTranscriptRunner:
 		replicate_filepaths = rna_filepaths_df.loc[replicate]
 		
 		for i, (timepoint, row) in enumerate(replicate_filepaths.iterrows()):
-			time_rna_reads = read_rna_bam(row.full_path)
+			time_rna_reads = read_rna_bam(row.full_path, chroms=[chrom])
 			single_chrom_reads = time_rna_reads[time_rna_reads['chr'] == chrom].copy()
 			single_chrom_reads['sample'] = timepoint
 			all_chrom_reads_arr.append(single_chrom_reads)
@@ -87,6 +88,10 @@ class AntisenseTranscriptRunner:
 			
 			# Conserve memory
 			del time_rna_reads
+			collected = gc.collect()
+			print(f"Freed {collected} objects after timepoint {timepoint}")
+
+			print_memory_usage()
 			
 		return pd.concat(all_chrom_reads_arr)
 	
