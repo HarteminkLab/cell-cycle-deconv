@@ -229,48 +229,26 @@ class AntisenseTranscriptCaller:
 		return self.results_df
 
 	def annotate_transcript_gene_overlap(self, buffer: int = 100,
-										 column_name: str = 'overlapping_gene') -> pd.DataFrame:
-
+											column_name: str = 'overlapping_gene') -> pd.DataFrame:
 		"""
 		Annotate transcript boundaries with overlapping gene information.
-		
-		Adds a column to results_df indicating which gene (if any) each transcript
-		overlaps with on the same strand and chromosome. Non-overlapping transcripts
-		will have None in this column.
-		
-		Parameters:
-		-----------
-		genes_df : pd.DataFrame
-			Gene annotations with columns: chr, start, end, strand
-			Index should contain gene identifiers (orf_name)
-		buffer : int
-			Buffer distance around gene boundaries in bp (default: 500)
-		column_name : str
-			Name for the new annotation column (default: 'overlapping_gene')
-			
-		Returns:
-		--------
-		pd.DataFrame
-			Original results_df with added gene overlap annotation column
+		For multiple overlapping genes, selects the 5' most gene.
 		"""
-
 		from src.sgd import read_sgd_genes
 		genes_df = read_sgd_genes(remove_chr_roman=True)
 		
 		if self.results_df is None:
 			raise ValueError("No transcript results available. Run detect_transcript_boundaries() first.")
 		
-		self._log_time(f"Starting transcript gene annotation with {buffer}bp buffer")
+		self._log_time(f"Starting transcript gene annotation with {buffer}bp buffer (5' most priority)")
 		
 		# Filter genes to current chromosome
 		chromosome_genes = genes_df[genes_df['chr'] == self.chromosome].copy()
 		
 		if len(chromosome_genes) == 0:
-			self._log_time(f"No genes found on chromosome {self.chromosome}, all transcripts marked as non-overlapping")
+			self._log_time(f"No genes found on chromosome {self.chromosome}")
 			self.results_df[column_name] = None
 			return self.results_df
-		
-		self._log_time(f"Found {len(chromosome_genes)} genes on chromosome {self.chromosome}")
 		
 		# Initialize annotation column
 		gene_annotations = []
@@ -284,31 +262,54 @@ class AntisenseTranscriptCaller:
 			# Filter genes to same strand
 			same_strand_genes = chromosome_genes[chromosome_genes['strand'] == transcript_strand]
 			
-			# Find overlapping gene
-			overlapping_gene = None
+			# Find ALL overlapping genes
+			overlapping_genes = []
 			
 			for gene_orf_name, gene in same_strand_genes.iterrows():
 				gene_start_buffered = gene['start'] - buffer
 				gene_end_buffered = gene['stop'] + buffer
 				
-				# Check for overlap: transcript overlaps if it intersects the buffered gene region
+				# Check for overlap
 				if (transcript_start <= gene_end_buffered and 
 					transcript_end >= gene_start_buffered):
-					overlapping_gene = gene_orf_name
-					break  # Take first overlapping gene found
+					overlapping_genes.append((gene_orf_name, gene['start']))
 			
-			gene_annotations.append(overlapping_gene)
+			# Select the 5' most gene among overlapping genes
+			if overlapping_genes:
+				if transcript_strand == '+':
+					# Watson: 5' most = leftmost = minimum start
+					selected_gene = min(overlapping_genes, key=lambda x: x[1])[0]
+				else:
+					# Crick: 5' most = rightmost = maximum start  
+					selected_gene = max(overlapping_genes, key=lambda x: x[1])[0]
+			else:
+				selected_gene = None
+			
+			gene_annotations.append(selected_gene)
 		
 		# Add annotation column to results
 		self.results_df[column_name] = gene_annotations
 		
-		# Log results
+		# Enhanced logging
 		total_transcripts = len(self.results_df)
 		overlapping_count = sum(1 for x in gene_annotations if x is not None)
-		non_overlapping_count = total_transcripts - overlapping_count
+		
+		# Count multiple overlaps for reporting
+		multiple_overlap_count = 0
+		for _, transcript in self.results_df.iterrows():
+			same_strand_genes = chromosome_genes[chromosome_genes['strand'] == transcript['strand']]
+			overlaps = []
+			for _, gene in same_strand_genes.iterrows():
+				gene_start_buffered = gene['start'] - buffer
+				gene_end_buffered = gene['stop'] + buffer
+				if (transcript['start'] <= gene_end_buffered and 
+					transcript['end'] >= gene_start_buffered):
+					overlaps.append(gene.name)
+			if len(overlaps) > 1:
+				multiple_overlap_count += 1
 		
 		self._log_time(f"Annotation complete: {overlapping_count} transcripts overlap with genes, "
-					   f"{non_overlapping_count} are non-overlapping (potential antisense/intergenic)")
+					   f"{multiple_overlap_count} had multiple overlaps (5' most selected)")
 		
 		return self.results_df
 
