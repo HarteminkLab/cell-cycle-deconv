@@ -126,11 +126,15 @@ def _fromRoman(roman):
 		return -1
 
 
-def get_rna_seq_filepaths_df():
+def get_rna_seq_filepaths_df(on_cluster=False):
 	# First make a dataframe that contains the metadata and filepaths
 	# for the RNA-seq data. This will make things convenient
 	# for when we want to read from disk
-	parent_directory = '/Users/trung/Research/_archive/data/bam/cell_cycle/rna'
+
+	if on_cluster:
+		parent_directory = '/usr/xtmp/tqtran/data/cell_cycle/rna'
+	else:
+		parent_directory = '/Users/trung/Research/_archive/data/bam/cell_cycle/rna'
 
 	path1 = f'{parent_directory}/replicate_1/'
 	path2 = f'{parent_directory}/replicate_2/'

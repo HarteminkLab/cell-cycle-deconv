@@ -90,14 +90,14 @@ class AntisenseTranscriptRunner:
 			
 		return pd.concat(all_chrom_reads_arr)
 	
-	def load_pileup_data(self):
+	def load_pileup_data(self, on_cluster):
 		"""
 		Load RNA-seq pileup data for both replicates of the specified chromosome.
 		"""
 		print(f"Loading pileup data for chromosome {self.chromosome}")
 		
 		# Get RNA-seq file paths
-		rna_filepaths_df = get_rna_seq_filepaths_df().set_index(['replicate', 'time'])
+		rna_filepaths_df = get_rna_seq_filepaths_df(on_cluster).set_index(['replicate', 'time'])
 		
 		# Load reads for both replicates
 		print("Loading replicate 1...")
@@ -168,7 +168,7 @@ class AntisenseTranscriptRunner:
 		save_figure_for_paper(plot_file)
 		print(f"Saved distribution plot to: {plot_file}")
 	
-	def run(self):
+	def run(self, on_cluster):
 		"""
 		Run the complete antisense transcript calling pipeline.
 		
@@ -183,7 +183,7 @@ class AntisenseTranscriptRunner:
 		# Step 1 & 2: Setup and chromosome selection (done in __init__)
 		
 		# Step 3: Load pileup data
-		self.load_pileup_data()
+		self.load_pileup_data(on_cluster)
 		
 		# Step 4 & 5: Find transcript boundaries and classify gene associations
 		self.detect_transcripts()

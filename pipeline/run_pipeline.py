@@ -81,7 +81,7 @@ def main():
 			chromosome=chrom
 		)
 		
-		results = antisense_runner.run()
+		results = antisense_runner.run(on_cluster=True)
 
 	elif command == 'find_gamma_chromatin':
 
