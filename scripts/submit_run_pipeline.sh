@@ -50,6 +50,11 @@ OUTDIR=output/draft4_run/
 ARGS="call_transcripts ${OUTDIR}"
 sbatch -a 1-16%8 -D ./slurm-logs/ --job-name="txb" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
 
+# --------------- Compute TPM -------------------------------------
+
+ARGS="compute_tpms ${OUTDIR}"
+sbatch -D ./slurm-logs/ --job-name="tpm" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+
 # ------------- Test windows for copy correction -----------------------------------
 
 # ARGS="deconvolve_chromatin ${OUTDIR} 1037"
