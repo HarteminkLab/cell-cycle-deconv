@@ -480,11 +480,6 @@ def main():
 def deconvolve_chromatin(chromatin_save_directory, chrom, span,
 	copy_correct=True, gamma=0.0066, kappa=1, eta=0):
 
-
-
-	span = (10000, 10200)
-	print_fl(f"** WARNING TEST SPAN **")
-
 	# Load the configs from disk
 	config1, config2 = load_default_chrom_configs()
 
