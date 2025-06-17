@@ -195,18 +195,6 @@ class CombinedChromatinModel:
 		plot_branches(self.chrom1_model.config, self.chrom1_model.chr,
 			self.chrom1_model.mnase_span, F, figsize=figsize, vmax=30)
 
-	# def plot_raw_prediction(self, replicate, vmax=20):
-	# 	"""Plot the resulting comparison between the raw and predicted data"""
-
-	# 	if replicate == 1:
-	# 		title = self.chrom1_model.define_title().replace("Combined", "Combined-Rep.1")
-	# 		fig = self.chrom1_model.plot_prediction_comparison(self.pred_G1, title, vmax)
-	# 	else:
-	# 		title = self.chrom1_model.define_title().replace("Combined", "Combined-Rep.2")
-	# 		fig = self.chrom2_model.plot_prediction_comparison(self.pred_G2, title, vmax)
-
-	# 	return fig
-
 
 	def plot_normalization_sanity_check(self):
 

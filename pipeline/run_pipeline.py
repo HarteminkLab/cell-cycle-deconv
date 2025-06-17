@@ -506,11 +506,11 @@ def deconvolve_chromatin(chromatin_save_directory, chrom, span,
 
 		# Plot raw data
 		fig = combined_model.chrom1_model.plot_raw_data(figsize=(11, 11))
-		plt.savefig(f"{raw_plots_directory}/raw_rep1_{save_title}.png")
+		save_figure_for_paper(f"{raw_plots_directory}/raw_rep1_{save_title}.png")
 		plt.close(fig)
 
 		fig = combined_model.chrom2_model.plot_raw_data(figsize=(11, 11))
-		plt.savefig(f"{raw_plots_directory}/raw_rep2_{save_title}.png")
+		save_figure_for_paper(f"{raw_plots_directory}/raw_rep2_{save_title}.png")
 		plt.close(fig)
 
 		combined_model.setup_deconv_model(copy_correct=copy_correct)
@@ -527,7 +527,7 @@ def deconvolve_chromatin(chromatin_save_directory, chrom, span,
 
 			save_elbow_path = f"{deconv_plots_directory}/{save_title}_elbow.png"
 			combined_model.find_gamma_chromatin.plot_gamma_sweep()
-			plt.savefig(save_elbow_path)
+			save_figure_for_paper(save_elbow_path)
 
 		# Normal run, deconvolve and save results
 		else:
@@ -535,7 +535,7 @@ def deconvolve_chromatin(chromatin_save_directory, chrom, span,
 				verbose=True)	
 			np.save(f"{data_directory}/{save_title}_F.npy", combined_model.F)
 			combined_model.plot_branches(figsize=(50, 11))
-			plt.savefig(f"{deconv_plots_directory}/deconv_{save_title}.png")
+			save_figure_for_paper(f"{deconv_plots_directory}/deconv_{save_title}.png")
 			plt.close(fig)
 
 	deconv_and_save(chrom, span, chromatin_save_directory)

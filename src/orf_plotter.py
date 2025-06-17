@@ -440,10 +440,16 @@ def plot_gene_annotation(ax, start, end, y_baseline, height, color,
 	# plot_TSS_PAS(ax, start, end, TSS, PAS, 
 	# 			y_baseline, height, color, flipped=watson, inset=inset[1])
 
-def load_default_orf_plotter():
+
+def load_default_orf_plotter(output_directory='output/draft4_run'):
 	from src.sgd import read_sgd_genes, read_nondubious_genes_dataset, \
 		load_origins_sgd, load_aux_annotations
 	from src.orf_plotter import ORFAnnotationPlotter
+	from src.orf_plotter import load_default_orf_plotter
+	from src.transcripts_dataset import load_transcripts_sets
+
+	# todo: loading output from draft run
+	nondub_genes, _ = load_transcripts_sets(output_directory)
 
 	aux_annotations = load_aux_annotations()
 	origins = load_origins_sgd()
@@ -451,7 +457,6 @@ def load_default_orf_plotter():
 	all_genes = read_sgd_genes(remove_chr_roman=True)
 
 	# Nondubious genes, these have the proper columns for orf plotting
-	nondub_genes = read_nondubious_genes_dataset()
 	all_genes = all_genes.join(nondub_genes[['TSS', 'PAS']])
 
 	orf_plotter = ORFAnnotationPlotter(all_genes, origins, aux_annotations)
