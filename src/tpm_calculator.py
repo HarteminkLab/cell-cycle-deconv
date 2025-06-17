@@ -63,7 +63,8 @@ class TPMGenerator:
 		
 		return all_times_read_counts, tpm_values
 	
-	def process_multiple_replicates(self, bam_df, replicate_ids=None, verbose=True):
+	def process_multiple_replicates(self, bam_df, replicate_ids=None, verbose=True,
+		chroms=range(1, 17)):
 		"""
 		Convenience method to process multiple replicates and save all results.
 		
@@ -84,7 +85,7 @@ class TPMGenerator:
 				print(f"\n=== Processing Replicate {rep_id} ===")
 			
 			replicate_bam = bam_df[bam_df.replicate == rep_id]
-			read_counts, tpm_values = self.process_replicate(replicate_bam, verbose=verbose)
+			read_counts, tpm_values = self.process_replicate(replicate_bam, verbose=verbose, chroms=chroms)
 			self.save_results(read_counts, tpm_values, rep_id)
 	
 	def save_results(self, read_counts, tpm_values, replicate_id):
