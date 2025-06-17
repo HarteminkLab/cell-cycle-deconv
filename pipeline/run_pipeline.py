@@ -119,7 +119,7 @@ def main():
 		tpm_generator = TPMGenerator(combined_gene_nongenic, output_directory)
 
 		bam_df = get_rna_seq_filepaths_df(on_cluster=True)
-		tpm_generator.process_multiple_replicates(replicate_bam)
+		tpm_generator.process_multiple_replicates(bam_df)
 
 	elif command == 'find_gamma_chromatin':
 
