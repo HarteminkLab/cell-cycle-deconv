@@ -69,12 +69,11 @@ class CombinedDeconvolveGeneExpressionRunner:
 
 
 	def deconvolve_gene_optimal_gamma(self, gene_name, replicate='combined', kappa=0.0, 
-									 eta=0.0, verbose=False, alphas=None, num_g1_indices=None, 
-									 override_G=None):
+									 eta=0.0, verbose=False, alphas=None, num_g1_indices=None):
 		"""
 		Deconvolve a specific gene's expression to find optimal gamma.
 		"""
-		from src.gene_expression import load_gene_expression
+		from src.gene_expression import load_transcription_for_name
 		from src.sgd import get_orfname
 		from src.CombinedReplicationDeconvolution import concatenate_G
 
@@ -82,9 +81,18 @@ class CombinedDeconvolveGeneExpressionRunner:
 		self.gene_name = gene_name
 		self.orf_name = get_orfname(gene_name)
 
+		return self.deconvolve_transcript_optimal_gamma(self.orf_name, replicate=replicate, kappa=kappa,
+			eta=eta, verbose=verbose, alphas=alphas, num_g1_indices=num_g1_indices)
+
+	def deconvolve_transcript_optimal_gamma(self, orf_or_transcript_name, replicate='combined', kappa=0.0, 
+									 eta=0.0, verbose=False, alphas=None, num_g1_indices=None):
+
+		from src.gene_expression import load_transcription_for_name
+		from src.CombinedReplicationDeconvolution import concatenate_G
+
 		# Load gene expression data if not overridden
-		gene_expression_replicate1 = load_gene_expression(gene_name, 1, log_transform=True)
-		gene_expression_replicate2 = load_gene_expression(gene_name, 2, log_transform=True)
+		gene_expression_replicate1 = load_transcription_for_name(orf_or_transcript_name, 1, log_transform=True)
+		gene_expression_replicate2 = load_transcription_for_name(orf_or_transcript_name, 2, log_transform=True)
 
 		if replicate == 'combined':
 			# Concatenate H and G for combined replicate

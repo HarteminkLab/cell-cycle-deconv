@@ -271,17 +271,18 @@ def main():
 
 		from src.geneset import get_deconvolved_geneset
 		from pipeline.CombinedDeconvolveGeneExpressionRunner import CombinedDeconvolveGeneExpressionRunner
-
-		genes = get_deconvolved_geneset()
+		from src.transcripts_dataset import load_transcripts_sets
+		from src.timer import Timer
+		import cvxpy as cp
 
 		print_fl(f"Deconvolve gene expression for all genes")
 		(_, command, output_directory) = system_args
 
-		from src.timer import Timer
-		import cvxpy as cp
+		combined_transcripts_set = load_transcripts_sets(output_directory, combined=True)
 
-		# Default kappa is set to 0, no regularization of MG1/DG1 differences
-		kappa = 0.0
+		# Kappa and eta are empirical values. todo: methodology to identify proper parameter selection
+		kappa = 0.001
+		eta = 0.265
 
 		timer = Timer()
 
@@ -291,16 +292,15 @@ def main():
 		runner = CombinedDeconvolveGeneExpressionRunner(output_directory)
 
 		index = 0
-		for _, gene in genes.iterrows():
+		for transcript_name, transcript_row in combined_transcripts_set.iterrows():
 
 			index += 1
 
-			gene_name = gene['gene']
-
-			print_fl(f"[{index}/{len(genes)}] Deconvolving {gene_name}", end="...")
+			print_fl(f"[{index}/{len(genes)}] Deconvolving {transcript_name}", end="...")
 			
 			try: 
-				expression_find_gamma = runner.deconvolve_gene(gene_name, kappa)
+				expression_find_gamma = runner.deconvolve_transcript_optimal_gamma(transcript_name, 
+					kappa=kappa, eta=eta)
 			except cp.error.SolverError:
 				print_fl(f"  Failed. Skipping.")
 				continue
