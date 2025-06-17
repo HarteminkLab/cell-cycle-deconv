@@ -1,4 +1,5 @@
 
+from src.utils import print_fl
 
 
 class TPMGenerator:
@@ -50,14 +51,14 @@ class TPMGenerator:
 		for _, row in replicate_bam_df.iterrows():
 			time = row.time
 			if verbose:
-				print(f"Reading BAM file for time {time} minutes")
+				print_fl(f"Reading BAM file for time {time} minutes")
 
 			rna_reads = read_rna_bam(row.full_path, time, timer, chroms=chroms, log=True)
 			orf_reads = calculate_read_counts(self.transcript_boundaries_sets, rna_reads)
 			all_times_read_counts.loc[:, time] = orf_reads
 
 			if verbose:
-				print(f"Done. {timer.get_time()}")
+				print_fl(f"Done. {timer.get_time()}")
 		
 		tpm_values = convert_to_TPM_all_times(all_times_read_counts, self.transcript_boundaries_sets['length'])
 		
@@ -82,7 +83,7 @@ class TPMGenerator:
 		
 		for rep_id in replicate_ids:
 			if verbose:
-				print(f"\n=== Processing Replicate {rep_id} ===")
+				print_fl(f"\n=== Processing Replicate {rep_id} ===")
 			
 			replicate_bam = bam_df[bam_df.replicate == rep_id]
 			read_counts, tpm_values = self.process_replicate(replicate_bam, verbose=verbose, chroms=chroms)
@@ -110,5 +111,5 @@ class TPMGenerator:
 		read_counts.to_csv(f'{tpm_dir}/replicate{replicate_id}_gene_expression_counts.csv')
 		tpm_values.to_csv(f'{tpm_dir}/replicate{replicate_id}_gene_expression_TPM.csv')
 		
-		print(f"Saved results for replicate {replicate_id} to {tpm_dir}")
+		print_fl(f"Saved results for replicate {replicate_id} to {tpm_dir}")
 

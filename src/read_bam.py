@@ -2,6 +2,7 @@
 import os
 import pysam
 import pandas as pd
+from src.utils import print_fl
 
 
 def read_mnase_bam(filename, sample=None, timer=None, chroms=list(range(1, 17)),
@@ -22,7 +23,7 @@ def read_mnase_bam(filename, sample=None, timer=None, chroms=list(range(1, 17)),
 	for chrom in chroms:
 
 		if log:
-			print(f"Chromosome {chrom} - {timer.get_time()}")
+			print_fl(f"Chromosome {chrom} - {timer.get_time()}")
 
 		# get chromosome reads
 		try:
@@ -66,7 +67,7 @@ def read_rna_bam(filename, sample=None, timer=None, chroms=range(1, 17), log=Fal
 	for chrom in chroms:
 
 		if log:
-			print(f"{chrom}", end="..")
+			print_fl(f"{chrom}", end="..")
 
 		# get chromosome reads
 		try:
