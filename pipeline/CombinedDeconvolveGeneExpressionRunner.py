@@ -80,6 +80,7 @@ class CombinedDeconvolveGeneExpressionRunner:
 		# Set gene-specific instance variables
 		self.gene_name = gene_name
 		self.orf_name = get_orfname(gene_name)
+		self.save_name = f"{self.orf_name}_{self.gene_name}"
 
 		return self.deconvolve_transcript_optimal_gamma(self.orf_name, replicate=replicate, kappa=kappa,
 			eta=eta, verbose=verbose, alphas=alphas, num_g1_indices=num_g1_indices)
@@ -93,6 +94,17 @@ class CombinedDeconvolveGeneExpressionRunner:
 		# Load gene expression data if not overridden
 		gene_expression_replicate1 = load_transcription_for_name(orf_or_transcript_name, 1, log_transform=True)
 		gene_expression_replicate2 = load_transcription_for_name(orf_or_transcript_name, 2, log_transform=True)
+
+		from src.sgd import get_gene_name
+
+		self.save_name = f"{orf_or_transcript_name}"
+
+		# If deconvolving a gene update save name
+		try:
+			self.gene_name = get_gene_name(orf_or_transcript_name)
+			self.save_name = f"{orf_or_transcript_name}_{self.gene_name}"
+		except:
+			self.gene_name = None
 
 		if replicate == 'combined':
 			# Concatenate H and G for combined replicate
@@ -196,8 +208,8 @@ class CombinedDeconvolveGeneExpressionRunner:
 		expression_F = self.expression_find_gamma.retrieve_solution()
 		optimal_gamma = self.expression_find_gamma.gamma_optimizer.optimal_gamma
 
-		F_savepath = f"{output_directory}/{self.orf_name}_{self.gene_name}_{optimal_gamma:.6f}.npy"
-		fig_savepath = f"{output_directory}/{self.orf_name}_{self.gene_name}.png"
+		F_savepath = f"{output_directory}/{self.save_name}_{optimal_gamma:.6f}.npy"
+		fig_savepath = f"{output_directory}/{self.save_name}.png"
 
 		np.save(F_savepath, expression_F)
 

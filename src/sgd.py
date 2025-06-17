@@ -88,6 +88,7 @@ def get_gene(genename_or_orfname, genes=read_sgd_genes()):
 
 	return found_genes.iloc[0]
 
+
 def get_gene_name(orf_name, genes=read_sgd_genes()):
 	return get_gene(orf_name, genes).gene
 
