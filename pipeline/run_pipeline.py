@@ -296,7 +296,7 @@ def main():
 
 			index += 1
 
-			print_fl(f"[{index}/{len(genes)}] Deconvolving {transcript_name}", end="...")
+			print_fl(f"[{index}/{len(combined_transcripts_set)}] Deconvolving {transcript_name}", end="...")
 			
 			try: 
 				expression_find_gamma = runner.deconvolve_transcript_optimal_gamma(transcript_name, 
