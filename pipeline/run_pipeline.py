@@ -108,7 +108,7 @@ def main():
 	elif command == 'compute_tpms':
 
 		# Compute the TPMs for the gene and non-genic sets
-		(_, command, output_directory, index) = system_args
+		(_, command, output_directory) = system_args
 
 		from src.transcripts_dataset import load_transcripts_sets
 		from src.tpm_calculator import TPMGenerator

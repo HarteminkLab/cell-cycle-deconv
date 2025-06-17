@@ -101,9 +101,9 @@ class TranscriptDatasetBuilder:
 		from src.sgd_dataset_helpers import define_genomic_region
 
 		new_sgd_genes = define_genomic_region(new_sgd_genes, 'TSS', (-300, 0),
-		                     ['promoter_start', 'promoter_end'])
+							 ['promoter_start', 'promoter_end'])
 		new_sgd_genes = define_genomic_region(new_sgd_genes, 'TSS', (0, 500),
-		                     ['gene_body_start', 'gene_body_end'])
+							 ['gene_body_start', 'gene_body_end'])
 
 		self.updated_sgd_genes = new_sgd_genes
 
@@ -117,14 +117,14 @@ class TranscriptDatasetBuilder:
 		nongenic_transcripts = self.filtered_nongenic_transcripts.copy()
 
 		nongenic_transcripts = define_new_strand_specific_key(nongenic_transcripts, 'TSS', 
-		    'start', 'end')
+			'start', 'end')
 		nongenic_transcripts = define_new_strand_specific_key(nongenic_transcripts, 'PAS', 
-		    'end', 'start')
+			'end', 'start')
 
 		nongenic_transcripts = define_genomic_region(nongenic_transcripts, 'TSS', (-300, 0),
-		                     ['promoter_start', 'promoter_end'])
+							 ['promoter_start', 'promoter_end'])
 		nongenic_transcripts = define_genomic_region(nongenic_transcripts, 'TSS', (0, 500),
-		                     ['transcript_body_start', 'transcript_body_end'])
+							 ['transcript_body_start', 'transcript_body_end'])
 		nongenic_transcripts.index.name = 'transcript_name'
 		nongenic_transcripts = nongenic_transcripts.rename(columns={'chromosome': 'chr',
 			'end': 'stop'})
@@ -343,16 +343,16 @@ def compare_all_chromosomes_TSS(combined_rna_TSSes, reference_tss_column='TSS', 
 	return tss_comparison
 
 def load_transcripts_sets(output_dir, combined=False):
-    geneset = pd.read_csv(f"{output_dir}/transcripts_calling/updated_transcripts_geneset.csv")
-    nongenic_set = pd.read_csv(f"{output_dir}/transcripts_calling/nongenic_transcripts_set.csv")
-    geneset = geneset.set_index('orf_name')
-    nongenic_set = nongenic_set.set_index('transcript_name')
+	geneset = pd.read_csv(f"{output_dir}/transcripts_calling/updated_transcripts_geneset.csv")
+	nongenic_set = pd.read_csv(f"{output_dir}/transcripts_calling/nongenic_transcripts_set.csv")
+	geneset = geneset.set_index('orf_name')
+	nongenic_set = nongenic_set.set_index('transcript_name')
 
-    # Combined dataset with common keys
-    if combined:
+	# Combined dataset with common keys
+	if combined:
 		preserve_keys = ['chr', 'strand', 'start', 'stop', 'length']
 		combined_gene_nongenic = pd.concat([geneset[preserve_keys], nongenic_set[preserve_keys]])
 		return combined_gene_nongenic
-    
-    return geneset, nongenic_set
+	
+	return geneset, nongenic_set
 
