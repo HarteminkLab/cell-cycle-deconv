@@ -45,10 +45,10 @@ OUTDIR=output/draft4_run/
 #sbatch -a 0-999%16 -D ./slurm-logs/ --job-name="ncc_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
 #sbatch -a 0-216%16 -D ./slurm-logs/ --job-name="ncc_2" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
 
-# --------------- Find antisense transcripts -----------------------
+# --------------- Find all transcripts boundaries -----------------------
 
-ARGS="call_antisense ${OUTDIR}"
-sbatch -a 1-16%8 -D ./slurm-logs/ --job-name="anti" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+ARGS="call_transcripts ${OUTDIR}"
+sbatch -a 1-16%8 -D ./slurm-logs/ --job-name="txb" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
 
 # ------------- Test windows for copy correction -----------------------------------
 

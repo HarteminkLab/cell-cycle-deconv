@@ -61,7 +61,8 @@ def filter_rna_seq_pileup(pileup, start=None, end=None, chrom=None,
     return pileup[select].copy()
 
 
-def calculate_read_counts(orfs, rna_seq, sample_key='count'):
+def calculate_read_counts(transcript_boundaries_set, rna_seq, boundary_keys=('start', 'stop'),
+    sample_key='count'):
     """Get RNA-seq read counts and TPM
 
         When introns are counted, equivalent to using to R package Rsubread::featuresCounts:
@@ -81,20 +82,22 @@ def calculate_read_counts(orfs, rna_seq, sample_key='count'):
                         GTF.attrType='ID')
     """
 
-    read_counts = orfs[[]].copy()
+    read_counts = transcript_boundaries_set[[]].copy()
     read_counts[sample_key] = 0
+
+    start_key, stop_key = boundary_keys
 
     for chrom in range(1, 17):
 
-        chrom_orfs = orfs[orfs.chr == chrom]
+        chrom_rows = transcript_boundaries_set[transcript_boundaries_set.chr == chrom]
         chrom_rna_seq = filter_rna_seq(rna_seq, chrom=chrom)
         
-        for idx, orf in chrom_orfs.iterrows():
-            orf_rna_seq = filter_rna_seq(chrom_rna_seq, start=orf.start, end=orf.stop)
-            strand_select = (orf_rna_seq.strand == orf.strand)
+        for idx, row in chrom_rows.iterrows():
+            row_rna_seq = filter_rna_seq(chrom_rna_seq, start=row[start_key], end=row[stop_key])
+            strand_select = (row_rna_seq.strand == row.strand)
 
-            cur_orf_read_counts = orf_rna_seq[strand_select]
-            read_counts.loc[idx, sample_key] = len(cur_orf_read_counts)
+            cur_row_read_counts = row_rna_seq[strand_select]
+            read_counts.loc[idx, sample_key] = len(cur_row_read_counts)
 
     return read_counts
 

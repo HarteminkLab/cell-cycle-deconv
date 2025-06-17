@@ -152,22 +152,28 @@ def read_park_TSS_PAS():
 
 	TSS = _read_park_gff(TSS_filename, 'TSS')
 
+	# Updated annotations from cadmium paper, omit for this dataset
 	# manually annotated/adjusted TSSs for vignettes
-	TSS.loc['YBR072W', 'TSS'] = 381753
-	TSS.loc['YDR253C', 'TSS'] = 964767
-	TSS.loc['YBR294W', 'TSS'] = 789000
-	TSS.loc['YLR092W', 'TSS'] = 323500
-	TSS.loc['YOL164W', 'TSS'] = 6000
+	# TSS.loc['YBR072W', 'TSS'] = 381753
+	# TSS.loc['YDR253C', 'TSS'] = 964767
+	# TSS.loc['YBR294W', 'TSS'] = 789000
+	# TSS.loc['YLR092W', 'TSS'] = 323500
+	# TSS.loc['YOL164W', 'TSS'] = 6000
 
 	PAS = _read_park_gff(PAS_filename, 'PAS')
 	data = TSS[['TSS']].join(PAS[['PAS']])
 
-	data['manually_curated'] = False
-	data.loc['YBR072W', 'manually_curated'] = True
-	data.loc['YDR253C', 'manually_curated'] = True
-	data.loc['YBR294W', 'manually_curated'] = True
-	data.loc['YLR092W', 'manually_curated'] = True
-	data.loc['YOL164W', 'manually_curated'] = True
+	# data['manually_curated'] = False
+	# data.loc['YBR072W', 'manually_curated'] = True
+	# data.loc['YDR253C', 'manually_curated'] = True
+	# data.loc['YBR294W', 'manually_curated'] = True
+	# data.loc['YLR092W', 'manually_curated'] = True
+	# data.loc['YOL164W', 'manually_curated'] = True
+
+	# Include strand and gene information if needed
+	sgd_genes = read_sgd_genes()
+	data = data.join(sgd_genes[['gene', 'strand']], how='left')
+	data = data.rename(columns={'TSS': 'Park_TSS', 'PAS': 'Park_PAS'})
 
 	return data
 
@@ -193,6 +199,16 @@ def get_chromosome_length(chrom):
 
 
 def read_nondubious_genes_dataset():
+
+	genes = read_sgd_genes()
+	genes = genes[~(genes.classification == 'Dubious')]
+	genes['chr'] = genes.chr.str.replace('chr', '').apply(_fromRoman)
+	genes = genes[genes['chr'] > 0]
+
+	return genes
+
+
+def read_geneset_with_computed_regions():
 	genes_nondub = pd.read_csv('data/reference_data/geneset_nondub_w_prom_genebodies.csv').set_index('orf_name')
 	return genes_nondub
 
@@ -335,45 +351,38 @@ def select_genes_in_window(orfs, chrom, span, orf_classes=
 	return genes
 
 
-def construct_orf_annotation_dataset():
-	"""Create dataset for orf annotation using park TSS and PAS. Define the left and right
-	end boundaries for easy window finding computation"""
-	from src.sgd import read_park_TSS_PAS, read_nondubious_genes_dataset
+# def construct_orf_annotation_dataset():
+# 	"""Create dataset for orf annotation using park TSS and PAS. Define the left and right
+# 	end boundaries for easy window finding computation"""
+# 	from src.sgd import read_park_TSS_PAS, read_nondubious_genes_dataset
 
-	genes = read_nondubious_genes_dataset()
-	gene_TSS_PASs = read_park_TSS_PAS()
+# 	genes = read_nondubious_genes_dataset()
+# 	gene_TSS_PASs = read_park_TSS_PAS()
 
-	joined_genes_TSS_PASs = genes[genes.columns[~genes.columns.isin(['TSS', 'PAS'])]].join(
-	gene_TSS_PASs[['TSS', 'PAS']])
+# 	joined_genes_TSS_PASs = genes[genes.columns[~genes.columns.isin(['Park_PAS', 'Park_TSS'])]].join(
+# 	gene_TSS_PASs[['Park_TSS', 'Park_PAS']])
 
+	# joined_genes_TSS_PASs = joined_genes_TSS_PASs.rename(columns={'TSS': 'Park_TSS', 'PAS': 'Park_PAS'})
 
-	joined_genes_TSS_PASs = joined_genes_TSS_PASs.rename(columns={'TSS': 'park_TSS', 'PAS': 'park_PAS'})
+	# joined_genes_TSS_PASs['TSS'] = joined_genes_TSS_PASs['Park_TSS']
+	# joined_genes_TSS_PASs['PAS'] = joined_genes_TSS_PASs['Park_PAS']
 
-	joined_genes_TSS_PASs['TSS'] = joined_genes_TSS_PASs['park_TSS']
-	joined_genes_TSS_PASs['PAS'] = joined_genes_TSS_PASs['park_PAS']
+	# is_watson = genes['strand'] == '+'
+	# tss_is_nan = np.isnan(joined_genes_TSS_PASs.TSS)
+	# pas_is_nan = np.isnan(joined_genes_TSS_PASs.PAS)
 
-	is_watson = genes['strand'] == '+'
-	tss_is_nan = np.isnan(joined_genes_TSS_PASs.TSS)
-	pas_is_nan = np.isnan(joined_genes_TSS_PASs.PAS)
+	# def set_field_w_existing_col(dat, selection, key, val_key):
+	#     dat.loc[selection, key] = dat.loc[selection, val_key]
+	#     return dat
 
-	def set_field_w_existing_col(dat, selection, key, val_key):
-	    dat.loc[selection, key] = dat.loc[selection, val_key]
-	    return dat
+	# set_field_w_existing_col(joined_genes_TSS_PASs, (is_watson & tss_is_nan), 'TSS', 'start')
+	# set_field_w_existing_col(joined_genes_TSS_PASs, (is_watson & pas_is_nan), 'PAS', 'stop')
+	# set_field_w_existing_col(joined_genes_TSS_PASs, (~is_watson & tss_is_nan), 'TSS', 'stop')
+	# set_field_w_existing_col(joined_genes_TSS_PASs, (~is_watson & pas_is_nan), 'PAS', 'start')
 
-	set_field_w_existing_col(joined_genes_TSS_PASs, (is_watson & tss_is_nan), 'TSS', 'start')
-	set_field_w_existing_col(joined_genes_TSS_PASs, (is_watson & pas_is_nan), 'PAS', 'stop')
-	set_field_w_existing_col(joined_genes_TSS_PASs, (~is_watson & tss_is_nan), 'TSS', 'stop')
-	set_field_w_existing_col(joined_genes_TSS_PASs, (~is_watson & pas_is_nan), 'PAS', 'start')
+	# set_field_w_existing_col(joined_genes_TSS_PASs, (is_watson & tss_is_nan), 'TSS', 'start')
+	# set_field_w_existing_col(joined_genes_TSS_PASs, (is_watson & pas_is_nan), 'PAS', 'stop')
+	# set_field_w_existing_col(joined_genes_TSS_PASs, (~is_watson & tss_is_nan), 'TSS', 'stop')
+	# set_field_w_existing_col(joined_genes_TSS_PASs, (~is_watson & pas_is_nan), 'PAS', 'start')
 
-	set_field_w_existing_col(joined_genes_TSS_PASs, (is_watson & tss_is_nan), 'TSS', 'start')
-	set_field_w_existing_col(joined_genes_TSS_PASs, (is_watson & pas_is_nan), 'PAS', 'stop')
-	set_field_w_existing_col(joined_genes_TSS_PASs, (~is_watson & tss_is_nan), 'TSS', 'stop')
-	set_field_w_existing_col(joined_genes_TSS_PASs, (~is_watson & pas_is_nan), 'PAS', 'start')
-
-
-	set_field_w_existing_col(joined_genes_TSS_PASs, (is_watson), 'left_end', 'TSS')
-	set_field_w_existing_col(joined_genes_TSS_PASs, (is_watson), 'right_end', 'PAS')
-	set_field_w_existing_col(joined_genes_TSS_PASs, (~is_watson), 'left_end', 'PAS')
-	set_field_w_existing_col(joined_genes_TSS_PASs, (~is_watson), 'right_end', 'TSS')
-
-	return joined_genes_TSS_PASs
+	# return joined_genes_TSS_PASs

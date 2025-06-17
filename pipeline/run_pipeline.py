@@ -69,7 +69,7 @@ def main():
 			length_dist_calculator2.all_length_dists)
 		plt.savefig(f"{length_replication_directory}/raw_distributions.png")
 
-	elif command == 'call_antisense':
+	elif command == 'call_transcripts':
 
 		from pipeline.antisense_transcripts_runner import AntisenseTranscriptRunner
 
@@ -82,6 +82,44 @@ def main():
 		)
 		
 		results = antisense_runner.run(on_cluster=True)
+
+	elif command == 'create_transcripts_datasets':
+
+		 # Following transcript calling, we have a new dataset of transcripts to compute transcription
+		 # for, this includes updated TSSes and non-genic transcripts for TPM calculation and deconvolution
+		(_, command, output_directory) = system_args
+
+		from src.transcripts_dataset import TranscriptDatasetBuilder
+
+		builder = TranscriptDatasetBuilder(output_directory)
+
+		# Load transcripts from called transcripts run for each chrom
+		builder.load_transcripts()
+
+		# Update the sgd genes set with the updated TSS calls
+		builder.update_sgd_tss_annotations()
+
+		# Create a dataset for non-genic transcripts
+		builder.define_nongenic_dataset()
+
+		# Save each to disk
+		builder.save_results()
+
+	elif command == 'compute_tpms':
+
+		# Compute the TPMs for the gene and non-genic sets
+		(_, command, output_directory, index) = system_args
+
+		from src.transcripts_dataset import load_transcripts_sets
+		from src.tpm_calculator import TPMGenerator
+		from src.read_bam import get_rna_seq_filepaths_df
+
+		combined_gene_nongenic = load_transcripts_sets(output_directory, combined=True)
+
+		tpm_generator = TPMGenerator(combined_gene_nongenic, output_directory)
+
+		bam_df = get_rna_seq_filepaths_df(on_cluster=True)
+		tpm_generator.process_multiple_replicates(replicate_bam)
 
 	elif command == 'find_gamma_chromatin':
 

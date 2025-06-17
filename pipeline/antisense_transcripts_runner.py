@@ -9,6 +9,7 @@ from src.figure_configs import save_figure_for_paper
 from src.utils import mkdir_safe, print_memory_usage
 import gc
 
+# todo: rename to transcript calling runner (not-antisense)
 
 class AntisenseTranscriptRunner:
 	"""
@@ -54,7 +55,7 @@ class AntisenseTranscriptRunner:
 		self.results_df = None
 		
 		# Setup directories
-		self.save_dir = f'{output_directory}/antisense_calling'
+		self.save_dir = f'{output_directory}/transcripts_calling'
 		mkdir_safe(self.save_dir)
 		
 	def _load_all_chrom_reads(self, rna_filepaths_df, replicate, chrom):
@@ -175,14 +176,14 @@ class AntisenseTranscriptRunner:
 	
 	def run(self, on_cluster):
 		"""
-		Run the complete antisense transcript calling pipeline.
+		Run the complete transcript calling pipeline.
 		
 		Returns:
 		--------
 		pd.DataFrame
 			Results dataframe with detected transcripts
 		"""
-		print(f"Starting antisense transcript calling pipeline for chromosome {self.chromosome}")
+		print(f"Starting transcript calling pipeline for chromosome {self.chromosome}")
 		print(f"Output directory: {self.save_dir}")
 		
 		# Step 1 & 2: Setup and chromosome selection (done in __init__)
