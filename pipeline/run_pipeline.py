@@ -2,6 +2,7 @@
 import sys
 sys.path.append('.')
 
+from src.figure_configs import save_figure_for_paper
 import matplotlib.pyplot as plt
 import numpy as np
 import pandas as pd
@@ -348,7 +349,6 @@ def main():
 
 		from pipeline.expression_analysis import ExpressionAnalysis
 		from src.DG1Analysis import DG1Analysis
-		from src.figure_configs import save_figure_for_paper
 		from src.GenomeDeconvolutionAnalysis import GenomeDeconvolutionAnalysis
 
 		(_, command, output_directory) = system_args
@@ -479,6 +479,11 @@ def main():
 
 def deconvolve_chromatin(chromatin_save_directory, chrom, span,
 	copy_correct=True, gamma=0.0066, kappa=1, eta=0):
+
+
+
+	span = (10000, 10200)
+	print_fl(f"** WARNING TEST SPAN **")
 
 	# Load the configs from disk
 	config1, config2 = load_default_chrom_configs()
