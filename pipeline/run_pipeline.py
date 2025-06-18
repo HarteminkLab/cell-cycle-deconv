@@ -14,9 +14,13 @@ from src.config import load_default_chrom_configs, load_cloccs_configs
 
 # Global parameters
 WINDOWS_ALL_10K_PATH = "data/reference_data/sacCer3_genome_10k_windows.csv"
-DEFAULT_GAMMA = 0.2
-DEFAULT_KAPPA = 0.01
-DEFAULT_ETA = 0.264
+DEFAULT_CHROM_GAMMA = 0.2
+DEFAULT_CHROM_KAPPA = 0.01
+DEFAULT_CHROM_ETA = 0.264
+
+# Expression parameters
+DEFAULT_TX_KAPPA = 0.001
+DEFAULT_TX_ETA = 0.265
 
 def main():
 
@@ -267,6 +271,46 @@ def main():
 			combined_runner = fit_combined_replication(chrom, num_epochs,
 				combined_replication_directory, config1, config2)
 
+	elif command == 'deconvolve_expression_index':
+
+		from src.geneset import get_deconvolved_geneset
+		from pipeline.CombinedDeconvolveGeneExpressionRunner import CombinedDeconvolveGeneExpressionRunner
+		from src.transcripts_dataset import load_transcripts_sets
+		from src.timer import Timer
+		import cvxpy as cp
+
+		print_fl(f"Deconvolve gene expression for gene index")
+		(_, command, output_directory, index) = system_args
+		index = int(index)
+
+		combined_transcripts_set = load_transcripts_sets(output_directory, combined=True)
+
+		# Kappa and eta are empirical values. todo: methodology to identify proper parameter selection
+		kappa = DEFAULT_TX_KAPPA
+		eta = DEFAULT_TX_ETA
+
+		timer = Timer()
+
+		save_genes_directory = f"{output_directory}/genes_deconvolution/"
+		mkdirs_safe([save_genes_directory])
+
+		runner = CombinedDeconvolveGeneExpressionRunner(output_directory)
+
+		transcript_row = combined_transcripts_set.iloc[index]
+		transcript_name = transcript_row.name
+
+		print_fl(f"[{index}/{len(combined_transcripts_set)}] Deconvolving {transcript_name}", end="...")
+			
+		try: 
+			expression_find_gamma = runner.deconvolve_transcript_optimal_gamma(transcript_name, 
+				kappa=kappa, eta=eta)
+		except cp.error.SolverError:
+			print_fl(f"  Failed. Skipping. {timer.get_time()}")
+			return
+
+		runner.save_to_disk(save_genes_directory)
+		print_fl(f"Done. {timer.get_time()}")
+
 	# 3. Deconvolve the gene expression for all genes
 	elif command == 'deconvolve_expression':
 
@@ -282,8 +326,8 @@ def main():
 		combined_transcripts_set = load_transcripts_sets(output_directory, combined=True)
 
 		# Kappa and eta are empirical values. todo: methodology to identify proper parameter selection
-		kappa = 0.001
-		eta = 0.265
+		kappa = DEFAULT_TX_KAPPA
+		eta = DEFAULT_TX_ETA
 
 		timer = Timer()
 
@@ -319,7 +363,7 @@ def main():
 
 		chrom, span = parse_windows_csv(WINDOWS_ALL_10K_PATH, index)
 		deconvolve_chromatin(chromatin_save_directory, chrom, span,
-			kappa=DEFAULT_KAPPA, gamma=DEFAULT_GAMMA, eta=DEFAULT_ETA)
+			kappa=DEFAULT_CHROM_KAPPA, gamma=DEFAULT_CHROM_GAMMA, eta=DEFAULT_CHROM_ETA)
 
 	elif command == 'deconvolve_chromatin_no_copy':
 
@@ -331,7 +375,7 @@ def main():
 		index = int(index)
 		chrom, span = parse_windows_csv(WINDOWS_ALL_10K_PATH, index)
 		deconvolve_chromatin(chromatin_save_directory, chrom, span,
-			copy_correct=False, kappa=DEFAULT_KAPPA, gamma=DEFAULT_GAMMA, eta=DEFAULT_ETA)
+			copy_correct=False, kappa=DEFAULT_CHROM_KAPPA, gamma=DEFAULT_CHROM_GAMMA, eta=DEFAULT_CHROM_ETA)
 
 	elif command == 'parameter_summary':
 
