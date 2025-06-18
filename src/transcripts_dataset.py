@@ -309,7 +309,6 @@ def compare_all_chromosomes_TSS(combined_rna_TSSes, reference_tss_column='TSS', 
 	
 	# Join with RNA-seq TSSes
 	tss_comparison = park_genes.join(combined_rna_TSSes)[[reference_tss_column, 'rna_TSS']]
-	#tss_comparison = tss_comparison.dropna()  # Remove genes without RNA calls
 	
 	# Calculate differences
 	tss_comparison['tss_difference'] = tss_comparison['rna_TSS']-\
@@ -317,7 +316,8 @@ def compare_all_chromosomes_TSS(combined_rna_TSSes, reference_tss_column='TSS', 
 	
 	# Negate crick strand, such that differences are 5' oriented
 	crick_selection = park_genes.strand == '-'
-	tss_comparison[crick_selection] = -tss_comparison[crick_selection]
+	tss_comparison.loc[crick_selection, 'tss_difference'] = \
+		-tss_comparison[crick_selection]['tss_difference']
 	
 	# Create histogram
 	if plot:

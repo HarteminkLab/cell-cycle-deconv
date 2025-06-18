@@ -17,7 +17,7 @@ sbatch -D ./slurm-logs/ --job-name="rep" --export="PYFILE=pipeline/run_pipeline.
 # ---------- Transcription deconvolution as array ----------------
 
 # Total number of transcripts to deconvolve: 7705
-# Last finished: 1830
+# Last finished for reference for continuation: 1830 (from 6/17/25 run) (batch 1, 830-999 would restart)
 ARGS="deconvolve_expression_index ${OUTDIR}"
 sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_0" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
 sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
