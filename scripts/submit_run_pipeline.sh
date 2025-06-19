@@ -8,10 +8,12 @@ OUTDIR=output/draft4_run/
 # ARGS="combined_replication ${OUTDIR}"
 # sbatch -D ./slurm-logs/ --job-name="rep${REPLICATE}" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
-# ---------- Expression deconvolution ----------------
+# ---------- RNA-seq intermediates ----------------
 
-# ARGS="deconvolve_expression ${OUTDIR}"
-# sbatch -D ./slurm-logs/ --job-name="rep" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+# Total number of transcripts to deconvolve: 7705
+# Last finished for reference for continuation: 1830 (from 6/17/25 run) (batch 1, 830-999 would restart)
+ARGS="construct_rna_intermediate_files ${OUTDIR}"
+sbatch -a 1-16%16 -D ./slurm-logs/ --job-name="tx_0" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
 
 # ---------- Transcription deconvolution as array ----------------
 

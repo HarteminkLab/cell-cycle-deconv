@@ -75,12 +75,11 @@ class AntisenseTranscriptCaller:
 		if self.timer is not None:
 			return self.timer.print_time
 		else:
-			return lambda msg: print(f"[AntisenseTranscriptCaller] {msg}")
+			return lambda msg: print(f"[TranscriptCallerRunner] {msg}")
 	
 	def load_pileup_from_bam(self, 
 						   all_chrom_reads_rep1: pd.DataFrame,
 						   all_chrom_reads_rep2: pd.DataFrame,
-						   chromosome_length: int,
 						   smooth: bool = True):
 		"""
 		Load and compute pileup data from BAM-derived reads DataFrames.
@@ -96,6 +95,9 @@ class AntisenseTranscriptCaller:
 		smooth : bool
 			Whether to apply Gaussian smoothing (default: True)
 		"""
+		from src.sgd import get_chromosome_length
+
+		chromosome_length = get_chromosome_length(self.chromosome)
 
 		self.timer.start()
 		
@@ -110,7 +112,13 @@ class AntisenseTranscriptCaller:
 		
 		watson_rep2, crick_rep2, _ = self._compute_pileups_advanced(
 			all_chrom_reads_rep2, self.chromosome_span, replicate=2, smooth=smooth)
-		
+
+		self.watson_rep1 = watson_rep1
+		self.crick_rep1 = crick_rep1
+
+		self.watson_rep2 = watson_rep2
+		self.crick_rep2 = crick_rep2
+
 		# Combine replicates (average)
 		self.watson_pileups_df = (watson_rep1 + watson_rep2) / 2
 		self.crick_pileups_df = (crick_rep1 + crick_rep2) / 2
@@ -118,39 +126,6 @@ class AntisenseTranscriptCaller:
 		
 		self._log_time("Completed pileup computation and replicate averaging")
 		
-	def load_pileup_from_arrays(self,
-							  watson_pileups: np.ndarray,
-							  crick_pileups: np.ndarray,
-							  chromosome_span: Tuple[int, int],
-							  smooth: bool = True):
-		"""
-		Load pre-computed pileup arrays.
-		
-		Parameters:
-		-----------
-		watson_pileups : np.ndarray
-			Watson strand pileup values (timepoints x positions)
-		crick_pileups : np.ndarray
-			Crick strand pileup values (timepoints x positions)  
-		chromosome_span : Tuple[int, int]
-			Start and end coordinates of chromosome
-		smooth : bool
-			Whether to apply Gaussian smoothing (default: True)
-		"""
-		
-		self._log_time("Loading pre-computed pileup arrays")
-		
-		self.chromosome_span = chromosome_span
-		self.bin_boundaries = np.arange(chromosome_span[0], chromosome_span[1] + 1)
-		
-		# Convert to DataFrames
-		self.watson_pileups_df = pd.DataFrame(watson_pileups)
-		self.crick_pileups_df = pd.DataFrame(crick_pileups)
-		
-		if smooth:
-			self._apply_smoothing()
-			
-		self._log_time("Completed pileup array loading")
 		
 	def detect_transcript_boundaries(self, strand: str = 'both') -> pd.DataFrame:
 		"""
@@ -167,9 +142,6 @@ class AntisenseTranscriptCaller:
 		pd.DataFrame
 			Results with columns: chromosome, strand, start, end, length
 		"""
-		
-		if self.watson_pileups_df is None or self.crick_pileups_df is None:
-			raise ValueError("No pileup data loaded. Call load_pileup_from_bam() or load_pileup_from_arrays() first.")
 		
 		self._log_time("Starting transcript boundary detection")
 		

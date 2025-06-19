@@ -74,6 +74,26 @@ def main():
 			length_dist_calculator2.all_length_dists)
 		plt.savefig(f"{length_replication_directory}/raw_distributions.png")
 
+	elif command == 'construct_rna_intermediate_files':
+
+		from src.rna_seq_intermediates import RNASeqIntermediateManager
+
+		# BAM files are loaded per timepoint, having reads and pileup per chromosome
+		# will speed up analysis and plotting
+		(_, command, output_directory, chrom) = system_args
+		chrom = int(chrom)
+
+		# Initialize for a specific chromosome
+		manager = RNASeqIntermediateManager(output_directory=output_directory, 
+			chromosome=chrom)
+
+		# Save all intermediate files for the chromosome
+		manager.save_chromosome_data(on_cluster=True)
+
+		# Check if files exist
+		if manager.files_exist():
+		    print("All files saved successfully!")
+
 	elif command == 'call_transcripts':
 
 		from pipeline.antisense_transcripts_runner import AntisenseTranscriptRunner

@@ -122,81 +122,17 @@ class CombinedDeconvolveGeneExpressionRunner:
 
 	def plot_solution(self):
 		import matplotlib.pyplot as plt
-
-		solver = self.expression_find_gamma.deconvolution_solver
-
-		G = solver.g
-		F = self.expression_find_gamma.retrieve_solution()
-
-		config = solver.config
-
-		i_indices = config.get_Hpositions_for_branch('i')
-		t_indices = config.get_Hpositions_for_branch('t')
-		b_indices = config.get_Hpositions_for_branch('b')
-		h_indices = config.get_Hpositions_for_phase('Halted')
-
-		i_tps = config.get_timepoints_for_branch('i')
-		t_tps = config.get_timepoints_for_branch('t')
-		b_tps = config.get_timepoints_for_branch('b')
-
-		num_cols = 4
-
-		fig, axs = plt.subplots(1, num_cols, figsize=(16, 3))
-
-		predicted_G = config.H@F
-
-		g_vmax = G.max()
-		vmax = max(G.max(), F.max())
-		ylims = (vmax*-0.05, vmax*1.2)
-		g_ylims = (g_vmax*-0.05, g_vmax*1.2)
-
-		if G.max() == 0:
-			ylims = -0.1, 1
-
-		cmap = plt.cm.viridis
-
-		ax_row = axs
-
-		ax = ax_row[0]
+		from src.plot_helpers import plot_deconvolution_solution
 
 		timepoints = config.timepoints
 		tps1 = GlobalConstants.EXPRESSION_WT1_TIMEPOINTS
 		tps2 = GlobalConstants.EXPRESSION_WT2_TIMEPOINTS
-		n_tps1 = len(tps1)
-		n_tps2 = len(tps2)
 
-		ax.plot(tps1, G[:n_tps1], c='black', lw=3, label="Raw data")
-		ax.plot(tps1, predicted_G[:n_tps1], c='red',
-			   lw=3, label="Optimal $\\gamma$ solution")
-
-		ax.plot(tps2, G[n_tps1:], c='black', lw=3, label="Raw data")
-		ax.plot(tps2, predicted_G[n_tps1:], c='red',
-			   lw=3, label="Optimal $\\gamma$ solution")
-
-		ax.set_ylim(*g_ylims)
-		ax.set_title("Data vs Fit")
-		ax.legend()
-
-		ax = ax_row[1]
-		ax.plot(i_tps, F[i_indices].T, c='red',
-				lw=3)
-		ax.set_title("Initial branch")
-		ax.set_ylim(*ylims)
-
-		halted_tx = F[h_indices[0]]
-		ax.axhline(halted_tx, ls='dotted', color='#555', lw=1)
-
-		ax = ax_row[2]
-		ax.plot(t_tps, F[t_indices].T, c='red',
-				lw=3)
-		ax.set_ylim(*ylims)
-		ax.set_title("Top branch")
-
-		ax = ax_row[3]
-		ax.plot(b_tps, F[b_indices].T, c='red',
-				lw=3)
-		ax.set_ylim(*ylims)
-		ax.set_title("Bottom branch")
+		solver = self.expression_find_gamma.deconvolution_solver
+		plot_deconvolution_solution(solver.G, self.retrieve_solution(), 
+			solver.config, tps1, tps2, 
+								figsize=(16, 3), colors=None, line_width=3,
+								data_label="Raw data", fit_label="Optimal $\\gamma$ solution")
 
 	def retrieve_solution(self):
 		return self.expression_find_gamma.retrieve_solution()

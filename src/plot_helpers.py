@@ -403,3 +403,138 @@ def annotate_points(xs, ys, texts,
 	
 	return text_objects
 	
+
+def plot_deconvolution_solution(G, F, config, timepoints_wt1, timepoints_wt2, 
+								plots=None, ylims=None,
+								figsize=None, colors=None, line_width=3,
+								data_label="Raw data", fit_label="Optimal $\\gamma$ solution"):
+	"""
+	Generic function to plot deconvolution solution results.
+	
+	Parameters:
+	-----------
+	plots : list, optional
+		List of plot types to show. Options: ['raw', 'i', 't', 'b', 'tb']
+		'raw': Data vs Fit (only available if G is not None)
+		'i': Initial branch
+		't': Top branch
+		'b': Bottom branch  
+		'tb': Combined top and bottom branches (averages t and b values and timepoints)
+		Default: ['raw', 'i', 't', 'b'] if G is not None, ['i', 't', 'b'] if G is None
+	"""
+	import matplotlib.pyplot as plt
+	import numpy as np
+	
+	# Set default plots
+	if plots is None:
+		if G is not None:
+			plots = ['raw', 'i', 't', 'b']
+		else:
+			plots = ['i', 't', 'b']
+	
+	# Remove 'raw' from plots if G is None
+	if G is None and 'raw' in plots:
+		plots = [p for p in plots if p != 'raw']
+		print("Warning: 'raw' plot removed because G is None")
+	
+	# Set default colors
+	if colors is None:
+		colors = {'data': 'black', 'fit': 'red', 'solution': 'red'}
+	
+	# Get indices and timepoints for different branches
+	i_indices = config.get_Hpositions_for_branch('i')
+	t_indices = config.get_Hpositions_for_branch('t')
+	b_indices = config.get_Hpositions_for_branch('b')
+	h_indices = config.get_Hpositions_for_phase('Halted')
+	
+	i_tps = config.get_timepoints_for_branch('i')
+	t_tps = config.get_timepoints_for_branch('t')
+	b_tps = config.get_timepoints_for_branch('b')
+	
+	# Calculate predicted values if needed
+	if 'raw' in plots and G is not None:
+		predicted_G = config.H @ F
+	
+	# Set up figure
+	num_cols = len(plots)
+	if figsize is None:
+		figsize = (4 * num_cols, 3)
+	fig, axs = plt.subplots(1, num_cols, figsize=figsize)
+	
+	# Ensure axs is always a list for consistent indexing
+	if num_cols == 1:
+		axs = [axs]
+
+
+	if ylims is None:
+		
+		# Calculate limits
+		if G is None:
+			g_vmax = 0
+		else:
+			g_vmax = G.max()
+
+		vmax = max(g_vmax, F.max())
+		ylims = (vmax * -0.05, vmax * 1.2)
+
+		g_ylims = (g_vmax * -0.05, g_vmax * 1.2)
+		if vmax == 0:
+			ylims = (-0.1, 1)
+	
+	# Determine split points for datasets
+	n_tps1 = len(timepoints_wt1)
+	n_tps2 = len(timepoints_wt2)
+	
+	# Plot each requested subplot
+	for idx, plot_type in enumerate(plots):
+		ax = axs[idx]
+		
+		if plot_type == 'raw':
+			ax.plot(timepoints_wt1, G[:n_tps1], c=colors['data'], lw=line_width, label=data_label)
+			ax.plot(timepoints_wt1, predicted_G[:n_tps1], c=colors['fit'], lw=line_width, label=fit_label)
+			ax.plot(timepoints_wt2, G[n_tps1:], c=colors['data'], lw=line_width)
+			ax.plot(timepoints_wt2, predicted_G[n_tps1:], c=colors['fit'], lw=line_width)
+			ax.set_ylim(*g_ylims)
+			ax.set_title("Data vs Fit")
+			ax.legend()
+			
+		elif plot_type == 'i':
+			ax.plot(i_tps, F[i_indices].T, c=colors['solution'], lw=line_width)
+			ax.set_title("Initial branch")
+			ax.set_ylim(*ylims)
+			
+			# Add halted line if available
+			if len(h_indices) > 0:
+				halted_tx = F[h_indices[0]]
+				ax.axhline(halted_tx, ls='dotted', color='#555', lw=1)
+				
+		elif plot_type == 't':
+			ax.plot(t_tps, F[t_indices].T, c=colors['solution'], lw=line_width)
+			ax.set_ylim(*ylims)
+			ax.set_title("Top branch")
+			
+		elif plot_type == 'b':
+			ax.plot(b_tps, F[b_indices].T, c=colors['solution'], lw=line_width)
+			ax.set_ylim(*ylims)
+			ax.set_title("Bottom branch")
+			
+		elif plot_type == 'tb':
+			# Combined top and bottom branches
+			# Average the F values and timepoints
+			if len(t_tps) != len(b_tps):
+				raise ValueError("Top and bottom branches must have the same number of timepoints for combined plot")
+			if len(t_indices) != len(b_indices):
+				raise ValueError("Top and bottom branches must have the same number of indices for combined plot")
+			
+			combined_F = (F[t_indices] + F[b_indices]) / 2
+			combined_tps = (np.array(t_tps) + np.array(b_tps)) / 2
+			
+			ax.plot(combined_tps, combined_F.T, c=colors['solution'], lw=line_width)
+			ax.set_ylim(*ylims)
+			ax.set_title("Combined Top/Bottom branches")
+			
+		else:
+			raise ValueError(f"Unknown plot type: {plot_type}. Valid options are: 'raw', 'i', 't', 'b', 'tb'")
+	
+	plt.tight_layout()
+	return fig, axs

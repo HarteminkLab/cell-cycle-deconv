@@ -3,10 +3,36 @@ from src.geneset import get_deconvolved_geneset
 import numpy as np
 import pandas as pd
 import glob
+from src.transcripts_dataset import load_transcripts_sets
+
+
+def load_nongene_transcription_fs(output_dir, geneset=None):
+
+	deconv_dir = f"{output_dir}/genes_deconvolution/"
+	file_paths = glob.glob(f'{deconv_dir}/*.npy')
+	transcripts_f = None
+	genic_set, nongenic_set = load_transcripts_sets(output_dir)
+
+	# For each deconvolved gene, load the ptr values and place them into the PTRs dataframe
+	for path in file_paths:
+		filename = path.split('/')[-1]
+		transcript_name = '_'.join(filename.replace('.npy', '').split('_')[0:-1])
+
+		if transcript_name not in nongenic_set.index: continue
+
+		loaded_f = np.load(path)
+
+		if transcripts_f is None:
+			m = len(loaded_f)
+			transcripts_f = pd.DataFrame(index=nongenic_set.index, columns=np.arange(m))
+
+		transcripts_f.loc[transcript_name] = loaded_f
+
+	return transcripts_f
 
 def load_gene_expression_fs(gene_expression_dir, geneset=None):
 
-	file_paths = glob.glob(f'{gene_expression_dir}/*_f_*.npy')
+	file_paths = glob.glob(f'{gene_expression_dir}/*.npy')
 	
 	if geneset is None:
 		geneset = get_deconvolved_geneset()
@@ -16,7 +42,7 @@ def load_gene_expression_fs(gene_expression_dir, geneset=None):
 	# For each deconvolved gene, load the ptr values and place them into the PTRs dataframe
 	for path in file_paths:
 		filename = path.split('/')[-1]
-		orf_name = filename.split('_')[2].replace('.npy', '')
+		orf_name = filename.split('_')[0]
 
 		# Skip genes not in our analysis set
 		# for runs in which we haven't filtered for low coverage genes yet

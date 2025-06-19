@@ -262,7 +262,7 @@ def call_chromosome_TSSes(caller_results_df, chromosome_num):
 	Identify RNA-seq called TSSes for a single chromosome.
 	
 	Parameters:
-	caller_results_df: DataFrame with transcript calls from AntisenseTranscriptCaller
+	caller_results_df: DataFrame with transcript calls from TranscriptCallerRunner
 	chromosome_num: int, chromosome number to process
 	
 	Returns:
@@ -294,7 +294,7 @@ def compare_all_chromosomes_TSS(combined_rna_TSSes, reference_tss_column='TSS', 
 	Compare RNA-seq called TSSes across all chromosomes with existing annotations.
 	
 	Parameters:
-	caller_results_dict: dict, {chromosome: AntisenseTranscriptCaller.results_df}
+	caller_results_dict: dict, {chromosome: TranscriptCallerRunner.results_df}
 	reference_tss_column: str, 'TSS' or 'park_TSS'
 	
 	Returns:

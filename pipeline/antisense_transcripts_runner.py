@@ -9,9 +9,9 @@ from src.figure_configs import save_figure_for_paper
 from src.utils import mkdir_safe, print_memory_usage
 import gc
 
-# todo: rename to transcript calling runner (not-antisense)
+# todo: rename file to transcript calling runner (not-antisense)
 
-class AntisenseTranscriptRunner:
+class TranscriptCallerRunner:
 	"""
 	Orchestrator class for running the complete antisense transcript calling pipeline.
 	
@@ -90,7 +90,6 @@ class AntisenseTranscriptRunner:
 			# Conserve memory
 			del time_rna_reads
 			collected = gc.collect()
-			print(f"Freed {collected} objects after timepoint {timepoint}")
 
 			print_memory_usage()
 			
@@ -103,7 +102,7 @@ class AntisenseTranscriptRunner:
 		print(f"Loading pileup data for chromosome {self.chromosome}")
 		
 		# Get RNA-seq file paths
-		rna_filepaths_df = get_rna_seq_filepaths_df(on_cluster).set_index(['replicate', 'time'])
+		rna_filepaths_df = get_rna_seq_filepaths_df(on_cluster)
 		
 		# Load reads for both replicates
 		print("Loading replicate 1...")

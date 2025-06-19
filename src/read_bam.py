@@ -163,4 +163,4 @@ def get_rna_seq_filepaths_df(on_cluster=False):
 	bam_df['time'] = bam_df['time'].astype(int)
 	bam_df['replicate'] = bam_df['replicate'].astype(int)
 	bam_df = bam_df.sort_values(['replicate', 'time'])
-	return bam_df.reset_index(drop=True)
+	return bam_df.reset_index(drop=True).set_index(['replicate', 'time'])
