@@ -96,18 +96,19 @@ def main():
 
 	elif command == 'call_transcripts':
 
-		from pipeline.antisense_transcripts_runner import AntisenseTranscriptRunner
+		from pipeline.transcripts_caller_runner import TranscriptCallerRunner
 
 		(_, command, output_directory, chrom) = system_args
 		chrom = int(chrom)
 
-		antisense_runner = AntisenseTranscriptRunner(
+		antisense_runner = TranscriptCallerRunner(
 			output_directory=output_directory,
 			chromosome=chrom
 		)
 		
 		results = antisense_runner.run(on_cluster=True)
 
+	# We can combine these two steps.
 	elif command == 'create_transcripts_datasets':
 
 		 # Following transcript calling, we have a new dataset of transcripts to compute transcription
