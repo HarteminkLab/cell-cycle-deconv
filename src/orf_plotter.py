@@ -26,7 +26,7 @@ class ORFAnnotationPlotter:
 		self.inset = (0, 10.0)
 		self.triangle_width = 10
 		self.text_horizontal_offset = 10
-		self.plot_orf_names = False
+		self.plot_orf_names = True
 		self.height = 40
 		self.text_vertical_offset = 18
 		self.y_padding = 10
@@ -228,8 +228,8 @@ class ORFAnnotationPlotter:
 			name = gene['orf_name']
 
 			if self.plot_orf_names:
-				if not name == gene_name:
-					name = "{}/{}".format(gene_name, gene['orf_name'])
+				if gene_name is not None and not name == gene_name:
+					name = "{} / {}".format(gene_name, gene['orf_name'])
 			else:
 				name = gene_name
 

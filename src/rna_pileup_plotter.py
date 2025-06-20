@@ -114,14 +114,14 @@ class RNASeqPileupPlotter:
 				ax.plot(xs, -crick_values, c=reds[i])
 				
 		elif mode == 'minmax':
-			# Plot min/max ranges with median lines
+			# Plot min/max ranges with mean lines
 			watson_lower = np.quantile(self.watson_data, q=0., axis=0)
 			watson_upper = np.quantile(self.watson_data, q=1., axis=0)
 			crick_lower = np.quantile(self.crick_data, q=0., axis=0)
 			crick_upper = np.quantile(self.crick_data, q=1., axis=0)
 
-			watson_med = self.watson_data.median(0)
-			crick_med = self.crick_data.median(0)
+			watson_med = self.watson_data.mean(0)
+			crick_med = self.crick_data.mean(0)
 
 			if smooth:
 				watson_lower = smooth_rna_curve(watson_lower)

@@ -1,465 +1,267 @@
 import numpy as np
-import matplotlib.pyplot as plt
 import pandas as pd
-from typing import List, Tuple, Optional, Union
-from scipy.stats.distributions import norm
-import warnings
+from typing import List, Tuple, Optional
 
 
-class AntisenseTranscriptCaller:
+class TranscriptBoundaryCaller:
 	"""
-	Class for detecting antisense transcript boundaries from stranded RNA-seq data.
+	Standalone class for detecting transcript boundaries from pileup data.
 	
-	Uses a two-threshold approach with quantile-based thresholds for robust detection:
-	1. Primary threshold (default: 75th percentile) identifies transcript cores
-	2. Extension threshold (default: 50th percentile) extends to natural boundaries
+	Uses a two-threshold approach:
+	1. Primary threshold identifies transcript cores
+	2. Extension threshold extends to natural boundaries
+	
+	Now supports genomic coordinate input/output.
 	"""
 	
 	def __init__(self, 
-				 chromosome: int,
-				 primary_threshold_quantile: float = 0.25,
-				 extension_threshold_quantile: float = 0.1,
 				 min_length: int = 100,
-				 max_gap: int = 50,
-				 smoothing_sigma: float = 10,
-				 smoothing_window: int = 60,
-				 timer=None):
+				 max_gap: int = 200,
+				 refine_boundaries: bool = True,
+				 refinement_cutoff: float = 0.1,
+				 max_avg_diff: Optional[float] = None,
+				 max_fold_diff: Optional[float] = 2.0,
+				 output_directory: str = None):
 		"""
-		Initialize the antisense transcript caller.
+		Initialize the transcript boundary caller.
 		
 		Parameters:
 		-----------
-		chromosome : int
-			Chromosome number to analyze
-		primary_threshold_quantile : float
-			Quantile for primary threshold (default: 0.75)
-		extension_threshold_quantile : float  
-			Quantile for extension threshold (default: 0.50)
 		min_length : int
 			Minimum transcript length in bp (default: 100)
 		max_gap : int
-			Maximum gap to merge nearby regions (default: 50)
-		smoothing_sigma : float
-			Gaussian smoothing sigma parameter (default: 2.0)
-		smoothing_window : int
-			Smoothing window size (default: 60)
-		timer : Timer object
-			Optional timer for performance monitoring
+			Maximum gap to merge nearby regions in bp (default: 50)
+		refine_boundaries : bool
+			Whether to refine boundaries using adaptive cutoffs (default: True)
+		refinement_cutoff : float
+			Proportion of transcript mean for boundary refinement (default: 0.1)
+		max_avg_diff : float, optional
+			Maximum absolute difference in average values to allow merging
+			If None, no average difference constraint is applied
+		max_fold_diff : float, optional
+			Maximum fold difference in average values to allow merging (default: 2.0)
+			Set to None to disable fold difference constraint
+			Example: 2.0 means regions with 2x difference won't be merged
 		"""
-		
-		self.chromosome = chromosome
-		self.primary_threshold_quantile = primary_threshold_quantile
-		self.extension_threshold_quantile = extension_threshold_quantile
+		self.output_directory = output_directory
 		self.min_length = min_length
 		self.max_gap = max_gap
-		self.smoothing_sigma = smoothing_sigma
-		self.smoothing_window = smoothing_window
+		self.refine_boundaries = refine_boundaries
+		self.refinement_cutoff = refinement_cutoff
+		self.max_avg_diff = max_avg_diff
+		self.max_fold_diff = max_fold_diff
+
+	def set_chrom_span(self, chrom, span):
+		"""
+		Set the chromosome, genomic span, and replicate, and load the corresponding data.
+		"""
+
+		from src.rna_seq_intermediates import RNASeqIntermediateManager
+		from src.pileup_helpers import smooth_rna_curve
+
+		self.chromosome = chrom
+		self.span = span
+		self.bp_positions = range(span[0], span[1])
 		
-		# Timer for performance monitoring
-		self.timer = timer
-		self._log_time = self._create_timer_function()
+		# Initialize manager and load data
+		manager = RNASeqIntermediateManager(
+			output_directory=self.output_directory, 
+			chromosome=chrom
+		)
+		watson_r1, crick_r1, watson_r2, crick_r2 = manager.load_both_replicates_pileups()
+		watson_r1 = watson_r1[self.bp_positions]
+		watson_r2 = watson_r2[self.bp_positions]
+		crick_r1 = crick_r1[self.bp_positions]
+		crick_r2 = crick_r2[self.bp_positions]
+
+		# Combine the replicates and take the mean to compute transcripts
+		# on the entire experiment
+		watson_data = (watson_r1.mean(0)+watson_r2.mean(0))/2.
+		crick_data = (crick_r1.mean(0)+crick_r2.mean(0))/2.
+
+		# Log transform for the boundary calling
+		watson_data = np.log2(watson_data+1)
+		crick_data = np.log2(crick_data+1)
+
+		smoothed_mean_watson = smooth_rna_curve(watson_data)
+		smoothed_mean_crick = smooth_rna_curve(crick_data)
+
+		self.watson_data_raw = watson_data
+		self.crick_data_raw = crick_data
+
+		# Select the genomic span
+		self.watson_data = smoothed_mean_watson
+		self.crick_data = smoothed_mean_crick
+
+	def call_boundaries(self, min_threshold=0.1, 
+			min_extension_threshold=0.05):
+
+		span = self.span
+
+		# Call the watson and crick transcripts from the input data
+		self.called_watson_transcripts = self._call_boundaries(self.watson_data, min_threshold,
+								 min_extension_threshold,
+                                 start_pos=span[0], end_pos=span[1]-1)
+		self.called_crick_transcripts = self._call_boundaries(self.crick_data, min_threshold,
+								 min_extension_threshold, start_pos=span[0], 
+								 end_pos=span[1]-1)
+
+	
+	def _call_boundaries(self, 
+					   pileup_vector: np.ndarray,
+					   primary_threshold: float,
+					   extension_threshold: float,
+					   start_pos: Optional[int] = None,
+					   end_pos: Optional[int] = None) -> pd.DataFrame:
+		"""
+		Detect transcript boundaries from pileup data.
 		
-		# Data storage
-		self.watson_pileups_df = None
-		self.crick_pileups_df = None
-		self.bin_boundaries = None
-		self.chromosome_span = None
+		Parameters:
+		-----------
+		pileup_vector : np.ndarray
+			1D array of log2-transformed and smoothed pileup values
+		primary_threshold : float
+			Threshold for identifying transcript cores
+		extension_threshold : float
+			Threshold for extending transcript boundaries
+		start_pos : int, optional
+			Genomic start position (1-based) corresponding to first element of pileup_vector
+			If None, uses 1-based indexing starting from 1
+		end_pos : int, optional
+			Genomic end position (1-based) corresponding to last element of pileup_vector
+			If provided, used for validation against start_pos and vector length
+		chromosome : str, optional
+			Chromosome/contig name to include in output
+			
+		Returns:
+		--------
+		pd.DataFrame
+			Results with columns: start, end, average_value, [chromosome]
+			Coordinates are in genomic space (1-based)
+		"""
 		
-		# Results storage
-		self.watson_transcripts = None
-		self.crick_transcripts = None
-		self.results_df = None
+		# Validate inputs and set up coordinate system
+		vector_length = len(pileup_vector)
 		
-	def _create_timer_function(self):
-		"""Create timer function based on whether timer is available."""
-		if self.timer is not None:
-			return self.timer.print_time
+		if start_pos is None:
+			start_pos = 1  # Default to 1-based genomic coordinates
+
+		if end_pos is not None:
+			expected_length = end_pos - start_pos + 1
+			if expected_length != vector_length:
+				raise ValueError(
+					f"Span length mismatch: end_pos - start_pos + 1 = {expected_length}, "
+					f"but pileup_vector length = {vector_length}"
+				)
 		else:
-			return lambda msg: print(f"[TranscriptCallerRunner] {msg}")
-	
-	def load_pileup_from_bam(self, 
-						   all_chrom_reads_rep1: pd.DataFrame,
-						   all_chrom_reads_rep2: pd.DataFrame,
-						   smooth: bool = True):
-		"""
-		Load and compute pileup data from BAM-derived reads DataFrames.
+			end_pos = start_pos + vector_length - 1
 		
-		Parameters:
-		-----------
-		all_chrom_reads_rep1 : pd.DataFrame
-			Reads from replicate 1 with columns: chr, start, stop, strand, sample
-		all_chrom_reads_rep2 : pd.DataFrame  
-			Reads from replicate 2 with columns: chr, start, stop, strand, sample
-		chromosome_length : int
-			Length of chromosome in bp
-		smooth : bool
-			Whether to apply Gaussian smoothing (default: True)
-		"""
-		from src.sgd import get_chromosome_length
-
-		chromosome_length = get_chromosome_length(self.chromosome)
-
-		self.timer.start()
+		# Store coordinate conversion info
+		self._genomic_start = start_pos
+		self._genomic_offset = start_pos  # For converting array indices to genomic positions
 		
-		self._log_time(f"Starting pileup computation for chromosome {self.chromosome}")
-		
-		# Set chromosome span
-		self.chromosome_span = (0, chromosome_length)
-		
-		# Compute pileups for both replicates
-		watson_rep1, crick_rep1, bins = self._compute_pileups_advanced(
-			all_chrom_reads_rep1, self.chromosome_span, replicate=1, smooth=smooth)
-		
-		watson_rep2, crick_rep2, _ = self._compute_pileups_advanced(
-			all_chrom_reads_rep2, self.chromosome_span, replicate=2, smooth=smooth)
-
-		self.watson_rep1 = watson_rep1
-		self.crick_rep1 = crick_rep1
-
-		self.watson_rep2 = watson_rep2
-		self.crick_rep2 = crick_rep2
-
-		# Combine replicates (average)
-		self.watson_pileups_df = (watson_rep1 + watson_rep2) / 2
-		self.crick_pileups_df = (crick_rep1 + crick_rep2) / 2
-		self.bin_boundaries = bins
-		
-		self._log_time("Completed pileup computation and replicate averaging")
-		
-		
-	def detect_transcript_boundaries(self, strand: str = 'both') -> pd.DataFrame:
-		"""
-		Detect transcript boundaries using two-threshold approach.
-		
-		Parameters:
-		-----------
-		strand : str
-			Which strand(s) to analyze: 'watson', 'crick', or 'both' (default: 'both')
-			Custom (primary, extension) thresholds instead of quantile-based
-			
-		Returns:
-		--------
-		pd.DataFrame
-			Results with columns: chromosome, strand, start, end, length
-		"""
-		
-		self._log_time("Starting transcript boundary detection")
-		
-		# Compute average pileups across timepoints
-		watson_avg = self.watson_pileups_df.mean(axis=0).values
-		crick_avg = self.crick_pileups_df.mean(axis=0).values
-		
-		# Convert to log2 scale
-		watson_log = np.log2(watson_avg + 1)
-		crick_log = np.log2(crick_avg + 1)
-		
-		# Determine thresholds
-		eps_zero_cutoff = 0.1
-		combined_data = np.concatenate([watson_log, crick_log])
-		primary_threshold = np.quantile(combined_data[combined_data > eps_zero_cutoff], self.primary_threshold_quantile)
-		extension_threshold = np.quantile(combined_data[combined_data > eps_zero_cutoff], self.extension_threshold_quantile)
-		self._log_time(f"Calculated quantile thresholds: primary={primary_threshold:.3f} (Q{self.primary_threshold_quantile}), extension={extension_threshold:.3f} (Q{self.extension_threshold_quantile})")
-		
-		# Detect boundaries for each strand
-		results = []
-		
-		if strand in ['watson', 'both']:
-			self.watson_transcripts = self._find_transcript_boundaries_optimized(
-				watson_log, primary_threshold, extension_threshold)
-			self._log_time(f"Found {len(self.watson_transcripts)} Watson transcripts")
-			
-			# Convert to genomic coordinates and add to results
-			for start_idx, end_idx in self.watson_transcripts:
-				results.append({
-					'chromosome': self.chromosome,
-					'strand': '+',
-					'start': self.chromosome_span[0] + start_idx,
-					'end': self.chromosome_span[0] + end_idx,
-					'length': end_idx - start_idx + 1
-				})
-		
-		if strand in ['crick', 'both']:
-			self.crick_transcripts = self._find_transcript_boundaries_optimized(
-				crick_log, primary_threshold, extension_threshold)
-			self._log_time(f"Found {len(self.crick_transcripts)} Crick transcripts")
-			
-			# Convert to genomic coordinates and add to results
-			for start_idx, end_idx in self.crick_transcripts:
-				results.append({
-					'chromosome': self.chromosome,
-					'strand': '-',
-					'start': self.chromosome_span[0] + start_idx,
-					'end': self.chromosome_span[0] + end_idx,
-					'length': end_idx - start_idx + 1
-				})
-		
-		# Create results DataFrame
-		self.results_df = pd.DataFrame(results)
-		
-		self._log_time(f"Completed boundary detection: {len(results)} total transcripts")
-		self.primary_threshold = primary_threshold
-		self.extension_threshold = extension_threshold
-		
-		return self.results_df
-
-	def annotate_transcript_gene_overlap(self, buffer: int = 100,
-											column_name: str = 'overlapping_gene') -> pd.DataFrame:
-		"""
-		Annotate transcript boundaries with overlapping gene information.
-		For multiple overlapping genes, selects the 5' most gene.
-		"""
-		from src.sgd import read_sgd_genes
-		genes_df = read_sgd_genes(remove_chr_roman=True)
-		
-		if self.results_df is None:
-			raise ValueError("No transcript results available. Run detect_transcript_boundaries() first.")
-		
-		self._log_time(f"Starting transcript gene annotation with {buffer}bp buffer (5' most priority)")
-		
-		# Filter genes to current chromosome
-		chromosome_genes = genes_df[genes_df['chr'] == self.chromosome].copy()
-		
-		if len(chromosome_genes) == 0:
-			self._log_time(f"No genes found on chromosome {self.chromosome}")
-			self.results_df[column_name] = None
-			return self.results_df
-		
-		# Initialize annotation column
-		gene_annotations = []
-		
-		# Annotate each transcript
-		for _, transcript in self.results_df.iterrows():
-			transcript_strand = transcript['strand']
-			transcript_start = transcript['start']
-			transcript_end = transcript['end']
-			
-			# Filter genes to same strand
-			same_strand_genes = chromosome_genes[chromosome_genes['strand'] == transcript_strand]
-			
-			# Find ALL overlapping genes
-			overlapping_genes = []
-			
-			for gene_orf_name, gene in same_strand_genes.iterrows():
-				gene_start_buffered = gene['start'] - buffer
-				gene_end_buffered = gene['stop'] + buffer
-				
-				# Check for overlap
-				if (transcript_start <= gene_end_buffered and 
-					transcript_end >= gene_start_buffered):
-					overlapping_genes.append((gene_orf_name, gene['start']))
-			
-			# Select the 5' most gene among overlapping genes
-			if overlapping_genes:
-				if transcript_strand == '+':
-					# Watson: 5' most = leftmost = minimum start
-					selected_gene = min(overlapping_genes, key=lambda x: x[1])[0]
-				else:
-					# Crick: 5' most = rightmost = maximum start  
-					selected_gene = max(overlapping_genes, key=lambda x: x[1])[0]
-			else:
-				selected_gene = None
-			
-			gene_annotations.append(selected_gene)
-		
-		# Add annotation column to results
-		self.results_df[column_name] = gene_annotations
-		
-		# Enhanced logging
-		total_transcripts = len(self.results_df)
-		overlapping_count = sum(1 for x in gene_annotations if x is not None)
-		
-		# Count multiple overlaps for reporting
-		multiple_overlap_count = 0
-		for _, transcript in self.results_df.iterrows():
-			same_strand_genes = chromosome_genes[chromosome_genes['strand'] == transcript['strand']]
-			overlaps = []
-			for _, gene in same_strand_genes.iterrows():
-				gene_start_buffered = gene['start'] - buffer
-				gene_end_buffered = gene['stop'] + buffer
-				if (transcript['start'] <= gene_end_buffered and 
-					transcript['end'] >= gene_start_buffered):
-					overlaps.append(gene.name)
-			if len(overlaps) > 1:
-				multiple_overlap_count += 1
-		
-		self._log_time(f"Annotation complete: {overlapping_count} transcripts overlap with genes, "
-					   f"{multiple_overlap_count} had multiple overlaps (5' most selected)")
-		
-		return self.results_df
-
-	def get_non_overlapping_transcripts(self) -> pd.DataFrame:
-		"""
-		Get transcripts that don't overlap with any genes.
-		
-		Returns:
-		--------
-		pd.DataFrame
-			Subset of results_df where overlapping_gene column is None
-		"""
-		if self.results_df is None:
-			raise ValueError("No transcript results available. Run detect_transcript_boundaries() first.")
-		
-		if 'overlapping_gene' not in self.results_df.columns:
-			raise ValueError("Gene overlap annotation not found. Run annotate_transcript_gene_overlap() first.")
-		
-		return self.results_df[self.results_df['overlapping_gene'].isna()].copy()
-
-	def get_gene_overlapping_transcripts(self) -> pd.DataFrame:
-		"""
-		Get transcripts that overlap with genes.
-		
-		Returns:
-		--------
-		pd.DataFrame
-			Subset of results_df where overlapping_gene column is not None
-		"""
-		if self.results_df is None:
-			raise ValueError("No transcript results available. Run detect_transcript_boundaries() first.")
-		
-		if 'overlapping_gene' not in self.results_df.columns:
-			raise ValueError("Gene overlap annotation not found. Run annotate_transcript_gene_overlap() first.")
-		
-		return self.results_df[self.results_df['overlapping_gene'].notna()].copy()
-		
-	def save_results(self, filepath: str):
-		"""Save results to CSV file."""
-		if self.results_df is None:
-			raise ValueError("No results to save. Run detect_transcript_boundaries() first.")
-			
-		self.results_df.to_csv(filepath, index=False)
-		self._log_time(f"Results saved to {filepath}")
-		
-	def get_transcript_summary(self) -> dict:
-		"""Get summary statistics of detected transcripts."""
-		if self.results_df is None:
-			return {}
-			
-		summary = {
-			'total_transcripts': len(self.results_df),
-			'watson_transcripts': len(self.results_df[self.results_df.strand == '+']),
-			'crick_transcripts': len(self.results_df[self.results_df.strand == '-']),
-			'mean_length': self.results_df.length.mean(),
-			'median_length': self.results_df.length.median(),
-			'length_range': (self.results_df.length.min(), self.results_df.length.max())
-		}
-		
-		return summary
-	
-	# =====================================================================
-	# INTERNAL METHODS (optimized versions from notebook)
-	# =====================================================================
-	
-	def _compute_pileups_advanced(self, all_chrom_reads, span, replicate, smooth=False):
-		"""
-		Optimized pileup computation using advanced numpy techniques.
-		Adapted from notebook's compute_pileups_advanced function.
-		"""
-		from src.global_config import GlobalConstants
-		
-		# Filter and sort reads for cache efficiency
-		within_span_reads = all_chrom_reads[(all_chrom_reads['start'] < span[1]) & 
-											(all_chrom_reads['stop'] > span[0])].copy()
-		within_span_reads = within_span_reads.sort_values('start')
-		
-		# Get timepoints
-		timepoints = (GlobalConstants.EXPRESSION_WT1_TIMEPOINTS if replicate == 1 
-					  else GlobalConstants.EXPRESSION_WT2_TIMEPOINTS)
-		
-		# Create timepoint and strand mappings for vectorized operations
-		timepoint_map = {tp: i for i, tp in enumerate(timepoints)}
-		within_span_reads['timepoint_idx'] = within_span_reads['sample'].map(timepoint_map)
-		within_span_reads['strand_idx'] = (within_span_reads['strand'] == '+').astype(int)
-		
-		# Pre-allocate result arrays
-		n_positions = span[1] - span[0]
-		n_timepoints = len(timepoints)
-		result_shape = (2, n_timepoints, n_positions)  # [strand, timepoint, position]
-		pileups = np.zeros(result_shape, dtype=np.int32)
-		
-		# Vectorized histogram computation
-		bins = np.arange(span[0], span[1] + 1)  # Integer bin edges
-		
-		for strand_idx in [0, 1]:  # 0=crick(-), 1=watson(+)
-			strand_reads = within_span_reads[within_span_reads['strand_idx'] == strand_idx]
-			
-			for tp_idx in range(n_timepoints):
-				tp_reads = strand_reads[strand_reads['timepoint_idx'] == tp_idx]
-				if len(tp_reads) > 0:
-					counts, _ = np.histogram(tp_reads['start'].values, bins=bins)
-					pileups[strand_idx, tp_idx, :] = counts
-		
-		# Apply smoothing if requested
-		if smooth:
-			for strand_idx in [0, 1]:
-				for tp_idx in range(n_timepoints):
-					pileups[strand_idx, tp_idx, :] = self._smooth_rna_curve(
-						pileups[strand_idx, tp_idx, :].astype(np.float64)
-					)
-		
-		# Convert to DataFrames
-		watson_pileups_df = pd.DataFrame(pileups[1, :, :], index=timepoints)
-		crick_pileups_df = pd.DataFrame(pileups[0, :, :], index=timepoints)
-		bin_boundaries = bins
-		
-		return watson_pileups_df, crick_pileups_df, bin_boundaries
-	
-	def _apply_smoothing(self):
-		"""Apply Gaussian smoothing to loaded pileup data."""
-		self._log_time("Applying Gaussian smoothing")
-		
-		# Apply smoothing to each timepoint
-		for idx in self.watson_pileups_df.index:
-			self.watson_pileups_df.loc[idx] = self._smooth_rna_curve(self.watson_pileups_df.loc[idx].values)
-			self.crick_pileups_df.loc[idx] = self._smooth_rna_curve(self.crick_pileups_df.loc[idx].values)
-
-	def _get_smoothing_kernel(self, plot=False):
-		n = self.smoothing_window
-		xs = np.linspace(-n//2, n//2+1, n)
-		kernel = norm.pdf(xs, 0, self.smoothing_sigma)
-		kernel = kernel/kernel.max()
-
-		if plot:
-			import matplotlib.pyplot as plt
-			plt.plot(xs, kernel)
-
-		return kernel
-	
-	def _smooth_rna_curve(self, input_pileup):
-		"""
-		Apply Gaussian smoothing to RNA pileup curve.
-		Adapted from notebook's smooth_rna_curve function.
-		"""
-		# Create Gaussian kernel
-		kernel = self._get_smoothing_kernel()
-		
-		# Apply convolution
-		smoothed_pileup = np.convolve(input_pileup, kernel, mode='same')
-		return smoothed_pileup
-	
-	def _find_transcript_boundaries_optimized(self, pileup_values, primary_threshold, extension_threshold):
-		"""
-		Optimized transcript boundary identification.
-		Adapted from notebook's find_transcript_boundaries function.
-		"""
-		
-		# Step 1: Find core regions above primary threshold (vectorized)
-		core_mask = pileup_values >= primary_threshold
+		# Step 1: Find core regions above primary threshold
+		core_mask = pileup_vector >= primary_threshold
 		core_regions = self._get_regions_from_mask_optimized(core_mask)
 		
-		if not core_regions:
-			return []
-		
-		# Step 2: Vectorized extension using extension threshold
-		extension_mask = pileup_values >= extension_threshold
+		# Step 2: Extend regions using extension threshold
+		extension_mask = pileup_vector >= extension_threshold
 		extended_regions = self._extend_regions_vectorized(core_regions, extension_mask)
 		
-		# Step 3: Merge overlapping or nearby regions (optimized)
-		merged_regions = self._merge_nearby_regions_optimized(extended_regions, self.max_gap)
+		# Step 3: Merge overlapping or nearby regions
+		merged_regions = self._merge_nearby_regions_optimized(extended_regions, self.max_gap, pileup_vector)
 		
-		# Step 4: Filter by minimum length (vectorized)
-		final_regions = self._filter_by_length_vectorized(merged_regions, self.min_length)
+		# Step 4: Filter by minimum length
+		length_filtered_regions = self._filter_by_length_vectorized(merged_regions, self.min_length)
 		
-		return final_regions
+		# Step 5: Refine boundaries with adaptive cutoffs (optional)
+		if self.refine_boundaries:
+			final_regions = self._refine_boundaries(length_filtered_regions, pileup_vector, self.refinement_cutoff)
+		else:
+			final_regions = length_filtered_regions
+		
+		# Step 6: Convert to genomic coordinates and create DataFrame
+		results = []
+		for start_idx, end_idx in final_regions:
+			# Convert array indices to genomic coordinates
+			genomic_start = self._array_to_genomic(start_idx)
+			genomic_end = self._array_to_genomic(end_idx)
+			
+			# Calculate average value
+			region_values = pileup_vector[start_idx:end_idx+1]
+			avg_value = np.mean(region_values)
+			
+			result = {
+				'start': genomic_start,
+				'end': genomic_end,
+				'average_value': avg_value
+			}
+				
+			results.append(result)
+			
+		return pd.DataFrame(results)
+	
+	def _array_to_genomic(self, array_index: int) -> int:
+		"""Convert 0-based array index to 1-based genomic coordinate."""
+		return self._genomic_offset + array_index
+	
+	def _genomic_to_array(self, genomic_pos: int) -> int:
+		"""Convert 1-based genomic coordinate to 0-based array index."""
+		return genomic_pos - self._genomic_offset
+	
+	def _refine_boundaries(self, regions, pileup_vector, cutoff_proportion):
+		"""
+		Refine transcript boundaries by finding where signal drops to a proportion of transcript mean.
+		
+		Parameters:
+		-----------
+		regions : list of tuples
+			Initial (start, end) regions to refine (in array indices)
+		pileup_vector : np.ndarray
+			The pileup data
+		cutoff_proportion : float
+			Proportion of transcript mean to use as cutoff (e.g., 0.1 = 10% of mean)
+			
+		Returns:
+		--------
+		list of tuples
+			Refined (start, end) regions (in array indices)
+		"""
+		if not regions:
+			return []
+		
+		refined_regions = []
+		vector_length = len(pileup_vector)
+		
+		for start, end in regions:
+			# Calculate adaptive cutoff based on transcript mean
+			transcript_values = pileup_vector[start:end+1]
+			transcript_mean = np.mean(transcript_values)
+			adaptive_cutoff = transcript_mean * cutoff_proportion
+			
+			# Refine start boundary (scan right from start to find where signal rises above cutoff)
+			refined_start = start
+			for pos in range(start, min(end + 1, vector_length)):
+				if pileup_vector[pos] >= adaptive_cutoff:
+					refined_start = pos
+					break
+			
+			# Refine end boundary (scan left from end to find where signal falls below cutoff)
+			refined_end = end
+			for pos in range(end, max(refined_start - 1, -1), -1):
+				if pileup_vector[pos] >= adaptive_cutoff:
+					refined_end = pos
+					break
+			
+			# Only keep if refined region is still valid
+			if refined_end >= refined_start and (refined_end - refined_start + 1) >= self.min_length:
+				refined_regions.append((refined_start, refined_end))
+		
+		return refined_regions
+	
+	# =====================================================================
+	# INTERNAL OPTIMIZATION METHODS
+	# =====================================================================
 	
 	def _get_regions_from_mask_optimized(self, mask):
 		"""Optimized conversion of boolean mask to regions using vectorized operations."""
@@ -523,8 +325,24 @@ class AntisenseTranscriptCaller:
 		
 		return extended_regions
 	
-	def _merge_nearby_regions_optimized(self, regions, max_gap):
-		"""Optimized merging using numpy operations."""
+	def _merge_nearby_regions_optimized(self, regions, max_gap, pileup_vector):
+		"""
+		Optimized merging using numpy operations with average value constraints.
+		
+		Parameters:
+		-----------
+		regions : list of tuples
+			List of (start, end) regions to merge
+		max_gap : int
+			Maximum gap distance to allow merging
+		pileup_vector : np.ndarray
+			Pileup data for calculating average values
+			
+		Returns:
+		--------
+		list of tuples
+			Merged regions
+		"""
 		if not regions:
 			return []
 		
@@ -536,11 +354,53 @@ class AntisenseTranscriptCaller:
 		starts = regions_array[:, 0]
 		ends = regions_array[:, 1]
 		
+		# Calculate average values for each region
+		avg_values = np.array([
+			np.mean(pileup_vector[start:end+1]) 
+			for start, end in regions_array
+		])
+		
 		# Vectorized gap calculation
 		gaps = starts[1:] - ends[:-1] - 1
 		
-		# Find regions that should be merged (gap <= max_gap)
-		merge_mask = gaps <= max_gap
+		# Find regions that should be merged based on gap constraint
+		gap_merge_mask = gaps <= max_gap
+		
+		# Apply average value constraints if specified
+		if self.max_avg_diff is not None or self.max_fold_diff is not None:
+			avg_merge_mask = np.ones_like(gap_merge_mask, dtype=bool)
+			
+			for i in range(len(gap_merge_mask)):
+				current_avg = avg_values[i]
+				next_avg = avg_values[i + 1]
+				
+				# Check absolute difference constraint
+				if self.max_avg_diff is not None:
+					abs_diff = abs(current_avg - next_avg)
+					if abs_diff > self.max_avg_diff:
+						avg_merge_mask[i] = False
+						continue
+				
+				# Check fold difference constraint
+				if self.max_fold_diff is not None:
+					# Avoid division by zero and handle negative values
+					if current_avg > 0 and next_avg > 0:
+						fold_diff = max(current_avg / next_avg, next_avg / current_avg)
+						if fold_diff > self.max_fold_diff:
+							avg_merge_mask[i] = False
+							continue
+					elif current_avg <= 0 and next_avg <= 0:
+						# Both are zero or negative, allow merging
+						pass
+					else:
+						# One is positive, one is zero/negative - don't merge
+						avg_merge_mask[i] = False
+						continue
+			
+			# Combine gap and average constraints
+			merge_mask = gap_merge_mask & avg_merge_mask
+		else:
+			merge_mask = gap_merge_mask
 		
 		# Build merged regions efficiently
 		merged = []
@@ -576,3 +436,42 @@ class AntisenseTranscriptCaller:
 		valid_regions = regions_array[valid_mask]
 		
 		return [tuple(region) for region in valid_regions]
+
+	def plot_called_transcripts(self):
+
+		import matplotlib.pyplot as plt
+		fig = plt.figure(figsize=(13, 4))
+
+		span = self.span
+
+		x_positions = np.arange(span[0], span[1])
+
+		plt.fill_between(x_positions, self.watson_data, 0, color=plt.cm.Blues(0.5))
+		plt.fill_between(x_positions, -self.crick_data, 0, color=plt.cm.Reds(0.5))
+
+		def plot_called_row(row, flip):
+			y = -20 if flip else 20
+			mean_y = -row.average_value if flip else row.average_value
+			plt.plot([row.start, row.end], 
+				[mean_y, mean_y], color='black', ls='dotted', lw=0.75)
+			plt.fill_between([row.start, row.end],  
+				[y, y], 0, lw=0,
+					 color='#eee', zorder=0, alpha=0.45)
+			plt.plot([row.start, row.start], [0, y], c='black', lw=0.25)
+			plt.plot([row.end, row.end], [0, y], c='black', lw=0.25)
+				
+		for i, row in self.called_watson_transcripts.iterrows():
+			plot_called_row(row, False)
+			
+		for i, row in self.called_watson_transcripts.iterrows():
+			plot_called_row(row, True)
+			
+			plt.fill_between([row.start, row.end],  
+				[-20, -20], 0, lw=0,
+					 color='#ddd', alpha=0.45, zorder=0)
+			
+		plt.ylim(-3, 3)
+		plt.xlim(span[0], span[1])
+		plt.suptitle("Called transcript boundaries", fontweight='demi')
+
+		return fig

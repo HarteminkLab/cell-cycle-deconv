@@ -390,9 +390,23 @@ class ChromatinModel:
 			self.downsampled_bins, self.target_length_distribution,
 			self.window_10kb_g_curve, axs=axs)
 
-	def plot_raw_data(self, figsize=(2, 7), vmax=40):
-		return plot_raw(self, figsize, vmax=vmax)
+	def plot_raw_data(self, ax=None, figsize=(2, 7), vmax=40, timepoint=None):
 
+		if timepoint is None:
+			return plot_raw(self, figsize, vmax=vmax)
+		else:
+			G = self.G
+			G_imgs = G.reshape((G.shape[0], 26, -1))
+			timepoints = self.config.timepoints
+			t_index = timepoints.index(timepoint)
+			G_img = G_imgs[t_index]
+
+			if ax is None:
+				fig = plt.figure(figsize=figsize)
+				ax = plt.gca()
+
+			extent = [self.mnase_span[0], self.mnase_span[1], 0, 260]
+			plot_G_img(ax, G_img, vmax=vmax, extent=extent, vmin=0, cmap='magma_r')
 
 def read_chromosome_mnase_reads(replicate, chr):
 	chr_reads = pd.read_hdf(f'output/mnase/yl_rep{replicate}_mnase_reads/yl_rep{replicate}_mnase_reads_chr{chr}.h5', 
@@ -439,6 +453,13 @@ def plot_raw(chromatin_model, figsize=(2, 7), vmax=40):
 		title=f"Raw data, replicate {config.replicate}", vmax=vmax)
 
 
+def plot_G_img(ax, img, cmap, extent, vmax, vmin=0):
+	ax.imshow(img, origin='lower', aspect='auto', vmin=vmin, vmax=vmax,
+			  cmap=cmap, extent=extent)
+	ax.set_xticks([])
+	ax.set_yticks([])
+
+
 def plot_raw_G(G, config, chrom, mnase_span, figsize=(2, 7),
 	vmin=0, vmax=40, cmap='magma_r', title=""):
 
@@ -459,14 +480,12 @@ def plot_raw_G(G, config, chrom, mnase_span, figsize=(2, 7),
 
 	orf_plotter.plot_orf_annotations(axs[0])
 
+	extent = [mnase_span[0], mnase_span[1], 0, 260]
+
 	for i in range(1, num_rows):
 
 		ax = axs[i]
-
-		ax.imshow(G_imgs[i-1], origin='lower', aspect='auto', vmin=vmin, vmax=vmax,
-				  cmap=cmap)
-		ax.set_xticks([])
-		ax.set_yticks([])
+		plot_G_img(ax, G_imgs[i-1], cmap=cmap, vmax=vmax, extent=extent, vmin=vmin)
 		ax.set_ylabel(f"{timepoints[i-1]}'")
 
 	plt.suptitle(title)
