@@ -463,7 +463,7 @@ class TranscriptBoundaryCaller:
 		for i, row in self.called_watson_transcripts.iterrows():
 			plot_called_row(row, False)
 			
-		for i, row in self.called_watson_transcripts.iterrows():
+		for i, row in self.called_crick_transcripts.iterrows():
 			plot_called_row(row, True)
 			
 			plt.fill_between([row.start, row.end],  
