@@ -48,8 +48,7 @@ class TPMGenerator:
 		timer = Timer()
 		all_times_read_counts = self.transcript_boundaries_sets[[]].copy()
 
-		for _, row in replicate_bam_df.iterrows():
-			time = row.time
+		for time, row in replicate_bam_df.iterrows():
 			if verbose:
 				print_fl(f"Reading BAM file for time {time} minutes")
 
@@ -85,7 +84,7 @@ class TPMGenerator:
 			if verbose:
 				print_fl(f"\n=== Processing Replicate {rep_id} ===")
 			
-			replicate_bam = bam_df[bam_df.replicate == rep_id]
+			replicate_bam = bam_df.loc[rep_id]
 			read_counts, tpm_values = self.process_replicate(replicate_bam, verbose=verbose, chroms=chroms)
 			self.save_results(read_counts, tpm_values, rep_id)
 	
