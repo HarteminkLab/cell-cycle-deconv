@@ -441,15 +441,18 @@ def plot_gene_annotation(ax, start, end, y_baseline, height, color,
 	# 			y_baseline, height, color, flipped=watson, inset=inset[1])
 
 
-def load_default_orf_plotter(output_directory='output/draft4_run'):
+def load_default_orf_plotter(output_directory=None):
+
 	from src.sgd import read_sgd_genes, read_nondubious_genes_dataset, \
-		load_origins_sgd, load_aux_annotations
+		load_origins_sgd, load_aux_annotations, read_geneset_with_computed_regions
 	from src.orf_plotter import ORFAnnotationPlotter
 	from src.orf_plotter import load_default_orf_plotter
 	from src.transcripts_dataset import load_transcripts_sets
 
-	# todo: loading output from draft run
-	nondub_genes, _ = load_transcripts_sets(output_directory)
+	if output_directory is None:
+		nondub_genes = read_geneset_with_computed_regions()
+	else:
+		nondub_genes, _ = load_transcripts_sets(output_directory)
 
 	aux_annotations = load_aux_annotations()
 	origins = load_origins_sgd()

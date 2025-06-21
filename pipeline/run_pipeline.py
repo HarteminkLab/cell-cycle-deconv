@@ -98,29 +98,34 @@ def main():
 
 		from pipeline.transcripts_caller_runner import TranscriptCallerRunner
 
-		(_, command, output_directory, chrom) = system_args
-		chrom = int(chrom)
-
-		antisense_runner = TranscriptCallerRunner(
-			output_directory=output_directory,
-			chromosome=chrom
-		)
-		
-		results = antisense_runner.run(on_cluster=True)
-
-	# We can combine these two steps.
-	elif command == 'create_transcripts_datasets':
-
-		 # Following transcript calling, we have a new dataset of transcripts to compute transcription
-		 # for, this includes updated TSSes and non-genic transcripts for TPM calculation and deconvolution
 		(_, command, output_directory) = system_args
 
+		from src.timer import Timer
+
+		timer = Timer()
+		# Retrieve transcript calls for all of the chromosomes
+		chromosomes = range(1, 3)#17)
+		all_chrom_transcripts_arr = []
+		for chrom in chromosomes:
+			print_fl(f"Defining transcripts for chromosome {chrom}")
+			antisense_runner = TranscriptCallerRunner(
+				output_directory=output_directory,
+				chromosome=chrom
+			)
+			chrom_transcripts_results = antisense_runner.run()
+			all_chrom_transcripts_arr.append(chrom_transcripts_results)
+			timer.print_time()
+
+		all_chrom_transcripts_df = pd.concat(all_chrom_transcripts_arr)
+
+		# Following transcript calling, we have a new dataset of transcripts to compute transcription
+		# for, this includes updated TSSes and non-genic transcripts for TPM calculation and deconvolution
 		from src.transcripts_dataset import TranscriptDatasetBuilder
 
 		builder = TranscriptDatasetBuilder(output_directory)
 
 		# Load transcripts from called transcripts run for each chrom
-		builder.load_transcripts()
+		builder.load_transcripts(all_chrom_transcripts_df)
 
 		# Update the sgd genes set with the updated TSS calls
 		builder.update_sgd_tss_annotations()

@@ -93,7 +93,7 @@ class TranscriptBoundaryCaller:
 		self.watson_data = smoothed_mean_watson
 		self.crick_data = smoothed_mean_crick
 
-	def call_boundaries(self, min_threshold=0.1, 
+	def call_boundaries_both_strands(self, min_threshold=0.1, 
 			min_extension_threshold=0.05):
 
 		span = self.span
@@ -101,10 +101,20 @@ class TranscriptBoundaryCaller:
 		# Call the watson and crick transcripts from the input data
 		self.called_watson_transcripts = self._call_boundaries(self.watson_data, min_threshold,
 								 min_extension_threshold,
-                                 start_pos=span[0], end_pos=span[1]-1)
+								 start_pos=span[0], end_pos=span[1]-1)
 		self.called_crick_transcripts = self._call_boundaries(self.crick_data, min_threshold,
 								 min_extension_threshold, start_pos=span[0], 
 								 end_pos=span[1]-1)
+
+		watson_transcripts = self.called_watson_transcripts
+		crick_transcripts = self.called_crick_transcripts
+
+		watson_transcripts['strand'] = '+'
+		crick_transcripts['strand'] = '-'
+
+		chromosome_transcripts = pd.concat([watson_transcripts, crick_transcripts])
+		chromosome_transcripts['chr'] = self.chromosome
+		self.chromosome_transcripts = chromosome_transcripts
 
 	
 	def _call_boundaries(self, 
@@ -440,12 +450,19 @@ class TranscriptBoundaryCaller:
 	def plot_called_transcripts(self):
 
 		import matplotlib.pyplot as plt
+		from src.orf_plotter import load_default_orf_plotter
 		fig = plt.figure(figsize=(13, 4))
 
-		span = self.span
+		plt.subplot(2, 1, 1)
+		ax = plt.gca()
+		self.orf_plotter = load_default_orf_plotter()
+		self.orf_plotter.set_span_chrom(self.span, self.chromosome)
+		self.orf_plotter.plot_orf_annotations(ax)
 
+		span = self.span
 		x_positions = np.arange(span[0], span[1])
 
+		plt.subplot(2, 1, 2)
 		plt.fill_between(x_positions, self.watson_data, 0, color=plt.cm.Blues(0.5))
 		plt.fill_between(x_positions, -self.crick_data, 0, color=plt.cm.Reds(0.5))
 
@@ -459,7 +476,7 @@ class TranscriptBoundaryCaller:
 					 color='#eee', zorder=0, alpha=0.45)
 			plt.plot([row.start, row.start], [0, y], c='black', lw=0.25)
 			plt.plot([row.end, row.end], [0, y], c='black', lw=0.25)
-				
+
 		for i, row in self.called_watson_transcripts.iterrows():
 			plot_called_row(row, False)
 			
@@ -475,3 +492,125 @@ class TranscriptBoundaryCaller:
 		plt.suptitle("Called transcript boundaries", fontweight='demi')
 
 		return fig
+
+	def assign_genes_to_transcripts(self, genes_df):
+		"""
+		Assign genes to transcripts based on overlap and TSS proximity.
+		
+		Parameters:
+		-----------
+		genes_df : pd.DataFrame
+			DataFrame with columns: chr, start, stop, strand, gene, orf_name, classification
+			
+		Returns:
+		--------
+		pd.DataFrame
+			Updated chromosome_transcripts with overlapping_orf_name column
+		"""
+		
+		# Input validation
+		if not hasattr(self, 'chromosome_transcripts') or self.chromosome_transcripts is None:
+			raise ValueError("No transcript results available. Run call_boundaries() first.")
+		
+		required_columns = ['chr', 'start', 'stop', 'strand', 'classification']
+		missing_columns = [col for col in required_columns if col not in genes_df.columns]
+		if missing_columns:
+			raise ValueError(f"genes_df missing required columns: {missing_columns}")
+		
+		# Filter genes to current chromosome and exclude Dubious genes
+		chromosome_genes = genes_df[
+			(genes_df['chr'] == self.chromosome) & 
+			(genes_df['classification'] != 'Dubious')
+		].copy()
+		
+		if len(chromosome_genes) == 0:
+			# No valid genes on this chromosome
+			self.chromosome_transcripts['overlapping_orf_name'] = None
+			return self.chromosome_transcripts
+		
+		# Initialize results list
+		gene_assignments = []
+		
+		# Process each transcript
+		for _, transcript in self.chromosome_transcripts.iterrows():
+			transcript_strand = transcript['strand']
+			transcript_start = transcript['start']
+			transcript_end = transcript['end']
+			
+			# Filter genes to same strand
+			same_strand_genes = chromosome_genes[chromosome_genes['strand'] == transcript_strand]
+			
+			# Find genes with ≥75% coverage
+			qualifying_genes = []
+			
+			for orf_name, gene in same_strand_genes.iterrows():
+				gene_start = gene['start']
+				gene_stop = gene['stop']
+				
+				# Calculate overlap
+				overlap_length = self._calculate_overlap_length(
+					transcript_start, transcript_end, gene_start, gene_stop
+				)
+				
+				# Calculate gene coverage percentage
+				gene_length = gene_stop - gene_start + 1
+				coverage_percent = (overlap_length / gene_length) * 100
+				
+				if coverage_percent >= 75.0:
+					tss_distance = self._calculate_tss_distance(transcript, gene, transcript_strand)
+					qualifying_genes.append((orf_name, tss_distance, coverage_percent))
+			
+			# Select best gene
+			if not qualifying_genes:
+				assigned_gene = None
+			elif len(qualifying_genes) == 1:
+				assigned_gene = qualifying_genes[0][0]
+			else:
+				# Multiple qualifying genes - select closest to TSS
+				assigned_gene = min(qualifying_genes, key=lambda x: x[1])[0]
+			
+			gene_assignments.append(assigned_gene)
+		
+		# Add results to dataframe
+		self.chromosome_transcripts['overlapping_orf_name'] = gene_assignments
+		
+		return self.chromosome_transcripts
+
+	def _calculate_overlap_length(self, transcript_start, transcript_end, gene_start, gene_stop):
+		"""
+		Calculate the length of overlap between transcript and gene.
+		
+		Returns 0 if no overlap.
+		"""
+		overlap_start = max(transcript_start, gene_start)
+		overlap_end = min(transcript_end, gene_stop)
+		
+		if overlap_start <= overlap_end:
+			return overlap_end - overlap_start + 1
+		else:
+			return 0
+
+	def _calculate_tss_distance(self, transcript, gene, strand):
+		"""
+		Calculate distance between transcript and gene TSS.
+		
+		Parameters:
+		-----------
+		transcript : pd.Series
+			Transcript row with 'start' and 'end' columns
+		gene : pd.Series
+			Gene row with 'start' and 'stop' columns
+		strand : str
+			'+' or '-'
+			
+		Returns:
+		--------
+		int
+			Distance to TSS
+		"""
+		if strand == '+':
+			# + strand: TSS is at gene start
+			return abs(transcript['start'] - gene['start'])
+		else:
+			# - strand: TSS is at gene stop
+			return abs(transcript['end'] - gene['stop'])

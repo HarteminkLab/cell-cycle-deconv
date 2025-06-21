@@ -56,7 +56,7 @@ def read_sgd_file(filename='data/reference_data/sgd_R64-1-1_20110208.gff',
 	return data
 
 def read_sgd_genes(filename='data/reference_data/sgd_R64-1-1_20110208.gff',
-	remove_chr_roman=False):
+	remove_chr_roman=True):
 	"""Read sgd orf/genes file as tsv file from gff file with fasta data removed."""
 
 	data = read_sgd_file(filename)
@@ -203,7 +203,6 @@ def read_nondubious_genes_dataset():
 
 	genes = read_sgd_genes()
 	genes = genes[~(genes.classification == 'Dubious')]
-	genes['chr'] = genes.chr.str.replace('chr', '').apply(_fromRoman)
 	genes = genes[genes['chr'] > 0]
 
 	return genes

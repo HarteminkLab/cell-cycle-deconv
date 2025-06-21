@@ -2,6 +2,7 @@
 from src.sgd import read_nondubious_genes_dataset
 import pandas as pd
 import numpy as np
+from src.figure_configs import save_figure_for_paper
 
 
 class TranscriptDatasetBuilder:
@@ -31,35 +32,20 @@ class TranscriptDatasetBuilder:
 		self.gene_associated_transcripts = None
 		self.nongenic_transcripts = None
 		self.rna_called_tss_data = None
-		self.filtered_nongenic_transcripts = None
 		
-	def load_transcripts(self):
+	def load_transcripts(self, all_called_transcripts_df):
 		"""Load transcript data from all chromosomes and separate genic vs non-genic."""
 		print("Loading transcripts from all chromosomes...")
-		
-		# Load the transcript boundary results from disk from each chromosome
-		dfs_arr = []
-		for chrom in range(1, 17):
-			chrom_transcripts_df = pd.read_csv(f'{self.output_dir}/transcripts_calling/called_transcripts_chr{chrom}.csv')
-			dfs_arr.append(chrom_transcripts_df)
-
-		all_called_transcripts_df = pd.concat(dfs_arr)
-		all_called_transcripts_df = all_called_transcripts_df.sort_values(['chromosome', 'start'])
 
 		# Separate genic and non-genic transcripts
-		self.nongenic_transcripts = all_called_transcripts_df[all_called_transcripts_df.overlapping_gene.isna()].copy()
-		self.gene_associated_transcripts = all_called_transcripts_df[~all_called_transcripts_df.overlapping_gene.isna()].copy()
+		self.nongenic_transcripts = all_called_transcripts_df[all_called_transcripts_df.overlapping_orf_name.isna()].copy()
+		self.gene_associated_transcripts = all_called_transcripts_df[~all_called_transcripts_df.overlapping_orf_name.isna()].copy()
 
 		# Name the non-gene transcripts
-		nongenic_names = 'nogene_chr' + self.nongenic_transcripts['chromosome'].astype(str) + \
+		nongenic_names = 'nogene_chr' + self.nongenic_transcripts['chr'].astype(str) + \
 			'_' + self.nongenic_transcripts['start'].astype(str) + '_' + \
 			self.nongenic_transcripts['end'].astype(str)
 		self.nongenic_transcripts.index = nongenic_names
-		self.nongenic_transcripts = self.nongenic_transcripts[['chromosome', 'strand', 'start', 'end', 'length']]
-
-		# Filter the nongenic transcripts by length
-		self.filtered_nongenic_transcripts = self.nongenic_transcripts[self.nongenic_transcripts['length'] > \
-			self.min_nongene_transcript_len]
 		
 		print(f"Loaded {len(self.gene_associated_transcripts)} gene-associated transcripts")
 		print(f"Loaded {len(self.nongenic_transcripts)} non-genic transcripts")
@@ -76,8 +62,7 @@ class TranscriptDatasetBuilder:
 		# Call RNA-seq TSSes and store for comparison
 		self.rna_called_tss_data = call_all_chromosome_TSSes(self.gene_associated_transcripts)
 
-		self.tss_comparison = compare_all_chromosomes_TSS(self.rna_called_tss_data, 'Park_TSS',
-													threshold=self.max_tss_change, plot=False)
+		self.tss_comparison = compare_all_chromosomes_TSS(self.rna_called_tss_data)
 		filtered_genic_tss = self.tss_comparison[np.abs(self.tss_comparison['tss_difference']) < self.max_tss_change]
 
 		filtered_rna_TSSes = filtered_genic_tss.rna_TSS
@@ -114,7 +99,7 @@ class TranscriptDatasetBuilder:
 
 		# Next, create non-genic transcripts dataset, can we meerge it with the updated sgd genes?
 		# maybe with a lot of null columns
-		nongenic_transcripts = self.filtered_nongenic_transcripts.copy()
+		nongenic_transcripts = self.nongenic_transcripts.copy()
 
 		nongenic_transcripts = define_new_strand_specific_key(nongenic_transcripts, 'TSS', 
 			'start', 'end')
@@ -126,8 +111,7 @@ class TranscriptDatasetBuilder:
 		nongenic_transcripts = define_genomic_region(nongenic_transcripts, 'TSS', (0, 500),
 							 ['transcript_body_start', 'transcript_body_end'])
 		nongenic_transcripts.index.name = 'transcript_name'
-		nongenic_transcripts = nongenic_transcripts.rename(columns={'chromosome': 'chr',
-			'end': 'stop'})
+		nongenic_transcripts = nongenic_transcripts.rename({'end': 'stop'})
 
 		self.nongenic_transcripts_dataset = nongenic_transcripts
 
@@ -137,8 +121,11 @@ class TranscriptDatasetBuilder:
 		save_dir = f"{self.output_dir}/transcripts_calling"
 
 		# Save the updated sgd genes to disk
+		self.tss_comparison.to_csv(f"{save_dir}/tss_comparison.csv")
 		self.updated_sgd_genes.to_csv(f"{save_dir}/updated_transcripts_geneset.csv")
 		self.nongenic_transcripts_dataset.to_csv(f"{save_dir}/nongenic_transcripts_set.csv")
+		plot_tss_comparison(self.tss_comparison, self.max_tss_change)
+		save_figure_for_paper(f"{save_dir}/tss_comparison.png")
 
 
 def create_genomic_coordinate_column(df, column_name, priority_list):
@@ -228,17 +215,17 @@ def load_all_transcripts_from_runs(output_dir):
 		dfs_arr.append(chrom_transcripts_df)
 
 	all_called_transcripts_df = pd.concat(dfs_arr)
-	all_called_transcripts_df = all_called_transcripts_df.sort_values(['chromosome', 'start'])
+	all_called_transcripts_df = all_called_transcripts_df.sort_values(['chr', 'start'])
 
-	nongenic_transcripts = all_called_transcripts_df[all_called_transcripts_df.overlapping_gene.isna()].copy()
-	gene_associated_transcripts = all_called_transcripts_df[~all_called_transcripts_df.overlapping_gene.isna()].copy()
+	nongenic_transcripts = all_called_transcripts_df[all_called_transcripts_df.overlapping_orf_name.isna()].copy()
+	gene_associated_transcripts = all_called_transcripts_df[~all_called_transcripts_df.overlapping_orf_name.isna()].copy()
 
 	# Name the non-gene transcripts
-	nongeneic_names = 'nogene_chr' + nongenic_transcripts['chromosome'].astype(str) + \
+	nongeneic_names = 'nogene_chr' + nongenic_transcripts['chr'].astype(str) + \
 		'_' + nongenic_transcripts['start'].astype(str) + '_' + \
 		nongenic_transcripts['end'].astype(str)
 	nongenic_transcripts.index = nongeneic_names
-	nongenic_transcripts = nongenic_transcripts[['chromosome', 'strand', 'start', 'end', 'length']]
+	nongenic_transcripts = nongenic_transcripts[['chr', 'strand', 'start', 'end', 'length']]
 
 	return gene_associated_transcripts, nongenic_transcripts
 
@@ -248,7 +235,7 @@ def call_all_chromosome_TSSes(caller_results_df):
 
 	called_arr = []
 	for chrom in range(1, 17):
-		chrom_results = caller_results_df[caller_results_df.chromosome == chrom]
+		chrom_results = caller_results_df[caller_results_df.chr == chrom]
 		called_results = call_chromosome_TSSes(chrom_results, chrom)
 		called_arr.append(called_results)
 
@@ -270,8 +257,8 @@ def call_chromosome_TSSes(caller_results_df, chromosome_num):
 	"""
 	# Filter for chromosome and overlapping genes
 	genes_with_called_transcripts = caller_results_df[
-		(caller_results_df.chromosome == chromosome_num) & 
-		(~caller_results_df.overlapping_gene.isna())
+		(caller_results_df.chr == chromosome_num) & 
+		(~caller_results_df.overlapping_orf_name.isna())
 	]
 	
 	# Split by strand
@@ -279,68 +266,57 @@ def call_chromosome_TSSes(caller_results_df, chromosome_num):
 	crick_genes = genes_with_called_transcripts[genes_with_called_transcripts.strand == '-']
 	
 	# For Watson (+): TSS is minimum start (5' end)
-	watson_TSSes = watson_genes.groupby('overlapping_gene')[['start']].min()\
+	watson_TSSes = watson_genes.groupby('overlapping_orf_name')[['start']].min()\
 		.rename(columns={'start': 'rna_TSS'})
 	
 	# For Crick (-): TSS is maximum end (5' end) - CORRECTED
-	crick_TSSes = crick_genes.groupby('overlapping_gene')[['end']].max()\
+	crick_TSSes = crick_genes.groupby('overlapping_orf_name')[['end']].max()\
 		.rename(columns={'end': 'rna_TSS'})
 	
 	return pd.concat([watson_TSSes, crick_TSSes])
 
-def compare_all_chromosomes_TSS(combined_rna_TSSes, reference_tss_column='TSS', threshold=500,
-	plot=False):
+def compare_all_chromosomes_TSS(combined_rna_TSSes):
 	"""
 	Compare RNA-seq called TSSes across all chromosomes with existing annotations.
 	
 	Parameters:
 	caller_results_dict: dict, {chromosome: TranscriptCallerRunner.results_df}
-	reference_tss_column: str, 'TSS' or 'park_TSS'
 	
 	Returns:
 	DataFrame with all TSS comparisons and creates histogram
 	"""
 
 	import matplotlib.pyplot as plt
-	from src.sgd import read_park_TSS_PAS
+	from src.sgd import read_park_TSS_PAS, read_sgd_genes
 	
 	# Get SGD gene data
 	park_genes = read_park_TSS_PAS()
 	
 	# Join with RNA-seq TSSes
-	tss_comparison = park_genes.join(combined_rna_TSSes)[[reference_tss_column, 'rna_TSS']]
+	tss_comparison = park_genes.join(combined_rna_TSSes)[['Park_TSS', 'rna_TSS']]
 	
 	# Calculate differences
 	tss_comparison['tss_difference'] = tss_comparison['rna_TSS']-\
-		tss_comparison[reference_tss_column]
+		tss_comparison['Park_TSS']
 	
 	# Negate crick strand, such that differences are 5' oriented
 	crick_selection = park_genes.strand == '-'
 	tss_comparison.loc[crick_selection, 'tss_difference'] = \
 		-tss_comparison[crick_selection]['tss_difference']
 	
-	# Create histogram
-	if plot:
-		plt.figure(figsize=(4, 2))
-		plt.hist(tss_comparison['tss_difference'], bins=100, alpha=0.7, edgecolor='black')
-		plt.xlabel(f'Called RNA-seq TSS - Park TSS, bp (strand corrected)')
-		plt.ylabel('Count')
-		plt.title(f'Change in TSS calls using stranded RNA-seq', fontweight='demi',
-				 fontsize=12)
-		plt.xlim(-1000, 1000)
-		plt.axvline(threshold, c='red', alpha=0.75)
-		plt.axvline(-threshold, c='red', alpha=0.75)
-	
-	# Add summary statistics
-	median_diff = tss_comparison['tss_difference'].median()
-	mean_diff = tss_comparison['tss_difference'].mean()
-	
-	print(f"Total genes with RNA-seq TSS calls: {len(tss_comparison)}")
-	print(f"Median difference: {median_diff:.1f}bp")
-	print(f"Mean difference: {mean_diff:.1f}bp")
-	print(f"Std deviation: {tss_comparison['tss_difference'].std():.1f}bp")
-	
 	return tss_comparison
+
+def plot_tss_comparison(tss_comparison, threshold):
+	import matplotlib.pyplot as plt
+	plt.figure(figsize=(4, 2))
+	plt.hist(tss_comparison['tss_difference'], bins=100, alpha=0.7, edgecolor='black')
+	plt.xlabel(f'Called RNA-seq TSS - Park TSS, bp (strand corrected)')
+	plt.ylabel('Count')
+	plt.title(f'Change in TSS calls using stranded RNA-seq', fontweight='demi',
+			 fontsize=12)
+	plt.xlim(-1000, 1000)
+	plt.axvline(threshold, c='red', alpha=0.75)
+	plt.axvline(-threshold, c='red', alpha=0.75)
 
 def load_transcripts_sets(output_dir, combined=False):
 	geneset = pd.read_csv(f"{output_dir}/transcripts_calling/updated_transcripts_geneset.csv")

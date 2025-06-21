@@ -3,13 +3,11 @@ from src.sgd import get_chromosome_length
 from src.orf_plotter import load_default_orf_plotter
 from src.timer import Timer
 from src.read_bam import read_rna_bam, get_rna_seq_filepaths_df
-from src.transcript_boundary_caller import AntisenseTranscriptCaller
+from src.transcript_boundary_caller import TranscriptBoundaryCaller
 from src.transcript_boundary_visualizer import AntisenseTranscriptVisualizer
 from src.figure_configs import save_figure_for_paper
-from src.utils import mkdir_safe, print_memory_usage
-import gc
+from src.utils import mkdir_safe
 
-# todo: rename file to transcript calling runner (not-antisense)
 
 class TranscriptCallerRunner:
 	"""
@@ -49,33 +47,28 @@ class TranscriptCallerRunner:
 		self.orf_plotter = load_default_orf_plotter()
 		self.visualizer = None
 		self.results_df = None
-		
-		# Setup directories
-		self.save_dir = f'{output_directory}/transcripts_calling'
-		mkdir_safe(self.save_dir)
-
-		from src.transcript_boundary_caller import TranscriptBoundaryCaller
+		self.save_dir = f"{output_directory}/transcripts_calling"
 
 		# Create caller for entire chromosome
 		self.caller = TranscriptBoundaryCaller(output_directory=output_directory)
-		span = 0, get_chromosome_length(chrom)
-		self.caller.set_chrom_span(chrom, span)
+		span = 0, get_chromosome_length(chromosome)
+		self.span = span
+		self.caller.set_chrom_span(chromosome, span)
 		
 	
 	def detect_transcripts(self):
 		"""
 		Detect transcript boundaries and annotate gene associations.
 		"""
-		if self.caller is None:
-			raise ValueError("Must load pileup data first. Call load_pileup_data()")
-			
 		print(f"Detecting transcript boundaries for chromosome {self.chromosome}")
 		
 		# Detect transcript boundaries
-		self.results_df = self.caller.detect_transcript_boundaries(strand='both')
+		self.results_df = self.caller.call_boundaries_both_strands()
 		
 		# Annotate transcript-gene overlap
-		self.results_df = self.caller.annotate_transcript_gene_overlap()
+		from src.sgd import read_sgd_genes
+		genes_df = read_sgd_genes(remove_chr_roman=True)
+		self.results_df = self.caller.assign_genes_to_transcripts(genes_df)
 		
 		print(f"Detected {len(self.results_df)} transcripts for chromosome {self.chromosome}")
 	
@@ -90,20 +83,8 @@ class TranscriptCallerRunner:
 		output_file = f"{self.save_dir}/called_transcripts_chr{self.chromosome}.csv"
 		self.results_df.to_csv(output_file, index=False)
 		print(f"Saved transcript results to: {output_file}")
-		
-		# Initialize visualizer and create distribution plot
-		self.visualizer = AntisenseTranscriptVisualizer(
-			transcript_caller=self.caller,
-			orf_plotter=self.orf_plotter,
-		)
-		
-		# Plot and save threshold distribution
-		fig = self.visualizer.plot_threshold_distribution()
-		plot_file = f"{self.save_dir}/distribution_chr{self.chromosome}.png"
-		save_figure_for_paper(plot_file)
-		print(f"Saved distribution plot to: {plot_file}")
 	
-	def run(self, on_cluster):
+	def run(self):
 		"""
 		Run the complete transcript calling pipeline.
 		
@@ -113,18 +94,12 @@ class TranscriptCallerRunner:
 			Results dataframe with detected transcripts
 		"""
 		print(f"Starting transcript calling pipeline for chromosome {self.chromosome}")
-		print(f"Output directory: {self.save_dir}")
 		
-		# Step 1 & 2: Setup and chromosome selection (done in __init__)
-		
-		# Step 3: Load pileup data
-		self.load_pileup_data(on_cluster)
-		
-		# Step 4 & 5: Find transcript boundaries and classify gene associations
+		# Step 1: Find transcript boundaries and classify gene associations
 		self.detect_transcripts()
 		
-		# Step 6 & 7: Save distribution plot and transcript results
-		self.save_results()
-		
-		print(f"Pipeline completed successfully for chromosome {self.chromosome}")
+		print(f"Transcript calling completed for chromosome {self.chromosome}")
+		mkdir_safe(self.save_dir)
+		self.save_results
+
 		return self.results_df
