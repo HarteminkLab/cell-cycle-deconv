@@ -104,7 +104,7 @@ def main():
 
 		timer = Timer()
 		# Retrieve transcript calls for all of the chromosomes
-		chromosomes = range(1, 3)#17)
+		chromosomes = range(1, 17)
 		all_chrom_transcripts_arr = []
 		for chrom in chromosomes:
 			print_fl(f"Defining transcripts for chromosome {chrom}")
