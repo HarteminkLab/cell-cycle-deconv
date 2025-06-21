@@ -322,7 +322,9 @@ def load_transcripts_sets(output_dir, combined=False):
 	geneset = pd.read_csv(f"{output_dir}/transcripts_calling/updated_transcripts_geneset.csv")
 	nongenic_set = pd.read_csv(f"{output_dir}/transcripts_calling/nongenic_transcripts_set.csv")
 	geneset = geneset.set_index('orf_name')
-	nongenic_set = nongenic_set.set_index('transcript_name')
+
+	nongenic_set = nongenic_set.set_index('transcript_name').rename(columns={'end': 'stop'})
+	nongenic_set['length'] = nongenic_set.stop - nongenic_set.start
 
 	# Combined dataset with common keys
 	if combined:

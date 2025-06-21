@@ -17,27 +17,25 @@ OUTDIR=output/draft4_run/
 
 # --------------- Find all transcripts boundaries -----------------------
 
-ARGS="call_transcripts ${OUTDIR}"
-sbatch -D ./slurm-logs/ --job-name="txb" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_genomicarray_job.sh
+#ARGS="call_transcripts ${OUTDIR}"
+#sbatch -D ./slurm-logs/ --job-name="txb" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
 # --------------- Compute TPM -------------------------------------
 
-# ARGS="compute_tpms ${OUTDIR}"
-# sbatch -D ./slurm-logs/ --job-name="tpm" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+#ARGS="compute_tpms ${OUTDIR}"
+#sbatch -D ./slurm-logs/ --job-name="tpm" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
 # ---------- Transcription deconvolution as array ----------------
 
-# Total number of transcripts to deconvolve: 7705
-# Last finished for reference for continuation: 1830 (from 6/17/25 run) (batch 1, 830-999 would restart)
-# ARGS="deconvolve_expression_index ${OUTDIR}"
-# sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_0" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
-# sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
-# sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_2" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=2" scripts/cpu_genomicarray_job.sh
-# sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_3" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=3" scripts/cpu_genomicarray_job.sh
-# sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_4" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=4" scripts/cpu_genomicarray_job.sh
-# sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_5" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=5" scripts/cpu_genomicarray_job.sh
-# sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_6" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=6" scripts/cpu_genomicarray_job.sh
-# sbatch -a 0-705%4 -D ./slurm-logs/ --job-name="tx_7" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=7" scripts/cpu_genomicarray_job.sh
+ARGS="deconvolve_expression_index ${OUTDIR}"
+sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_0" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
+sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_2" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=2" scripts/cpu_genomicarray_job.sh
+sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_3" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=3" scripts/cpu_genomicarray_job.sh
+sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_4" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=4" scripts/cpu_genomicarray_job.sh
+sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_5" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=5" scripts/cpu_genomicarray_job.sh
+sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_6" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=6" scripts/cpu_genomicarray_job.sh
+sbatch -a 0-705%4 -D ./slurm-logs/ --job-name="tx_7" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=7" scripts/cpu_genomicarray_job.sh
 
 # ---------- Find Gamma ---------------
 
@@ -87,3 +85,4 @@ sbatch -D ./slurm-logs/ --job-name="txb" --export="PYFILE=pipeline/run_pipeline.
 # sbatch -D ./slurm-logs/ --job-name="nocc_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 # ARGS="deconvolve_chromatin_no_copy ${OUTDIR} 1198"
 # sbatch -D ./slurm-logs/ --job-name="nocc_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
+
