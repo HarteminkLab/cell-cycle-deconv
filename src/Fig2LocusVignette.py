@@ -205,7 +205,7 @@ class LocusVignette(object):
 		}
 
 	def plot_raw_predicted_and_deconvolved_on_axes(self, row_axes, analysis_key, metric_type, region_params, 
-												   title_prefix="", ylim=None, show_legend=True, 
+												   ylabel="", ylim=None, show_legend=True, 
 												   show_titles=True, show_xticks=True):
 		"""
 		Create a 4-panel comparison plot of raw, predicted, and deconvolved data on provided axes.
@@ -214,10 +214,29 @@ class LocusVignette(object):
 		# Compute all the data
 		data = self._compute_metric_for_comparison(analysis_key, metric_type, region_params)
 
+		from src.config import load_default_chrom_configs, retrieve_phase_ticks
+		config1, config2 = load_default_chrom_configs()
+
+		color_raw = plt.cm.Greys(0.6)
+		color_fit = plt.cm.Reds(0.5)
+		color_prom_small = plt.cm.Oranges(0.6)
+		color_entropy = plt.cm.Blues(0.65)
+		color_footprint = plt.cm.Purples(0.75)
+		color_metric = color_prom_small
+
+		if 'entropy' in ylabel.lower():
+			color_metric = color_entropy
+		elif 'promoter' in ylabel.lower():
+			color_metric = color_prom_small
+		elif 'origin' in ylabel.lower():
+			color_metric = color_footprint
+		else:
+			raise ValueError("Unhandled ylabel for plot color")
+
 		# Plot replicate 1
 		ax = row_axes[0]
-		ax.plot(data['raw_tps1'], data['raw1'], label='Raw')
-		ax.plot(data['raw_tps1'], data['predicted1'], label='Predicted')
+		ax.plot(data['raw_tps1'], data['raw1'], label='Raw', c=color_raw)
+		ax.plot(data['raw_tps1'], data['predicted1'], label='Predicted', c=color_fit)
 		if ylim is not None:
 			ax.set_ylim(ylim)
 		if show_titles:
@@ -225,13 +244,16 @@ class LocusVignette(object):
 
 		ax.set_xlim(data['raw_tps1'][0], data['raw_tps1'][-1])
 		if show_legend: ax.legend()
-		if title_prefix: ax.set_ylabel(title_prefix, fontweight='demi')
+		if ylabel: ax.set_ylabel(ylabel)
 		if not show_xticks: ax.set_xticks([])
+		ax.set_xticks(np.arange(0,  data['raw_tps1'][-1], 40))
 		
 		# Plot replicate 2
 		ax = row_axes[1]
-		ax.plot(data['raw_tps2'], data['raw2'], label='Raw')
-		ax.plot(data['raw_tps2'], data['predicted2'], label='Predicted')
+		ax.plot(data['raw_tps2'], data['raw2'], label='Raw',
+			c=color_raw, lw=2)
+		ax.plot(data['raw_tps2'], data['predicted2'], label='Predicted', 
+			c=color_fit, lw=2)
 		ax.set_yticks([])
 		if ylim is not None:
 			ax.set_ylim(ylim)
@@ -239,22 +261,37 @@ class LocusVignette(object):
 			ax.set_title("Replicate 2")
 		ax.set_xlim(data['raw_tps2'][0], data['raw_tps2'][-1])
 		if not show_xticks: ax.set_xticks([])
+		else:
+			ax.set_xticks(np.arange(0,  data['raw_tps2'][-1], 40))
 
 		# Plot recovery (i branch)
 		ax = row_axes[2]
-		ax.plot(data['i_tps'], data['deconvolved'][data['i_indices']])
+		ax.plot(data['i_tps'], data['deconvolved'][data['i_indices']], 
+			c=color_metric, lw=3)
 		if ylim is not None:
 			ax.set_ylim(ylim)
 		ax.set_yticks([])
 		ax.set_xlim(data['i_tps'][0], data['i_tps'][-1])
 		if show_titles:
 			ax.set_title("Recovery branch")
-		if not show_xticks: ax.set_xticks([])
+		if not show_xticks: 
+			ax.set_xticks([])
+		else:
+			xticks = retrieve_phase_ticks('i', config1, config2)
+			phase_ticks, edge_ticks = xticks
+
+			ax.set_xticks(phase_ticks)
+			ax.set_xticklabels(['RG1', 'S', 'G2/M'], fontsize=8)
+
+			ax.set_xticks(edge_ticks, minor=True)
+
+			ax.tick_params(axis='x', which='major', length=0)
+			ax.tick_params(axis='x', which='minor', length=10) 
 
 		# Plot mother/daughter (average of t and b branches)
 		ax = row_axes[3]
 		tb_dat = (data['deconvolved'][data['t_indices']] + data['deconvolved'][data['b_indices']]) / 2.
-		ax.plot(data['tb_tps'], tb_dat)
+		ax.plot(data['tb_tps'], tb_dat, c=color_metric, lw=3)
 		if ylim is not None:
 			ax.set_ylim(ylim)
 		ax.set_yticks([])
@@ -262,10 +299,21 @@ class LocusVignette(object):
 		if show_titles:
 			ax.set_title("Mother/Daughter")
 		if not show_xticks: ax.set_xticks([])
+		else:
+			xticks = retrieve_phase_ticks('tb', config1, config2)
+			phase_ticks, edge_ticks = xticks
+
+			ax.set_xticks(phase_ticks)
+			ax.set_xticklabels(['SG1', 'S', 'G2/M'], fontsize=8)
+
+			ax.set_xticks(edge_ticks, minor=True)
+
+			ax.tick_params(axis='x', which='major', length=0)
+			ax.tick_params(axis='x', which='minor', length=10) 
 
 
 	def plot_raw_predicted_and_deconvolved(self, analysis_key, metric_type, region_params, 
-										 title_prefix="", figsize=(9, 2.25), ylim=None):
+										 ylabel="", figsize=(9, 2), ylim=None):
 		"""
 		Create a 4-panel comparison plot of raw, predicted, and deconvolved data.
 		This is a wrapper around plot_raw_predicted_and_deconvolved_on_axes for backward compatibility.
@@ -274,7 +322,7 @@ class LocusVignette(object):
 		# Create figure with custom gridspec: 5 columns (including spacer) and n_metrics rows
 		fig = plt.figure(figsize=figsize)
 		gs = gridspec.GridSpec(1, 6, figure=fig, 
-							   width_ratios=[1, 0.05, 1, 0.3, 1, 1],  # Spacer columns at 1 and 3
+							   width_ratios=[1, 0.1, 1, 0.3, 1, 1],  # Spacer columns at 1 and 3
 							   wspace=0.0,  # Small spacing within groups
 							   hspace=0.1)  # Spacing between rows
 		
@@ -293,20 +341,20 @@ class LocusVignette(object):
 			analysis_key=analysis_key,
 			metric_type=metric_type,
 			region_params=region_params,
-			title_prefix=title_prefix,
+			ylabel=ylabel,
 			ylim=ylim
 		)
 		
 		# Set overall title
-		if title_prefix:
-			plt.suptitle(title_prefix, fontweight='demi', fontsize=16)
+		if ylabel:
+			plt.suptitle(ylabel, fontweight='demi', fontsize=16)
 		
 		plt.subplots_adjust(top=0.7)
 		
 		return fig
 
 	def plot_gene_metrics_grouped(self, gene_name, metrics_to_plot=None, analysis_key=None,
-									figsize=(9, 2.25), ylims=None, show_column_titles=True):
+									figsize=None, ylims=None, show_column_titles=True):
 		"""
 		Create a grouped plot for a single gene showing multiple metrics in separate rows.
 		fig = locus_vignette.plot_gene_metrics_grouped('CLB2', metrics)
@@ -322,12 +370,20 @@ class LocusVignette(object):
 		
 		n_metrics = len(metrics_to_plot)
 
+		if figsize is None:
+			if n_metrics == 1:
+				figsize = (11, 2)
+			elif n_metrics == 2:
+				figsize = (11, 3)
+			else:
+				raise ValueError("Not handled number of metrics to plot")
+
 		gene_regions = self.gene_regions[analysis_key]
 		
 		# Create figure with custom gridspec: 5 columns (including spacer) and n_metrics rows
 		fig = plt.figure(figsize=figsize)
 		gs = gridspec.GridSpec(n_metrics, 6, figure=fig, 
-							   width_ratios=[1, 0.05, 1, 0.3, 1, 1],  # Spacer columns at 1 and 3
+							   width_ratios=[1, 0.1, 1, 0.3, 1, 1],  # Spacer columns at 1 and 3
 							   wspace=0.0,  # Small spacing within groups
 							   hspace=0.1)  # Spacing between rows
 		
@@ -363,15 +419,11 @@ class LocusVignette(object):
 			else:
 				raise ValueError("region_type must be 'promoter' or 'gene_body'")
 			
-			# Generate label if not provided
-			if 'label' in metric_spec:
-				label = metric_spec['label']
+			label = f"{region_type.replace('_', ' ').title()}"
+			if metric_type == 'entropy':
+				label += "\nentropy"
 			else:
-				label = f"{region_type.replace('_', ' ').title()}"
-				if metric_type == 'entropy':
-					label += " entropy"
-				else:
-					label += " occupancy"
+				label += "\noccupancy"
 			
 			# Determine ylim
 			ylim = None
@@ -382,7 +434,7 @@ class LocusVignette(object):
 			else:
 				# Set default ylim based on metric type
 				ylim = (0, 2.5) if metric_type == 'mean' else (4, 6.0)
-			
+
 			# Plot on the current row
 			row_axes = axes[i]
 			self.plot_raw_predicted_and_deconvolved_on_axes(
@@ -390,7 +442,7 @@ class LocusVignette(object):
 				analysis_key=analysis_key,
 				metric_type=metric_type,
 				region_params=region_params,
-				title_prefix=label,
+				ylabel=label,
 				ylim=ylim,
 				show_legend=(i == 0),  # Only show legend on first row
 				show_titles=(i == 0 and show_column_titles),  # Only show titles on first row
@@ -457,7 +509,7 @@ class LocusVignette(object):
 				analysis_key=analysis_key,
 				metric_type=metric_type,
 				region_params=region_params,
-				title_prefix=label,
+				ylabel=label,
 				ylim=ylim,
 				show_legend=(i == 0),  # Only show legend on first row
 				show_titles=(i == 0)   # Only show titles on first row
@@ -481,7 +533,7 @@ class LocusVignette(object):
 			analysis_key=analysis_key,
 			metric_type='mean',
 			region_params=footprint_bp_tuple,
-			title_prefix="Origin footprint",
+			ylabel="Origin footprint",
 			ylim=ylim
 		)
 
@@ -553,17 +605,17 @@ class LocusVignette(object):
 		if ylim is None:
 			ylim = (0, 2.5) if metric_type == 'mean' else (4, 6.0)
 		
-		title_prefix = f"{gene_name} {region_type.replace('_', ' ')}"
+		ylabel = f"{gene_name} {region_type.replace('_', ' ')}"
 		if metric_type == 'entropy':
-			title_prefix += " entropy"
+			ylabel += " entropy"
 		else:
-			title_prefix += " occupancy"
+			ylabel += " occupancy"
 		
 		return self.plot_raw_predicted_and_deconvolved(
 			analysis_key=analysis_key,
 			metric_type=metric_type,
 			region_params=bp_tuple,
-			title_prefix=title_prefix,
+			ylabel=ylabel,
 			ylim=ylim
 		)
 
@@ -948,8 +1000,8 @@ class LocusVignette(object):
 					   highlight_bins=highlight_bins)
 		return fig
 
-	def plot_stored_gene_deconvolution(self, gene_name, region_type, analysis_key='efficient_no_copy', 
-									 metric_type='mean', ylim=None):
+	def plot_stored_gene_deconvolution(self, gene_name, region_type, 
+			analysis_key='efficient_no_copy', metric_type='mean', ylim=None):
 		"""
 		Plot gene deconvolution using stored regions.
 		
@@ -980,17 +1032,17 @@ class LocusVignette(object):
 		if ylim is None:
 			ylim = (0, 2.5) if metric_type == 'mean' else (4, 6.0)
 		
-		title_prefix = f"{gene_name} {region_type.replace('_', ' ')}"
+		ylabel = f"{gene_name} {region_type.replace('_', ' ')}"
 		if metric_type == 'entropy':
-			title_prefix += " entropy"
+			ylabel += " entropy"
 		else:
-			title_prefix += " occupancy"
+			ylabel += " occupancy"
 		
 		return self.plot_raw_predicted_and_deconvolved(
 			analysis_key=analysis_key,
 			metric_type=metric_type,
 			region_params=region_params,
-			title_prefix=title_prefix,
+			ylabel=ylabel,
 			ylim=ylim
 		)
 
@@ -1021,13 +1073,11 @@ class LocusVignette(object):
 		gb_entropy_metrics_only = [{'region_type': 'gene_body', 'metric_type': 'entropy', 
 			'label': 'Gene body entropy'}]
 		
-		fig1 = self.plot_gene_metrics_grouped('CLB5', analysis_key='efficient_no_copy',
-			metrics_to_plot=gb_entropy_metrics_only)
+		fig1 = self.plot_gene_metrics_grouped('CLB5', analysis_key='efficient_no_copy')
 		figs.append(fig1)
 		
 		fig2 = self.plot_gene_metrics_grouped('THI22', 
-			metrics_to_plot=gb_entropy_metrics_only, analysis_key='efficient_no_copy', 
-			figsize=(9, 2.25))
+			metrics_to_plot=gb_entropy_metrics_only, analysis_key='efficient_no_copy')
 		figs.append(fig2)
 
 		fig3 = self.plot_origin_footprint_deconvolution('efficient_no_copy')
@@ -1053,7 +1103,7 @@ class LocusVignette(object):
 		print(f"Saved: Distal_Locus_Plot.png")
 		
 		# Save proximal locus plot
-		subset_regions = {'CLB5': ['gene_body_bp_tuple'],
+		subset_regions = {'CLB5': ['gene_body_bp_tuple', 'promoter_bp_tuple'],
 						  'THI22': ['gene_body_bp_tuple']}
 		fig_proximal = self.plot_locus_with_stored_regions(analysis_key='efficient_no_copy', 
 			regions_to_plot=subset_regions)

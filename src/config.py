@@ -576,6 +576,38 @@ class ModelConfig(object):
 		print("Daughter: ", bottom_smoothing_tps_length/top_smoothing_tps_length)
 		print()
 
+def retrieve_phase_ticks(branch, config1, config2):
+
+	if branch == 'tb':
+		t_tps = get_average_timepoints_for_branch(config1, config2, 't')
+		b_tps = get_average_timepoints_for_branch(config1, config2, 'b')
+		tps = (t_tps+b_tps)/2.
+	else:
+		tps = get_average_timepoints_for_branch(config1, config2, 'i')
+
+	# Use length of G1, S, and G2/M to delineate
+	# timing of each phase
+	g1_len = len(config1.get_Hpositions_for_phase('CG1'))
+	s_len = len(config1.get_Hpositions_for_phase('S'))
+	g2m_len = len(config1.get_Hpositions_for_phase('G2M'))
+
+	# Compute locations for tick marks
+	g1_mid = g1_len//2
+	s_mid = s_len//2
+	g2m_mid = g2m_len//2
+
+	g1_start = tps[0]
+	mid_g1_tp = tps[g1_mid]
+	g1_end = tps[g1_len]
+	s_mid = tps[g1_len+s_mid]
+	s_end = tps[g1_len+s_len]
+	g2m_mid = tps[g1_len+s_len+g2m_mid]
+	g2m_end = tps[-1]
+
+	phase_ticks = [mid_g1_tp, s_mid, g2m_mid]
+	edge_ticks = [g1_start, g1_end, s_end, g2m_end]
+	return phase_ticks, edge_ticks
+
 
 
 def read_cloccs_posteriors(posteriors_filepath):
