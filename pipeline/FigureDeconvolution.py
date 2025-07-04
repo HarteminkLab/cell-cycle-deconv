@@ -8,7 +8,7 @@ from src.figure_configs import save_figure_for_paper
 
 SUBPANEL_COLOR = '#f5f5f5'
 
-class Figure1Deconvolution(object):
+class FigureDeconvolution(object):
 	"""Load and plot figures for the first result figure"""
 
 	def __init__(self, output_dir):
@@ -16,7 +16,9 @@ class Figure1Deconvolution(object):
 		self.output_dir = output_dir
 
 		self.save_dir = f'{output_dir}/fig_chromatin_deconvolution'
+		self.fig_save_dir = f'{output_dir}/Figures/'
 		mkdir_safe(self.save_dir)
+		mkdir_safe(self.fig_save_dir)
 
 		# Create the H for the updated model config to include the H config
 		from src.config import load_default_chrom_configs
@@ -49,7 +51,7 @@ class Figure1Deconvolution(object):
 		save_figure_for_paper(f"{save_dir}/Deconvolved_Profiles_F.png")
 
 	def create_panel(self):
-		layout_figure_panel(self.save_dir)
+		layout_figure_panel(self.save_dir, self.fig_save_dir)
 
 
 	def plot_H(self):
@@ -511,7 +513,7 @@ class Figure1Deconvolution(object):
 				  f"{q975_1:.3f})\t&&\t{mean_2:.3f}\t&\t({q025_2:.3f},{q975_2:.3f}) \\\\")
 
 
-def layout_figure_panel(save_dir):
+def layout_figure_panel(save_dir, figures_dir):
 
 	from pipeline.figure_composer import FigureCompositor
 
@@ -605,7 +607,7 @@ def layout_figure_panel(save_dir):
 	    font_size=20,
 	    font_type='semi_bold')
 
-	save_path = f"{save_dir}/Figure1_Deconvolution.png"
+	save_path = f"{figures_dir}/Figure1_Deconvolution.png"
 	compositor.save(save_path)
 
 	print(f"Saved figure panel: {save_path}")

@@ -10,7 +10,7 @@ from src.figure_configs import save_figure_for_paper
 import matplotlib.gridspec as gridspec
 import os
 
-class LocusVignette(object):
+class FigureLoci(object):
 	"""Analysis of deconvolved locus.
 
 	Goal:
@@ -28,9 +28,12 @@ class LocusVignette(object):
 		self.origins = load_origins()
 		self.origin = self.origins.loc['oridb_817']
 		self.output_directory = output_directory
-		self.save_directory = output_directory + '/figure2_loci_plots'
-		self.copy_corrected_data_directory = f'{self.output_directory}/chromatin_deconvolution_partial_daughter/deconvolution_data/'
+		self.save_directory = output_directory + '/figure_loci_plots'
+		self.figures_directory = output_directory + '/Figures'
+
+		self.copy_corrected_data_directory = f'{self.output_directory}/chromatin_deconvolution/deconvolution_data/'
 		self.no_correction_data_directory = f'{self.output_directory}/chromatin_deconvolution_no_copy/deconvolution_data/'
+
 
 		# Create analyses for each of the efficient and distal loci
 		# Create copy and no copy correction analyses (for sanity checking). 
@@ -74,12 +77,14 @@ class LocusVignette(object):
 		self.genome_analyses['efficient_with_copy'].clear_cache()
 		self.genome_analyses['efficient_no_copy'].load_mnase_span(origin.chr, span)
 		self.genome_analyses['efficient_no_copy'].clear_cache()
+		print(f"Proximal efficient region chr{origin.chr}: ", span)
 
 		# Load a span on the same chromosome that is late replicating
 		distal_span = origin.pos-45000 - 4000, origin.pos-45000 + 4000
 		self.genome_analyses['distal_with_copy'].load_mnase_span(origin.chr, distal_span)
 		self.genome_analyses['distal_with_copy'].clear_cache()
 		self.genome_analyses['distal_no_copy'].load_mnase_span(origin.chr, distal_span)
+		print(f"Distal region chr{origin.chr}: ", distal_span)
 		
 		# Load combined chromatin models for comparisons
 		self._load_combined_models(origin.chr, span, distal_span)
@@ -219,16 +224,16 @@ class LocusVignette(object):
 
 		color_raw = plt.cm.Greys(0.6)
 		color_fit = plt.cm.Reds(0.5)
-		color_prom_small = plt.cm.Oranges(0.6)
-		color_entropy = plt.cm.Blues(0.65)
-		color_footprint = plt.cm.Purples(0.75)
+		color_prom_small = plt.cm.Oranges(0.45)
+		color_entropy = plt.cm.Blues(0.75)
+		color_footprint = plt.cm.Purples(0.6)
 		color_metric = color_prom_small
 
 		if 'entropy' in ylabel.lower():
 			color_metric = color_entropy
 		elif 'promoter' in ylabel.lower():
 			color_metric = color_prom_small
-		elif 'origin' in ylabel.lower():
+		elif 'footprint' in ylabel.lower():
 			color_metric = color_footprint
 		else:
 			raise ValueError("Unhandled ylabel for plot color")
@@ -313,7 +318,7 @@ class LocusVignette(object):
 
 
 	def plot_raw_predicted_and_deconvolved(self, analysis_key, metric_type, region_params, 
-										 ylabel="", figsize=(9, 2), ylim=None):
+										 ylabel="", figsize=(11, 2), ylim=None):
 		"""
 		Create a 4-panel comparison plot of raw, predicted, and deconvolved data.
 		This is a wrapper around plot_raw_predicted_and_deconvolved_on_axes for backward compatibility.
@@ -344,11 +349,7 @@ class LocusVignette(object):
 			ylabel=ylabel,
 			ylim=ylim
 		)
-		
-		# Set overall title
-		if ylabel:
-			plt.suptitle(ylabel, fontweight='demi', fontsize=16)
-		
+
 		plt.subplots_adjust(top=0.7)
 		
 		return fig
@@ -374,7 +375,7 @@ class LocusVignette(object):
 			if n_metrics == 1:
 				figsize = (11, 2)
 			elif n_metrics == 2:
-				figsize = (11, 3)
+				figsize = (11, 3.2)
 			else:
 				raise ValueError("Not handled number of metrics to plot")
 
@@ -453,7 +454,7 @@ class LocusVignette(object):
 		from src.sgd import get_gene_title_name
 		gene_title = get_gene_title_name(gene_name)
 		plt.suptitle(f"{gene_title}", fontweight='demi', fontsize=18)
-		plt.subplots_adjust(top=(0.83 if len(axes) == 2 else 0.7))
+		plt.subplots_adjust(top=(0.79 if len(axes) == 2 else 0.7))
 		
 		return fig
 
@@ -529,13 +530,15 @@ class LocusVignette(object):
 	def plot_origin_footprint_deconvolution(self, analysis_key='efficient_no_copy', ylim=(0, 3.2)):
 		"""Convenience method for plotting origin footprint deconvolution."""
 		footprint_bp_tuple = (self.origin.pos-100, 30, self.origin.pos+20, 120)
-		return self.plot_raw_predicted_and_deconvolved(
+		fig = self.plot_raw_predicted_and_deconvolved(
 			analysis_key=analysis_key,
 			metric_type='mean',
 			region_params=footprint_bp_tuple,
-			ylabel="Origin footprint",
-			ylim=ylim
-		)
+			ylabel="Footprint occupancy",
+			ylim=ylim)
+		plt.suptitle(f"{self.get_origin_name()}", fontweight='demi', fontsize=18)
+
+		return fig
 
 	def plot_total_window_comparision(self, keys=['efficient_no_copy','distal_no_copy']):
 		fig = self.compare_loaded_branch_means(self.genome_analyses[keys[0]],
@@ -572,11 +575,11 @@ class LocusVignette(object):
 		ylim : tuple or None
 			Y-axis limits
 		"""
-		from src.sgd import read_nondubious_genes_dataset
+		from src.sgd import read_geneset_with_computed_regions
 		from src.reference_data import load_plus_ones
 		
 		# Load gene data
-		genes = read_nondubious_genes_dataset()
+		genes = read_geneset_with_computed_regions()
 		genes = genes.join(load_plus_ones())
 		
 		# Get gene with adjustment
@@ -619,6 +622,17 @@ class LocusVignette(object):
 			ylim=ylim
 		)
 
+	def get_origin_name(self):
+		origin = self.origin
+		ars_name_mapping = {
+			'ARS1626.5': 'ARS1635' # Alias term in Belksy set compared to SGD R64
+		}
+		if origin.ars_name in ars_name_mapping.keys():
+			ars_name = ars_name_mapping[origin.ars_name]
+		else:
+			ars_name = origin.ars_name.ars_name
+		return ars_name
+
 	def plot_locus(self, analysis_key, with_copy_correction=False,
 		highlight_bins=[]):
 		from src.config import load_default_chrom_configs
@@ -627,29 +641,25 @@ class LocusVignette(object):
 		config1, config2 = load_default_chrom_configs()
 
 		if analysis_key in ['efficient_with_copy', 'efficient_no_copy']:
-			origin = self.origin
-			ars_name_mapping = {
-				'ARS1626.5': 'ARS1635' # Alias term in Belksy set compared to SGD R64
-			}
-			if origin.ars_name in ars_name_mapping.keys():
-				ars_name = ars_name_mapping[origin.ars_name]
-			else:
-				ars_name = origin.ars_name.ars_name
 
-			title = "Proximal to efficient origin, $\\it{" + ars_name + "}$"
+			ars_name = self.get_origin_name()
+			title = "Deconvolved chromatin at efficient origin $\\it{" + ars_name + "}$"
 
-			with_copy_correction = analysis_key == 'efficient_with_copy'
-			if with_copy_correction: title += ", with copy correction"
+			# with_copy_correction = analysis_key == 'efficient_with_copy'
+			# if with_copy_correction: title += ", with copy correction"
 
 		else:
 
-			with_copy_correction = analysis_key == 'distal_with_copy'
 			title = "Distal (~40kb) from efficient origin"
-			if with_copy_correction: title += ", with copy correction"
+
+			# with_copy_correction = analysis_key == 'distal_with_copy'
+			# if with_copy_correction: title += ", with copy correction"
 			
 		genome_analysis = self.genome_analyses[analysis_key]
-		fig = genome_analysis.plot_loaded_data(config1, figsize=(12, 12), 
-			title=title, highlight_bins=highlight_bins)
+		fig = genome_analysis.plot_loaded_data(config1, figsize=(12, 12), highlight_bins=highlight_bins)
+
+		plt.suptitle(title, fontweight='demi', fontsize=32)
+		plt.tight_layout()
 		
 		return fig
 
@@ -1049,14 +1059,9 @@ class LocusVignette(object):
 	def plot_distal_gene_metrics(self):
 		"""Plot the distal gene metrics"""
 
-		fig1 = self.plot_gene_metrics_grouped('PRE2', analysis_key='distal_no_copy', 
-			metrics_to_plot=[
-				{'region_type': 'gene_body', 'metric_type': 'entropy', 
-				'label': 'Gene body entropy',
-					 'ylim': (4, 6)}
-			])
+		fig1 = self.plot_gene_metrics_grouped('PRE2', analysis_key='distal_with_copy')
 
-		fig2 = self.plot_gene_metrics_grouped('SNT309', analysis_key='distal_no_copy', 
+		fig2 = self.plot_gene_metrics_grouped('SNT309', analysis_key='distal_with_copy', 
 			metrics_to_plot=[
 				{'region_type': 'gene_body', 'metric_type': 'entropy', 
 				'label': 'Gene body entropy',
@@ -1073,17 +1078,29 @@ class LocusVignette(object):
 		gb_entropy_metrics_only = [{'region_type': 'gene_body', 'metric_type': 'entropy', 
 			'label': 'Gene body entropy'}]
 		
-		fig1 = self.plot_gene_metrics_grouped('CLB5', analysis_key='efficient_no_copy')
+		fig1 = self.plot_gene_metrics_grouped('CLB5', analysis_key='efficient_with_copy')
 		figs.append(fig1)
 		
 		fig2 = self.plot_gene_metrics_grouped('THI22', 
-			metrics_to_plot=gb_entropy_metrics_only, analysis_key='efficient_no_copy')
+			metrics_to_plot=gb_entropy_metrics_only, analysis_key='efficient_with_copy')
 		figs.append(fig2)
 
-		fig3 = self.plot_origin_footprint_deconvolution('efficient_no_copy')
+		fig3 = self.plot_origin_footprint_deconvolution('efficient_with_copy')
 		figs.append(fig3)
 		
 		return figs
+
+	def plot_distal_locus(self):
+		subset_regions = {'PRE2': ['gene_body_bp_tuple'],
+						  'SNT309': ['gene_body_bp_tuple']}
+		fig_distal = self.plot_locus_with_stored_regions(analysis_key='distal_with_copy', 
+			regions_to_plot=subset_regions)
+
+	def plot_proximal_locus(self):
+		subset_regions = {'CLB5': ['gene_body_bp_tuple', 'promoter_bp_tuple'],
+						  'THI22': ['gene_body_bp_tuple']}
+		fig_proximal = self.plot_locus_with_stored_regions(analysis_key='efficient_with_copy', 
+			regions_to_plot=subset_regions)
 
 	def run_and_save_all(self):
 		"""
@@ -1094,19 +1111,16 @@ class LocusVignette(object):
 		print(f"Created/verified save directory: {self.save_directory}")
 		
 		# Save distal locus plot
-		subset_regions = {'PRE2': ['gene_body_bp_tuple'],
-						  'SNT309': ['gene_body_bp_tuple']}
-		fig_distal = self.plot_locus_with_stored_regions(analysis_key='distal_no_copy', 
-			regions_to_plot=subset_regions)
+		self.plot_distal_locus()
 		save_path = os.path.join(self.save_directory, 'Distal_Locus_Plot.png')
 		save_figure_for_paper(save_path)
 		print(f"Saved: Distal_Locus_Plot.png")
 		
 		# Save proximal locus plot
-		subset_regions = {'CLB5': ['gene_body_bp_tuple', 'promoter_bp_tuple'],
-						  'THI22': ['gene_body_bp_tuple']}
-		fig_proximal = self.plot_locus_with_stored_regions(analysis_key='efficient_no_copy', 
-			regions_to_plot=subset_regions)
+		self.plot_proximal_locus()
+		save_path = os.path.join(self.save_directory, 'Proximal_Locus_Plot.png')
+		save_figure_for_paper(save_path)
+		print(f"Saved: Proximal_Locus_Plot.png")
 
 		# Save proximal gene metrics
 		save_names = ['Proximal_Clb5_metrics.png', 'Proximal_Thi22_Metrics.png', 
@@ -1133,8 +1147,78 @@ class LocusVignette(object):
 		
 		print(f"\nAll plots saved successfully to: {self.save_directory}")
 
+	def layout_panel_proximal(self, canvas_width=1024, canvas_height=540, margins=20, 
+						column_padding=30, between_padding=30, debug_mode=True):
+		"""
+		Create a composite figure panel with all locus plots and metrics.
+		Layout: proximal locus on left, three other plots stacked vertically on right.
+		"""
+		# Import compositor and helper functions
+		# Note: You may need to adjust these import paths based on your project structure
+		from pipeline.figure_composer import FigureCompositor
+		from pipeline.figure_composer_helpers import layout_images_horizontally, layout_images_vertically, \
+			add_panel_labels_to_images
+		
+		# Create compositor 
+		compositor = FigureCompositor(canvas_width, canvas_height, debug_mode=debug_mode)
+		
+		# Define file paths
+		proximal_locus_path = f'{self.save_directory}/Proximal_Locus_Plot.png'
+		clb5_metrics_path = f'{self.save_directory}/Proximal_Clb5_Metrics.png'
+		thi22_metrics_path = f'{self.save_directory}/Proximal_Thi22_Metrics.png'
+		origin_footprint_path = f'{self.save_directory}/Origin_Footprint_Deconvolution.png'
+		
+		# Calculate column widths (left column gets ~50% of available width)
+		available_width = canvas_width - (2 * margins)
+		left_column_width = int((available_width - column_padding) * 0.49)
+		right_column_width = available_width - left_column_width - column_padding
+		
+		# Place proximal locus on the left
+		left_column_images = layout_images_vertically(
+			compositor,
+			[proximal_locus_path],
+			between_padding=between_padding,
+			margin=margins,
+			x_position=margins,
+			widths=[left_column_width],
+			image_keys=['proximal_locus']
+		)
+		
+		# Calculate starting x position for right column
+		right_column_start_x = margins + left_column_width + column_padding
+		
+		# Layout right column (three plots stacked vertically)
+		right_column_images = layout_images_vertically(
+			compositor,
+			[clb5_metrics_path, thi22_metrics_path, origin_footprint_path],
+			between_padding=between_padding,
+			margin=margins,  # Use same top margin as left column
+			x_position=right_column_start_x,
+			widths=[right_column_width] * 3,  # All three images same width
+			image_keys=['clb5_metrics', 'thi22_metrics', 'origin_footprint']
+		)
+		
+		# Add panel labels (A-D) to top-left of each image
+		add_panel_labels_to_images(
+			compositor,
+			compositor.placed_images,
+			labels='ABCD',
+			font_size=36,
+			offset=(-10, -12),  # Slightly above and to the left of each image
+			font_type='bold',
+			color=(0, 0, 0)
+		)
+		
+		# Save the composite figure
+		output_path = f'{self.figures_directory}/Figure3_Locus.png'
+		compositor.save(output_path)
+		print(f"Combined panel saved to: {output_path}")
+		
+		return compositor
 
-	def layout_panel(self, canvas_width=1024, canvas_height=1124, margins=20, 
+
+
+	def layout_panel_full(self, canvas_width=1024, canvas_height=1120, margins=20, 
 					column_padding=30, between_padding=30, debug_mode=True):
 		"""
 		Create a composite figure panel with all locus plots and metrics.
@@ -1155,7 +1239,10 @@ class LocusVignette(object):
 		origin_footprint_path = f'{self.save_directory}/Origin_Footprint_Deconvolution.png'
 		pre2_metrics_path = f'{self.save_directory}/Distal_Pre22_Metrics.png'
 		snt309_metrics_path = f'{self.save_directory}/Distal_Snt309_metrics.png'
-		total_comparison_path = f'{self.save_directory}/Total_Window_Comparison.png'
+
+		# Removing total plots, switching to show results as with copy correction
+		# so total window motivation will be moved to the copy correction figure
+		# total_comparison_path = f'{self.save_directory}/Total_Window_Comparison.png'
 		
 		# Layout top row (A and B) horizontally
 		top_row_images = layout_images_horizontally(
@@ -1174,7 +1261,7 @@ class LocusVignette(object):
 		# Calculate starting y position for columns
 		column_start_y = proximal_info['logical_position'][1] + proximal_info['logical_size'][1] + between_padding
 		
-		# Layout left column (C, D, E) below proximal locus
+		# Layout left column (B, C, D) below proximal locus
 		left_column_images = layout_images_vertically(
 			compositor,
 			[clb5_metrics_path, thi22_metrics_path, origin_footprint_path],
@@ -1188,19 +1275,19 @@ class LocusVignette(object):
 		# Layout right column (F, G) below distal locus
 		right_column_images = layout_images_vertically(
 			compositor,
-			[pre2_metrics_path, snt309_metrics_path, total_comparison_path],
+			[pre2_metrics_path, snt309_metrics_path],
 			between_padding=between_padding,
 			margin=(0, column_start_y),  # No left margin, use calculated y position as top margin
 			x_position=distal_info['logical_position'][0],
-			widths=[distal_info['logical_size'][0]] * 3,  # Same width as distal locus image
-			image_keys=['pre2_metrics', 'snt309', 'total_comparison']
+			widths=[distal_info['logical_size'][0]] * 2,  # Same width as distal locus image
+			image_keys=['pre2_metrics', 'snt309']
 		)
 		
 		# Add panel labels (A-G) to top-left of each image
 		add_panel_labels_to_images(
 			compositor,
 			compositor.placed_images,
-			labels='ABCDEFGH',
+			labels='AEBCDFGH',
 			font_size=36,
 			offset=(-10, -12),  # Slightly above and to the left of each image
 			font_type='bold',
@@ -1208,7 +1295,7 @@ class LocusVignette(object):
 		)
 		
 		# Save the composite figure
-		output_path = f'{self.save_directory}/Figure2_Combined_Panel.png'
+		output_path = f'{self.figures_directory}/Figure3_Loci.png'
 		compositor.save(output_path)
 		print(f"Combined panel saved to: {output_path}")
 		

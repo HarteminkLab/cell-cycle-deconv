@@ -494,31 +494,31 @@ def main():
 		fig1 = Figure1Deconvolution(output_dir=output_dir)
 		fig1.run_and_save_all()
 		fig1.create_panel()
-
-	elif command == 'figure2_loci':
 		
-		(_, command, output_dir) = system_args
-
-		from src.Fig2LocusVignette import LocusVignette
-		fig2 = LocusVignette(output_dir)
-		fig2.load_regions()
-		fig2.define_gene_configurations()
-		fig2.compute_and_store_regions_all_analyses()
-		fig2.run_and_save_all()
-		fig2.layout_panel()
-
-	elif command == 'figure3_replication':
+	elif command == 'figure2_replication':
 
 		# Rename to figure 3
 		from src.Figure3_Replication import Figure3ReplicationDeconvolution
 		
 		(_, command, output_dir) = system_args
 
-		fig3 = Figure2ReplicationDeconvolution(output_dir)
-		fig3.setup_data()
-		fig3.plot_N_G_Fr_B_components()
-		fig3.plot_GNHFrB_diagram()
-		fig3.plot_diagram_replication()
+		fig2 = Figure2ReplicationDeconvolution(output_dir)
+		fig2.setup_data()
+		fig2.plot_N_G_Fr_B_components()
+		fig2.plot_GNHFrB_diagram()
+		fig2.plot_diagram_replication()
+		fig2.layout_panel()
+
+	elif command == 'figure3_loci':
+		
+		(_, command, output_dir) = system_args
+
+		from src.Fig2LocusVignette import LocusVignette
+		fig3 = LocusVignette(output_dir)
+		fig3.load_regions()
+		fig3.define_gene_configurations()
+		fig3.compute_and_store_regions_all_analyses()
+		fig3.run_and_save_all()
 		fig3.layout_panel()
 
 	elif command == 'figure4_copy_correction':

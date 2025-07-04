@@ -15,7 +15,7 @@ class CopyCorrectionAnalysis():
 
 	def __init__(self, output_directory):
 		self.output_directory = output_directory
-		self.copy_correction_data_directory = f'{output_directory}/chromatin_deconvolution_partial_daughter/'
+		self.copy_correction_data_directory = f'{output_directory}/chromatin_deconvolution/'
 		self.no_copy_correction_data_directory = f'{output_directory}/chromatin_deconvolution_no_copy/'
 		windows = pd.read_csv('data/reference_data/sacCer3_genome_10k_windows.csv')
 		self.windows = windows
@@ -24,7 +24,7 @@ class CopyCorrectionAnalysis():
 	def initialize_replication_time_colormaps(self):
 
 		import matplotlib as mpl
-		norm = mpl.colors.Normalize(vmin=-15, vmax=40)
+		norm = mpl.colors.Normalize(vmin=-15, vmax=30)
 		cmap = plt.cm.RdBu  # The _r suffix reverses the colormap
 
 		# Create a ScalarMappable object with the colormap
@@ -198,7 +198,7 @@ class CopyCorrectionAnalysis():
 
 		# Example indices on chromosome 4
 		self.early_windows = [(11, 300000), (16, 770000), (15, 270000)]
-		self.late_windows = [(7, 700000), (12, 790000), (15, 970000)]
+		self.late_windows = [(16, 730000), (9, 380000), (2, 550000)]# (12, 790000), (15, 970000)]
 
 		# Name the windows for lookup on the PTR Plot
 		self.window_names = [1, 2, 3, 4, 5, 6]

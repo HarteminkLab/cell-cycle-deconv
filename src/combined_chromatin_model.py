@@ -30,10 +30,12 @@ class CombinedChromatinModel:
 		"""This takes the place of load_mnase_gene, as we don't need the
 		replicate parameter anymore"""
 
-		from src.sgd import read_nondubious_genes_dataset
+		from src.sgd import read_geneset_with_computed_regions
 		from src.sgd import get_orfname
 
-		genes = read_nondubious_genes_dataset()
+		# todo: these computed regions use Park and SGD
+		# will need to update this to use the called boundaries
+		genes = read_geneset_with_computed_regions()
 		orfname = get_orfname(gene_name)
 		gene = genes.loc[orfname]
 		span = gene.TSS-500, gene.TSS+500+1

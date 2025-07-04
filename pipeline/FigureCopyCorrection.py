@@ -10,12 +10,13 @@ from src.figure_configs import save_figure_for_paper
 from src.plot_helpers import adjust_lightness_saturation
 
 
-class Figure4CopyCorrection():
+class FigureCopyCorrection():
 	"""Create figures for the replication deconvolution"""
 
 	def __init__(self, output_directory):
 		self.output_directory = output_directory
-		self.save_dir = f'{self.output_directory}/copy_correction_figures'
+		self.save_dir = f'{self.output_directory}/fig_copy_correction'
+		self.figures_dir = f'{self.output_directory}/Figures'
 
 		# Set the math text parameters to computer modern
 		plt.rcParams['mathtext.fontset'] = 'cm'
@@ -102,9 +103,8 @@ class Figure4CopyCorrection():
 		)
 		
 		# Save the composite figure
-		output_path = f'{self.save_dir}/Figure4_Copy_Correction.png'
+		output_path = f'{self.figures_dir}/Figure4_Copy_Correction.png'
 		compositor.save(output_path)
-		print(f"Combined 2x2 panel saved to: {output_path}")
 		
 		return compositor
 

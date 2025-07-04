@@ -9,12 +9,13 @@ from src.figure_configs import save_figure_for_paper
 from src.plot_helpers import adjust_lightness_saturation
 
 
-class Figure3ReplicationDeconvolution():
+class FigureReplicationDeconvolution():
 	"""Create figures for the replication deconvolution"""
 
 	def __init__(self, output_directory):
 		self.output_directory = output_directory
-		self.save_dir = f'{self.output_directory}/replication_figures'
+		self.save_dir = f'{self.output_directory}/fig_replication'
+		self.figures_dir = f'{self.output_directory}/Figures'
 
 		# Set the math text parameters to computer modern
 		plt.rcParams['mathtext.fontset'] = 'cm'
@@ -177,10 +178,14 @@ class Figure3ReplicationDeconvolution():
 			fontweight='demi', fontsize=29, y=1.37)
 		save_figure_for_paper(f"{self.save_dir}/DNA_replication_diagram.png")
 
+	def plot_all(self):
+		self.plot_N_G_Fr_B_components()	
+		self.plot_GNHFrB_diagram()
+		self.plot_diagram_replication()
+
 	def plot_N_G_Fr_B_components(self):
 		fig = self.runner.deconvolution.plot_N_G_Fr_B_diagram()
 		save_figure_for_paper(f"{self.save_dir}/Replication_components.png")
-
 
 	def plot_GNHFrB_diagram(self):
 		fig = self.runner.deconvolution.plot_G_N_H_Fr_B_diagram()
@@ -216,4 +221,4 @@ class Figure3ReplicationDeconvolution():
 		    offset=(-10, -12)
 		)
 
-		compositor.save(f'{self.save_dir}/Figure3_Replication.png')
+		compositor.save(f'{self.figures_dir}/Figure2_Replication.png')
