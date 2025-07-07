@@ -50,7 +50,7 @@ class FigureCopyCorrection():
 		save_figure_for_paper(f"{self.save_dir}/Replication_Timing_correlation.png")
 
 
-	def layout_panel(self, canvas_width=1024, canvas_height=760, margins=20, 
+	def layout_panel(self, canvas_width=1024, canvas_height=720, margins=20, 
 				 column_padding=30, row_padding=30, debug_mode=True):
 		"""
 		Create a 2x2 composite figure panel with replication timing and copy correction plots.
@@ -85,7 +85,7 @@ class FigureCopyCorrection():
 		bottom_row_images = layout_images_horizontally(
 			compositor,
 			[copy_ptrs_path, copy_examples_path],
-			width_proportions=[0.39, 0.61],  # Equal width for both bottom images
+			width_proportions=[0.35, 0.65],  # Equal width for both bottom images
 			between_padding=column_padding,
 			margin=(margins, bottom_row_start_y),
 			image_keys=['copy_ptrs', 'copy_examples']

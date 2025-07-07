@@ -538,3 +538,83 @@ def plot_deconvolution_solution(G, F, config, timepoints_wt1, timepoints_wt2,
 	
 	plt.tight_layout()
 	return fig, axs
+
+
+def create_subplot_pairs(pair_rows, pair_cols, pair_spacing=0.3, hspacing=0.3, figsize=(12, 8), 
+						within_pair_spacing=0, figure_spacing=None):
+	"""
+	Create a figure with pairs of subplots using nested GridSpecs.
+	
+	Parameters:
+	-----------
+	pair_rows : int
+		Number of rows of subplot pairs
+	pair_cols : int  
+		Number of columns of subplot pairs
+	pair_spacing : float, default 0.3
+		Spacing between pairs (both wspace and hspace)
+	figsize : tuple, default (12, 8)
+		Figure size as (width, height)
+	within_pair_spacing : float, default 0
+		Spacing within each pair
+	figure_spacing : dict, optional
+		Dict with keys 'left', 'right', 'top', 'bottom' for figure margins
+		
+	Returns:
+	--------
+	fig : matplotlib.figure.Figure
+		The figure object
+	axes_pairs : list of tuples
+		List of (left_ax, right_ax) tuples, one for each pair
+		Ordered row-wise: [(row0_col0_pair), (row0_col1_pair), ...]
+	"""
+
+	import matplotlib.gridspec as gridspec
+
+	# Create figure
+	fig = plt.figure(figsize=figsize)
+	
+	# Set figure spacing if provided
+	if figure_spacing:
+		plt.subplots_adjust(**figure_spacing)
+	
+	# Create main GridSpec for positioning pairs
+	main_gs = gridspec.GridSpec(pair_rows, pair_cols, 
+							   wspace=pair_spacing, 
+							   hspace=hspacing, top=0.8)
+	
+	axes_pairs = []
+	
+	# Create nested GridSpecs for each pair
+	for row in range(pair_rows):
+		for col in range(pair_cols):
+			# Create nested GridSpec within this cell (1 row, 2 columns)
+			nested_gs = gridspec.GridSpecFromSubplotSpec(
+				1, 2, main_gs[row, col], 
+				wspace=within_pair_spacing
+			)
+			
+			# Create the two subplots for this pair
+			left_ax = fig.add_subplot(nested_gs[0, 0])
+			right_ax = fig.add_subplot(nested_gs[0, 1])
+			
+			axes_pairs.append((left_ax, right_ax))
+	
+	return fig, axes_pairs
+
+def add_pair_title(fig, pair_axes, title, **text_kwargs):
+	"""Specifically for the pair subplots defined in
+	create_subplot_pairs"""
+
+	"""Add a title centered above a pair of axes"""
+	left_ax, right_ax = pair_axes
+	
+	# Get positions of both axes
+	left_pos = left_ax.get_position()
+	right_pos = right_ax.get_position()
+	
+	# Calculate center x and top y
+	center_x = (left_pos.x0 + right_pos.x1) / 2
+	top_y = max(left_pos.y1, right_pos.y1) + 0.02  # Small offset above
+	
+	fig.text(center_x, top_y, title, ha='center', va='bottom', **text_kwargs)

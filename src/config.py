@@ -576,7 +576,7 @@ class ModelConfig(object):
 		print("Daughter: ", bottom_smoothing_tps_length/top_smoothing_tps_length)
 		print()
 
-def retrieve_phase_ticks(branch, config1, config2):
+def retrieve_phase_ticks(branch, config1, config2, with_labels=False):
 
 	if branch == 'tb':
 		t_tps = get_average_timepoints_for_branch(config1, config2, 't')
@@ -606,8 +606,15 @@ def retrieve_phase_ticks(branch, config1, config2):
 
 	phase_ticks = [mid_g1_tp, s_mid, g2m_mid]
 	edge_ticks = [g1_start, g1_end, s_end, g2m_end]
-	return phase_ticks, edge_ticks
 
+	if with_labels:
+		if branch == 'i': labels = ['RG1', 'S', 'G2/M']
+		elif branch == 'tb': labels = ['SG1', 'S', 'G2/M']
+		else: raise ValueError()
+		return phase_ticks, edge_ticks, labels
+
+	else:
+		return phase_ticks, edge_ticks
 
 
 def read_cloccs_posteriors(posteriors_filepath):

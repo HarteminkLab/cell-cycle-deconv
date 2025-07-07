@@ -122,8 +122,12 @@ class CopyCorrectionAnalysis():
 		self.load_replication_timing()
 		self.chrom_no_cc_means_df = pd.DataFrame(self.chrom_no_cc_means, index=starts)
 		self.chrom_cc_means_df = pd.DataFrame(self.chrom_cc_means, index=starts)
+
+		# Correct with the b term from the replication deconvolution
+		# (baseline occupancy correction scalar)
 		self.chrom_b_copy_corrected_means = self.chrom_cc_means_df.values * \
 			self.chrom_bs_df.values[:, None]
+
 		self.chrom_b_copy_corrected_means_df = pd.DataFrame(self.chrom_b_copy_corrected_means, index=starts)
 
 		# To avoid memory issues, we'll delete the data after it has been loaded
@@ -197,96 +201,156 @@ class CopyCorrectionAnalysis():
 		sorted_repl_ptrs = repl_ptrs_df.sort_values('replication_time')
 
 		# Example indices on chromosome 4
-		self.early_windows = [(11, 300000), (16, 770000), (15, 270000)]
-		self.late_windows = [(16, 730000), (9, 380000), (2, 550000)]# (12, 790000), (15, 970000)]
+		self.sample_plot_windows = [
+
+			# Early and efficient example ARS1635, from locus figure, decreases in PTR
+			(16, 770000),
+			
+			# Median replication timing, Unchanging PTR:
+			(8, 150000),
+
+			# Late replication region, decreases in PTR
+			(16, 730000), # Distal to the ARS1635 locus
+
+			# Example where PTR increases
+			(13, 610000),
+		]
 
 		# Name the windows for lookup on the PTR Plot
-		self.window_names = [1, 2, 3, 4, 5, 6]
+		self.window_names = [
+		"(1) Early, decreased PTR",
+		"(2) Mid, unchanged PTR",
+		"(3) Late, decreased PTR",
+		"(4) Increased PTR"]
 
-	def plot_sample_curves(self, early_windows=None, late_windows=None, figsize=(9, 5),
+	def plot_sample_curves(self, figsize=(11, 5),
 		override_color=None):
 		copy_correction_ptr_comparison_t = self.ptrs_df[\
 			['cc_ptr_t', 'no_cc_ptr_t']]
 		repl_ptrs_df = copy_correction_ptr_comparison_t.join(
 			self.all_replication_times)
 		sorted_repl_ptrs = repl_ptrs_df.sort_values('replication_time')
-		if early_windows is None:
-			early_windows = self.early_windows
-		if late_windows is None:
-			late_windows = self.late_windows
-		indices = config1.t_indices()
-		no_cc_mean = self.chrom_no_cc_means_df.mean().mean()
-		cc_mean = self.chrom_b_copy_corrected_means_df.mean().mean()
+
+		i_indices = config1.i_indices()
+		t_indices = config1.t_indices()
+		b_indices = config1.b_indices()
+
 		from src.config import get_average_timepoints_for_branch
-		tps = get_average_timepoints_for_branch(config1, config2, 't')
-		
-		def plot_window(ax, window_idx, show_xticks, show_yticks, color):
+		from src.plot_helpers import create_subplot_pairs, add_pair_title
+
+		i_tps = get_average_timepoints_for_branch(config1, config2, 'i')
+		t_tps = get_average_timepoints_for_branch(config1, config2, 't')
+		b_tps = get_average_timepoints_for_branch(config1, config2, 'b')
+		tb_tps = (t_tps + b_tps)/2.
+
+		def plot_window(axs_pair, window_idx, show_xticks, show_yticks, color):
 			if override_color is not None:
 				color = override_color
-			ax.plot(tps, self.all_no_cell_cycle_means\
-						 .loc[window_idx][indices] / no_cc_mean,
-					color='#555555',
-					lw=2,
-					ls=(0, (1, 1)),
-					label="No copy correction")
-			ax.plot(tps, self.all_cell_cycle_b_means\
-						 .loc[window_idx][indices] / cc_mean,
-					color=color,
-					lw=2,
-					label="With copy correction")
-			ax.set_ylim(-0.5, 2)
-			ax.set_xlim(tps[0], tps[-1])
-			ax.axhline(1, c='black', lw=0.25)
-			if not show_xticks: 
-				ax.set_xticks([])
-			else:
-				ax.set_xlabel("Average single cell time, minutes")
-			if not show_yticks: 
-				ax.set_yticks([])
-			else:
-				ax.set_ylabel("Average occupancy")
+
+			def retrieve_branch_vals(dat, window_idx, indices):
+				retrieved_data = dat.loc[window_idx][indices].values
+				return retrieved_data
+
+			def plot_comparison_branch(ax, branch, tps, no_copy_values, copy_values):
+
+				from src.config import retrieve_phase_ticks
+
+				import matplotlib.patheffects as path_effects
+
+				ax.plot(tps, no_copy_values,
+									color='#aaaaaa',
+									lw=2,# ls=(0, (1, 1)),
+									label="Uncorrected")
+				line = ax.plot(tps, copy_values,
+						color=color,
+						lw=3, label="Copy corrected")[0]
+				line.set_path_effects([
+				    path_effects.Stroke(linewidth=4, foreground='black'),  # Border
+				    path_effects.Normal()  # Original line on top
+				])
+
+				ax.set_ylim(0, 1.5)
+				ax.set_xlim(tps[0], tps[-1])
+
+				xticks = retrieve_phase_ticks(branch, config1, config2, with_labels=True)
+				phase_ticks, edge_ticks, xtick_labels = xticks
+
+				ax.set_xticks(phase_ticks)
+				ax.set_xticklabels(xtick_labels, fontsize=8)
+				ax.set_xticks(edge_ticks, minor=True)
+
+				ax.tick_params(axis='x', which='major', length=0)
+				ax.tick_params(axis='x', which='minor', length=10) 
+
+			# No copy correction values for recovery
+			i_no_copy_correction_values = retrieve_branch_vals(self.all_no_cell_cycle_means, 
+				window_idx, i_indices)
+
+			# Copy corrected values (average of the mother and daughter branches)
+			i_copy_correction_values = retrieve_branch_vals(self.all_cell_cycle_b_means, 
+				window_idx, i_indices)
+
+			# No copy correction values for the window (average the top and bottom branches)
+			tb_no_copy_correction_values = (retrieve_branch_vals(self.all_no_cell_cycle_means, 
+				window_idx, t_indices) + retrieve_branch_vals(self.all_no_cell_cycle_means, 
+				window_idx, b_indices))/2.
+
+			# Copy corrected values (average of the mother and daughter branches)
+			tb_copy_correction_values = (retrieve_branch_vals(self.all_cell_cycle_b_means, 
+				window_idx, t_indices) + retrieve_branch_vals(self.all_cell_cycle_b_means, 
+				window_idx, b_indices))/2.
+
+			plot_comparison_branch(axs_pair[0], 'i', i_tps, 
+				i_no_copy_correction_values, i_copy_correction_values)
+
+			plot_comparison_branch(axs_pair[1], 'tb', tb_tps, 
+				tb_no_copy_correction_values, tb_copy_correction_values)
+			
+			for ax in axs_pair:
+				if not show_xticks: 
+					ax.set_xticks([])
+				else:
+					ax.set_xlabel("")
+
+			axs_pair[1].set_yticks([])
+			axs_pair[0].set_ylabel("Window occupancy")
 		
-		def plot_windows_row(axs_row, windows, window_type, show_xticks,
+		def plot_windows_row(fig, axs_pairs, windows, show_xticks,
 			window_names):
 			"""Plot a row of windows (either all early or all late)"""
 			for col, window in enumerate(windows):
 				repl_time = self.all_replication_times.loc[window].replication_time
+
+				window_name = window_names[col]
 				color = self.lookup_color_for_repl_time(repl_time)
 				
-				show_yticks = (col == 0)  # Only show y-ticks on leftmost column
+				show_yticks = (col % 2 == 0)  # Only show y-ticks on leftmost column
 				
-				plot_window(axs_row[col], window, show_xticks=show_xticks, 
+				axs_pair = axs_pairs[col]
+
+				plot_window(axs_pair, window, show_xticks=show_xticks, 
 						   show_yticks=show_yticks, color=color)
 				
-				window_index_name = window_names[col]
 				start = window[1]
 				end = start + 10000
-				axs_row[col].set_title(f"Window {window_index_name}: chr{window[0]}: {start}")
+
+				title = f"{window_name}: (chr{window[0]}: {start//1000}k-{end//1000}k)"
+				add_pair_title(fig, axs_pair, title, fontweight='demi', fontsize=12)
 				
 				# Add legend to first column
-				if col == 0:
-					axs_row[col].legend(loc='lower right')
+				axs_pairs[col][1].legend(loc='lower right', ncols=2)
 		
-		ncols = len(early_windows)
-		fig, axs = plt.subplots(2, ncols, figsize=figsize)
-		
-		# Handle case where we might have only one column
-		if ncols == 1:
-			axs = axs.reshape(2, 1)
+		sample_windows = self.sample_plot_windows
+
+		fig, axs_pairs = create_subplot_pairs(pair_rows=2, pair_cols=2, 
+			pair_spacing=0.2, hspacing=0.5, figsize=figsize)
 		
 		# Plot late windows row
-		late_window_names = self.window_names[:3]
-		plot_windows_row(axs[0], late_windows, "Late", show_xticks=False, 
-			window_names=late_window_names)
+		window_names = self.window_names
+		plot_windows_row(fig, axs_pairs, sample_windows, show_xticks=True, 
+			window_names=window_names)
 
-		# Plot early windows row
-		early_window_names = self.window_names[3:]
-		plot_windows_row(axs[1], early_windows, "Early", show_xticks=True, 
-			window_names=early_window_names)
-		
-		plt.suptitle("Copy correction examples", fontsize=24, fontweight='demi')
-		plt.tight_layout()
-		plt.subplots_adjust(wspace=0.15)
+		# plt.suptitle("Selected window occupancy changes", fontsize=24, fontweight='demi')
 
 
 	def load_replication_timing(self):
@@ -411,39 +475,38 @@ class CopyCorrectionAnalysis():
 
 		# Map the window names to any custom formatting
 		custom_formatting = {
-			4: {
-				'ha': 'right',
-				'va': 'top',
-				'offset': (-offset_amount, -offset_amount)
-			},
-			5: {
+			1: {
 				'ha': 'left',
 				'va': 'top',
 				'offset': (offset_amount, -offset_amount)
 			},
-			6: {
+			2: {
 				'ha': 'left',
 				'va': 'top',
 				'offset': (offset_amount, -offset_amount)
 			},
 		}
 
-		for i, window in enumerate(self.late_windows + self.early_windows):
+		for i, window in enumerate(self.sample_plot_windows):
 
 			name = self.window_names[i]
 
+			# Retrieve numeric name
+			numeric_name = int(name.split(" ")[0].replace('(', '').replace(')', ''))
+
 			plot_row = plot_df.loc[window]
 			replication_time = plot_replication_times_df.loc[window].replication_time
-			color = self.lookup_color_for_repl_time(replication_time)
+			#color = #self.lookup_color_for_repl_time(replication_time)
 
-			from src.plot_helpers import adjust_lightness_saturation
-			adjusted_color = adjust_lightness_saturation(color, 0.4, 1.0)
+			#from src.plot_helpers import adjust_lightness_saturation
+			#adjusted_color = adjust_lightness_saturation(color, 0.4, 1.0)
+			color = 'black'
 
-			plt.scatter(plot_row[key_1], plot_row[key_2], s=100, edgecolor=adjusted_color,
+			plt.scatter(plot_row[key_1], plot_row[key_2], s=100, edgecolor=color,
 				facecolor='none', lw=2, marker='D')
 
-			if name in custom_formatting:
-				row_formatting = custom_formatting[name]
+			if numeric_name in custom_formatting:
+				row_formatting = custom_formatting[numeric_name]
 				text_x_offset, text_y_offset = row_formatting['offset']
 				ha, va = row_formatting['ha'], row_formatting['va']
 			else:
@@ -451,9 +514,10 @@ class CopyCorrectionAnalysis():
 					default_text_x_offset, default_text_y_offset
 
 			x, y = plot_row[key_1]+text_x_offset, plot_row[key_2]+text_y_offset
-			plt.text(x, y, name,
+
+			plt.text(x, y, numeric_name,
 				fontsize=14,
-				color=adjusted_color,
+				color=color,
 				ha=ha, va=va,
 				path_effects=[patheffects.withStroke(linewidth=3, foreground='white')])
 
