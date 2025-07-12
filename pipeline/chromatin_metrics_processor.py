@@ -1,7 +1,7 @@
 import numpy as np
 import pandas as pd
 from src.config import load_default_chrom_configs
-
+from src.utils import print_fl
 
 class ChromatinMetricsProcessor:
 	"""
@@ -188,7 +188,7 @@ class ChromatinMetricsProcessor:
 		transcript_set = self.all_transcripts_set
 		
 		timer = Timer()
-		print(f"Starting metric computation for {len(transcript_set)} transcripts...")
+		print_fl(f"Starting metric computation for {len(transcript_set)} transcripts...")
 		
 		# Determine the number of timepoints by testing with a sample gene
 		n_timepoints = None
@@ -196,10 +196,10 @@ class ChromatinMetricsProcessor:
 			try:
 				sample_metrics = self.compute_gene_metrics(gene, data_loader)
 				n_timepoints = len(sample_metrics['promoter_occupancy'])
-				print(f"Detected {n_timepoints} timepoints from sample gene {orf_name}")
+				print_fl(f"Detected {n_timepoints} timepoints from sample gene {orf_name}")
 				break
 			except Exception as e:
-				print(f"Warning: Could not use {orf_name} as sample gene: {str(e)}")
+				print_fl(f"Warning: Could not use {orf_name} as sample gene: {str(e)}")
 				continue
 		
 		if n_timepoints is None:
@@ -234,13 +234,13 @@ class ChromatinMetricsProcessor:
 				
 			except Exception as e:
 				# Skip this gene, leave NaN values
-				print(f"Warning: Failed to compute metrics for {orf_name}: {str(e)}")
+				print_fl(f"Warning: Failed to compute metrics for {orf_name}: {str(e)}")
 				failed_genes += 1
 			
 			# Progress tracking every 200 genes
 			if (i + 1) % 200 == 0:
 				time_str = timer.get_time()
-				print(f"Processed {i + 1}/{len(transcript_set)} genes. "
+				print_fl(f"Processed {i + 1}/{len(transcript_set)} genes. "
 					  f"Time elapsed: {time_str}. "
 					  f"Success: {successful_genes}, Failed: {failed_genes}")
 
@@ -253,7 +253,7 @@ class ChromatinMetricsProcessor:
 
 		# Final summary
 		time_str = timer.get_time()
-		print(f"Completed! Processed {len(transcript_set)} genes in {time_str}. "
+		print_fl(f"Completed! Processed {len(transcript_set)} genes in {time_str}. "
 			  f"Success: {successful_genes}, Failed: {failed_genes}")
 		
 		return results, peak_to_trough_results
@@ -349,7 +349,7 @@ class ChromatinMetricsProcessor:
 	    save_path = Path(save_dir)
 	    save_path.mkdir(parents=True, exist_ok=True)
 	    
-	    print(f"Saving {data_type} to {save_dir} with prefix '{data_source_name}'...")
+	    print_fl(f"Saving {data_type} to {save_dir} with prefix '{data_source_name}'...")
 	    
 	    saved_files = []
 	    for metric_name, dataframe in results_dict.items():
@@ -364,9 +364,9 @@ class ChromatinMetricsProcessor:
 	        dataframe.to_csv(filepath, index=True)
 	        saved_files.append(str(filepath))
 	        
-	        print(f"  Saved {metric_name} {data_type}: {filename} ({dataframe.shape[0]} genes, {dataframe.shape[1]} columns)")
+	        print_fl(f"  Saved {metric_name} {data_type}: {filename} ({dataframe.shape[0]} genes, {dataframe.shape[1]} columns)")
 	    
-	    print(f"Successfully saved {len(saved_files)} {data_type} files.")
+	    print_fl(f"Successfully saved {len(saved_files)} {data_type} files.")
 	    return saved_files
 
 
