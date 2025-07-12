@@ -730,9 +730,14 @@ def load_B_df(output_dir, chrom, starts=None):
 	return B, b_df['b']
 
 
-def read_n_fr_b(chrom, deconv_span, replicate,
+def read_n_fr_b(chrom, deconv_span_or_position, replicate,
 	parent_directory, log=True):
 	"""Load the N, replication timing, and b from disk"""
+
+	if type(deconv_span_or_position) == tuple:
+		deconv_span = deconv_span_or_position
+	else:
+		deconv_span = deconv_span_or_position, deconv_span_or_position
 
 	single_directory = f'{parent_directory}/single_replication'
 	combined_directory = f'{parent_directory}/combined_replication'

@@ -328,7 +328,12 @@ def load_transcripts_sets(output_dir, combined=False):
 
 	# Combined dataset with common keys
 	if combined:
-		preserve_keys = ['chr', 'strand', 'start', 'stop', 'length']
+		preserve_keys = ['chr', 'strand', 'start', 'stop', 'length',
+		'promoter_start', 'promoter_end', 'gene_body_start', 'gene_body_end']
+
+		nongenic_set = nongenic_set.rename(columns={'transcript_body_start': 'gene_body_start',
+			'transcript_body_end': 'gene_body_end'})
+
 		combined_gene_nongenic = pd.concat([geneset[preserve_keys], nongenic_set[preserve_keys]])
 		return combined_gene_nongenic
 	

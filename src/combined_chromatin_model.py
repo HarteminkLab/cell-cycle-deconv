@@ -543,3 +543,5 @@ def load_combined_model(config_type='shared'):
 	from src.combined_chromatin_model import CombinedChromatinModel
 	combined_model = CombinedChromatinModel(chrom_config1, chrom_config2)
 	return combined_model
+
+

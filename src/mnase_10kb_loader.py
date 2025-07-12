@@ -7,7 +7,7 @@ from src.global_config import GlobalConstants
 
 
 class MNase10kbLoader:
-	"""Class to load 10kb occupancies
+	"""Class to load Raw data MNase-seq 10kb occupancies
 	"""
 
 	def __init__(self):
@@ -16,7 +16,9 @@ class MNase10kbLoader:
 		self.mnase_reads = None
 
 	def load_mnase_data(self, replicate, chromosome, fragment_lengths_span=None):
-		"""todo: This class is serving two purposes and needs to be refactored into separate classes (with code reuse)
+		"""todo: 
+
+		This class is serving two purposes and needs to be refactored into separate classes (with code reuse)
 		
 		1. Loading the 10kb occupancy values
 		2. General use MNase-loading for the chromatin deconvolution

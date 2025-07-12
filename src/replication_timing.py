@@ -124,7 +124,7 @@ class ReplicationTiming:
 				  f"n={len(self.joined_muller_replication_df)}, Pearson r = {self.muller_pearsonr[0]:.2g}",
 				 fontweight='demi', fontsize=18, y=1.02)
 		plt.ylabel("Replication time, min (Deconvolved MNase-seq)")
-		plt.xlabel("Copy # ratio (Müller, 2014)")
+		plt.xlabel("Copy # ratio (Deep Sequencing, Müller, 2014)")
 
 	def plot_chrom_timing(self, chrom):
 		
@@ -140,7 +140,7 @@ class ReplicationTiming:
 			c='#777')
 		plt.xlim(chr_replication.index[0], chr_replication.index[-1])
 		plt.ylim(0.75, 2.25)
-		plt.title("Deep sequencing")
+		plt.title("Deep sequencing, (Müller, 2014)")
 		plt.xticks([])
 		plt.ylabel("Copy # ratio")
 

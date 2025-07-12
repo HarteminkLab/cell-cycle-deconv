@@ -27,15 +27,15 @@ OUTDIR=output/draft4_run/
 
 # ---------- Transcription deconvolution as array ----------------
 
-ARGS="deconvolve_expression_index ${OUTDIR}"
-sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_0" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
-sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
-sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_2" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=2" scripts/cpu_genomicarray_job.sh
-sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_3" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=3" scripts/cpu_genomicarray_job.sh
-sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_4" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=4" scripts/cpu_genomicarray_job.sh
-sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_5" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=5" scripts/cpu_genomicarray_job.sh
-sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_6" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=6" scripts/cpu_genomicarray_job.sh
-sbatch -a 0-705%4 -D ./slurm-logs/ --job-name="tx_7" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=7" scripts/cpu_genomicarray_job.sh
+# ARGS="deconvolve_expression_index ${OUTDIR}"
+# sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_0" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
+# sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
+# sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_2" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=2" scripts/cpu_genomicarray_job.sh
+# sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_3" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=3" scripts/cpu_genomicarray_job.sh
+# sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_4" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=4" scripts/cpu_genomicarray_job.sh
+# sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_5" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=5" scripts/cpu_genomicarray_job.sh
+# sbatch -a 0-999%4 -D ./slurm-logs/ --job-name="tx_6" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=6" scripts/cpu_genomicarray_job.sh
+# sbatch -a 0-705%4 -D ./slurm-logs/ --job-name="tx_7" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=7" scripts/cpu_genomicarray_job.sh
 
 # ---------- Find Gamma ---------------
 
@@ -68,6 +68,11 @@ sbatch -a 0-705%4 -D ./slurm-logs/ --job-name="tx_7" --export="PYFILE=pipeline/r
 #ARGS="deconvolve_chromatin_no_copy ${OUTDIR}"
 #sbatch -a 0-999%16 -D ./slurm-logs/ --job-name="ncc_1" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=0" scripts/cpu_genomicarray_job.sh
 #sbatch -a 0-216%16 -D ./slurm-logs/ --job-name="ncc_2" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS,BATCH=1" scripts/cpu_genomicarray_job.sh
+
+# ---------------- Compute chromatin metrics ------------
+
+ARGS="compute_chromatin_metrics ${OUTDIR}"
+sbatch -D ./slurm-logs/ --job-name="alpha" --export="PYFILE=pipeline/run_pipeline.py,ARGS=$ARGS" scripts/cpu_job.sh
 
 # ------------- Test windows for copy correction -----------------------------------
 

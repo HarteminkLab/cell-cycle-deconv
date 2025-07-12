@@ -36,6 +36,8 @@ def compute_quantile_ptr(data_f, lo=0.2, hi=0.8, eps=1, return_indices=False):
 	Use 'nearest' interpolation for quantile calculation and optionally return the indices of
 	low and high quantile values.
 	"""
+	if np.isnan(data_f[0]): return np.nan
+
 	# Use np.quantile with 'nearest' interpolation to get the lo and hi values directly
 	f_lo = np.quantile(data_f, lo, interpolation='nearest')
 	f_hi = np.quantile(data_f, hi, interpolation='nearest')
@@ -179,17 +181,24 @@ def compute_max_min_locations(config, gene_f, ret_all=False):
 	return ret
 
 
-def compute_ptr(config, gene_f, lo=0.2, hi=0.8):
+def compute_ptr_tb(config, gene_f, lo=0.2, hi=0.8):
 
 	c_indices = config.get_Hpositions_for_branch('t')
+	d_indices = config.get_Hpositions_for_branch('b')
+
 	cg1_f = gene_f[c_indices]
+	dg1_f = gene_f[d_indices]
 
 	c_timepoints = config.get_timepoints_for_branch('t')
+	d_timepoints = config.get_timepoints_for_branch('b')
+
 	_, scaled_cg1_f, mapping_cg1 = rescale_with_mapping(c_timepoints, cg1_f)
+	_, scaled_dg1_f, mapping_dg1 = rescale_with_mapping(d_timepoints, dg1_f)
 
 	cptr = compute_quantile_ptr(scaled_cg1_f, lo, hi)
+	dptr = compute_quantile_ptr(scaled_dg1_f, lo, hi)
 
-	return cptr
+	return (cptr+dptr)/2.
 
 
 def compute_ptr_distinct_cg1_dg1(config, gene_f, lo=0.2, hi=0.8, return_indices=False):

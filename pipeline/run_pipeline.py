@@ -92,7 +92,7 @@ def main():
 
 		# Check if files exist
 		if manager.files_exist():
-		    print("All files saved successfully!")
+			print("All files saved successfully!")
 
 	elif command == 'call_transcripts':
 
@@ -401,7 +401,24 @@ def main():
 		index = int(index)
 		chrom, span = parse_windows_csv(WINDOWS_ALL_10K_PATH, index)
 		deconvolve_chromatin(chromatin_save_directory, chrom, span,
-			copy_correct=False, kappa=DEFAULT_CHROM_KAPPA, gamma=DEFAULT_CHROM_GAMMA, eta=DEFAULT_CHROM_ETA)
+			copy_correct=False, kappa=DEFAULT_CHROM_KAPPA, gamma=DEFAULT_CHROM_GAMMA, 
+			eta=DEFAULT_CHROM_ETA)
+
+	elif command == 'compute_chromatin_metrics':
+
+		(_, command, output_directory) = system_args
+		metrics_save_directory = f"{output_directory}/chromatin_metrics/"
+		mkdirs_safe([metrics_save_directory])
+
+		from pipeline.chromatin_metrics_processor import ChromatinMetricsProcessor
+
+		# Chromatin data setup, create datasets for chromatin measures
+		processor = ChromatinMetricsProcessor(output_directory)
+		processor.setup_data_loaders()
+
+		# Compute chromatin metrics and save to disk
+		processor.compute_chromatin_metrics_all_data(debug=False)
+		processor.save_chromatin_metrics_to_disk(metrics_save_directory)
 
 	elif command == 'parameter_summary':
 

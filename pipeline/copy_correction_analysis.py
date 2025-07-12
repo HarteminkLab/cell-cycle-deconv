@@ -265,8 +265,8 @@ class CopyCorrectionAnalysis():
 						color=color,
 						lw=3, label="Copy corrected")[0]
 				line.set_path_effects([
-				    path_effects.Stroke(linewidth=4, foreground='black'),  # Border
-				    path_effects.Normal()  # Original line on top
+					path_effects.Stroke(linewidth=4, foreground='black'),  # Border
+					path_effects.Normal()  # Original line on top
 				])
 
 				ax.set_ylim(0, 1.5)
@@ -462,7 +462,10 @@ class CopyCorrectionAnalysis():
 		plt.ylim(1, 1.4)
 		plt.xlabel("No correction, PTRs")
 		plt.ylabel("Copy corrected, PTRs")
-		plt.colorbar()
+
+		# Create the colorbar
+		cbar = plt.colorbar()
+		cbar.set_label('Replication time, min', rotation=270, va='bottom')
 
 		import matplotlib.patheffects as patheffects
 

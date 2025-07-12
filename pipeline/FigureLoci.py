@@ -111,12 +111,12 @@ class FigureLoci(object):
 		self.combined_models['distal_no_copy'].load_mnase_span(chrom, distal_span)
 		self.combined_models['distal_no_copy'].setup_deconv_model(copy_correct=False)
 
-	def _subset_f_metric_bp(self, f_imgs, bp_tuple, bin_start, metric='mean'):
+	def _subset_f_metric_bp(self, f_imgs, bp_window_tuple, bin_start, metric='mean'):
 		"""Calculate metrics for a given region."""
 		from src.helpers import calc_entropy
 		
-		bins = (bp_tuple[0]-bin_start)//10, bp_tuple[1]//10, \
-			(bp_tuple[2]-bin_start)//10, bp_tuple[3]//10
+		bins = (bp_window_tuple[0]-bin_start)//10, bp_window_tuple[1]//10, \
+			(bp_window_tuple[2]-bin_start)//10, bp_window_tuple[3]//10
 		bins = np.array(bins).astype(int)
 		dat = f_imgs[:, bins[1]:bins[3], bins[0]:bins[2]]
 		
@@ -132,7 +132,8 @@ class FigureLoci(object):
 			
 		raise ValueError(f"Unknown metric: {metric}")
 
-	def _compute_metric_for_comparison(self, analysis_key, metric_type, region_params):
+	def _compute_metric_for_comparison(self, analysis_key, metric_type, bp_window,
+		multiply_b=True):
 		"""
 		Compute raw, predicted, and deconvolved data for a given metric and region.
 		
@@ -142,7 +143,7 @@ class FigureLoci(object):
 			Key for the analysis ('efficient_no_copy', etc.)
 		metric_type : str
 			Type of metric ('mean' or 'entropy')
-		region_params : tuple
+		bp_window : tuple
 			(x_start, y_start, x_end, y_end) defining the region
 			
 		Returns:
@@ -165,23 +166,60 @@ class FigureLoci(object):
 		raw_tps2 = combined_model.chrom2_model.config.timepoints
 		
 		# Compute raw metrics
-		raw1_metric = self._subset_f_metric_bp(rep1_g_imgs, region_params, span_start, metric_type)
-		raw2_metric = self._subset_f_metric_bp(rep2_g_imgs, region_params, span_start, metric_type)
+		raw1_metric = self._subset_f_metric_bp(rep1_g_imgs, bp_window, span_start, metric_type)
+		raw2_metric = self._subset_f_metric_bp(rep2_g_imgs, bp_window, span_start, metric_type)
 		
 		# Get deconvolved data
 		f_imgs = genome_analysis.loaded_subset_data
-		deconv_metric = self._subset_f_metric_bp(f_imgs, region_params, span_start, metric_type)
-		
-		# Compute predicted data using deconvolution matrices
+		deconv_metric = self._subset_f_metric_bp(f_imgs, bp_window, span_start, metric_type)
+
+		# Include the b scalar for copy corrected fits
+		# Copy corrected fits should also include the N and Fr correction
+		# terms.
+		if multiply_b:
+
+			selected_bp_span = bp_window[0], bp_window[2]
+
+			# Round to the nearest 10kb to load the appropriate deconvolved
+			# window's N, Fr, and b terms
+			centered_bp = (bp_window[0]+bp_window[2])//2
+			centered_bp_start_10kb = (centered_bp // 10000) * 10000
+			selected_rounded_10kb = centered_bp_start_10kb, \
+				centered_bp_start_10kb+10000
+
+			from src.RealDataReplication import read_n_fr_b
+			_, combined_N, f_rep, b1 = read_n_fr_b(genome_analysis.chrom, 
+				selected_rounded_10kb, 1, 
+				self.output_directory)
+			_, _, _, b2 = read_n_fr_b(genome_analysis.chrom, 
+				selected_rounded_10kb, 2, 
+				self.output_directory)
+			len_rep1 = len(combined_model.chrom1_model.config.timepoints)
+
+			N1 = combined_N[:len_rep1, :][:, :len_rep1]
+			N2 = combined_N[len_rep1:, :][:, len_rep1:]
+
+		else:
+			raise ValueError("Unimplemented, identity terms for uncorrected model")
+
 		f_imgs_shape = f_imgs.shape
-		predicted_g1 = combined_model.H1 @ f_imgs.reshape((f_imgs.shape[0], -1))
-		predicted_g2 = combined_model.H2 @ f_imgs.reshape((f_imgs.shape[0], -1))
+		def copy_corrected_predicted_fit(N, H, f_imgs, fr, b):
+			f_flattened = f_imgs.reshape((f_imgs.shape[0], -1))
+			predicted = N @ H @ np.multiply(f_flattened, fr[:, None]) * b
+			return predicted
+
+		# Compute predicted data using deconvolution matrices
+		predicted_g1 = copy_corrected_predicted_fit(N1, combined_model.H1,
+			f_imgs, f_rep, b1)
+		predicted_g2 = copy_corrected_predicted_fit(N2, combined_model.H2,
+			f_imgs, f_rep, b2)
+
 		predicted_g1_imgs = predicted_g1.reshape((predicted_g1.shape[0], *f_imgs_shape[1:]))
 		predicted_g2_imgs = predicted_g2.reshape((predicted_g2.shape[0], *f_imgs_shape[1:]))
 		
 		# Compute predicted metrics
-		predicted1_metric = self._subset_f_metric_bp(predicted_g1_imgs, region_params, span_start, metric_type)
-		predicted2_metric = self._subset_f_metric_bp(predicted_g2_imgs, region_params, span_start, metric_type)
+		predicted1_metric = self._subset_f_metric_bp(predicted_g1_imgs, bp_window, span_start, metric_type)
+		predicted2_metric = self._subset_f_metric_bp(predicted_g2_imgs, bp_window, span_start, metric_type)
 		
 		# Get timepoints for deconvolved data
 		i_tps = get_average_timepoints_for_branch(self.config1, self.config2, 'i')
@@ -681,10 +719,10 @@ class FigureLoci(object):
 		from src.RealDataReplication import read_n_fr_b
 
 		# B is independent of replicate, but set to 1 (req. argument)
-		nfrb1 = read_n_fr_b(analysis1.chrom, analysis1.loaded_subset_span, 1, 'output/draft3_run/')
+		nfrb1 = read_n_fr_b(analysis1.chrom, analysis1.loaded_subset_span, 1, self.output_directory)
 		b1 = nfrb1[3]
 
-		nfrb2 = read_n_fr_b(analysis2.chrom, analysis2.loaded_subset_span, 1, 'output/draft3_run/')
+		nfrb2 = read_n_fr_b(analysis2.chrom, analysis2.loaded_subset_span, 1, self.output_directory)
 		b2 = nfrb2[3]
 
 		def plot_branch_mean(branch, colors=['red', 'blue']):
