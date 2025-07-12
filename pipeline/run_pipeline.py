@@ -418,7 +418,7 @@ def main():
 
 		# Compute chromatin metrics and save to disk
 		processor.compute_chromatin_metrics_all_data(debug=False)
-		processor.save_chromatin_metrics_to_disk(metrics_save_directory)
+		processor.save_all_results_disk(metrics_save_directory)
 
 	elif command == 'parameter_summary':
 
