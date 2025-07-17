@@ -31,6 +31,8 @@ def load_gene_and_nongenic_transcription_data(replicate, log_transform=True):
 	if log_transform:
 		gene_expressions_tpm.loc[:] = np.log2(gene_expressions_tpm.values+1)
 
+	gene_expressions_tpm.index.name = 'transcript_name'
+
 	return gene_expressions_tpm
 
 

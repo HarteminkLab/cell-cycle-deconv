@@ -3,6 +3,7 @@ from matplotlib import pyplot as plt
 import numpy as np
 import scipy
 import matplotlib.patheffects as patheffects
+import matplotlib.gridspec as gridspec
 
 
 def plot_phase_stack(tp, prev_vec, cur_vec, name):
@@ -543,7 +544,12 @@ def plot_deconvolution_solution(G, F, config, timepoints_wt1, timepoints_wt2,
 def create_subplot_pairs(pair_rows, pair_cols, pair_spacing=0.3, hspacing=0.3, figsize=(12, 8), 
 						within_pair_spacing=0, figure_spacing=None):
 	"""
-	Create a figure with pairs of subplots using nested GridSpecs.
+
+	Useful for plotting raw data replicates and deconvolved data (recovery and mother/daughter).
+
+	The raw data replicates are two plots separated by a smaller difference than the deconvolved data.
+
+	See the Figure Loci example for example usage.
 	
 	Parameters:
 	-----------
@@ -618,3 +624,82 @@ def add_pair_title(fig, pair_axes, title, **text_kwargs):
 	top_y = max(left_pos.y1, right_pos.y1) + 0.02  # Small offset above
 	
 	fig.text(center_x, top_y, title, ha='center', va='bottom', **text_kwargs)
+
+
+def create_three_subplot_layout(figsize=(12, 4), left_padding=0.1, right_padding=0.1, 
+							   top_padding=0.1, bottom_padding=0.1, 
+							   wspace_left=0.3, wspace_right=0.4):
+	"""
+	Create a figure with three subplots arranged as: [subplot1] [subplot2] | [subplot3]
+	
+	Parameters:
+	-----------
+	figsize : tuple, default (12, 4)
+		Figure size (width, height) in inches
+	left_padding : float, default 0.1
+		Left margin of the figure
+	right_padding : float, default 0.1
+		Right margin of the figure
+	top_padding : float, default 0.1
+		Top margin of the figure
+	bottom_padding : float, default 0.1
+		Bottom margin of the figure
+	wspace_left : float, default 0.3
+		Horizontal spacing between subplot1 and subplot2
+	wspace_right : float, default 0.4
+		Horizontal spacing between subplot2 and subplot3
+	
+	Returns:
+	--------
+	fig : matplotlib.figure.Figure
+		The figure object
+	ax1 : matplotlib.axes.Axes
+		First subplot (left)
+	ax2 : matplotlib.axes.Axes
+		Second subplot (middle)
+	ax3 : matplotlib.axes.Axes
+		Third subplot (right)
+	"""
+	
+	# Create figure
+	fig = plt.figure(figsize=figsize)
+	
+	# Create a gridspec with 1 row and 4 columns
+	# We'll use 4 columns to have more control over spacing
+	gs = gridspec.GridSpec(1, 4, 
+						  left=left_padding, 
+						  right=1-right_padding,
+						  top=1-top_padding, 
+						  bottom=bottom_padding,
+						  wspace=0)  # Set wspace to 0, we'll handle spacing manually
+	
+	# Calculate relative widths for the subplots
+	# subplot1 and subplot2 should be equal width
+	# subplot3 can be a different width
+	subplot_width = 1.0  # Base width unit
+	
+	# Create subplots with manual spacing
+	ax1 = fig.add_subplot(gs[0, 0])
+	ax2 = fig.add_subplot(gs[0, 1])  
+	ax3 = fig.add_subplot(gs[0, 3])  # Skip column 2 for spacing
+	
+	# Adjust subplot positions manually for better control
+	pos1 = ax1.get_position()
+	pos2 = ax2.get_position()
+	pos3 = ax3.get_position()
+	
+	# Calculate new positions with desired spacing
+	total_width = 1 - left_padding - right_padding
+	subplot_width = (total_width - wspace_left - wspace_right) / 3
+	
+	# Reposition subplots
+	ax1.set_position([left_padding, bottom_padding, 
+					 subplot_width, 1 - top_padding - bottom_padding])
+	
+	ax2.set_position([left_padding + subplot_width + wspace_left, bottom_padding,
+					 subplot_width, 1 - top_padding - bottom_padding])
+	
+	ax3.set_position([left_padding + 2*subplot_width + wspace_left + wspace_right, bottom_padding,
+					 subplot_width, 1 - top_padding - bottom_padding])
+	
+	return fig, ax1, ax2, ax3

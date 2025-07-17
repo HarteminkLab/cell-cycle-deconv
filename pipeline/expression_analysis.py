@@ -107,7 +107,7 @@ class ExpressionAnalysis(object):
 		return unchanging_orfs, mg1_only, mg1_and_dg1, dg1_only,  postg1_orfs
 
 
-def load_deconvolved_gene_expression(output_directory):
+def load_deconvolved_gene_expression(output_directory, include_nongenic=False):
 	genes = get_deconvolved_geneset()
 
 	deconvolved_expression_filenames = glob(f"{output_directory}/genes_deconvolution/*.npy")
@@ -117,11 +117,34 @@ def load_deconvolved_gene_expression(output_directory):
 	for i, filename in enumerate(deconvolved_expression_filenames):
 		expression_F = np.load(filename)
 		gene_name = filename.split('/')[-1].split('_')[0]
-		orf_name, gene_name = get_gene_name_orf_name(gene_name)        
+
+		# Skip nongenes
+		if gene_name.startswith('nogene'):
+
+			if include_nongenic:
+				transcript_name = filename.split('/')[-1].split('.')[0]
+			else:
+				continue
+		else:
+			transcript_name, gene_name = get_gene_name_orf_name(gene_name)        
+
+		# Skip if duplicate gene name
+		if transcript_name in gene_names:
+			continue
+
 		gene_expression_Fs_list.append(expression_F)
-		gene_names.append(orf_name)
+		gene_names.append(transcript_name)
 
 	expression_Fs_df = pd.DataFrame(gene_expression_Fs_list, index=gene_names)
+	expression_Fs_df = expression_Fs_df.drop_duplicates()
+
+	if include_nongenic:
+		expression_Fs_df.index.name = 'transcript_name'
+	else:
+		expression_Fs_df.index.name = 'orf_name'
+
+	# Drop duplicates
+	expression_Fs_df = expression_Fs_df.drop_duplicates()
 
 	return expression_Fs_df
 

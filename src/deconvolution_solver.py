@@ -101,7 +101,7 @@ class DeconvolutionSolver(object):
 									 f_b_periodic,
 									 f_padding_right_indices])
 
-		# Create block matrix structures for wavelets
+		# Create wavelet kernels for each of the branches
 		W_i = get_wavelet_kernel(len(f_padded_i), par=5)
 		W_t = get_wavelet_kernel(len(f_padded_t), par=5)
 		W_b = get_wavelet_kernel(len(f_padded_b), par=5)

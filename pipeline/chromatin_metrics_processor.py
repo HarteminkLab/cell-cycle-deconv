@@ -1,7 +1,28 @@
 import numpy as np
 import pandas as pd
 from src.config import load_default_chrom_configs
-from src.utils import print_fl
+from src.utils import print_fl, mkdir_safe
+from src.figure_configs import save_figure_for_paper
+from matplotlib import pyplot as plt
+
+# Formatting map for ptr plots for each metric
+plot_formatting_map = {
+	'promoter_occupancy': {
+		'bw': 0.006,
+		'ptr_lims': (0.95, 2.5),
+		'cmap': 'Oranges'
+	},
+	'nucleosome_entropy': {
+		'bw': 0.001,
+		'ptr_lims': (0.99, 2.5),
+		'cmap': 'Purples'
+	},        
+	'nucleosome_occupancy': {
+		'bw': 0.006,
+		'ptr_lims': (0.95, 2.5),
+		'cmap': 'Blues'
+	}
+}
 
 class ChromatinMetricsProcessor:
 	"""
@@ -160,7 +181,7 @@ class ChromatinMetricsProcessor:
 		# Return mean entropy across timepoints
 		return np.array(entropies)
 
-	def compute_metrics_for_data(self, data_loader, debug=False,
+	def compute_metrics_for_data(self, data_loader, dataset_key, debug=False,
 		compute_raw_ptrs=False):
 		"""
 		Compute chromatin metrics for all transcripts using a single data loader.
@@ -249,7 +270,7 @@ class ChromatinMetricsProcessor:
 
 		# Compute the peak to trough values
 		peak_to_trough_results = self.compute_peak_to_trough_values(results,
-			compute_raw_ptrs=compute_raw_ptrs)
+			dataset_key, compute_raw_ptrs=compute_raw_ptrs)
 
 		# Final summary
 		time_str = timer.get_time()
@@ -258,8 +279,52 @@ class ChromatinMetricsProcessor:
 		
 		return results, peak_to_trough_results
 
+	def plot_chromatin_value_range(self):
+		# Scale the entropy PTR values to be in a similar range to the occupancy PTR values
+		chromatin_metrics = self.deconvolved_chromatin_metrics
 
-	def compute_peak_to_trough_values(self, chromatin_metrics_dic, compute_raw_ptrs=False):
+		prom_occ_values = chromatin_metrics['promoter_occupancy'].dropna().values
+		nuc_occ_values = chromatin_metrics['nucleosome_occupancy'].dropna().values
+		entropy_values = chromatin_metrics['nucleosome_entropy'].dropna().values
+
+		entropy_shift = self.entropy_shift_values_for_ptr['deconvolved']
+		normalized_entropy = entropy_values - entropy_shift
+
+		plt.figure(figsize=(6, 4))
+		plt.hist(prom_occ_values.flatten(), bins=30, alpha=0.33, label="Promoter occ.",
+				edgecolor='black', lw=0.25, color=plt.cm.Oranges(0.5))
+		plt.hist(nuc_occ_values.flatten(), bins=500, alpha=0.33, label='Nuc. occ.', 
+			edgecolor='black', lw=0.25, color=plt.cm.Blues(0.75))
+		plt.hist(entropy_values.flatten(), bins=20, alpha=0.33, label='Nuc. entropy (unnormalized)',
+				edgecolor='black', lw=0.25, color=plt.cm.Purples(0.35))
+		plt.xlim(0, 15)
+		plt.title("Chromatin metric value ranges", fontweight='demi', fontsize=16)
+
+		plt.hist(normalized_entropy.flatten(), bins=20, alpha=0.33, edgecolor='black', lw=0.25,
+				 label='Nuc. entropy (normalized)', color=plt.cm.Purples(0.75))
+		plt.legend()
+		plt.ylabel("Frequency")
+		plt.xlabel("Distribution")
+		plt.tight_layout()
+
+	def compute_entropy_shift_values_quantile(self):
+		"""Compute the entropy shift values for PTR calculation"""
+
+		def _compute_shift(chromatin_metrics):
+			"""Shift entropy values based on bottom 1%"""
+			entropy_values = chromatin_metrics['nucleosome_entropy'].dropna().values
+			min_observed = np.quantile(entropy_values, q=0.01)
+			normalized_entropy = (entropy_values - min_observed)
+			return min_observed
+
+		entropy_shift_values_for_ptr = {
+			'deconvolved': _compute_shift(self.deconvolved_chromatin_metrics),
+			'raw_rep1': _compute_shift(self.raw_rep1_metrics),
+			'raw_rep2': _compute_shift(self.raw_rep2_metrics)
+		}
+		self.entropy_shift_values_for_ptr = entropy_shift_values_for_ptr
+
+	def compute_peak_to_trough_values(self, chromatin_metrics_dic, dataset_key, compute_raw_ptrs=False):
 		"""Compute peak to trough values for a given run's dictionary of
 		metric values"""
 		from src.peak_to_trough import compute_ptr_tb, compute_quantile_ptr
@@ -268,21 +333,38 @@ class ChromatinMetricsProcessor:
 		peak_to_trough_values = {}
 		ptr_lo, ptr_hi = 0.1, 0.9
 
+		entropy_shift_value = self.entropy_shift_values_for_ptr[dataset_key]
+
 		for key in chromatin_metrics_dic.keys():
-			metric_values = chromatin_metrics_dic[key]
+			orfs_index = chromatin_metrics_dic[key].index
+			metric_values_df = chromatin_metrics_dic[key]
+
+			# Shift if computing entropy PTR
+			if key == 'nucleosome_entropy':
+				metric_values_df.loc[:] = metric_values_df.values - entropy_shift_value
+
+			metric_values = metric_values_df.values
 
 			# Deconvolved ptr values (mother and daughter branches)
 			if not compute_raw_ptrs:
 				ptr_values = np.apply_along_axis(lambda row: 
-					compute_ptr_tb(config, row, lo=ptr_lo, hi=ptr_hi), axis=1, arr=metric_values.values)
+					compute_ptr_tb(config, row, lo=ptr_lo, hi=ptr_hi), axis=1, 
+					arr=metric_values_df)
 
 			# Raw data ptrs values (no config indexing)
 			else:
+
+				# Subset the columns such that we only
+				# compute the non-recovery G1 timepoints in the PTR calculation
+				# Use mu0 to remove recovery g1 timepoints
+				skip_minutes = -int(np.round(config.params_dic['mu0']/10)*10)
+				skip_index_max = skip_minutes//10 # Assume 1 index per minute
+
 				ptr_values = np.apply_along_axis(lambda row: 
-					compute_quantile_ptr(row, ptr_lo, ptr_hi), axis=1, arr=metric_values.values)
+					compute_quantile_ptr(row, ptr_lo, ptr_hi), axis=1, arr=metric_values[:, skip_index_max:])
 
 			ptrs_df = pd.DataFrame(ptr_values, columns=[key+"_ptr"],
-				index=metric_values.index)
+				index=orfs_index)
 			peak_to_trough_values[key] = ptrs_df
 
 		return peak_to_trough_values
@@ -291,20 +373,185 @@ class ChromatinMetricsProcessor:
 		"""Compute chromatin metrics and PTR values for each of the
 		data loaders"""
 
+		# Entropy values should be shifted for PTR calculation
+		# Compute the shift using quantile 0.01
+		self.compute_entropy_shift_values_quantile()
+
 		(self.deconvolved_chromatin_metrics,
 		 self.deconvolved_chromatin_ptrs) = \
 			self.compute_metrics_for_data(self.deconvolved_chromatin_loader, 
-			debug=debug, compute_raw_ptrs=False)
+				'deconvolved', debug=debug, compute_raw_ptrs=False)
 
 		(self.raw_rep1_metrics,
 		 self.raw_rep1_ptrs) = self.compute_metrics_for_data(
-			self.raw_replicate1_chromatin_loader, 
+			self.raw_replicate1_chromatin_loader, 'raw_rep1',
 			debug=debug, compute_raw_ptrs=True)
 
 		(self.raw_rep2_metrics,
 		 self.raw_rep2_ptrs) = self.compute_metrics_for_data(
-			self.raw_replicate2_chromatin_loader, 
+			self.raw_replicate2_chromatin_loader, 'raw_rep2',
 			debug=debug, compute_raw_ptrs=True)
+
+	def plot_raw_to_deconvolved_ptr_change(self, metric_name):
+
+		raw_rep1_ptrs = self.raw_rep1_ptrs[metric_name]
+		raw_rep2_ptrs = self.raw_rep2_ptrs[metric_name]
+		deconv_ptrs = self.deconvolved_chromatin_ptrs[metric_name]
+		
+		bw, ptr_lims, cmap = plot_formatting_map[metric_name]['bw'],\
+			plot_formatting_map[metric_name]['ptr_lims'], \
+			plot_formatting_map[metric_name]['cmap']
+
+		# Subset to the genic transcripts
+		genic_transcripts = self.all_transcripts_set[
+			self.all_transcripts_set.transcript_class == 'genic'].index
+
+		fig = plt.figure(figsize=(11., 4.25))
+
+		plt.subplot(1, 3, 1)
+		plot_ptr_change(raw_rep1_ptrs.loc[genic_transcripts], 
+				raw_rep2_ptrs.loc[genic_transcripts], metric_name, self.selected_genes, 
+				bw=bw, cmap=cmap, ptr_lims=ptr_lims)
+		plt.title('Rep 1 vs Rep 2')
+		plt.xlabel("Replicate 1 PTR")
+		plt.ylabel("Replicate 2 PTR")
+
+		plt.subplot(1, 3, 2)
+		plot_ptr_change(raw_rep1_ptrs.loc[genic_transcripts], 
+				deconv_ptrs.loc[genic_transcripts], metric_name, self.selected_genes, 
+				bw=bw, cmap=cmap, ptr_lims=ptr_lims)
+		plt.title('Rep 1 vs Deconvolved')
+		plt.ylabel("Deconvolved PTR")
+		plt.xlabel("Replicate 1 PTR")
+
+		plt.subplot(1, 3, 3)
+		plot_ptr_change(raw_rep2_ptrs.loc[genic_transcripts], 
+				deconv_ptrs.loc[genic_transcripts], metric_name, self.selected_genes, 
+				bw=bw, cmap=cmap, ptr_lims=ptr_lims)
+		plt.title('Rep 2 vs Deconvolved')
+		plt.xlabel("Replicate 2 PTR")
+		plt.ylabel("Deconvolved PTR")
+
+		suptitle = f"{metric_name.replace('_', ' ')}"
+		suptitle = suptitle[0:1].upper() + suptitle[1:]
+		plt.suptitle(f"{suptitle} PTR change\nfollowing deconvolution, n={len(raw_rep1_ptrs.loc[genic_transcripts])}", 
+					fontweight='demi', fontsize=18)
+		plt.tight_layout()
+
+	def plot_combined_ptr_change(self):
+		import matplotlib.pyplot as plt
+		fig = plt.figure(figsize=(11., 4.))
+
+		genic_transcripts = self.all_transcripts_set[
+			self.all_transcripts_set.transcript_class == 'genic'].index
+
+		def plot_combined_raw_metric_ptr(metric_name):
+
+			bw, ptr_lims, cmap = plot_formatting_map[metric_name]['bw'],\
+				plot_formatting_map[metric_name]['ptr_lims'], \
+				plot_formatting_map[metric_name]['cmap']
+
+			raw_rep1_ptrs = self.raw_rep1_ptrs[metric_name]
+			raw_rep2_ptrs = self.raw_rep2_ptrs[metric_name]
+			raw_combined_rep_ptrs = (raw_rep1_ptrs + raw_rep2_ptrs)/2.
+			deconv_ptrs = self.deconvolved_chromatin_ptrs[metric_name]
+			plot_ptr_change(raw_combined_rep_ptrs.loc[genic_transcripts], 
+				deconv_ptrs.loc[genic_transcripts], metric_name, self.selected_genes, 
+				bw=bw, cmap=cmap, ptr_lims=ptr_lims)
+
+		plt.subplot(1, 3, 1)
+		plot_combined_raw_metric_ptr('promoter_occupancy')
+		plt.xlabel("Combined raw data PTR")
+		plt.ylabel("Deconvolved PTR")
+		plt.title("Promoter occupancy")
+
+		plt.subplot(1, 3, 2)
+		plot_combined_raw_metric_ptr('nucleosome_entropy')
+		plt.xlabel("Combined raw data PTR")
+		plt.ylabel("Deconvolved PTR")
+		plt.title("Nucleosome entropy")
+
+		plt.subplot(1, 3, 3)
+		plot_combined_raw_metric_ptr('nucleosome_occupancy')
+		plt.xlabel("Mean raw data PTR")
+		plt.ylabel("Deconvolved PTR")
+		plt.title("Nucleosome occupancy")
+
+		plt.suptitle(f"PTR change following deconvolution, n={len(genic_transcripts)}", 
+					fontweight='demi', fontsize=18)
+		plt.tight_layout()
+
+
+	def plot_combined_ptr_change_w_expression(self, high_cycling_tx_genes=[]):
+		import matplotlib.pyplot as plt
+		fig = plt.figure(figsize=(11., 4.))
+
+		genic_transcripts = self.all_transcripts_set[self.all_transcripts_set.transcript_class == 'genic'].index
+
+		def plot_combined_raw_metric_ptr(metric_name):
+
+			bw, ptr_lims, cmap = plot_formatting_map[metric_name]['bw'],\
+				plot_formatting_map[metric_name]['ptr_lims'], \
+				plot_formatting_map[metric_name]['cmap']
+
+			raw_rep1_ptrs = self.raw_rep1_ptrs[metric_name]
+			raw_rep2_ptrs = self.raw_rep2_ptrs[metric_name]
+			raw_combined_rep_ptrs = ((raw_rep1_ptrs + raw_rep2_ptrs)/2.).loc[genic_transcripts]
+			deconv_ptrs = self.deconvolved_chromatin_ptrs[metric_name].loc[genic_transcripts]
+
+			plt.scatter(raw_combined_rep_ptrs, deconv_ptrs, 
+				c='#ddd', s=2)
+			plt.scatter(raw_combined_rep_ptrs.loc[high_cycling_tx_genes], deconv_ptrs.loc[high_cycling_tx_genes], 
+				color=plt.cm.Greens(0.75), alpha=0.75, s=3, label=f"Cell cycle expression\nn={len(high_cycling_tx_genes)} (95th percentile)")
+
+			plt.plot([-0.5, 5], [-0.5, 5], c='red', lw=0.75, zorder=10, ls='dotted')
+
+			plt.ylim(*ptr_lims)
+			plt.xlim(*ptr_lims)
+			plt.legend()
+
+		plt.subplot(1, 3, 1)
+		plot_combined_raw_metric_ptr('promoter_occupancy')
+		plt.xlabel("Combined raw data PTR")
+		plt.ylabel("Deconvolved PTR")
+		plt.title("Promoter occupancy")
+
+		plt.subplot(1, 3, 2)
+		plot_combined_raw_metric_ptr('nucleosome_entropy')
+		plt.xlabel("Combined raw data PTR")
+		plt.ylabel("Deconvolved PTR")
+		plt.title("Nucleosome entropy")
+
+		plt.subplot(1, 3, 3)
+		plot_combined_raw_metric_ptr('nucleosome_occupancy')
+		plt.xlabel("Mean raw data PTR")
+		plt.ylabel("Deconvolved PTR")
+		plt.title("Nucleosome occupancy")
+
+		plt.suptitle(f"PTR change following deconvolution, n={len(genic_transcripts)}", 
+					fontweight='demi', fontsize=18)
+		plt.tight_layout()
+
+	def create_plots(self):
+
+		save_dir = f"{self.output_dir}/chromatin_metrics/figures"
+		mkdir_safe(save_dir)
+
+		# Create and save plots for PTR change
+		self.plot_raw_to_deconvolved_ptr_change('promoter_occupancy')
+		save_figure_for_paper(f"{save_dir}/promoter_occupancy_ptr.png")
+
+		self.plot_raw_to_deconvolved_ptr_change('nucleosome_entropy')
+		save_figure_for_paper(f"{save_dir}/nucleosome_entropy_ptr.png")
+
+		self.plot_raw_to_deconvolved_ptr_change('nucleosome_occupancy')
+		save_figure_for_paper(f"{save_dir}/nucleosome_occupancy_ptr.png")
+
+		# Create combined chromatin metrics PTR plots
+		# replicate 1 and 2 raw data are combined
+		self.plot_combined_ptr_change()
+		save_figure_for_paper(f"{save_dir}/raw_vs_deconvolved_all_metrics_ptrs.png")
+
 
 	def save_all_results_disk(self, save_directory):
 
@@ -326,47 +573,226 @@ class ChromatinMetricsProcessor:
 
 
 	def save_results_to_csv(self, results_dict, save_dir, data_source_name, data_type="metrics"):
-	    """
-	    Save metrics or PTR DataFrames to CSV files.
-	    
-	    Parameters
-	    ----------
-	    results_dict : dict
-	        Dictionary with metric names as keys and DataFrames as values.
-	        Can be metrics dict or PTR dict.
-	    save_dir : str
-	        Directory where CSV files will be saved
-	    data_source_name : str
-	        Identifier for the data source (e.g., 'deconvolved', 'raw_rep1', 'raw_rep2')
-	        Used as prefix in filenames
-	    data_type : str, optional
-	        Type of data being saved ('metrics' or 'ptrs'), used in filename
-	    """
-	    import os
-	    from pathlib import Path
-	    
-	    # Create save directory if it doesn't exist
-	    save_path = Path(save_dir)
-	    save_path.mkdir(parents=True, exist_ok=True)
-	    
-	    print_fl(f"Saving {data_type} to {save_dir} with prefix '{data_source_name}'...")
-	    
-	    saved_files = []
-	    for metric_name, dataframe in results_dict.items():
-	        # Create filename: data_source_datatype_metric_name.csv
-	        if data_type == "metrics":
-	            filename = f"{data_source_name}_{metric_name}.csv"
-	        else:  # PTRs
-	            filename = f"{data_source_name}_{data_type}_{metric_name}.csv"
-	        filepath = save_path / filename
-	        
-	        # Save DataFrame to CSV
-	        dataframe.to_csv(filepath, index=True)
-	        saved_files.append(str(filepath))
-	        
-	        print_fl(f"  Saved {metric_name} {data_type}: {filename} ({dataframe.shape[0]} genes, {dataframe.shape[1]} columns)")
-	    
-	    print_fl(f"Successfully saved {len(saved_files)} {data_type} files.")
-	    return saved_files
+		"""
+		Save metrics or PTR DataFrames to CSV files.
+		
+		Parameters
+		----------
+		results_dict : dict
+			Dictionary with metric names as keys and DataFrames as values.
+			Can be metrics dict or PTR dict.
+		save_dir : str
+			Directory where CSV files will be saved
+		data_source_name : str
+			Identifier for the data source (e.g., 'deconvolved', 'raw_rep1', 'raw_rep2')
+			Used as prefix in filenames
+		data_type : str, optional
+			Type of data being saved ('metrics' or 'ptrs'), used in filename
+		"""
+		import os
+		from pathlib import Path
+		
+		# Create save directory if it doesn't exist
+		save_path = Path(save_dir)
+		save_path.mkdir(parents=True, exist_ok=True)
+		
+		print_fl(f"Saving {data_type} to {save_dir} with prefix '{data_source_name}'...")
+		
+		saved_files = []
+		for metric_name, dataframe in results_dict.items():
+			# Create filename: data_source_datatype_metric_name.csv
+			if data_type == "metrics":
+				filename = f"{data_source_name}_{metric_name}.csv"
+			else:  # PTRs
+				filename = f"{data_source_name}_{data_type}_{metric_name}.csv"
+			filepath = save_path / filename
+			
+			# Save DataFrame to CSV
+			dataframe.index.name = 'transcript_name' # Name the index: based on orf_name or transcript name
+			dataframe.to_csv(filepath, index=True)
+			saved_files.append(str(filepath))
+			
+			print_fl(f"  Saved {metric_name} {data_type}: {filename} ({dataframe.shape[0]} genes, {dataframe.shape[1]} columns)")
+		
+		print_fl(f"Successfully saved {len(saved_files)} {data_type} files.")
+		return saved_files
 
 
+	def load_saved_metrics(self, load_dir, data_sources=None, load_ptrs=True):
+		"""
+		Load previously saved chromatin metrics and PTR data from CSV files.
+		
+		Parameters
+		----------
+		load_dir : str
+			Directory where the CSV files are stored
+		data_sources : list of str, optional
+			List of data sources to load. If None, loads all available sources.
+			Valid options: ['deconvolved', 'raw_rep1', 'raw_rep2']
+		load_ptrs : bool, optional
+			Whether to also load PTR data. Default is True.
+			
+		Returns
+		-------
+		tuple
+			(metrics_dict, ptrs_dict) where:
+			- metrics_dict: dict with data_source as keys, each containing metric DataFrames
+			- ptrs_dict: dict with data_source as keys, each containing PTR DataFrames
+			
+		Example
+		-------
+		# Load all data
+		metrics, ptrs = processor.load_saved_metrics('/path/to/saved/data')
+		
+		# Load only deconvolved data
+		metrics, ptrs = processor.load_saved_metrics('/path/to/saved/data', 
+													data_sources=['deconvolved'])
+		
+		# Load only metrics (no PTRs)
+		metrics, _ = processor.load_saved_metrics('/path/to/saved/data', load_ptrs=False)
+		"""
+		import os
+		import pandas as pd
+		from pathlib import Path
+		
+		load_path = Path(load_dir)
+		if not load_path.exists():
+			raise FileNotFoundError(f"Directory {load_dir} does not exist")
+		
+		# Default data sources if none specified
+		if data_sources is None:
+			data_sources = ['deconvolved', 'raw_rep1', 'raw_rep2']
+		
+		# Initialize result dictionaries
+		loaded_metrics = {}
+		loaded_ptrs = {}
+		
+		print_fl(f"Loading saved data from {load_dir}...")
+		
+		for data_source in data_sources:
+			print_fl(f"  Loading {data_source} data...")
+			
+			# Load metrics for this data source
+			source_metrics = {}
+			for metric_name in self.metric_types:
+				# Filename pattern: {data_source}_{metric_name}.csv
+				metric_filename = f"{data_source}_{metric_name}.csv"
+				metric_filepath = load_path / metric_filename
+				
+				if metric_filepath.exists():
+					df = pd.read_csv(metric_filepath, index_col=0)
+					source_metrics[metric_name] = df
+					print_fl(f"    Loaded {metric_name}: {df.shape[0]} genes, {df.shape[1]} timepoints")
+				else:
+					print_fl(f"    Warning: {metric_filename} not found, skipping...")
+			
+			if source_metrics:
+				loaded_metrics[data_source] = source_metrics
+			
+			# Load PTRs for this data source if requested
+			if load_ptrs:
+				source_ptrs = {}
+				for metric_name in self.metric_types:
+					# Filename pattern: {data_source}_ptrs_{metric_name}.csv
+					ptr_filename = f"{data_source}_ptrs_{metric_name}.csv"
+					ptr_filepath = load_path / ptr_filename
+					
+					if ptr_filepath.exists():
+						df = pd.read_csv(ptr_filepath, index_col=0)
+						source_ptrs[metric_name] = df
+						print_fl(f"    Loaded {metric_name} PTRs: {df.shape[0]} genes")
+					else:
+						print_fl(f"    Warning: {ptr_filename} not found, skipping...")
+				
+				if source_ptrs:
+					loaded_ptrs[data_source] = source_ptrs
+		
+		# Summary
+		metrics_loaded = sum(len(source_data) for source_data in loaded_metrics.values())
+		ptrs_loaded = sum(len(source_data) for source_data in loaded_ptrs.values()) if load_ptrs else 0
+		
+		print_fl(f"Successfully loaded {metrics_loaded} metric datasets and {ptrs_loaded} PTR datasets")
+		
+		return loaded_metrics, loaded_ptrs
+
+
+	def load_and_assign_saved_metrics(self, load_dir=None, data_sources=None):
+		"""
+		Load saved metrics and assign them to the class attributes.
+		
+		This is a convenience method that loads the data and assigns it to the same
+		attribute names used by compute_chromatin_metrics_all_data().
+		
+		Parameters
+		----------
+		load_dir : str
+			Directory where the CSV files are stored
+		data_sources : list of str, optional
+			List of data sources to load. If None, loads all available sources.
+		"""
+		if load_dir is None:
+			load_dir = f"{self.output_dir}/chromatin_metrics"
+
+		loaded_metrics, loaded_ptrs = self.load_saved_metrics(load_dir, data_sources)
+		
+		# Assign to class attributes
+		if 'deconvolved' in loaded_metrics:
+			self.deconvolved_chromatin_metrics = loaded_metrics['deconvolved']
+			self.deconvolved_chromatin_ptrs = loaded_ptrs.get('deconvolved', {})
+			print_fl("Assigned deconvolved data to class attributes")
+		
+		if 'raw_rep1' in loaded_metrics:
+			self.raw_rep1_metrics = loaded_metrics['raw_rep1']
+			self.raw_rep1_ptrs = loaded_ptrs.get('raw_rep1', {})
+			print_fl("Assigned raw_rep1 data to class attributes")
+		
+		if 'raw_rep2' in loaded_metrics:
+			self.raw_rep2_metrics = loaded_metrics['raw_rep2']
+			self.raw_rep2_ptrs = loaded_ptrs.get('raw_rep2', {})
+			print_fl("Assigned raw_rep2 data to class attributes")
+
+
+def plot_ptr_change(raw_ptrs, deconv_ptrs, metric_name, selected_genes=[],
+	cmap='Reds', bw=0.006, ptr_lims=(0.9, 4)):
+	
+	from src.DensityScatterPlotter import DensityScatterPlotter
+	from matplotlib import pyplot as plt
+
+	dsc_plotter = DensityScatterPlotter()
+	dsc_plotter.plot_outline = True
+	dsc_plotter.outline_color = '#eee'
+	dsc_plotter.logz=True
+	joined_data = pd.DataFrame({
+		'x': raw_ptrs[metric_name+'_ptr'].values, 
+		'y': deconv_ptrs[metric_name+'_ptr'].values
+	}, index=raw_ptrs.index)
+
+	# Fille nan values to ptr of 1.0
+	joined_data = joined_data.fillna(1.)
+
+	# Plot the PTRs
+	dsc_plotter.set_data(joined_data.x, joined_data.y)
+	dsc_plotter.bw = bw, bw
+	dsc_plotter.cmap = cmap
+	dsc_plotter.s = 5
+	dsc_plotter.plot_ax(plt.gca())
+
+
+	plt.plot([-0.5, 5], [-0.5, 5], c='red', lw=0.75, zorder=10, ls='dotted')
+
+	# Plot the selected genes
+	from src.sgd import get_orfname
+	import matplotlib.patheffects as path_effects
+
+	for gene_name in selected_genes:
+		orf_name = get_orfname(gene_name)
+		selected_data = joined_data.loc[orf_name]
+		plt.scatter(selected_data.x, selected_data.y, marker='D', facecolor='none',
+			lw=1, edgecolor='red', zorder=10)
+		plt.text(selected_data.x, selected_data.y, gene_name, zorder=11,
+			color='white', fontsize=8,
+			path_effects=[path_effects.withStroke(linewidth=1, foreground='black')])
+		
+	plt.xlim(*ptr_lims)
+	plt.ylim(*ptr_lims)
+	plt.xlabel("Raw PTR")

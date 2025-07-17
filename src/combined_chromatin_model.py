@@ -16,7 +16,12 @@ class CombinedChromatinModel:
 	In this class we will construct the combined chromatin deconvolution model
 	"""
 
-	def __init__(self, config1, config2):
+	def __init__(self, config1=None, config2=None):
+
+		if config1 is None and config2 is None:
+			from src.config import load_default_chrom_configs
+			config1, config2 = load_default_chrom_configs()
+
 		self.chrom1_model = ChromatinModel(config1)
 		self.chrom2_model = ChromatinModel(config2)
 
