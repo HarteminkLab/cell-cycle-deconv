@@ -60,6 +60,37 @@ def plot_stacked_curves(x, vectors, names):
 		previous_stack = plot_phase_stack(x, prev_vec=previous_stack, 
 										  cur_vec=cur_vector, name=name)
 	
+def plot_density_histogram(data, ax=None, domain_values=None, 
+                          fill=False, bw=10, 
+                          mult=1.0, y_offset=0, flip_axes=False, normalize=True,
+                          **kwargs):
+    
+    from scipy.ndimage import gaussian_filter1d
+    
+    if ax is None:
+        ax = plt.gca()
+    
+    if domain_values is None:
+        domain_values = np.linspace(data.min(), data.max(), 200)
+    
+    # Create histogram then smooth it
+    hist, bin_edges = np.histogram(data, bins=len(domain_values), 
+                                  range=(domain_values[0], domain_values[-1]))
+    
+    # Smooth the histogram
+    smoothed_hist = gaussian_filter1d(hist.astype(float), sigma=bw/10)
+    
+    # Use bin centers as x values
+    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+    
+    y = smoothed_hist * mult
+    if normalize:
+        y = y/y.max()
+    
+    plt.plot(domain_values, y, *kwargs)
+
+    return y
+
 def plot_density(data, ax=None, color='red', domain_values=None, 
 	alpha=1., zorder=1, fill=False, bw=10, neg=False, 
 	mult=1.0, y_offset=0, flip_axes=False, lw=1, label=None, 
@@ -74,7 +105,7 @@ def plot_density(data, ax=None, color='red', domain_values=None,
 		return pdf
 
 	if ax is None:
-		fig, ax = plt.subplots()
+		ax = plt.gca()
 
 	if domain_values is None:
 		domain_values = range(min(data), max(data), 1)

@@ -7,178 +7,223 @@ from src.utils import print_fl
 
 
 def fold_change(data, times=[0, 7.5, 15, 30, 60, 120], 
-        pseudo_count=0.1,
-        neg_vals=0):
-    """
-    Calculate fold ratio change compared to the first time point, adding pseudo
-    count in cases of 0 value.
-    """
+		pseudo_count=0.1,
+		neg_vals=0):
+	"""
+	Calculate fold ratio change compared to the first time point, adding pseudo
+	count in cases of 0 value.
+	"""
 
-    data = data.copy()
-    data += pseudo_count
-    time_zero = data[times[0]].copy()
+	data = data.copy()
+	data += pseudo_count
+	time_zero = data[times[0]].copy()
 
-    # fold ratio
-    data.loc[:, times] = data[times].divide(time_zero, axis=0)
+	# fold ratio
+	data.loc[:, times] = data[times].divide(time_zero, axis=0)
 
-    return data
+	return data
 
 
 def log2(data, times=[0, 7.5, 15, 30, 60, 120], fc_floor=1):
-    """
-    Scale data to log2 add pseudo count if data is <= 0.
-    """
-    data = data.copy()
+	"""
+	Scale data to log2 add pseudo count if data is <= 0.
+	"""
+	data = data.copy()
 
-    # use floor value for values <= 0
-    for time in times:
-        data.loc[data[time] <= 0, time] = fc_floor
+	# use floor value for values <= 0
+	for time in times:
+		data.loc[data[time] <= 0, time] = fc_floor
 
-    data.loc[:, times] = np.log2(data)
-    return data
+	data.loc[:, times] = np.log2(data)
+	return data
 
 def arcsinh_fold_change(data, times=[0, 7.5, 15, 30, 60, 120], pseudo_count=0.1):
-    fc_data = fold_change(data, times, pseudo_count=pseudo_count)
-    # return fc_data
-    asinh_data = np.arcsinh(fc_data) - np.arcsinh(1)
-    return asinh_data
+	fc_data = fold_change(data, times, pseudo_count=pseudo_count)
+	# return fc_data
+	asinh_data = np.arcsinh(fc_data) - np.arcsinh(1)
+	return asinh_data
 
 def log2_fold_change(data, times=[0, 7.5, 15, 30, 60, 120],
-    pseudo_count=1,
-    fc_floor=1.):
-    """log2 fold change wrt to 0 time"""
-    fc_data = fold_change(data, times, pseudo_count=pseudo_count)
-    log2_data = log2(fc_data, times, fc_floor=fc_floor)
-    return log2_data
+	pseudo_count=1,
+	fc_floor=1.):
+	"""log2 fold change wrt to 0 time"""
+	fc_data = fold_change(data, times, pseudo_count=pseudo_count)
+	log2_data = log2(fc_data, times, fc_floor=fc_floor)
+	return log2_data
 
 def difference(data, times=[0, 7.5, 15, 30, 60, 120], time_zero=None):
-    """
-    Calculate difference to the first time point
-    """
-    data = data.copy()
+	"""
+	Calculate difference to the first time point
+	"""
+	data = data.copy()
 
-    if time_zero is None:
-        time_zero = data[times[0]].copy()
+	if time_zero is None:
+		time_zero = data[times[0]].copy()
 
-    # difference
-    data.loc[:, times] = data[times].subtract(time_zero, axis=0)
+	# difference
+	data.loc[:, times] = data[times].subtract(time_zero, axis=0)
 
-    return data
+	return data
 
 
 def normalize_by_time(data, how='z-score'):
-    """
-    Scale each sample to sum over all ORFs to the target sum
-    """
-    if how == 'z-score':
-        scaled = (data - data.mean()) / data.std()
-    else: ValueError("Undefined normalization methods")
+	"""
+	Scale each sample to sum over all ORFs to the target sum
+	"""
+	if how == 'z-score':
+		scaled = (data - data.mean()) / data.std()
+	else: ValueError("Undefined normalization methods")
 
-    return scaled
+	return scaled
 
 
 def exhaustive_counts(x_span, y_span, x_key='mid', y_key='length', data=None, 
-    returns='both', parent_keys=None, log=False):
-    """
-    Create exhaustive dataframe of all xs and y values for a dataframe, counting
-    existing of x, y combination. Returns narrow list or pivoted
-    """
+	returns='both', parent_keys=None, log=False):
+	"""
+	Create exhaustive dataframe of all xs and y values for a dataframe, counting
+	existing of x, y combination. Returns narrow list or pivoted
+	"""
 
-    exhaustive_values = [np.arange(x_span[0], x_span[1]+1), 
-                         np.arange(y_span[0], y_span[1]+1)]
+	exhaustive_values = [np.arange(x_span[0], x_span[1]+1), 
+						 np.arange(y_span[0], y_span[1]+1)]
 
-    if parent_keys is not None:
-        for parent_key in parent_keys:
-            exhaustive_values.append(data[parent_key].unique())
+	if parent_keys is not None:
+		for parent_key in parent_keys:
+			exhaustive_values.append(data[parent_key].unique())
 
-    if log: print_fl("  Creating full range list...")
+	if log: print_fl("  Creating full range list...")
 
-    # create dataframe of full range of values to join in case fragment doesnt exist
-    # at every position
-    full_range_list = list(itertools.product(*exhaustive_values))
-    xs = [e[0] for e in full_range_list]
-    ys = [e[1] for e in full_range_list]
+	# create dataframe of full range of values to join in case fragment doesnt exist
+	# at every position
+	full_range_list = list(itertools.product(*exhaustive_values))
+	xs = [e[0] for e in full_range_list]
+	ys = [e[1] for e in full_range_list]
 
-    full_range = pd.DataFrame()
-    full_range[y_key] = ys
-    full_range[x_key] = xs
+	full_range = pd.DataFrame()
+	full_range[y_key] = ys
+	full_range[x_key] = xs
 
-    if parent_keys is not None: 
+	if parent_keys is not None: 
 
-        # add each parent key's exhaustive values
-        for i in range(len(parent_keys)):
-            parent_key = parent_keys[i]
-            full_range[parent_key] = [e[2+i] for e in full_range_list]
+		# add each parent key's exhaustive values
+		for i in range(len(parent_keys)):
+			parent_key = parent_keys[i]
+			full_range[parent_key] = [e[2+i] for e in full_range_list]
 
-    # set parent key to group on if applicable
-    if parent_keys is None: index = [x_key, y_key]
-    else: index = parent_keys + [x_key, y_key]
-    full_range = full_range.set_index(index)
+	# set parent key to group on if applicable
+	if parent_keys is None: index = [x_key, y_key]
+	else: index = parent_keys + [x_key, y_key]
+	full_range = full_range.set_index(index)
 
-    if log:
-        print_fl("  " + timing.get_time())
-        sys.stdout.flush()
-        print_fl("  Joining data to full range...")
+	if log:
+		print_fl("  " + timing.get_time())
+		sys.stdout.flush()
+		print_fl("  Joining data to full range...")
 
-    # pivot MNase-seq data into a count histogram
-    if data is None:
-        full_range['count'] = 0
-        narrow_counts = full_range.reset_index()
-    else:
-        narrow_counts = data[index].copy()
-        narrow_counts['count'] = 1
-        narrow_counts = narrow_counts.groupby(index).count()
+	# pivot MNase-seq data into a count histogram
+	if data is None:
+		full_range['count'] = 0
+		narrow_counts = full_range.reset_index()
+	else:
+		narrow_counts = data[index].copy()
+		narrow_counts['count'] = 1
+		narrow_counts = narrow_counts.groupby(index).count()
 
-        # join with full range of values
-        narrow_counts = narrow_counts.reset_index().merge(full_range.reset_index(), 
-            how='outer').fillna(0)
-        if parent_keys is not None:
-            narrow_counts = narrow_counts.set_index(parent_keys + ['length'])
-        else:
-            narrow_counts = narrow_counts.set_index(['length'])
+		# join with full range of values
+		narrow_counts = narrow_counts.reset_index().merge(full_range.reset_index(), 
+			how='outer').fillna(0)
+		if parent_keys is not None:
+			narrow_counts = narrow_counts.set_index(parent_keys + ['length'])
+		else:
+			narrow_counts = narrow_counts.set_index(['length'])
 
-    if parent_keys is None:
-        pivot_idx = 'length'
-    else:
-        pivot_idx = parent_keys + [y_key]
+	if parent_keys is None:
+		pivot_idx = 'length'
+	else:
+		pivot_idx = parent_keys + [y_key]
 
-    if log:
-        print_fl("  " + timing.get_time())
-        print_fl("  Pivoting narrow table...")
-        sys.stdout.flush()
+	if log:
+		print_fl("  " + timing.get_time())
+		print_fl("  Pivoting narrow table...")
+		sys.stdout.flush()
 
-    # pivot into length x position matrix
-    wide_counts = narrow_counts.pivot_table(index=pivot_idx, columns=x_key, values='count')
-    wide_counts = wide_counts.fillna(0).astype(int)
-    
-    if log:
-        print_fl("  " + timing.get_time())
-        sys.stdout.flush()
+	# pivot into length x position matrix
+	wide_counts = narrow_counts.pivot_table(index=pivot_idx, columns=x_key, values='count')
+	wide_counts = wide_counts.fillna(0).astype(int)
+	
+	if log:
+		print_fl("  " + timing.get_time())
+		sys.stdout.flush()
 
-    if returns == 'both':
-        return narrow_counts, wide_counts
-    elif returns == 'wide':
-        del narrow_counts
-        return wide_counts
-    else:
-        raise ValueError("Unspecified parameter")
+	if returns == 'both':
+		return narrow_counts, wide_counts
+	elif returns == 'wide':
+		del narrow_counts
+		return wide_counts
+	else:
+		raise ValueError("Unspecified parameter")
 
 def z_score_norm(data):
-    """
-    Normalize each row by z-score for the row. For normalizing correlated genes
-    so they can be compared
-    """
-    data = data.copy()
-    prom_cols = data.columns
-    mu = data[prom_cols].mean(axis=1)
-    std = data[prom_cols].std(axis=1)
-    for i in range(len(data.columns)):
-        data.loc[:, prom_cols[i]] = (data[prom_cols[i]] - 0)/std
-    return data
+	"""
+	Normalize each row by z-score for the row. For normalizing correlated genes
+	so they can be compared
+	"""
+	data = data.copy()
+	prom_cols = data.columns
+	mu = data[prom_cols].mean(axis=1)
+	std = data[prom_cols].std(axis=1)
+	for i in range(len(data.columns)):
+		data.loc[:, prom_cols[i]] = (data[prom_cols[i]] - 0)/std
+	return data
 
 
 def log_transform_counts(raw_counts_matrix):
-    """
-    Transform counts using log transform
-    """
-    return np.log2(raw_counts_matrix + 1)
+	"""
+	Transform counts using log transform
+	"""
+	return np.log2(raw_counts_matrix + 1)
+
+def normalize_replicate_variance_vectorized(rep1_df, rep2_df, target_global_variance=None):
+	"""
+	Scale both replicates to match average variance for each gene (row-wise),
+	or optionally to a specified target variance level.
+	
+	This function aims to address the fact that the two replicates may have 
+	disparate per-gene variation distributions. Thus affecting the PTR scales
+	for each replicate. After performing this normalization procedure, the
+	PTR values should be comparable between the two replicates.
+	
+	Parameters:
+	rep1_df, rep2_df: pandas DataFrames with shape (genes, timepoints)
+	target_global_variance: float, optional
+		Target standard deviation for all genes. If None, uses average of rep1 and rep2
+		standard deviations for each gene individually.
+	
+	Returns:
+	rep1_scaled_df, rep2_scaled_df
+	"""
+	
+	# Compute the mean and variations per gene for each replicate
+	rep1_means = rep1_df.mean(axis=1)
+	rep1_stds = rep1_df.std(axis=1)
+	rep2_means = rep2_df.mean(axis=1)
+	rep2_stds = rep2_df.std(axis=1)
+	
+	# Calculate average standard deviation per gene (original behavior)
+	target_stds = (rep1_stds + rep2_stds) / 2
+	
+	# Calculate scaling factors for both replicates
+	scaling_factors_rep1 = (target_stds / rep1_stds.replace(0, 1)).fillna(1)
+	scaling_factors_rep2 = (target_stds / rep2_stds.replace(0, 1)).fillna(1)
+	
+	# Vectorized scaling using broadcasting for Rep 1
+	rep1_centered = rep1_df.sub(rep1_means, axis=0)
+	rep1_scaled = rep1_centered.mul(scaling_factors_rep1, axis=0)
+	rep1_scaled = rep1_scaled.add(rep1_means, axis=0)
+	
+	# Vectorized scaling using broadcasting for Rep 2
+	rep2_centered = rep2_df.sub(rep2_means, axis=0)
+	rep2_scaled = rep2_centered.mul(scaling_factors_rep2, axis=0)
+	rep2_scaled = rep2_scaled.add(rep2_means, axis=0)
+	
+	return rep1_scaled, rep2_scaled

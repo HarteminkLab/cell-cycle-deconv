@@ -119,6 +119,18 @@ class DeconvolutionSolver(object):
 		N = self.N
 		b = self.b
 
+		# todo: How do we handle the error for the separate replicates? 
+		# 
+		#       1. Currently one replicate may have more time points
+		#          than the other. Thus, a simple correction would to enable
+		#          equal contribution of error for each replicate.
+		#
+		#       2. Another idea, learn a proper balance of error between the
+		#          two replicates to minimize the overall error of the objective.
+		#          How do we prevent the model from learning from just a single
+		#          replicate? Regularization of the error weighting mechanism?
+		#          May be too complex at the moment to implement.
+		#
 		fit_norm_result = compute_fit_result(g, N, H, f_solution, self.f_replication, b, 
 			self.obj_error_mode, is_cvxpy=True)
 		smooth_result = compute_smoothing_result(f_solution_padded, 

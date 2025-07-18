@@ -8,18 +8,18 @@ from matplotlib import pyplot as plt
 # Formatting map for ptr plots for each metric
 plot_formatting_map = {
 	'promoter_occupancy': {
-		'bw': 0.006,
-		'ptr_lims': (0.95, 2.5),
+		'bw': 0.007,
+		'ptr_lims': (0.95, 2.0),
 		'cmap': 'Oranges'
 	},
 	'nucleosome_entropy': {
-		'bw': 0.001,
-		'ptr_lims': (0.99, 2.5),
+		'bw': 0.007,		
+		'ptr_lims': (0.95, 2.0),
 		'cmap': 'Purples'
 	},        
 	'nucleosome_occupancy': {
-		'bw': 0.006,
-		'ptr_lims': (0.95, 2.5),
+		'bw': 0.007,
+		'ptr_lims': (0.95, 2.0),
 		'cmap': 'Blues'
 	}
 }
@@ -279,50 +279,162 @@ class ChromatinMetricsProcessor:
 		
 		return results, peak_to_trough_results
 
-	def plot_chromatin_value_range(self):
-		# Scale the entropy PTR values to be in a similar range to the occupancy PTR values
-		chromatin_metrics = self.deconvolved_chromatin_metrics
+	def normalize_chromatin_metrics(self):
+		"""Normalize the raw chromatin metrics for the criteria:
 
-		prom_occ_values = chromatin_metrics['promoter_occupancy'].dropna().values
-		nuc_occ_values = chromatin_metrics['nucleosome_occupancy'].dropna().values
-		entropy_values = chromatin_metrics['nucleosome_entropy'].dropna().values
+		1. Replicate 1 and replicate 2 have matching per-gene variation 
+		   distributions. Addresses comparable peak-to-trough ratio calculations
+		   between replicates.
+		2. Normalize the entropy distribution to be comparable to the occupancy
+		   metrics:
+				i.  Shift the distribution to the 2.5 percentile (thus moving the
+					effective minimum value to zero)
+				ii. Match the mean of the distribution to the average of the
+					occupancy measures (for better plotting clarity between the 
+					three measures)
+		3. The deconvolved metrics remain the same except for the entropy. This
+		   entropy score should be comparable to the raw entropy distributions.
 
-		entropy_shift = self.entropy_shift_values_for_ptr['deconvolved']
-		normalized_entropy = entropy_values - entropy_shift
+		"""
+		from src.transformations import normalize_replicate_variance_vectorized
 
-		plt.figure(figsize=(6, 4))
-		plt.hist(prom_occ_values.flatten(), bins=30, alpha=0.33, label="Promoter occ.",
-				edgecolor='black', lw=0.25, color=plt.cm.Oranges(0.5))
-		plt.hist(nuc_occ_values.flatten(), bins=500, alpha=0.33, label='Nuc. occ.', 
-			edgecolor='black', lw=0.25, color=plt.cm.Blues(0.75))
-		plt.hist(entropy_values.flatten(), bins=20, alpha=0.33, label='Nuc. entropy (unnormalized)',
-				edgecolor='black', lw=0.25, color=plt.cm.Purples(0.35))
-		plt.xlim(0, 15)
-		plt.title("Chromatin metric value ranges", fontweight='demi', fontsize=16)
+		chromatin_keys = ['promoter_occupancy', 'nucleosome_entropy', 
+			'nucleosome_occupancy']
 
-		plt.hist(normalized_entropy.flatten(), bins=20, alpha=0.33, edgecolor='black', lw=0.25,
-				 label='Nuc. entropy (normalized)', color=plt.cm.Purples(0.75))
-		plt.legend()
-		plt.ylabel("Frequency")
-		plt.xlabel("Distribution")
+		normalized_raw_rep1_metrics = {}
+		normalized_raw_rep2_metrics = {}
+		normalized_deconvolved_metrics = {}
+		
+		target_entropy_mean = np.array([
+			self.raw_rep1_metrics['promoter_occupancy'].values.mean(),
+			self.raw_rep2_metrics['promoter_occupancy'].values.mean(),
+			self.raw_rep1_metrics['nucleosome_occupancy'].values.mean(),
+			self.raw_rep2_metrics['nucleosome_occupancy'].values.mean(),
+		]).mean()
+		
+		for chromatin_key in chromatin_keys:
+			metric_rep1 = self.raw_rep1_metrics[chromatin_key]
+			metric_rep2 = self.raw_rep2_metrics[chromatin_key]
+			metric_deconvolved = self.deconvolved_chromatin_metrics[\
+				chromatin_key].copy()
+			
+			if chromatin_key == 'nucleosome_entropy':            
+
+				def _normalize_entropy_shift_mean(entropy_values, target_mean,
+					shift_quantile=0.025):
+				
+					# Shift the distribution closer to 0 (for better peak to
+					# trough calculation)
+					entropy_values = entropy_values - np.quantile(entropy_values, q=shift_quantile)
+					entropy_values = entropy_values / entropy_values.mean() * target_mean
+					entropy_values[entropy_values < 0] = 0
+					return entropy_values
+				
+				# Shift and scale the entropy values for all three data sources
+				metric_rep1 = _normalize_entropy_shift_mean(metric_rep1, target_entropy_mean)
+				metric_rep2 = _normalize_entropy_shift_mean(metric_rep2, target_entropy_mean)
+				metric_deconvolved = _normalize_entropy_shift_mean(metric_deconvolved, target_entropy_mean)
+
+			scaled_metric_rep1, scaled_metric_rep2 = normalize_replicate_variance_vectorized(
+				metric_rep1, metric_rep2, None)
+			
+			normalized_raw_rep1_metrics[chromatin_key] = scaled_metric_rep1
+			normalized_raw_rep2_metrics[chromatin_key] = scaled_metric_rep2
+			normalized_deconvolved_metrics[chromatin_key] = metric_deconvolved
+
+		self.normalized_raw_rep1_metrics = normalized_raw_rep1_metrics
+		self.normalized_raw_rep2_metrics = normalized_raw_rep2_metrics
+		self.normalized_deconvolved_metrics = normalized_deconvolved_metrics
+
+
+	def plot_raw_scaled_distributions(self, chromatin_key):
+		metric_rep1 = self.raw_rep1_metrics[chromatin_key]
+		metric_rep2 = self.raw_rep2_metrics[chromatin_key]
+		deconvolved = self.deconvolved_chromatin_metrics[chromatin_key]
+		scaled_rep1 = self.normalized_raw_rep1_metrics[chromatin_key]
+		scaled_rep2 = self.normalized_raw_rep2_metrics[chromatin_key]
+		scaled_deconvolved = self.normalized_deconvolved_metrics[chromatin_key]
+
+		# All values distribution
+		plt.figure(figsize=(9, 4))
+		
+		nrow, ncol = 2, 3
+
+		def _plot_metrics_group(metric_rep1, metric_rep2, deconvolved, subplot_indices,
+							  suffix):
+			
+			xlims = 0, 10
+				
+			# Adjust range of values to plot
+			def plot_histogram(values, cutoffs=None, data_key=None):
+				colors = {
+					'raw_rep1': plt.cm.tab10(0),
+					'raw_rep2': plt.cm.tab10(1),
+					'deconvolved': plt.cm.tab10(2),
+				}
+				cutoffs = xlims if cutoffs is None else cutoffs
+				values = values[(values > cutoffs[0]) & (values < cutoffs[1])]
+				plt.hist(values, bins=40, color=colors[data_key], 
+					alpha=0.25, density=True, label=data_key)
+
+			plt.subplot(nrow, ncol, subplot_indices[0])
+			plot_histogram(metric_rep1.values.flatten(), data_key='raw_rep1')
+			plot_histogram(metric_rep2.values.flatten(), data_key='raw_rep2')
+			# plot_histogram(deconvolved.values.flatten(), data_key='deconvolved')
+			plt.title(f"All values {suffix}")
+			plt.xlim(*xlims)
+			plt.legend()
+
+			# Per gene mean
+			plt.subplot(nrow, ncol, subplot_indices[1])
+			plot_histogram(metric_rep1.values.mean(1), data_key='raw_rep1')
+			plot_histogram(metric_rep2.values.mean(1), data_key='raw_rep2')
+			# plot_histogram(deconvolved.values.mean(1), data_key='deconvolved')
+
+			plt.title(f"$\\mu$ per gene {suffix}")
+			plt.xlim(*xlims)
+
+			# Per gene std
+			plt.subplot(nrow, ncol, subplot_indices[2])
+
+			xlims = 0, 1
+			plot_histogram(metric_rep1.values.std(1), xlims, 'raw_rep1')
+			plot_histogram(metric_rep2.values.std(1), xlims, 'raw_rep2')
+			# plot_histogram(deconvolved.values.std(1), xlims, 'deconvolved')
+			plt.title(f"$\\sigma$ per gene {suffix}")
+		
+		_plot_metrics_group(metric_rep1, metric_rep2, deconvolved, [1, 2, 3], "(raw)")
+		_plot_metrics_group(scaled_rep1, scaled_rep2, scaled_deconvolved, [4, 5, 6], "(normalized)")
+
+		chromatin_title = f"{chromatin_key.replace('_', ' ')}"
+		chromatin_title = chromatin_title[0:1].upper() + chromatin_title[1:]
+		
+		plt.suptitle(chromatin_title, fontweight='demi', fontsize=18)
 		plt.tight_layout()
 
-	def compute_entropy_shift_values_quantile(self):
-		"""Compute the entropy shift values for PTR calculation"""
+	def plot_distribution_transformation(self):
+		"""Plot the effect of the normalization scheme on each of the chromatin measures"""
+		self.plot_raw_scaled_distributions('promoter_occupancy')
+		self.plot_raw_scaled_distributions('nucleosome_entropy')
+		self.plot_raw_scaled_distributions('nucleosome_occupancy')
+		
+	def compute_and_assign_normalized_ptr_values(self):
+		"""Compute the peak to trough ratio values for the noramlized
+		   chromatin values. 
 
-		def _compute_shift(chromatin_metrics):
-			"""Shift entropy values based on bottom 1%"""
-			entropy_values = chromatin_metrics['nucleosome_entropy'].dropna().values
-			min_observed = np.quantile(entropy_values, q=0.01)
-			normalized_entropy = (entropy_values - min_observed)
-			return min_observed
+		   todo: not yet in the pipeline, attempting to address replicate1 replicate2
+		   discrepancy and entropy range scaling
+		"""
 
-		entropy_shift_values_for_ptr = {
-			'deconvolved': _compute_shift(self.deconvolved_chromatin_metrics),
-			'raw_rep1': _compute_shift(self.raw_rep1_metrics),
-			'raw_rep2': _compute_shift(self.raw_rep2_metrics)
-		}
-		self.entropy_shift_values_for_ptr = entropy_shift_values_for_ptr
+		self.normalized_ptr_rep1 = self.compute_peak_to_trough_values(
+		    self.normalized_raw_rep1_metrics, 'raw_rep1',
+		    compute_raw_ptrs=True)
+		self.normalized_ptr_rep2 = self.compute_peak_to_trough_values(
+		    self.normalized_raw_rep2_metrics, 'raw_rep2',
+		    compute_raw_ptrs=True)
+		self.normalized_ptr_deconvolved = self.compute_peak_to_trough_values(
+		    self.normalized_deconvolved_metrics, 'deconvolved')
+
 
 	def compute_peak_to_trough_values(self, chromatin_metrics_dic, dataset_key, compute_raw_ptrs=False):
 		"""Compute peak to trough values for a given run's dictionary of
@@ -333,16 +445,9 @@ class ChromatinMetricsProcessor:
 		peak_to_trough_values = {}
 		ptr_lo, ptr_hi = 0.1, 0.9
 
-		entropy_shift_value = self.entropy_shift_values_for_ptr[dataset_key]
-
 		for key in chromatin_metrics_dic.keys():
 			orfs_index = chromatin_metrics_dic[key].index
 			metric_values_df = chromatin_metrics_dic[key]
-
-			# Shift if computing entropy PTR
-			if key == 'nucleosome_entropy':
-				metric_values_df.loc[:] = metric_values_df.values - entropy_shift_value
-
 			metric_values = metric_values_df.values
 
 			# Deconvolved ptr values (mother and daughter branches)
@@ -373,10 +478,6 @@ class ChromatinMetricsProcessor:
 		"""Compute chromatin metrics and PTR values for each of the
 		data loaders"""
 
-		# Entropy values should be shifted for PTR calculation
-		# Compute the shift using quantile 0.01
-		self.compute_entropy_shift_values_quantile()
-
 		(self.deconvolved_chromatin_metrics,
 		 self.deconvolved_chromatin_ptrs) = \
 			self.compute_metrics_for_data(self.deconvolved_chromatin_loader, 
@@ -392,15 +493,24 @@ class ChromatinMetricsProcessor:
 			self.raw_replicate2_chromatin_loader, 'raw_rep2',
 			debug=debug, compute_raw_ptrs=True)
 
-	def plot_raw_to_deconvolved_ptr_change(self, metric_name):
+	def plot_raw_to_deconvolved_ptr_change(self, metric_name, normalized_metrics=True,
+		ptr_lims=None):
 
-		raw_rep1_ptrs = self.raw_rep1_ptrs[metric_name]
-		raw_rep2_ptrs = self.raw_rep2_ptrs[metric_name]
-		deconv_ptrs = self.deconvolved_chromatin_ptrs[metric_name]
+		if normalized_metrics:
+			raw_rep1_ptrs = self.normalized_ptr_rep1[metric_name]
+			raw_rep2_ptrs = self.normalized_ptr_rep2[metric_name]
+			deconv_ptrs = self.normalized_ptr_deconvolved[metric_name]
+		else:
+			raw_rep1_ptrs = self.raw_rep1_ptrs[metric_name]
+			raw_rep2_ptrs = self.raw_rep2_ptrs[metric_name]
+			deconv_ptrs = self.deconvolved_chromatin_ptrs[metric_name]
 		
-		bw, ptr_lims, cmap = plot_formatting_map[metric_name]['bw'],\
+		bw, mapped_ptr_lims, cmap = plot_formatting_map[metric_name]['bw'],\
 			plot_formatting_map[metric_name]['ptr_lims'], \
 			plot_formatting_map[metric_name]['cmap']
+
+		if ptr_lims is None:
+			ptr_lims = mapped_ptr_lims
 
 		# Subset to the genic transcripts
 		genic_transcripts = self.all_transcripts_set[
