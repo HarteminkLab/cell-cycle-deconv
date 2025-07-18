@@ -46,40 +46,6 @@ class IntegratedChromatinExpressionAnalyzer:
 		self.coordinated_genes = {}
 		self.phase_analysis_results = {}
 		
-	def validate_data_availability(self):
-		"""
-		Validate that both processors have the required data loaded.
-		
-		Returns
-		-------
-		bool
-			True if all required data is available
-		"""
-		required_chromatin_attrs = [
-			'deconvolved_chromatin_metrics',
-			'deconvolved_chromatin_ptrs'
-		]
-		required_expression_attrs = [
-			'expression_data',
-			'genic_ptrs'
-		]
-		
-		missing_attrs = []
-		
-		for attr in required_chromatin_attrs:
-			if not hasattr(self.chromatin_processor, attr) or \
-			   getattr(self.chromatin_processor, attr) is None:
-				missing_attrs.append(f"chromatin_processor.{attr}")
-		
-		for attr in required_expression_attrs:
-			if not hasattr(self.expression_processor, attr) or \
-			   getattr(self.expression_processor, attr) is None:
-				missing_attrs.append(f"expression_processor.{attr}")
-		
-		if missing_attrs:
-			raise ValueError(f"Missing required data: {missing_attrs}")
-		
-		return True
 	
 	def compute_ptr_correlations(self, chromatin_data_source='deconvolved',
 		set_mode='genic'):
@@ -96,15 +62,14 @@ class IntegratedChromatinExpressionAnalyzer:
 		dict
 			Dictionary with correlation results for each chromatin metric
 		"""
-		self.validate_data_availability()
 		
 		# Get chromatin PTRs based on data source
 		if chromatin_data_source == 'deconvolved':
-			chromatin_ptrs = self.chromatin_processor.deconvolved_chromatin_ptrs
+			chromatin_ptrs = self.chromatin_processor.normalized_ptr_deconvolved
 		elif chromatin_data_source == 'raw_rep1':
-			chromatin_ptrs = self.chromatin_processor.raw_rep1_ptrs
+			chromatin_ptrs = self.chromatin_processor.normalized_ptr_rep1
 		elif chromatin_data_source == 'raw_rep2':
-			chromatin_ptrs = self.chromatin_processor.raw_rep2_ptrs
+			chromatin_ptrs = self.chromatin_processor.normalized_ptr_rep2
 		else:
 			raise ValueError(f"Unknown chromatin data source: {chromatin_data_source}")
 		
@@ -261,10 +226,10 @@ class IntegratedChromatinExpressionAnalyzer:
 		# Get chromatin PTRs based on data source
 
 		if replicate == 1:
-			chromatin_metrics_data = self.chromatin_processor.raw_rep1_metrics[chromatin_key]
+			chromatin_metrics_data = self.chromatin_processor.normalized_raw_rep1_metrics[chromatin_key]
 			raw_transcription_data = self.expression_processor.raw_rep1_expression_data
 		elif replicate == 2:
-			chromatin_metrics_data = self.chromatin_processor.raw_rep2_metrics[chromatin_key]
+			chromatin_metrics_data = self.chromatin_processor.normalized_raw_rep2_metrics[chromatin_key]
 			raw_transcription_data = self.expression_processor.raw_rep2_expression_data
 		else:
 			raise ValueError()
@@ -284,7 +249,7 @@ class IntegratedChromatinExpressionAnalyzer:
 			# as a rough estimate for these plots
 			chromatin_sample = chromatin_sample[:len(expression_sample)]
 
-		plt.plot(chromatin_sample, expression_sample, color='#777', lw=1, zorder=1)
+		plt.plot(expression_sample, chromatin_sample, color='#777', lw=1, zorder=1)
 
 		from pipeline.chromatin_metrics_processor import plot_formatting_map
 
@@ -292,18 +257,20 @@ class IntegratedChromatinExpressionAnalyzer:
 
 		z = np.arange(len(chromatin_sample))
 
-		plt.scatter(chromatin_sample, expression_sample, s=12, lw=2,
+		plt.scatter(expression_sample, chromatin_sample, s=12, lw=2,
 			edgecolor='#aaa', facecolor='none', zorder=2)
-		plt.scatter(chromatin_sample, expression_sample, s=10, c=z, cmap=cmap, zorder=2)
+		plt.scatter(expression_sample, chromatin_sample, s=10, c=z, cmap=cmap, zorder=2)
 		
-		plt.xlabel(f"{chromatin_key}")
-		plt.ylabel(f"Raw expression")
+		ylabel = chromatin_key.replace('_', '\n')
+		ylabel = ylabel[0].upper() + ylabel[1:]
+		plt.ylabel(f"{ylabel}")
+		plt.xlabel(f"Expression")
 		plt.xlim(*xlim)
 		plt.ylim(*ylim)
 		plt.title(chromatin_key)
 	
 	def plot_orf_phase_state_deconvolved(self, orf_or_gene_name, chromatin_key=None, 
-		xlim=(-0.5, 8), ylim=(-0.5, 12)):
+		ylim=(-0.5, 8), xlim=(-0.5, 12)):
 		"""
 		Plot chromatin vs expression data colored by cell cycle phase for a single gene.
 		
@@ -321,7 +288,7 @@ class IntegratedChromatinExpressionAnalyzer:
 		"""
 
 		# Get chromatin PTRs based on data source
-		chromatin_metrics_data = self.chromatin_processor.deconvolved_chromatin_metrics
+		chromatin_metrics_data = self.chromatin_processor.normalized_deconvolved_metrics
 
 		from src.sgd import get_gene_name_orf_name, get_gene_title_name
 		
@@ -343,12 +310,11 @@ class IntegratedChromatinExpressionAnalyzer:
 			indices = self.config.get_Hpositions_for_phase(phase)
 			color = color_for_key(phase)
 
-			plt.scatter(chromatin_sample[indices], expression_sample[indices],
+			plt.scatter(expression_sample[indices], chromatin_sample[indices],
 					   s=1, color=color, label=phase)
 		
-		plt.legend()
-		plt.xlabel(f"{chromatin_key}")
-		plt.ylabel(f"Deconvolved expression")
+		plt.ylabel(f"{chromatin_key}")
+		plt.xlabel(f"Expression")
 		plt.xlim(*xlim)
 		plt.ylim(*ylim)
 		plt.title(chromatin_key)
@@ -399,6 +365,114 @@ class IntegratedChromatinExpressionAnalyzer:
 		plt.tight_layout()
 
 		return fig
+
+	def plot_all_metrics_all_replicates_gene(self, gene_or_orf_name, figsize=(4, 4),
+											save_plots=False):
+		"""
+		Create 9-panel plot showing all chromatin metrics vs expression for all data sources.
+		
+		Layout:
+		Row 0: Nucleosome Occupancy    [Raw Rep 1] [Raw Rep 2] [Deconvolved]
+		Row 1: Promoter Occupancy      [Raw Rep 1] [Raw Rep 2] [Deconvolved]  
+		Row 2: Nucleosome Entropy      [Raw Rep 1] [Raw Rep 2] [Deconvolved]
+		
+		Parameters
+		----------
+		gene_or_orf_name : str
+			Gene name or ORF name to plot
+		figsize : tuple, optional
+			Figure size
+		save_plots : bool, optional
+			Whether to save the plot
+		"""
+		from src.sgd import get_gene_title_name
+		from src.plot_helpers import create_nine_subplot_layout
+		
+		# Create the layout
+		fig, axes = create_nine_subplot_layout(figsize=figsize)
+		
+		# Define metrics and their plotting parameters
+		metrics_config = {
+			'nucleosome_occupancy': {
+				'title': 'Nucleosome Occupancy',
+				'ylim': (0, 5),
+				'xlim': (0, 12)
+			},
+			'promoter_occupancy': {
+				'title': 'Promoter Occupancy', 
+				'ylim': (0, 3),
+				'xlim': (0, 12)
+			},
+			'nucleosome_entropy': {
+				'title': 'Nucleosome Entropy',
+				'ylim': (0, 3),
+				'xlim': (0, 12)
+			}
+		}
+		
+		metrics = ['promoter_occupancy', 'nucleosome_entropy', 'nucleosome_occupancy']
+		data_sources = ['raw_rep1', 'raw_rep2', 'deconvolved']
+		column_titles = ['Raw 1', 'Raw 2', 'Deconvolved']
+		
+		# Plot each metric-source combination
+		for row_idx, metric in enumerate(metrics):
+			metric_config = metrics_config[metric]
+			
+			for col_idx, (data_source, col_title) in enumerate(zip(data_sources, column_titles)):
+				ax = axes[row_idx][col_idx]
+				plt.sca(ax)  # Set current axis
+				
+				# Plot based on data source
+				if data_source == 'raw_rep1':
+					self.plot_orf_phase_state_raw(
+						gene_or_orf_name, 
+						chromatin_key=metric, 
+						replicate=1, 
+						xlim=metric_config['xlim'], 
+						ylim=metric_config['ylim']
+					)
+				elif data_source == 'raw_rep2':
+					self.plot_orf_phase_state_raw(
+						gene_or_orf_name, 
+						chromatin_key=metric, 
+						replicate=2, 
+						xlim=metric_config['xlim'], 
+						ylim=metric_config['ylim']
+					)
+				else:  # deconvolved
+					self.plot_orf_phase_state_deconvolved(
+						gene_or_orf_name, 
+						chromatin_key=metric, 
+						xlim=metric_config['xlim'], 
+						ylim=metric_config['ylim']
+					)
+				
+				# Set titles for top row
+				if row_idx == 0:
+					ax.set_title(col_title, fontweight='demi', fontsize=12)
+				else:
+					ax.set_title('')  # Clear default title from individual plot functions
+				
+				# Set y-axis labels only for leftmost column
+				if col_idx > 0:
+					ax.set_ylabel('')
+					ax.set_yticks([])
+				
+				# Set x-axis labels only for bottom row
+				if row_idx < 2:
+					ax.set_xlabel('')
+					ax.set_xticks([])
+
+		# Add overall title with gene name
+		gene_title_name = get_gene_title_name(gene_or_orf_name)
+		fig.suptitle(f'{gene_title_name}',
+					fontweight='demi', fontsize=14)
+		
+		if save_plots:
+			# Add save functionality here if needed
+			pass
+		
+		return fig
 	
 	def plot_single_metric_three_replicates(self, gene_or_orf_name, chromatin_key, 
 										   figsize=(8, 2.5), xlim=(-0.5, 8), ylim=(-0.5, 12),
@@ -421,9 +495,11 @@ class IntegratedChromatinExpressionAnalyzer:
 		
 		# Adjust xlim for specific metrics if needed (following the pattern from original code)
 		if chromatin_key == 'promoter_occupancy':
-			xlim = (-0.5, 3)
+			xlim = (-0.5, 4)
+		elif chromatin_key == 'nucleosome_occupancy':
+			xlim = (-0.5, 8)
 		elif chromatin_key == 'nucleosome_entropy':
-			xlim = (1, 9)
+			xlim = (0, 4)
 		
 		# Plot raw replicate 1 data
 		plt.sca(ax1)  # Set current axis
@@ -624,8 +700,8 @@ class IntegratedChromatinExpressionAnalyzer:
 		chromatin_title = chromatin_key.replace('_', ' ')
 		chromatin_title = chromatin_title[:1].upper() + chromatin_title[1:]
 
-		ax.set_title(f'{chromatin_title}', 
-					fontsize=14, fontweight='demi', pad=20)
+		ax.set_title(f'{chromatin_title}, n={len(df_plot)}', 
+					fontsize=14, fontweight='demi', pad=10)
 		
 		# Set x-axis labels
 		ax.set_xticks([0, 1, 2])

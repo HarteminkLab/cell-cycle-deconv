@@ -70,7 +70,7 @@ class FigureChromatinMetrics:
 			save_figure_for_paper(f"{self.figures_dir}/expression_chromatin_{dataset}_scatter.png")
 
 		metrics = ['promoter_occupancy', 'nucleosome_entropy', 'nucleosome_occupancy']
-		figsizes = [(4, 3.5), (4, 1.75), (4, 4)]
+		figsizes = [(4, 3.25), (4, 3.5), (4, 4)]
 
 		for i, metric in enumerate(metrics):
 			fig = self.integration.create_gene_dataset_intersection_heatmap(metric,

@@ -61,35 +61,35 @@ def plot_stacked_curves(x, vectors, names):
 										  cur_vec=cur_vector, name=name)
 	
 def plot_density_histogram(data, ax=None, domain_values=None, 
-                          fill=False, bw=10, 
-                          mult=1.0, y_offset=0, flip_axes=False, normalize=True,
-                          **kwargs):
-    
-    from scipy.ndimage import gaussian_filter1d
-    
-    if ax is None:
-        ax = plt.gca()
-    
-    if domain_values is None:
-        domain_values = np.linspace(data.min(), data.max(), 200)
-    
-    # Create histogram then smooth it
-    hist, bin_edges = np.histogram(data, bins=len(domain_values), 
-                                  range=(domain_values[0], domain_values[-1]))
-    
-    # Smooth the histogram
-    smoothed_hist = gaussian_filter1d(hist.astype(float), sigma=bw/10)
-    
-    # Use bin centers as x values
-    bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
-    
-    y = smoothed_hist * mult
-    if normalize:
-        y = y/y.max()
-    
-    plt.plot(domain_values, y, *kwargs)
+						  fill=False, bw=10, 
+						  mult=1.0, y_offset=0, flip_axes=False, normalize=True,
+						  **kwargs):
+	
+	from scipy.ndimage import gaussian_filter1d
+	
+	if ax is None:
+		ax = plt.gca()
+	
+	if domain_values is None:
+		domain_values = np.linspace(data.min(), data.max(), 200)
+	
+	# Create histogram then smooth it
+	hist, bin_edges = np.histogram(data, bins=len(domain_values), 
+								  range=(domain_values[0], domain_values[-1]))
+	
+	# Smooth the histogram
+	smoothed_hist = gaussian_filter1d(hist.astype(float), sigma=bw/10)
+	
+	# Use bin centers as x values
+	bin_centers = (bin_edges[:-1] + bin_edges[1:]) / 2
+	
+	y = smoothed_hist * mult
+	if normalize:
+		y = y/y.max()
+	
+	plt.plot(domain_values, y, *kwargs)
 
-    return y
+	return y
 
 def plot_density(data, ax=None, color='red', domain_values=None, 
 	alpha=1., zorder=1, fill=False, bw=10, neg=False, 
@@ -734,3 +734,75 @@ def create_three_subplot_layout(figsize=(12, 4), left_padding=0.1, right_padding
 					 subplot_width, 1 - top_padding - bottom_padding])
 	
 	return fig, ax1, ax2, ax3
+
+
+def create_nine_subplot_layout(figsize=(8, 3), left_padding=0.08, right_padding=0.02, 
+							  top_padding=0.16, bottom_padding=0.08, 
+							  hspace=0.03, wspace_col1_col2=0.0, wspace_col2_col3=0.05):
+	"""
+	Create a figure with nine subplots arranged in a 3x3 grid with custom column spacing.
+	
+	Parameters:
+	-----------
+	figsize : tuple, default (12, 9)
+		Figure size (width, height) in inches
+	left_padding : float, default 0.08
+		Left margin of the figure
+	right_padding : float, default 0.02
+		Right margin of the figure
+	top_padding : float, default 0.08
+		Top margin of the figure
+	bottom_padding : float, default 0.08
+		Bottom margin of the figure
+	hspace : float, default 0.3
+		Vertical spacing between subplot rows
+	wspace_col1_col2 : float, default 0.0
+		Horizontal spacing between column 1 and column 2
+	wspace_col2_col3 : float, default 0.1
+		Horizontal spacing between column 2 and column 3
+	
+	Returns:
+	--------
+	fig : matplotlib.figure.Figure
+		The figure object
+	axes : list of list
+		3x3 array of axes objects, axes[row][col]
+	"""
+	
+	# Create figure
+	fig = plt.figure(figsize=figsize)
+	
+	# Calculate dimensions
+	plot_width = 1 - left_padding - right_padding
+	plot_height = 1 - top_padding - bottom_padding
+	
+	# Calculate column widths and positions
+	total_col_spacing = wspace_col1_col2 + wspace_col2_col3
+	subplot_width = (plot_width - total_col_spacing) / 3
+	subplot_height = (plot_height - 2 * hspace) / 3
+	
+	# Column x-positions
+	col_x_positions = [
+		left_padding,  # Column 1
+		left_padding + subplot_width + wspace_col1_col2,  # Column 2
+		left_padding + 2 * subplot_width + wspace_col1_col2 + wspace_col2_col3  # Column 3
+	]
+	
+	# Row y-positions (from top to bottom)
+	row_y_positions = [
+		1 - top_padding - subplot_height,  # Row 0 (top)
+		1 - top_padding - 2 * subplot_height - hspace,  # Row 1 (middle)
+		1 - top_padding - 3 * subplot_height - 2 * hspace  # Row 2 (bottom)
+	]
+	
+	# Create all 9 subplots with manual positioning
+	axes = []
+	for row in range(3):
+		axes_row = []
+		for col in range(3):
+			ax = fig.add_axes([col_x_positions[col], row_y_positions[row], 
+							  subplot_width, subplot_height])
+			axes_row.append(ax)
+		axes.append(axes_row)
+	
+	return fig, axes

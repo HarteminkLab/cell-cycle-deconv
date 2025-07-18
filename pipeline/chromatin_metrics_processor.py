@@ -493,6 +493,10 @@ class ChromatinMetricsProcessor:
 			self.raw_replicate2_chromatin_loader, 'raw_rep2',
 			debug=debug, compute_raw_ptrs=True)
 
+		# Normalize metrics and compute updated ptr values
+		self.normalize_chromatin_metrics()
+		self.compute_and_assign_normalized_ptr_values()
+
 	def plot_raw_to_deconvolved_ptr_change(self, metric_name, normalized_metrics=True,
 		ptr_lims=None):
 
@@ -548,41 +552,48 @@ class ChromatinMetricsProcessor:
 					fontweight='demi', fontsize=18)
 		plt.tight_layout()
 
-	def plot_combined_ptr_change(self):
+	def plot_combined_ptr_change(self, normalized=True):
 		import matplotlib.pyplot as plt
 		fig = plt.figure(figsize=(11., 4.))
 
 		genic_transcripts = self.all_transcripts_set[
 			self.all_transcripts_set.transcript_class == 'genic'].index
 
-		def plot_combined_raw_metric_ptr(metric_name):
+		def plot_combined_raw_metric_ptr(metric_name, normalized=True):
 
 			bw, ptr_lims, cmap = plot_formatting_map[metric_name]['bw'],\
 				plot_formatting_map[metric_name]['ptr_lims'], \
 				plot_formatting_map[metric_name]['cmap']
 
-			raw_rep1_ptrs = self.raw_rep1_ptrs[metric_name]
-			raw_rep2_ptrs = self.raw_rep2_ptrs[metric_name]
+			if normalized:
+				raw_rep1_ptrs = self.normalized_ptr_rep1[metric_name]
+				raw_rep2_ptrs = self.normalized_ptr_rep2[metric_name]
+				deconv_ptrs = self.normalized_ptr_deconvolved[metric_name]
+			else:
+				raw_rep1_ptrs = self.raw_rep1_ptrs[metric_name]
+				raw_rep2_ptrs = self.raw_rep2_ptrs[metric_name]
+				deconv_ptrs = self.deconvolved_chromatin_ptrs[metric_name]
+
 			raw_combined_rep_ptrs = (raw_rep1_ptrs + raw_rep2_ptrs)/2.
-			deconv_ptrs = self.deconvolved_chromatin_ptrs[metric_name]
+
 			plot_ptr_change(raw_combined_rep_ptrs.loc[genic_transcripts], 
 				deconv_ptrs.loc[genic_transcripts], metric_name, self.selected_genes, 
 				bw=bw, cmap=cmap, ptr_lims=ptr_lims)
 
 		plt.subplot(1, 3, 1)
-		plot_combined_raw_metric_ptr('promoter_occupancy')
+		plot_combined_raw_metric_ptr('promoter_occupancy', normalized=normalized)
 		plt.xlabel("Combined raw data PTR")
 		plt.ylabel("Deconvolved PTR")
 		plt.title("Promoter occupancy")
 
 		plt.subplot(1, 3, 2)
-		plot_combined_raw_metric_ptr('nucleosome_entropy')
+		plot_combined_raw_metric_ptr('nucleosome_entropy', normalized=normalized)
 		plt.xlabel("Combined raw data PTR")
 		plt.ylabel("Deconvolved PTR")
 		plt.title("Nucleosome entropy")
 
 		plt.subplot(1, 3, 3)
-		plot_combined_raw_metric_ptr('nucleosome_occupancy')
+		plot_combined_raw_metric_ptr('nucleosome_occupancy', normalized=normalized)
 		plt.xlabel("Mean raw data PTR")
 		plt.ylabel("Deconvolved PTR")
 		plt.title("Nucleosome occupancy")
@@ -680,6 +691,22 @@ class ChromatinMetricsProcessor:
 			"raw_rep1", "ptrs")
 		self.save_results_to_csv(self.raw_rep2_ptrs, save_directory,
 			"raw_rep2", "ptrs")
+
+		# Save normalized metrics
+		self.save_results_to_csv(self.normalized_deconvolved_metrics, save_directory,
+			"normalized_deconvolved", "metrics")
+		self.save_results_to_csv(self.normalized_raw_rep1_metrics, save_directory,
+			"normalized_raw_rep1", "metrics")  
+		self.save_results_to_csv(self.normalized_raw_rep2_metrics, save_directory,
+			"normalized_raw_rep2", "metrics")
+
+		# Save normalized PTRs  
+		self.save_results_to_csv(self.normalized_ptr_deconvolved, save_directory,
+			"normalized_deconvolved", "ptrs")
+		self.save_results_to_csv(self.normalized_ptr_rep1, save_directory,
+			"normalized_raw_rep1", "ptrs")
+		self.save_results_to_csv(self.normalized_ptr_rep2, save_directory,
+			"normalized_raw_rep2", "ptrs")
 
 
 	def save_results_to_csv(self, results_dict, save_dir, data_source_name, data_type="metrics"):
@@ -843,23 +870,38 @@ class ChromatinMetricsProcessor:
 		if load_dir is None:
 			load_dir = f"{self.output_dir}/chromatin_metrics"
 
+		data_sources = ['deconvolved', 'raw_rep1', 'raw_rep2']
 		loaded_metrics, loaded_ptrs = self.load_saved_metrics(load_dir, data_sources)
-		
+
 		# Assign to class attributes
-		if 'deconvolved' in loaded_metrics:
-			self.deconvolved_chromatin_metrics = loaded_metrics['deconvolved']
-			self.deconvolved_chromatin_ptrs = loaded_ptrs.get('deconvolved', {})
-			print_fl("Assigned deconvolved data to class attributes")
+		self.deconvolved_chromatin_metrics = loaded_metrics['deconvolved']
+		self.deconvolved_chromatin_ptrs = loaded_ptrs.get('deconvolved', {})
+		print_fl("Assigned deconvolved data to class attributes")
 		
-		if 'raw_rep1' in loaded_metrics:
-			self.raw_rep1_metrics = loaded_metrics['raw_rep1']
-			self.raw_rep1_ptrs = loaded_ptrs.get('raw_rep1', {})
-			print_fl("Assigned raw_rep1 data to class attributes")
+		self.raw_rep1_metrics = loaded_metrics['raw_rep1']
+		self.raw_rep1_ptrs = loaded_ptrs.get('raw_rep1', {})
+		print_fl("Assigned raw_rep1 data to class attributes")
 		
-		if 'raw_rep2' in loaded_metrics:
-			self.raw_rep2_metrics = loaded_metrics['raw_rep2']
-			self.raw_rep2_ptrs = loaded_ptrs.get('raw_rep2', {})
-			print_fl("Assigned raw_rep2 data to class attributes")
+		self.raw_rep2_metrics = loaded_metrics['raw_rep2']
+		self.raw_rep2_ptrs = loaded_ptrs.get('raw_rep2', {})
+		print_fl("Assigned raw_rep2 data to class attributes")
+
+		# Load normalized data sources
+		data_sources = ['normalized_deconvolved', 'normalized_raw_rep1', 'normalized_raw_rep2']
+		loaded_metrics, loaded_ptrs = self.load_saved_metrics(load_dir, data_sources)
+
+		# Assign to class attributes
+		self.normalized_deconvolved_metrics = loaded_metrics['normalized_deconvolved']
+		self.normalized_ptr_deconvolved = loaded_ptrs.get('normalized_deconvolved', {})
+		print_fl("Assigned normalized_deconvolved data to class attributes")
+		
+		self.normalized_raw_rep1_metrics = loaded_metrics['normalized_raw_rep1']
+		self.normalized_ptr_rep1 = loaded_ptrs.get('normalized_raw_rep1', {})
+		print_fl("Assigned normalized_raw_rep1 data to class attributes")
+		
+		self.normalized_raw_rep2_metrics = loaded_metrics['normalized_raw_rep2']
+		self.normalized_ptr_rep2 = loaded_ptrs.get('normalized_raw_rep2', {})
+		print_fl("Assigned normalized_raw_rep2 data to class attributes")
 
 
 def plot_ptr_change(raw_ptrs, deconv_ptrs, metric_name, selected_genes=[],
