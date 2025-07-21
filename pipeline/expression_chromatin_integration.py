@@ -7,6 +7,8 @@ from src.figure_configs import save_figure_for_paper
 from scipy import stats
 from scipy.stats import pearsonr, spearmanr
 from matplotlib.colors import ListedColormap
+from src.sgd import get_gene_title_name
+
 
 class IntegratedChromatinExpressionAnalyzer:
 	"""
@@ -109,7 +111,7 @@ class IntegratedChromatinExpressionAnalyzer:
 		return correlation_results
 	
 	def plot_ptr_correlations(self, chromatin_data_source='deconvolved', 
-							  ptr_threshold=1.25,
+							  color_by='density',
 							  figsize=(8, 3.5), save_plots=False):
 		"""
 		Plot correlations between chromatin PTRs and expression PTRs.
@@ -143,31 +145,58 @@ class IntegratedChromatinExpressionAnalyzer:
 
 			from src.DensityScatterPlotter import DensityScatterPlotter
 
-			dsc_plotter = DensityScatterPlotter()
-			dsc_plotter.plot_outline = True
-			dsc_plotter.outline_color = '#eee'
-			dsc_plotter.logz=True
-
 			from pipeline.chromatin_metrics_processor import plot_formatting_map
 			cmap = plot_formatting_map[metric_name]['cmap']
 			chrom_bw = plot_formatting_map[metric_name]['bw']
 			ptr_lims = plot_formatting_map[metric_name]['ptr_lims']
 
-			# Plot the PTRs
-			dsc_plotter.set_data(data.chromatin_ptr, data.expression_ptr)
-			dsc_plotter.bw = chrom_bw, 0.25
-			dsc_plotter.cmap = cmap
-			dsc_plotter.s = 5
-			dsc_plotter.plot_ax(ax)
+			if color_by == 'density':
+				dsc_plotter = DensityScatterPlotter()
+				dsc_plotter.plot_outline = True
+				dsc_plotter.outline_color = '#eee'
+				dsc_plotter.logz=True
+
+				# Plot the PTRs
+				dsc_plotter.set_data(data.chromatin_ptr, data.expression_ptr)
+				dsc_plotter.bw = chrom_bw, 0.25
+				dsc_plotter.cmap = cmap
+				dsc_plotter.s = 5
+				dsc_plotter.plot_ax(ax)
+
+			elif color_by in ['trajectory_area', 'pearsonr', 'spearmanr']:
+
+				if color_by == 'trajectory_area':
+					vmin = 0
+					vmax = 4
+				else:
+					vmin = -1
+					vmax = 1
+
+				# We only have area plots for the deconvolved data, currently
+				if not chromatin_data_source == 'deconvolved':
+					raise ValueError("Unimplemented trajectory area plotting for non deconvolved data set")
+
+				data = self.trajectory_area_linkages[metric_name]
+				ax.scatter(data.chromatin_ptr, data.expression_ptr, edgecolor='#aaa',
+					facecolor='none',
+					s=7) # outline
+				ax.scatter(data.chromatin_ptr, data.expression_ptr, c=data[color_by],
+					cmap=cmap, s=5, vmax=vmax, vmin=vmin)
+			else:
+				raise ValueError("Error in color_by argument: " + color_by)
 			
 			# Labels and title
 			ax.set_xlabel(f'{title} PTR')
 			ax.set_ylabel('Expression PTR')
-			ax.set_title(f'{title}\nr={results_for_metric["pearson_r"]:.3f}, '
-				f'n={results_for_metric["n_genes"]}')
+			ax.set_title(f'{title}\nn={results_for_metric["n_genes"]}')
 
-			ax.plot([ptr_threshold, 10], [ptr_threshold, ptr_threshold], c='red', ls='dotted', lw=1)
-			ax.plot([ptr_threshold, ptr_threshold], [ptr_threshold, 10], c='red', ls='dotted', lw=1)
+			chromatin_threshold_value = self.quantile_threshold_values[metric_name]
+			expression_threshold_value = self.quantile_threshold_values['expression']
+
+			ax.plot([chromatin_threshold_value, chromatin_threshold_value], [expression_threshold_value, 10], 
+				c='red', ls='solid', alpha=0.5, lw=1)
+			ax.plot([chromatin_threshold_value, 10], [expression_threshold_value, expression_threshold_value], 
+				c='red', ls='solid', alpha=0.5, lw=1)
 
 			ax.set_xlim(*ptr_lims)
 			ax.set_ylim(0.7, 6)
@@ -178,8 +207,8 @@ class IntegratedChromatinExpressionAnalyzer:
 		
 		return fig
 	
-	def identify_coordinated_genes(self, chromatin_data_source='deconvolved',
-								  ptr_threshold=1.1, correlation_threshold=0.3):
+	def apply_threshold(self, chromatin_data_source='deconvolved',
+								  quantile_ptr_threshold=0.95):
 		"""
 		Identify genes showing coordinated chromatin-expression changes.
 		
@@ -199,14 +228,24 @@ class IntegratedChromatinExpressionAnalyzer:
 		"""
 		if chromatin_data_source not in self.correlation_results:
 			self.compute_ptr_correlations(chromatin_data_source)
+
+		self.quantile_ptr_threshold = quantile_ptr_threshold
+		self.quantile_threshold_values = {}
 		
 		results = self.correlation_results[chromatin_data_source]
 		coordinated_genes = {}
 		
 		for metric_name, data in results.items():
+
+			chromatin_threshold_value = np.quantile(data['joined_data'].chromatin_ptr, q=quantile_ptr_threshold)
+			expression_threshold_value = np.quantile(data['joined_data'].expression_ptr, q=quantile_ptr_threshold)
+
+			self.quantile_threshold_values[metric_name] = chromatin_threshold_value
+			self.quantile_threshold_values['expression'] = expression_threshold_value
+
 			# Filter genes with high PTRs in both chromatin and expression
-			high_chromatin_mask = data['joined_data'].chromatin_ptr > ptr_threshold
-			high_expression_mask = data['joined_data'].expression_ptr > ptr_threshold
+			high_chromatin_mask = data['joined_data'].chromatin_ptr > chromatin_threshold_value
+			high_expression_mask = data['joined_data'].expression_ptr > expression_threshold_value
 			high_both_mask = high_chromatin_mask & high_expression_mask
 			
 			coordinated_genes[metric_name] = {
@@ -214,12 +253,9 @@ class IntegratedChromatinExpressionAnalyzer:
 				'masked_ptrs': data['joined_data'].loc[high_both_mask],
 				'n_genes': np.sum(high_both_mask)
 			}
-			
-			print_fl(f"{metric_name}: {np.sum(high_both_mask)} coordinated genes "
-					f"(PTR > {ptr_threshold})")
 		
+		# Set coordinated genes list by applying both quantile thresholds
 		self.coordinated_genes[chromatin_data_source] = coordinated_genes
-		return coordinated_genes
 
 	def plot_orf_phase_state_raw(self, orf_or_gene_name, chromatin_key=None, 
 		replicate=1, xlim=(-0.5, 8), ylim=(-0.5, 12)):
@@ -257,9 +293,9 @@ class IntegratedChromatinExpressionAnalyzer:
 
 		z = np.arange(len(chromatin_sample))
 
-		plt.scatter(expression_sample, chromatin_sample, s=12, lw=2,
+		plt.scatter(expression_sample, chromatin_sample, s=3, lw=2,
 			edgecolor='#aaa', facecolor='none', zorder=2)
-		plt.scatter(expression_sample, chromatin_sample, s=10, c=z, cmap=cmap, zorder=2)
+		plt.scatter(expression_sample, chromatin_sample, s=2, c=z, cmap=cmap, zorder=2)
 		
 		ylabel = chromatin_key.replace('_', '\n')
 		ylabel = ylabel[0].upper() + ylabel[1:]
@@ -270,7 +306,7 @@ class IntegratedChromatinExpressionAnalyzer:
 		plt.title(chromatin_key)
 	
 	def plot_orf_phase_state_deconvolved(self, orf_or_gene_name, chromatin_key=None, 
-		ylim=(-0.5, 8), xlim=(-0.5, 12)):
+		ylim=(-0.5, 8), xlim=(-0.5, 12), plot_arrows=True):
 		"""
 		Plot chromatin vs expression data colored by cell cycle phase for a single gene.
 		
@@ -304,15 +340,68 @@ class IntegratedChromatinExpressionAnalyzer:
 		
 		# Plot by cell cycle phase
 		from src.plot_helpers import color_for_key
-		phases = ['CG1', 'S', 'G2M']
-		
-		for phase in phases:
-			indices = self.config.get_Hpositions_for_phase(phase)
-			color = color_for_key(phase)
+		phases = ['G2M', 'S', 'meanG1']
 
-			plt.scatter(expression_sample[indices], chromatin_sample[indices],
-					   s=1, color=color, label=phase)
+		# Set lims for arrow aspect ratio calculation
+		plt.xlim(*xlim)
+		plt.ylim(*ylim)
 		
+		from src.plot_helpers import add_trajectory_arrows
+
+		ax = plt.gca()  # Get current axes
+
+		# Plot a connecting line below the scatter plots
+		t_indices = self.config.get_Hpositions_for_branch('t')
+		b_indices = self.config.get_Hpositions_for_branch('b')
+		expression_values = (expression_sample[t_indices].values+
+							 expression_sample[b_indices].values)/2
+		chromatin_values = (chromatin_sample[t_indices].values+
+							chromatin_sample[b_indices].values)/2
+		expression_values = np.concatenate([expression_values, expression_values[0:1]])
+		chromatin_values = np.concatenate([chromatin_values, chromatin_values[0:1]])
+		plt.plot(expression_values, chromatin_values,
+				   lw=1, color='#aaa', zorder=0)
+
+		for phase in phases:
+
+			if phase == 'meanG1':
+				t_indices = self.config.get_Hpositions_for_phase('CG1')
+				b_indices = self.config.get_Hpositions_for_phase('DG1')
+
+				expression_values = (expression_sample[t_indices].values+
+									 expression_sample[b_indices].values)/2
+				chromatin_values = (chromatin_sample[t_indices].values+
+									chromatin_sample[b_indices].values)/2
+			else:
+				indices = self.config.get_Hpositions_for_phase(phase)
+				expression_values = expression_sample[indices].values
+				chromatin_values = chromatin_sample[indices].values
+
+			color = color_for_key(phase)
+			plt.scatter(expression_values, chromatin_values,
+					   s=1, color=color, label=phase, zorder=1)
+
+			if phase == 'meanG1':
+
+				# Add arrows to show trajectory direction
+				if plot_arrows:
+					add_trajectory_arrows(ax, expression_values,
+						chromatin_values,
+						index=10, index_offset=1, # Plot the 10th to the 11th index (smooth here)
+						arrow_color=color)
+
+				# Starting point
+				plt.scatter(expression_values[0], chromatin_values[0],
+						   s=2, color='black', marker='D', label=phase, zorder=1)
+
+			elif phase == 'S':
+
+				if plot_arrows:
+					add_trajectory_arrows(ax, expression_values,
+						chromatin_values,
+						index=len(indices)-7, index_offset=1, # Plot the end of S
+						arrow_color=color)
+
 		plt.ylabel(f"{chromatin_key}")
 		plt.xlabel(f"Expression")
 		plt.xlim(*xlim)
@@ -396,17 +485,17 @@ class IntegratedChromatinExpressionAnalyzer:
 			'nucleosome_occupancy': {
 				'title': 'Nucleosome Occupancy',
 				'ylim': (0, 5),
-				'xlim': (0, 12)
+				'xlim': (0, 15)
 			},
 			'promoter_occupancy': {
 				'title': 'Promoter Occupancy', 
 				'ylim': (0, 3),
-				'xlim': (0, 12)
+				'xlim': (0, 15)
 			},
 			'nucleosome_entropy': {
 				'title': 'Nucleosome Entropy',
 				'ylim': (0, 3),
-				'xlim': (0, 12)
+				'xlim': (0, 15)
 			}
 		}
 		
@@ -752,3 +841,153 @@ class IntegratedChromatinExpressionAnalyzer:
 		"""
 		self.create_gene_dataset_intersection_data(chromatin_key)
 		return self.plot_gene_dataset_intersection_heatmap(chromatin_key, figsize)
+
+
+	def compute_and_assign_linkages_data(self):
+		"""Compute linkages data set for all chromatin keys"""
+
+		self.trajectory_area_linkages = {}
+		for chromatin_key in ['promoter_occupancy', 'nucleosome_entropy', 'nucleosome_occupancy']:
+			self.trajectory_area_linkages[chromatin_key] = self.compute_linkage_measures(chromatin_key)
+
+	def compute_linkage_measures(self, chromatin_key):
+		"""Create a dataframe of PTRs and trajectory area for a given chromatin
+		key and link with expression.
+		"""
+		from pipeline.integration_cycling_calculations import calculate_linkage_values
+
+		# Analyze shapes of promoter occupancy vs transcription
+		expression_data = self.expression_processor.expression_data
+		expression_data.columns = expression_data.columns.astype(int)
+
+		chromatin_data = self.chromatin_processor\
+			.normalized_deconvolved_metrics[chromatin_key]
+		chromatin_data.columns = chromatin_data.columns.astype(int)
+		chromatin_data = chromatin_data.dropna()
+
+		t_indices = self.config.t_indices()
+		b_indices = self.config.b_indices()
+		common_index = expression_data[[]].join(chromatin_data[[]], how='inner').index
+
+		# Compute the trajectory area for the mother and daughter branches
+		t_expression = expression_data[t_indices].loc[common_index].values
+		t_chromatin = chromatin_data[t_indices].loc[common_index].values
+
+		b_expression = expression_data[b_indices].loc[common_index].values
+		b_chromatin = chromatin_data[b_indices].loc[common_index].values
+		tb_expression = t_expression+b_expression
+		tb_chromatin = t_chromatin+b_chromatin
+
+		res = calculate_linkage_values(tb_expression, tb_chromatin, index=common_index)
+
+		expression_ptrs = self.expression_processor.genic_ptrs
+		chromatin_ptrs = self.chromatin_processor\
+			.normalized_ptr_deconvolved[chromatin_key]
+
+		ptrs_joined = expression_ptrs.join(chromatin_ptrs, how='inner')
+		ptrs_joined.columns = ['expression_ptr', 'chromatin_ptr']
+		ptrs_joined = ptrs_joined.join(res)
+		ptrs_joined = ptrs_joined.sort_values('trajectory_area')
+
+		return ptrs_joined
+
+	def plot_chromatin_traj_area_genes(self, chromatin_key):
+		
+		from pipeline.chromatin_metrics_processor import plot_formatting_map
+		format_map = plot_formatting_map[chromatin_key]
+		cmap = format_map['cmap']
+		name = format_map['name']
+		
+		plot_res_data = self.trajectory_area_linkages[chromatin_key]
+		selected_orf_names = self.coordinated_genes['deconvolved'][chromatin_key]['genes']
+		selected_data = plot_res_data.loc[selected_orf_names].sort_values('trajectory_area')
+
+		gene_names = [get_gene_title_name(orf_name, include_system=False) \
+						  for orf_name, row in selected_data.iterrows()]
+
+		plt.scatter(selected_data.trajectory_area, gene_names, 
+					s=2, marker='D', color=plt.get_cmap(cmap)(0.7))
+		plt.title(f"{name}, n={len(selected_data)}")
+		ys = np.arange(len(gene_names))
+		plt.yticks(ys, gene_names, fontsize=4)
+		plt.ylim(-0.5, len(gene_names)-0.5)
+		plt.xlabel("Trajectory area")
+		
+		return selected_data
+
+	def plot_all_trajectory_area_cell_cycle_genes(self):
+		plt.figure(figsize=(11, 4))
+		plt.subplot(1, 3, 1)
+		top_prom_occ = self.plot_chromatin_traj_area_genes('promoter_occupancy')
+
+		plt.subplot(1, 3, 2)
+		self.plot_chromatin_traj_area_genes('nucleosome_entropy')
+
+		plt.subplot(1, 3, 3)
+		self.plot_chromatin_traj_area_genes('nucleosome_occupancy')
+
+		plt.suptitle("Cell cycling chromatin and transcription genes, Trajectory area", 
+			fontweight='demi', fontsize=18)
+		plt.subplots_adjust(wspace=0.25, top=0.82)
+
+
+	# Plot the highest to lowest trajectory area genes, in the coordinated genes set
+	# as a small grid of phase-state plots
+
+	def plot_deconvolved_examples_grid(self, orf_names, chromatin_key):
+		
+		fig = plt.figure(figsize=(11, 2.75))
+		nrows, ncols = 2, 10
+		n_tot = nrows*ncols
+		
+		lims_mapping = {
+			'expression': (-0.5, 13),
+			'promoter_occupancy': (0, 3),
+			'nucleosome_occupancy': (0, 8),
+			'nucleosome_entropy': (-0.1, 3),
+		}
+
+		xlim = lims_mapping['expression']
+		ylim = lims_mapping[chromatin_key]
+		
+		orf_names = list(orf_names[:ncols]) + list(orf_names[-ncols:])
+
+		from src.sgd import get_gene_title_name
+		
+		for i, orf_name in enumerate(orf_names):
+
+			plt.subplot(nrows, ncols, i+1)
+			self.plot_orf_phase_state_deconvolved(orf_name, chromatin_key,
+																plot_arrows=True,
+																	xlim=xlim, ylim=ylim)
+			plt.title('')
+			plt.xlabel('')
+			plt.ylabel('')
+			plt.xticks([])
+			plt.yticks([])
+			
+			gene_title = get_gene_title_name(orf_name, include_system=False)
+			plt.text(xlim[0]+(xlim[1]-xlim[0])*.05, 
+					 ylim[1]-(ylim[1]-ylim[0])*0.05, gene_title, va='top',
+					 fontsize=10)
+			
+			if i == 0:
+				plt.ylabel(f"Bottom {ncols}", rotation=0, ha='right')
+			elif i == ncols:
+				plt.ylabel(f"Top {ncols}", rotation=0, ha='right')
+
+		plt.subplots_adjust(wspace=0, hspace=0.3, top=0.81)
+
+	def plot_chromatin_example_trajectories(self, chromatin_key):
+		
+		from pipeline.chromatin_metrics_processor import plot_formatting_map
+		name = plot_formatting_map[chromatin_key]['name']
+		
+		plot_res_data = self.trajectory_area_linkages[chromatin_key]
+		selected_orf_names = self.coordinated_genes['deconvolved'][chromatin_key]['genes']
+		selected_data = plot_res_data.loc[selected_orf_names].sort_values('trajectory_area',
+																		 ascending=True)
+		print("Number of genes", len(selected_data))
+		
+		self.plot_deconvolved_examples_grid(selected_data.index.values, chromatin_key)
+		plt.suptitle(f"{name}, sorted by trajectory area", fontweight='demi', fontsize=16)

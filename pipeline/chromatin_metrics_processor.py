@@ -9,18 +9,21 @@ from matplotlib import pyplot as plt
 plot_formatting_map = {
 	'promoter_occupancy': {
 		'bw': 0.007,
-		'ptr_lims': (0.95, 2.0),
-		'cmap': 'Oranges'
+		'ptr_lims': (0.95, 2.5),
+		'cmap': 'Oranges',
+		'name': "Promoter occupancy"
 	},
 	'nucleosome_entropy': {
 		'bw': 0.007,		
-		'ptr_lims': (0.95, 2.0),
-		'cmap': 'Purples'
+		'ptr_lims': (0.95, 2.5),
+		'cmap': 'Purples',
+		'name': "Nucleosome entropy"
 	},        
 	'nucleosome_occupancy': {
 		'bw': 0.007,
-		'ptr_lims': (0.95, 2.0),
-		'cmap': 'Blues'
+		'ptr_lims': (0.95, 2.5),
+		'cmap': 'Blues',
+		'name': "Nucleosome occupancy"
 	}
 }
 
@@ -347,7 +350,7 @@ class ChromatinMetricsProcessor:
 		self.normalized_deconvolved_metrics = normalized_deconvolved_metrics
 
 
-	def plot_raw_scaled_distributions(self, chromatin_key):
+	def plot_raw_scaled_distributions(self, chromatin_key, save_directory):
 		metric_rep1 = self.raw_rep1_metrics[chromatin_key]
 		metric_rep2 = self.raw_rep2_metrics[chromatin_key]
 		deconvolved = self.deconvolved_chromatin_metrics[chromatin_key]
@@ -412,11 +415,14 @@ class ChromatinMetricsProcessor:
 		plt.suptitle(chromatin_title, fontweight='demi', fontsize=18)
 		plt.tight_layout()
 
-	def plot_distribution_transformation(self):
+		if save_directory is not None:
+			save_figure_for_paper(f"{save_directory}/{chromatin_key}.png")
+
+	def plot_distribution_transformation(self, save_directory):
 		"""Plot the effect of the normalization scheme on each of the chromatin measures"""
-		self.plot_raw_scaled_distributions('promoter_occupancy')
-		self.plot_raw_scaled_distributions('nucleosome_entropy')
-		self.plot_raw_scaled_distributions('nucleosome_occupancy')
+		self.plot_raw_scaled_distributions('promoter_occupancy', save_directory)
+		self.plot_raw_scaled_distributions('nucleosome_entropy', save_directory)
+		self.plot_raw_scaled_distributions('nucleosome_occupancy', save_directory)
 		
 	def compute_and_assign_normalized_ptr_values(self):
 		"""Compute the peak to trough ratio values for the noramlized
@@ -672,6 +678,9 @@ class ChromatinMetricsProcessor:
 		# replicate 1 and 2 raw data are combined
 		self.plot_combined_ptr_change()
 		save_figure_for_paper(f"{save_dir}/raw_vs_deconvolved_all_metrics_ptrs.png")
+
+		# The distributions of each metric, with transformation
+		self.plot_distribution_transformation(save_dir)
 
 
 	def save_all_results_disk(self, save_directory):

@@ -52,15 +52,16 @@ class FigureChromatinMetrics:
 		from pipeline.expression_chromatin_integration import IntegratedChromatinExpressionAnalyzer
 
 		self.integration = IntegratedChromatinExpressionAnalyzer(self.chromatin_processor,
-                                     self.expression_processor,
-                                     self.output_dir)
+									 self.expression_processor,
+									 self.output_dir)
 
-		self.ptr_threshold = 1.25
-		self.integration.identify_coordinated_genes('raw_rep1', 
-		    ptr_threshold=self.ptr_threshold)
-		self.integration.identify_coordinated_genes('raw_rep2', 
-		    ptr_threshold=self.ptr_threshold)
-		self.integration.identify_coordinated_genes(ptr_threshold=self.ptr_threshold)
+		# Select coordinated genes by thresholding each measure to the top 5%
+		self.integration.apply_threshold()		
+		self.integration.compute_and_assign_linkages_data()
+
+		self.integration.apply_threshold('raw_rep1')
+		self.integration.apply_threshold('raw_rep2')
+		self.integration.apply_threshold()
 
 	def create_integration_plots(self):
 
@@ -69,13 +70,38 @@ class FigureChromatinMetrics:
 			fig = self.integration.plot_ptr_correlations(dataset)
 			save_figure_for_paper(f"{self.figures_dir}/expression_chromatin_{dataset}_scatter.png")
 
+		# Heatmap of counts showing change from raw data to deconvolved, likely
+		# a supplemental or omitted entirely
 		metrics = ['promoter_occupancy', 'nucleosome_entropy', 'nucleosome_occupancy']
 		figsizes = [(4, 3.25), (4, 3.5), (4, 4)]
-
 		for i, metric in enumerate(metrics):
 			fig = self.integration.create_gene_dataset_intersection_heatmap(metric,
-			    figsize=figsizes[i])
+				figsize=figsizes[i])
 			save_figure_for_paper(f"{self.figures_dir}/gene_inclusion_map_{metric}.png")
+
+		# Plot PTR vs PTR with trajectory highlights
+		fig = self.integration.plot_ptr_correlations(color_by='trajectory_area')
+		save_figure_for_paper(f"{self.figures_dir}/ptrs_vs_ptr_trajectory.png")
+
+		# Plot PTR vs PTR with density
+		fig = self.integration.plot_ptr_correlations(color_by='density')
+		save_figure_for_paper(f"{self.figures_dir}/ptrs_vs_ptr.png")
+
+		# Plot cell cycle genes, with trajectory area values
+		self.integration.plot_all_trajectory_area_cell_cycle_genes()
+		save_figure_for_paper(f"{self.figures_dir}/cell_cycle_trajectory_values.png")
+
+		# Metric top and bottom exampels
+		for metric in metrics:
+			self.integration.plot_chromatin_example_trajectories(metric)
+			save_figure_for_paper(f"{self.figures_dir}/top_bottom_trajectories_{metric}.png")
+
+		# Sample genes to plot
+		genes_to_plot = ['MCM7', 'CLB1', 'HHT1', 'HTA1']
+		for gene in genes_to_plot:
+			fig = self.integration.plot_all_metrics_all_replicates_gene(gene)
+			save_figure_for_paper(f"{self.figures_dir}/trajectories_{gene}.png")
+
 
 	def create_metrics_plots(self):
 		"""
@@ -94,7 +120,7 @@ class FigureChromatinMetrics:
 
 		# Save the chromatin ptr plots with cell cycling expression labeling
 		self.chromatin_processor.plot_combined_ptr_change_w_expression(
-	    	self.expression_processor.top_cycling_genes.index)
+			self.expression_processor.top_cycling_genes.index)
 		save_figure_for_paper(f"{self.figures_dir}/combined_ptrs_w_top_expression.png")
 
 		# Plot expression PTRs histogram
@@ -169,7 +195,190 @@ class FigureChromatinMetrics:
 		self.create_integration_plots()
 		
 		print("Creating panel layout...")
+		self.layout_metrics_panel1()
+		self.layout_metrics_panel2()
 		self.layout_supplemental_panel()
-		
+
 		print("Complete figure generation finished!")
 
+
+	def layout_metrics_panel1(self, margin=(30, 30), between_padding=20, 
+							  panel_padding=40, add_labels=True, font_size=36):
+		"""Layout the figure panel for """
+		import os
+
+		from pipeline.figure_composer_helpers import layout_images_horizontally
+
+		compositor = FigureCompositor(1024, 900, debug_mode=True)
+		image_dir = self.figures_dir
+		panel_save_path = os.path.join(self.panel_figures_dir, 'Figure5_Chromatin_Metrics.png')
+		
+		# Define image paths
+		image_paths = {
+			'raw_vs_deconv': os.path.join(image_dir, 'raw_vs_deconvolved_all_metrics_ptrs.png'),
+			'clb1_traj': os.path.join(image_dir, 'trajectories_CLB1.png'),
+			'mcm7_traj': os.path.join(image_dir, 'trajectories_MCM7.png')
+		}
+		
+		# Verify all images exist
+		missing_images = [path for path in image_paths.values() if not os.path.exists(path)]
+		if missing_images:
+			raise FileNotFoundError(f"Missing image files: {missing_images}")
+		
+		all_placed_images = {}
+		
+		# 1. Place the first figure full width at the top
+		top_img = compositor.place_image(
+			image_paths['raw_vs_deconv'],
+			x=margin[0],
+			y=margin[1],
+			width=compositor.logical_width - (2 * margin[0]),
+			name='RawVsDeconv'
+		)
+		all_placed_images['RawVsDeconv'] = top_img
+		
+		# 2. Place two images side by side below the first
+		# Calculate y position for the second row
+		second_row_y = top_img['logical_position'][1] + top_img['logical_size'][1] + panel_padding
+		
+		# Layout two images horizontally
+		side_by_side_paths = [image_paths['clb1_traj'], image_paths['mcm7_traj']]
+		side_by_side_keys = ['CLB1Trajectories', 'MCM7Trajectories']
+		
+		side_by_side_images = layout_images_horizontally(
+			compositor,
+			side_by_side_paths,
+			width_proportions=[1, 1],  # Equal widths
+			between_padding=between_padding,
+			margin=(margin[0], second_row_y),
+			image_keys=side_by_side_keys
+		)
+		all_placed_images.update(side_by_side_images)
+		
+		# 4. Add panel labels if requested
+		if add_labels:
+			# Order images for labeling: top, left, right, bottom
+			ordered_keys = ['RawVsDeconv', 'CLB1Trajectories', 'MCM7Trajectories']
+			labels = ['A', 'B', 'C']
+			
+			for key, label in zip(ordered_keys, labels):
+				if key in all_placed_images:
+					compositor.add_panel_label_to_image(
+						key,
+						label,
+						offset=(-10, -12),
+						font_size=font_size,
+						font_type='bold'
+					)
+		
+		# Save the composed figure
+		compositor.save(panel_save_path)
+		print(f"Panel layout saved to: {panel_save_path}")
+		
+		return panel_save_path
+
+
+	def layout_metrics_panel2(self, margin=(30, 30), between_padding=20,
+							 left_width_percent=49, add_labels=True, font_size=24):
+		"""
+		Layout metrics panel 2 with the following arrangement:
+		- Left column (35% width): ptrs_vs_ptr_trajectory.png, cell_cycle_trajectory_values.png
+		- Right column (65% width): top_bottom_trajectories_promoter_occupancy.png,
+									top_bottom_trajectories_nucleosome_entropy.png,
+									top_bottom_trajectories_nucleosome_occupancy.png
+		"""
+		import os
+
+		image_dir = self.figures_dir
+		panel_save_path = os.path.join(self.panel_figures_dir, 'Figure6_Chromatin_Transcription.png')
+
+		compositor = FigureCompositor(1024, 480, debug_mode=True)
+		
+		# Define image paths
+		image_paths = {
+			'ptrs_vs_ptr': os.path.join(image_dir, 'ptrs_vs_ptr_trajectory.png'),
+			'cell_cycle_values': os.path.join(image_dir, 'cell_cycle_trajectory_values.png'),
+			'promoter_occupancy': os.path.join(image_dir, 'top_bottom_trajectories_promoter_occupancy.png'),
+			'nucleosome_entropy': os.path.join(image_dir, 'top_bottom_trajectories_nucleosome_entropy.png'),
+			'nucleosome_occupancy': os.path.join(image_dir, 'top_bottom_trajectories_nucleosome_occupancy.png')
+		}
+		
+		# Verify all images exist
+		missing_images = [path for path in image_paths.values() if not os.path.exists(path)]
+		if missing_images:
+			raise FileNotFoundError(f"Missing image files: {missing_images}")
+		
+		# Calculate column widths
+		total_width = compositor.logical_width - (2 * margin[0])
+		left_width = int(total_width * left_width_percent / 100)
+		right_width = total_width - left_width - between_padding
+		
+		# Calculate column x positions
+		left_x = margin[0]
+		right_x = left_x + left_width + between_padding
+		
+		all_placed_images = {}
+		
+		# Left column - vertical layout (first two figures)
+		left_column_paths = [
+			image_paths['ptrs_vs_ptr'],
+			image_paths['cell_cycle_values']
+		]
+		left_column_keys = ['PTRsVsPTR', 'CellCycleValues']
+		
+		left_images = layout_images_vertically(
+			compositor,
+			left_column_paths,
+			between_padding=between_padding,
+			margin=(left_x, margin[1]),
+			widths=[left_width, left_width],
+			image_keys=left_column_keys
+		)
+		all_placed_images.update(left_images)
+		
+		# Right column - vertical layout (last three figures)
+		right_column_paths = [
+			image_paths['promoter_occupancy'],
+			image_paths['nucleosome_entropy'],
+			image_paths['nucleosome_occupancy']
+		]
+		right_column_keys = [
+			'PromoterOccupancy',
+			'NucleosomeEntropy',
+			'NucleosomeOccupancy'
+		]
+		
+		right_images = layout_images_vertically(
+			compositor,
+			right_column_paths,
+			between_padding=between_padding,
+			margin=(right_x, margin[1]),
+			widths=[right_width] * 3,
+			image_keys=right_column_keys
+		)
+		all_placed_images.update(right_images)
+		
+		# Add panel labels if requested
+		if add_labels:
+			# Order images for labeling: left column first, then right column
+			ordered_keys = [
+				'PTRsVsPTR', 'CellCycleValues',  # Left column
+				'PromoterOccupancy', 'NucleosomeEntropy', 'NucleosomeOccupancy'  # Right column
+			]
+			labels = ['A', 'B', 'C', 'D', 'E']
+			
+			for key, label in zip(ordered_keys, labels):
+				if key in all_placed_images:
+					compositor.add_panel_label_to_image(
+						key,
+						label,
+						offset=(-10, -12),
+						font_size=font_size,
+						font_type='bold'
+					)
+
+		# Save the composed figure
+		compositor.save(panel_save_path)
+		print(f"Panel layout saved to: {panel_save_path}")
+		
+		return panel_save_path

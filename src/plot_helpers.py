@@ -806,3 +806,68 @@ def create_nine_subplot_layout(figsize=(8, 3), left_padding=0.08, right_padding=
 		axes.append(axes_row)
 	
 	return fig, axes
+
+
+def add_trajectory_arrows(ax, x_data, y_data, index, index_offset, arrow_scale=0.01, 
+						 arrow_color='red', arrow_alpha=1.0):
+	"""
+	Add short directional arrows along a trajectory path.
+	"""
+	from matplotlib.patches import FancyArrowPatch
+	from matplotlib.patches import FancyArrow
+
+	# Plot an area of the trajectory of the start of the path
+	dx =  x_data[index+index_offset] - x_data[index]
+	dy = y_data[index+index_offset] - y_data[index]
+	
+	# ---------------- Aspect ratio correction ---------------------
+
+	# Calculate effective aspect ratio (data range * physical ratio)
+	# Calculate the data aspect ratio
+	xlim = ax.get_xlim()
+	ylim = ax.get_ylim()
+	x_range = xlim[1] - xlim[0]
+	y_range = ylim[1] - ylim[0]
+	fig = ax.get_figure()
+	fig_width, fig_height = fig.get_size_inches()
+	aspect_ratio = (x_range / y_range) * (fig_height / fig_width)
+
+	# Adjust arrow dimensions based on aspect ratio and data ranges
+	# Scale dimensions as fractions of the respective axis ranges
+	head_width = 0.1
+	head_length = 0.06
+	body_width = 0.01
+
+	corrected_head_width = head_width * y_range
+	corrected_head_length = head_length * x_range
+	corrected_body_width = body_width * y_range
+	
+	# Apply aspect correction to keep proportions correct
+	# If plot is wider than tall, adjust width-related parameters
+	if aspect_ratio < 1:  # Plot is wider than tall
+		corrected_head_width *= aspect_ratio
+		corrected_body_width *= aspect_ratio
+	else:  # Plot is taller than wide
+		corrected_head_length /= aspect_ratio
+
+	# ---------------- Aspect ratio correction ---------------------
+
+	# Normalize and scale the arrow
+	length = np.sqrt(dx**2 + dy**2)
+	if length > 0:
+		dx_norm = (dx / length) * arrow_scale
+		dy_norm = (dy / length) * arrow_scale
+	
+		arrow = FancyArrow(
+					x_data[index], y_data[index], 
+					dx_norm, dy_norm,
+					width=corrected_body_width,
+					head_width=corrected_head_width,
+					head_length=corrected_head_length,
+					overhang=0.6,
+					color=arrow_color,
+					alpha=arrow_alpha
+				)
+
+		ax.add_patch(arrow)
+		
