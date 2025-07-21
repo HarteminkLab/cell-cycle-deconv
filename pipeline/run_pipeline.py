@@ -548,9 +548,18 @@ def main():
 		fig4.load_copy_correction()
 		fig4.plot_all()
 		fig4.layout_panel()
-		from IPython.display import Image, display
 
-		display(Image(f'{fig4.save_dir}/Figure4_Copy_Correction_debug.png'))
+	elif command == 'figure5_6_chromatin':
+
+		(_, command, output_dir) = system_args
+
+		from pipeline.figure_chromatin_metrics import FigureChromatinMetrics
+
+		fig_metrics = FigureChromatinMetrics(output_dir)
+
+		fig_metrics.setup_processor()
+		fig_metrics.setup_integration()
+		fig_metrics.generate_figures_and_panel()
 
 	else:
 
