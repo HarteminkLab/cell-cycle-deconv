@@ -4,7 +4,6 @@ from src.orf_plotter import load_default_orf_plotter
 from src.timer import Timer
 from src.read_bam import read_rna_bam, get_rna_seq_filepaths_df
 from src.transcript_boundary_caller import TranscriptBoundaryCaller
-from src.transcript_boundary_visualizer import AntisenseTranscriptVisualizer
 from src.figure_configs import save_figure_for_paper
 from src.utils import mkdir_safe
 
@@ -100,6 +99,6 @@ class TranscriptCallerRunner:
 		
 		print(f"Transcript calling completed for chromosome {self.chromosome}")
 		mkdir_safe(self.save_dir)
-		self.save_results
+		self.save_results()
 
 		return self.results_df

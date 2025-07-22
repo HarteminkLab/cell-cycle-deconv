@@ -15,8 +15,8 @@ class TranscriptBoundaryCaller:
 	"""
 	
 	def __init__(self, 
-				 min_length: int = 100,
-				 max_gap: int = 200,
+				 min_length: int = 80,
+				 max_gap: int = 120,
 				 refine_boundaries: bool = True,
 				 refinement_cutoff: float = 0.1,
 				 max_avg_diff: Optional[float] = None,
@@ -58,10 +58,12 @@ class TranscriptBoundaryCaller:
 
 		from src.rna_seq_intermediates import RNASeqIntermediateManager
 		from src.pileup_helpers import smooth_rna_curve
+		from src.sgd import get_chromosome_length
 
 		self.chromosome = chrom
 		self.span = span
 		self.bp_positions = range(span[0], span[1])
+		self.chromosome_span = 0, get_chromosome_length(chrom)
 		
 		# Initialize manager and load data
 		manager = RNASeqIntermediateManager(
@@ -76,22 +78,26 @@ class TranscriptBoundaryCaller:
 
 		# Combine the replicates and take the mean to compute transcripts
 		# on the entire experiment
-		watson_data = (watson_r1.mean(0)+watson_r2.mean(0))/2.
-		crick_data = (crick_r1.mean(0)+crick_r2.mean(0))/2.
+		mean_watson_data = (watson_r1.mean(0)+watson_r2.mean(0))/2.
+		mean_crick_data = (crick_r1.mean(0)+crick_r2.mean(0))/2.
 
 		# Log transform for the boundary calling
-		watson_data = np.log2(watson_data+1)
-		crick_data = np.log2(crick_data+1)
+		mean_watson_data = np.log2(mean_watson_data+1)
+		mean_crick_data = np.log2(mean_crick_data+1)
 
-		smoothed_mean_watson = smooth_rna_curve(watson_data)
-		smoothed_mean_crick = smooth_rna_curve(crick_data)
+		smoothed_mean_watson = smooth_rna_curve(mean_watson_data)
+		smoothed_mean_crick = smooth_rna_curve(mean_crick_data)
 
-		self.watson_data_raw = watson_data
-		self.crick_data_raw = crick_data
+		self.mean_watson_data_raw = mean_watson_data
+		self.mean_crick_data_raw = mean_crick_data
+		self.mean_smoothed_watson_data = smoothed_mean_watson
+		self.mean_smoothed_crick_data = smoothed_mean_crick
+		self.pileup_data = { 
+			1: {'watson': watson_r1,
+			    'crick': crick_r1},
+			2: {'watson': watson_r2,
+			    'crick': crick_r2}}
 
-		# Select the genomic span
-		self.watson_data = smoothed_mean_watson
-		self.crick_data = smoothed_mean_crick
 
 	def call_boundaries_both_strands(self, min_threshold=0.1, 
 			min_extension_threshold=0.05):
@@ -99,10 +105,10 @@ class TranscriptBoundaryCaller:
 		span = self.span
 
 		# Call the watson and crick transcripts from the input data
-		self.called_watson_transcripts = self._call_boundaries(self.watson_data, min_threshold,
+		self.called_watson_transcripts = self._call_boundaries(self.mean_smoothed_watson_data, min_threshold,
 								 min_extension_threshold,
 								 start_pos=span[0], end_pos=span[1]-1)
-		self.called_crick_transcripts = self._call_boundaries(self.crick_data, min_threshold,
+		self.called_crick_transcripts = self._call_boundaries(self.mean_smoothed_crick_data, min_threshold,
 								 min_extension_threshold, start_pos=span[0], 
 								 end_pos=span[1]-1)
 
@@ -463,35 +469,35 @@ class TranscriptBoundaryCaller:
 		x_positions = np.arange(span[0], span[1])
 
 		plt.subplot(2, 1, 2)
-		plt.fill_between(x_positions, self.watson_data, 0, color=plt.cm.Blues(0.5))
-		plt.fill_between(x_positions, -self.crick_data, 0, color=plt.cm.Reds(0.5))
+		plt.fill_between(x_positions, self.mean_smoothed_watson_data, 0, color=plt.cm.Blues(0.5))
+		plt.fill_between(x_positions, -self.mean_smoothed_crick_data, 0, color=plt.cm.Reds(0.5))
 
-		def plot_called_row(row, flip):
-			y = -20 if flip else 20
-			mean_y = -row.average_value if flip else row.average_value
-			plt.plot([row.start, row.end], 
-				[mean_y, mean_y], color='black', ls='dotted', lw=0.75)
-			plt.fill_between([row.start, row.end],  
-				[y, y], 0, lw=0,
-					 color='#eee', zorder=0, alpha=0.45)
-			plt.plot([row.start, row.start], [0, y], c='black', lw=0.25)
-			plt.plot([row.end, row.end], [0, y], c='black', lw=0.25)
-
-		for i, row in self.called_watson_transcripts.iterrows():
-			plot_called_row(row, False)
-			
-		for i, row in self.called_crick_transcripts.iterrows():
-			plot_called_row(row, True)
-			
-			plt.fill_between([row.start, row.end],  
-				[-20, -20], 0, lw=0,
-					 color='#ddd', alpha=0.45, zorder=0)
+		self.plot_called_watson_crick_transcripts_ax(plt.gca())
 			
 		plt.ylim(-3, 3)
 		plt.xlim(span[0], span[1])
 		plt.suptitle("Called transcript boundaries", fontweight='demi')
 
 		return fig
+
+	def plot_called_watson_crick_transcripts_ax(self, ax):
+
+		def plot_called_row(ax, row, flip):
+			y = -20 if flip else 20
+			mean_y = -row.average_value if flip else row.average_value
+			ax.plot([row.start, row.end], 
+				[mean_y, mean_y], color='black', ls='dotted', lw=0.75)
+			ax.fill_between([row.start, row.end],  
+				[y, y], 0, lw=0,
+					 color='#eee', zorder=0, alpha=0.45)
+			ax.plot([row.start, row.start], [0, y], c='black', lw=0.25)
+			ax.plot([row.end, row.end], [0, y], c='black', lw=0.25)
+
+		for i, row in self.called_watson_transcripts.iterrows():
+			plot_called_row(ax, row, False)
+			
+		for i, row in self.called_crick_transcripts.iterrows():
+			plot_called_row(ax, row, True)
 
 	def assign_genes_to_transcripts(self, genes_df):
 		"""

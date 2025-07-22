@@ -12,7 +12,8 @@ class DeconvolvedChromatinDataLoader(ChromatinDataLoader):
 	that has been saved in 10kb window chunks.
 	"""
 	
-	def __init__(self, output_dir: str, window_size: int = 10000, cache_size: int = 3):
+	def __init__(self, output_dir: str, window_size: int = 10000, cache_size: int = 3,
+		chromatin_data_dir: str = None):
 		"""
 		Initialize the deconvolved data loader.
 		
@@ -27,6 +28,11 @@ class DeconvolvedChromatinDataLoader(ChromatinDataLoader):
 		"""
 		super().__init__(window_size=window_size, cache_size=cache_size)
 		self.output_dir = output_dir
+
+		if chromatin_data_dir is None:
+			self.chromatin_data_dir = f"{self.output_dir}/chromatin_deconvolution/deconvolution_data"
+		else:
+			self.chromatin_data_dir = chromatin_data_dir
 		
 	def _load_window_data(self, chrom: int, window_span: Tuple[int, int]) -> np.ndarray:
 		"""
@@ -53,7 +59,7 @@ class DeconvolvedChromatinDataLoader(ChromatinDataLoader):
 		"""
 		# Construct file path for this window
 		# Format: chr{chrom}/chr{chrom}_{start}_{end}_F.npy
-		chromatin_data_directory = f"{self.output_dir}/chromatin_deconvolution/deconvolution_data"
+		chromatin_data_directory = self.chromatin_data_dir
 		file_path = f'{chromatin_data_directory}/chr{chrom}/chr{chrom}_{window_span[0]}_{window_span[1]}_F.npy'
 		
 		try:

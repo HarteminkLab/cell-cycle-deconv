@@ -48,19 +48,12 @@ class RNASeqPileupPlotter:
 		)
 		watson_r1, crick_r1, watson_r2, crick_r2 = manager.load_both_replicates_pileups()
 		
-		# Select the appropriate replicate
-		if replicate == 1:
-			watson_full = watson_r1
-			crick_full = crick_r1
-		elif replicate == 2:
-			watson_full = watson_r2
-			crick_full = crick_r2
-		else:
-			raise ValueError("Replicate must be 1 or 2")
-		
-		# Select the genomic span
-		self.watson_data = watson_full[range(span[0], span[1])]
-		self.crick_data = crick_full[range(span[0], span[1])]
+		select_columns = range(span[0], span[1])
+
+		self.watson_replicate1 = watson_r1[select_columns]
+		self.watson_replicate2 = watson_r2[select_columns]
+		self.crick_replicate1 = crick_r1[select_columns]
+		self.crick_replicate2 = crick_r2[select_columns]
 		
 	def plot_pileup(self, ax=None, mode='timepoints', 
 		smooth=True):
@@ -81,8 +74,6 @@ class RNASeqPileupPlotter:
 		ax : matplotlib.axes.Axes
 			The axes object containing the plot
 		"""
-		if self.watson_data is None or self.crick_data is None:
-			raise ValueError("Data not loaded. Call set_chrom_span() first.")
 		
 		if ax is None:
 			plt.figure(figsize=(13, 1))
@@ -90,18 +81,23 @@ class RNASeqPileupPlotter:
 		
 		from src.pileup_helpers import smooth_rna_curve
 
-		timepoints = self.watson_data.index
-		xs = self.watson_data.columns
+		xs = self.watson_replicate1.columns
 		
 		if mode == 'timepoints':
+
+			watson_data = self.watson_replicate1 if self.replicate == 1 else self.watson_replicate2
+			crick_data = self.crick_replicate1 if self.replicate == 1 else self.crick_replicate2
+
+			timepoints = watson_data.index
+
 			# Plot each timepoint with color gradients
 			reds = [plt.cm.Reds(i/len(timepoints)) for i in range(len(timepoints))]
 			blues = [plt.cm.Blues(i/len(timepoints)) for i in range(len(timepoints))]
 			
 			for i, time in enumerate(timepoints):
 
-				watson_values = self.watson_data.loc[time]
-				crick_values = self.crick_data.loc[time]
+				watson_values = watson_data.loc[time]
+				crick_values = crick_data.loc[time]
 
 				if smooth:
 					watson_values = smooth_rna_curve(watson_values)
@@ -114,14 +110,20 @@ class RNASeqPileupPlotter:
 				ax.plot(xs, -crick_values, c=reds[i])
 				
 		elif mode == 'minmax':
-			# Plot min/max ranges with mean lines
-			watson_lower = np.quantile(self.watson_data, q=0., axis=0)
-			watson_upper = np.quantile(self.watson_data, q=1., axis=0)
-			crick_lower = np.quantile(self.crick_data, q=0., axis=0)
-			crick_upper = np.quantile(self.crick_data, q=1., axis=0)
 
-			watson_med = self.watson_data.mean(0)
-			crick_med = self.crick_data.mean(0)
+			watson_data = np.concatenate([self.watson_replicate1.values, self.watson_replicate2.values], axis=0)
+			crick_data = np.concatenate([self.crick_replicate1.values, self.crick_replicate2.values], axis=0)
+
+			watson_data = self.watson_replicate2.values
+
+			# Plot min/max ranges with mean lines
+			watson_lower = np.quantile(watson_data, q=0.1, axis=0)
+			watson_upper = np.quantile(watson_data, q=0.9, axis=0)
+			crick_lower = np.quantile(crick_data, q=0.1, axis=0)
+			crick_upper = np.quantile(crick_data, q=0.9, axis=0)
+
+			watson_med = watson_data.mean(0)
+			crick_med = crick_data.mean(0)
 
 			if smooth:
 				watson_lower = smooth_rna_curve(watson_lower)
@@ -153,7 +155,7 @@ class RNASeqPileupPlotter:
 			raise ValueError("Mode must be 'timepoints' or 'minmax'")
 		
 		# Set axis properties
-		ax.set_ylim(-20, 20)
+		ax.set_ylim(-10, 10)
 		ax.set_xlim(*self.span)
 		
 		return ax

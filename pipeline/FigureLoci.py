@@ -39,10 +39,10 @@ class FigureLoci(object):
 		# Create copy and no copy correction analyses (for sanity checking). 
 		# Final figure will be a comparison of no copy correction between the efficient and distal regions
 		self.genome_analyses = {
-			"efficient_with_copy": GenomeDeconvolutionAnalysis(self.copy_corrected_data_directory),
-			"efficient_no_copy": GenomeDeconvolutionAnalysis(self.no_correction_data_directory),
-			"distal_with_copy": GenomeDeconvolutionAnalysis(self.copy_corrected_data_directory),
-			"distal_no_copy": GenomeDeconvolutionAnalysis(self.no_correction_data_directory),
+			"efficient_with_copy": GenomeDeconvolutionAnalysis(output_directory, self.copy_corrected_data_directory),
+			"efficient_no_copy": GenomeDeconvolutionAnalysis(output_directory, self.no_correction_data_directory),
+			"distal_with_copy": GenomeDeconvolutionAnalysis(output_directory, self.copy_corrected_data_directory),
+			"distal_no_copy": GenomeDeconvolutionAnalysis(output_directory, self.no_correction_data_directory),
 		}
 		
 		# Create combined chromatin models for raw vs predicted vs deconvolved comparisons

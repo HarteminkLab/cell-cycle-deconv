@@ -8,7 +8,26 @@ from src.config_utils import get_sample_indices
 from src.orf_plotter import load_default_orf_plotter
 
 
+
+
+# Note:   Deprecated, switching to ChromatinRNALocusPlotter.py
+#         for RNA pileup plotting and single branch plotting
+#         this code is useful for reference, as it contains
+#         the old expression plotting code down the right side 
+#         of the plot
+
+
+
 class DeconvolutionChromatinExpressionPlotter:
+	"""
+	Class to plot the deconvolved chromatin context for a window.
+
+	This class was originally used to plot the chromatin and expression profile
+	for a gene. The gene expression is added as a third column that spans the entire vertical
+	height. This plot has since been used to plot larger windows in which multiple genes
+	are present and therefore expression must be plotted differently.
+	"""
+
 	def __init__(self, config1, figsize=(15, 5), plot_expression=False, title=None,
 		branches_to_plot=["recovery", "mother", "daughter", "difference_mother_daughter"]):
 		"""
@@ -356,7 +375,7 @@ class DeconvolutionChromatinExpressionPlotter:
 		for row_idx, idx in enumerate(g1_indices):
 			ax = self.chrom_axs[branch_idx][row_idx]
 			self.plot_im(ax, self.chromatin_F[idx])
-			
+
 		self._branch_plot_s_g2m(branch_idx)
 
 
@@ -465,6 +484,7 @@ class DeconvolutionChromatinExpressionPlotter:
 			# Formatting
 			ax.tick_params(axis='x', which='major', length=5, width=1.25, labelbottom=False)
 			ax.tick_params(axis='x', which='minor', length=2, width=1, labelbottom=False)
+			ax.set_xlim(*self.span)
 
 		return self.fig
 

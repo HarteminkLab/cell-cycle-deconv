@@ -16,7 +16,7 @@ class GenomeDeconvolutionAnalysis:
 					 e.g., loading a gene's chromatin context.
 	"""
 	
-	def __init__(self, outdir):
+	def __init__(self, outdir, chromatin_data_dir=None):
 		"""
 		Initialize the GenomeDeconvolutionAnalysis.
 		
@@ -27,8 +27,14 @@ class GenomeDeconvolutionAnalysis:
 		"""
 		self.outdir = outdir
 		
-		# Create the deconvolved data loader
-		self.data_loader = DeconvolvedChromatinDataLoader(outdir)
+		# Use the output directory and default chromatin data path
+		if chromatin_data_dir is None:
+			self.data_loader = DeconvolvedChromatinDataLoader(outdir)
+
+		# If specified, set the chromatin data directory data directly
+		# for loading non-copy corrected data
+		else:
+			self.data_loader = DeconvolvedChromatinDataLoader(outdir, chromatin_data_dir=chromatin_data_dir)
 		
 		# These will be set by load_mnase_span for backward compatibility
 		self.chrom = None
@@ -122,15 +128,17 @@ class GenomeDeconvolutionAnalysis:
 			The plotter object
 		"""
 		from src.expression_chromatin_plots import DeconvolutionChromatinExpressionPlotter
+		from src.ChromatinRNALocusPlotter import SingleBranchChromatinPlotter
 
 		if config is None:
 			from src.config import load_default_chrom_configs
 			config, _ = load_default_chrom_configs()
 		
-		plotter = DeconvolutionChromatinExpressionPlotter(
-			config,
+		plotter = SingleBranchChromatinPlotter(
+			outdir=self.outdir,
+			config1=config,
 			figsize=figsize,
-			branches_to_plot=['mean_mother_daughter'],
+			branch_type='mean_mother_daughter',
 			title=title
 		)
 		plotter.set_chrom_span(self.chrom, self.loaded_subset_span)
