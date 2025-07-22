@@ -91,8 +91,8 @@ class ExpressionAnalysisProcessor:
 
 	def load_raw_expression(self):
 		from src.gene_expression import load_gene_and_nongenic_transcription_data
-		self.raw_rep1_expression_data = load_gene_and_nongenic_transcription_data(1)
-		self.raw_rep2_expression_data = load_gene_and_nongenic_transcription_data(2)
+		self.raw_rep1_expression_data = load_gene_and_nongenic_transcription_data(self.output_dir, 1)
+		self.raw_rep2_expression_data = load_gene_and_nongenic_transcription_data(self.output_dir, 2)
 
 	
 	def compute_expression_ptrs(self, expression_data=None, ptr_lo=0.1, ptr_hi=0.9):
@@ -140,49 +140,15 @@ class ExpressionAnalysisProcessor:
 			index=expression_data.index
 		)
 		self.all_transcripts_ptrs.index.name = 'transcript_name'
+		self.all_transcripts_ptrs = self.all_transcripts_ptrs.join(
+			self.all_transcripts_set[['transcript_class']])
 		
 		print_fl(f"Computed PTR values for {len(self.all_transcripts_ptrs)} transcripts")
 		print_fl(f"PTR range: {self.all_transcripts_ptrs.ptr.min():.3f} - "
 				f"{self.all_transcripts_ptrs.ptr.max():.3f}")
 		
 		return self.all_transcripts_ptrs
-	
-	def filter_to_genic_transcripts(self, ptr_data=None):
-		"""
-		Filter PTR data to include only genic transcripts.
-		
-		Parameters
-		----------
-		ptr_data : pd.DataFrame, optional
-			PTR data for all transcripts. If None, uses self.all_transcripts_ptrs
-			
-		Returns
-		-------
-		pd.DataFrame
-			PTR data filtered to genic transcripts only
-		"""
-		if ptr_data is None:
-			if self.all_transcripts_ptrs is None:
-				raise ValueError("No PTR data available. Call compute_expression_ptrs() first.")
-			ptr_data = self.all_transcripts_ptrs
-		
-		if self.all_transcripts_set is None:
-			raise ValueError("Transcript set not loaded. Call setup_data_loaders() first.")
-		
-		# Get genic transcript names
-		genic_transcripts = self.all_transcripts_set[
-			self.all_transcripts_set.transcript_class == 'genic'
-		].index
-		
-		# Filter PTR data to genic transcripts
-		intersection_set = list(set(ptr_data.index).intersection(set(genic_transcripts)))
-		self.genic_ptrs = ptr_data.loc[intersection_set]
-		
-		print_fl(f"Filtered to {len(self.genic_ptrs)} genic transcripts")
-		print_fl(f"Genic PTR range: {self.genic_ptrs.ptr.min():.3f} - "
-				f"{self.genic_ptrs.ptr.max():.3f}")
-		
-		return self.genic_ptrs
+
 	
 	def plot_ptr_histogram(self, ptr_data=None, quantile_cutoff=0.9, 
 						  xlim=(0.95, 2), bins=200, figsize=(4, 3)):

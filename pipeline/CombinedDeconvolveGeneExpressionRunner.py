@@ -9,6 +9,8 @@ class CombinedDeconvolveGeneExpressionRunner:
 
 		from src.config import load_default_expression_configs, load_cloccs_configs
 
+		self.output_directory = output_directory
+
 		# Load the config parameters from disk, for gene expression, the copy
 		# correction information will not be used, so we can just use the learned cell cycle
 		# parameters
@@ -73,7 +75,6 @@ class CombinedDeconvolveGeneExpressionRunner:
 		"""
 		Deconvolve a specific gene's expression to find optimal gamma.
 		"""
-		from src.gene_expression import load_transcription_for_name
 		from src.sgd import get_orfname
 		from src.CombinedReplicationDeconvolution import concatenate_G
 
@@ -92,8 +93,8 @@ class CombinedDeconvolveGeneExpressionRunner:
 		from src.CombinedReplicationDeconvolution import concatenate_G
 
 		# Load gene expression data if not overridden
-		gene_expression_replicate1 = load_transcription_for_name(orf_or_transcript_name, 1, log_transform=True)
-		gene_expression_replicate2 = load_transcription_for_name(orf_or_transcript_name, 2, log_transform=True)
+		gene_expression_replicate1 = load_transcription_for_name(self.output_directory, orf_or_transcript_name, 1, log_transform=True)
+		gene_expression_replicate2 = load_transcription_for_name(self.output_directory, orf_or_transcript_name, 2, log_transform=True)
 
 		from src.sgd import get_gene_name
 
@@ -144,7 +145,7 @@ class CombinedDeconvolveGeneExpressionRunner:
 		expression_F = self.expression_find_gamma.retrieve_solution()
 		optimal_gamma = self.expression_find_gamma.gamma_optimizer.optimal_gamma
 
-		F_savepath = f"{output_directory}/{self.save_name}_{optimal_gamma:.6f}.npy"
+		F_savepath = f"{output_directory}/{self.save_name}.npy"
 		fig_savepath = f"{output_directory}/{self.save_name}.png"
 
 		np.save(F_savepath, expression_F)

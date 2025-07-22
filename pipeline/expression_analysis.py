@@ -108,43 +108,47 @@ class ExpressionAnalysis(object):
 
 
 def load_deconvolved_gene_expression(output_directory, include_nongenic=False):
+
+	from src.transcripts_dataset import load_transcripts_sets
+
+	# Load the transcripts to be loaded
+	combined_gene_nongenic = load_transcripts_sets(output_directory, combined=True)
+
 	genes = get_deconvolved_geneset()
 
-	deconvolved_expression_filenames = glob(f"{output_directory}/genes_deconvolution/*.npy")
+	file_directory = f"{output_directory}/genes_deconvolution/"
 
 	gene_expression_Fs_list = []
-	gene_names = []
-	for i, filename in enumerate(deconvolved_expression_filenames):
-		expression_F = np.load(filename)
-		gene_name = filename.split('/')[-1].split('_')[0]
 
-		# Skip nongenes
-		if gene_name.startswith('nogene'):
+	print("Loading deconvolved expression files, n=", len(genes))
 
-			if include_nongenic:
-				transcript_name = filename.split('/')[-1].split('.')[0]
-			else:
-				continue
-		else:
-			transcript_name, gene_name = get_gene_name_orf_name(gene_name)        
+	skip = 0
 
-		# Skip if duplicate gene name
-		if transcript_name in gene_names:
-			continue
+	for i, transcript_name in enumerate(combined_gene_nongenic.index):
+
+		try:
+			filepath = glob(f"{file_directory}/{transcript_name}*.npy")[0]
+			expression_F = np.load(filepath)
+		except IndexError:
+			print(f"Could not find deconvolved file for {transcript_name}, skipping")
+			skip += 1
+
+			# Assume at least one successful item in the expression list,
+			# fill with dummy list
+			expression_F = np.repeat(np.nan, len(gene_expression_Fs_list[0]))
 
 		gene_expression_Fs_list.append(expression_F)
-		gene_names.append(transcript_name)
 
-	expression_Fs_df = pd.DataFrame(gene_expression_Fs_list, index=gene_names)
-	expression_Fs_df = expression_Fs_df.drop_duplicates()
+		if i % 200 == 0:
+			print(f"{i}/{len(combined_gene_nongenic)}")
+
+	expression_Fs_df = pd.DataFrame(gene_expression_Fs_list, 
+		index=combined_gene_nongenic.index)
 
 	if include_nongenic:
 		expression_Fs_df.index.name = 'transcript_name'
 	else:
 		expression_Fs_df.index.name = 'orf_name'
-
-	# Drop duplicates
-	expression_Fs_df = expression_Fs_df.drop_duplicates()
 
 	return expression_Fs_df
 

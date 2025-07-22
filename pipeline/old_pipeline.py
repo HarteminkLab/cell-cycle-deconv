@@ -94,3 +94,46 @@ elif command == 'replication':
 	# 	from pipeline.fit_replication_profiles import main as fit_replication_profile
 	# 	fit_replication_profile(chrom=chrom, replicate=replicate, num_epochs=num_epochs, 
 	# 		output_directory=single_replication_directory, cold_start=cold_start)
+
+
+# # 3. Deconvolve the gene expression for all genes
+	# elif command == 'deconvolve_expression':
+
+	# 	from src.geneset import get_deconvolved_geneset
+	# 	from pipeline.CombinedDeconvolveGeneExpressionRunner import CombinedDeconvolveGeneExpressionRunner
+	# 	from src.transcripts_dataset import load_transcripts_sets
+	# 	from src.timer import Timer
+	# 	import cvxpy as cp
+
+	# 	print_fl(f"Deconvolve gene expression for all genes")
+	# 	(_, command, output_directory) = system_args
+
+	# 	combined_transcripts_set = load_transcripts_sets(output_directory, combined=True)
+
+	# 	# Kappa and eta are empirical values. todo: methodology to identify proper parameter selection
+	# 	kappa = DEFAULT_TX_KAPPA
+	# 	eta = DEFAULT_TX_ETA
+
+	# 	timer = Timer()
+
+	# 	save_genes_directory = f"{output_directory}/genes_deconvolution/"
+	# 	mkdirs_safe([save_genes_directory])
+
+	# 	runner = CombinedDeconvolveGeneExpressionRunner(output_directory)
+
+	# 	index = 0
+	# 	for transcript_name, transcript_row in combined_transcripts_set.iterrows():
+
+	# 		index += 1
+
+	# 		print_fl(f"[{index}/{len(combined_transcripts_set)}] Deconvolving {transcript_name}", end="...")
+			
+	# 		try: 
+	# 			expression_find_gamma = runner.deconvolve_transcript_optimal_gamma(transcript_name, 
+	# 				kappa=kappa, eta=eta)
+	# 		except cp.error.SolverError:
+	# 			print_fl(f"  Failed. Skipping.")
+	# 			continue
+
+	# 		runner.save_to_disk(save_genes_directory)
+	# 		print_fl(f"Done. {timer.get_time()}")

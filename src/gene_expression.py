@@ -3,29 +3,29 @@ import numpy as np
 import pandas as pd
 
 
-def load_gene_expression(gene_name, replicate, log_transform=True):
+def load_gene_expression(output_dir, gene_name, replicate, log_transform=True):
 
 	from src.sgd import get_orfname
 	orf_name = get_orfname(gene_name)
 
-	gene_expressions_logtpm = load_gene_and_nongenic_transcription_data(replicate, log_transform=log_transform)
+	gene_expressions_logtpm = load_gene_and_nongenic_transcription_data(output_dir, replicate, log_transform=log_transform)
 	gene_expression_logtpm = gene_expressions_logtpm.loc[orf_name]
 
 	return gene_expression_logtpm
 
 
-def load_transcription_for_name(orf_or_transcript_name, replicate, log_transform=True):
+def load_transcription_for_name(output_dir, orf_or_transcript_name, replicate, log_transform=True):
 
-	gene_expressions_logtpm = load_gene_and_nongenic_transcription_data(replicate, log_transform=log_transform)
+	gene_expressions_logtpm = load_gene_and_nongenic_transcription_data(output_dir, replicate, log_transform=log_transform)
 	gene_expression_logtpm = gene_expressions_logtpm.loc[orf_or_transcript_name]
 
 	return gene_expression_logtpm
 
 
-def load_gene_and_nongenic_transcription_data(replicate, log_transform=True):
+def load_gene_and_nongenic_transcription_data(output_dir, replicate, log_transform=True):
 
-	gene_expressions_tpm = pd.read_csv(
-		f'datasets/yl_cell_cycle/replicate{replicate}_gene_expression_TPM.csv')
+	gene_expressions_tpm = pd.read_csv(f'{output_dir}/TPM/replicate{replicate}_gene_expression_TPM.csv')
+
 	gene_expressions_tpm = gene_expressions_tpm.set_index('Unnamed: 0')
 
 	if log_transform:
