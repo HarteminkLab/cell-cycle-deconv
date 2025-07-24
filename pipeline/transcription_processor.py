@@ -33,7 +33,6 @@ class ExpressionAnalysisProcessor:
 		# Data storage
 		self.expression_data = None
 		self.all_transcripts_ptrs = None
-		self.genic_ptrs = None
 		self.top_cycling_genes = None
 		self.threshold_value = None
 	
@@ -150,15 +149,13 @@ class ExpressionAnalysisProcessor:
 		return self.all_transcripts_ptrs
 
 	
-	def plot_ptr_histogram(self, ptr_data=None, quantile_cutoff=0.9, 
+	def plot_ptr_histogram(self, quantile_cutoff=0.9, 
 						  xlim=(0.95, 2), bins=200, figsize=(4, 3)):
 		"""
 		Plot histogram of PTR distribution with quantile threshold.
 		
 		Parameters
 		----------
-		ptr_data : pd.DataFrame, optional
-			PTR data to plot. If None, uses self.genic_ptrs
 		quantile_cutoff : float, optional
 			Quantile for threshold line. Default is 0.9 (90th percentile).
 		xlim : tuple, optional
@@ -173,10 +170,8 @@ class ExpressionAnalysisProcessor:
 		tuple
 			(fig, ax, threshold_value) - matplotlib figure, axis, and threshold value
 		"""
-		if ptr_data is None:
-			if self.genic_ptrs is None:
-				raise ValueError("No genic PTR data available. Call filter_to_genic_transcripts() first.")
-			ptr_data = self.genic_ptrs
+
+		ptr_data = self.get_genic_ptrs()
 		
 		# Calculate threshold
 		threshold_value = np.quantile(ptr_data.ptr, quantile_cutoff)
@@ -207,14 +202,12 @@ class ExpressionAnalysisProcessor:
 		
 		return fig, ax, threshold_value
 	
-	def identify_top_cycling_genes(self, ptr_data=None, quantile_cutoff=0.9):
+	def identify_top_cycling_genes(self, quantile_cutoff=0.9):
 		"""
 		Identify genes in the top quantile for cycling based on PTR values.
 		
 		Parameters
 		----------
-		ptr_data : pd.DataFrame, optional
-			PTR data for genic transcripts. If None, uses self.genic_ptrs
 		quantile_cutoff : float, optional
 			Quantile cutoff for top cycling genes. Default is 0.9.
 			
@@ -226,10 +219,8 @@ class ExpressionAnalysisProcessor:
 			- Threshold PTR value used
 			- Number of genes selected
 		"""
-		if ptr_data is None:
-			if self.genic_ptrs is None:
-				raise ValueError("No genic PTR data available. Call filter_to_genic_transcripts() first.")
-			ptr_data = self.genic_ptrs
+
+		ptr_data = self.get_genic_ptrs()
 		
 		# Calculate threshold
 		self.threshold_value = np.quantile(ptr_data.ptr, quantile_cutoff)
@@ -290,9 +281,6 @@ class ExpressionAnalysisProcessor:
 		# Step 3: Compute PTRs
 		self.compute_expression_ptrs(ptr_lo=ptr_lo, ptr_hi=ptr_hi)
 		
-		# Step 4: Filter to genic transcripts
-		self.filter_to_genic_transcripts()
-		
 		# Step 5: Identify top cycling genes
 		top_genes, threshold, n_genes = self.identify_top_cycling_genes(
 			quantile_cutoff=quantile_cutoff
@@ -302,18 +290,17 @@ class ExpressionAnalysisProcessor:
 		results = {
 			'expression_data': self.expression_data,
 			'all_transcripts_ptrs': self.all_transcripts_ptrs,
-			'genic_ptrs': self.genic_ptrs,
+			'genic_ptrs': self.get_genic_ptrs(),
 			'top_cycling_genes': self.top_cycling_genes,
 			'threshold': self.threshold_value,
 			'n_top_genes': len(self.top_cycling_genes),
 		}
 		
-		print_fl("Full analysis complete!")
-		print_fl(f"Summary: {results['n_top_genes']} top cycling genes identified "
-				f"from {len(self.genic_ptrs)} genic transcripts")
-		
 		return results
 	
+	def get_genic_ptrs(self):
+		return self.all_transcripts_ptrs[self.all_transcripts_ptrs.transcript_class == 'genic']
+
 	def create_summary_plots(self, results_dict=None, save_plots=False):
 		"""
 		Create summary plots for the expression analysis.
@@ -331,12 +318,8 @@ class ExpressionAnalysisProcessor:
 			Dictionary of matplotlib figure objects
 		"""
 		if results_dict is None:
-			# Use current state
-			if self.genic_ptrs is None:
-				raise ValueError("No analysis results available. Run run_full_analysis() first.")
-			
 			results_dict = {
-				'genic_ptrs': self.genic_ptrs,
+				'genic_ptrs': self.get_genic_ptrs(),
 				'top_cycling_genes': self.top_cycling_genes,
 				'threshold': self.threshold_value,
 				'n_top_genes': len(self.top_cycling_genes) if self.top_cycling_genes is not None else 0
@@ -346,7 +329,6 @@ class ExpressionAnalysisProcessor:
 		
 		# Create histogram plot
 		fig, ax, threshold = self.plot_ptr_histogram(
-			ptr_data=results_dict['genic_ptrs'],
 			quantile_cutoff=0.9
 		)
 		figures['ptr_histogram'] = fig

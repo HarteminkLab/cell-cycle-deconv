@@ -105,7 +105,7 @@ class GenomeDeconvolutionAnalysis:
 		return plotter
 	
 	def plot_loaded_data(self, config=None, expression_f=None, title=None,
-						figsize=(15, 5), highlight_bins=[]):
+						figsize=(15, 5), highlight_bins=[], branch_type='mean_mother_daughter'):
 		"""
 		Plot the loaded chromatin data.
 		
@@ -138,7 +138,7 @@ class GenomeDeconvolutionAnalysis:
 			outdir=self.outdir,
 			config1=config,
 			figsize=figsize,
-			branch_type='mean_mother_daughter',
+			branch_type=branch_type,
 			title=title
 		)
 		plotter.set_chrom_span(self.chrom, self.loaded_subset_span)

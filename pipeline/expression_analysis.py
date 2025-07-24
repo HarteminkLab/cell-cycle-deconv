@@ -110,6 +110,7 @@ class ExpressionAnalysis(object):
 def load_deconvolved_gene_expression(output_directory, include_nongenic=False):
 
 	from src.transcripts_dataset import load_transcripts_sets
+	from src.sgd import get_gene_name_orf_name
 
 	# Load the transcripts to be loaded
 	combined_gene_nongenic = load_transcripts_sets(output_directory, combined=True)
@@ -123,15 +124,22 @@ def load_deconvolved_gene_expression(output_directory, include_nongenic=False):
 	print("Loading deconvolved expression files, n=", len(genes))
 
 	skip = 0
+	i = 0
+	for transcript_name, transcript_row in combined_gene_nongenic.iterrows():
 
-	for i, transcript_name in enumerate(combined_gene_nongenic.index):
+		if transcript_row.transcript_class == 'genic':
+			orf_name, gene_name = get_gene_name_orf_name(transcript_name)
+			filename = f"{transcript_name}_{gene_name}"
+		else:
+			filename = f"{transcript_name}"
 
 		try:
-			filepath = glob(f"{file_directory}/{transcript_name}*.npy")[0]
+			filepath = f"{file_directory}/{filename}.npy"
 			expression_F = np.load(filepath)
 		except IndexError:
 			print(f"Could not find deconvolved file for {transcript_name}, skipping")
 			skip += 1
+			i += 1
 
 			# Assume at least one successful item in the expression list,
 			# fill with dummy list
@@ -139,8 +147,10 @@ def load_deconvolved_gene_expression(output_directory, include_nongenic=False):
 
 		gene_expression_Fs_list.append(expression_F)
 
-		if i % 200 == 0:
+		if i % 1000 == 0:
 			print(f"{i}/{len(combined_gene_nongenic)}")
+
+		i += 1
 
 	expression_Fs_df = pd.DataFrame(gene_expression_Fs_list, 
 		index=combined_gene_nongenic.index)

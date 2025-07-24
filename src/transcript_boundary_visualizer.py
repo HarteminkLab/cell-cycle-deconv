@@ -51,6 +51,7 @@ def plot_tx_transcript_context(outdir, chrom, span, orf_plotter, rna_plotter, co
 
 	plt.subplot(6, 1, 2)
 	ax = plt.gca()
+	rna_plotter.replicate = 'combined'
 	rna_plotter.plot_pileup(ax=ax, mode='timepoints')
 	ax.set_xticks([])
 	ax.set_yticks([])

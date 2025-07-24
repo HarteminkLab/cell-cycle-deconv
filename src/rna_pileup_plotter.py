@@ -114,13 +114,11 @@ class RNASeqPileupPlotter:
 			watson_data = np.concatenate([self.watson_replicate1.values, self.watson_replicate2.values], axis=0)
 			crick_data = np.concatenate([self.crick_replicate1.values, self.crick_replicate2.values], axis=0)
 
-			watson_data = self.watson_replicate2.values
-
 			# Plot min/max ranges with mean lines
-			watson_lower = np.quantile(watson_data, q=0.1, axis=0)
-			watson_upper = np.quantile(watson_data, q=0.9, axis=0)
-			crick_lower = np.quantile(crick_data, q=0.1, axis=0)
-			crick_upper = np.quantile(crick_data, q=0.9, axis=0)
+			watson_lower = np.quantile(watson_data, q=0.05, axis=0)
+			watson_upper = np.quantile(watson_data, q=0.95, axis=0)
+			crick_lower = np.quantile(crick_data, q=0.05, axis=0)
+			crick_upper = np.quantile(crick_data, q=0.95, axis=0)
 
 			watson_med = watson_data.mean(0)
 			crick_med = crick_data.mean(0)
@@ -155,7 +153,7 @@ class RNASeqPileupPlotter:
 			raise ValueError("Mode must be 'timepoints' or 'minmax'")
 		
 		# Set axis properties
-		ax.set_ylim(-10, 10)
+		ax.set_ylim(-5, 5)
 		ax.set_xlim(*self.span)
 		
 		return ax

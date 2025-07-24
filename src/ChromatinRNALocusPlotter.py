@@ -299,14 +299,15 @@ class SingleBranchChromatinPlotter:
 		cg1_indices = get_sample_indices(self.config1, self.num_g1_rows, 'CG1')
 
 		# Plot G1 phase chromatin difference
-		vmax = 10
+		vmax = 5
+		eps = 1e-5
 
 		for row_idx in range(len(dg1_indices)):
 			ax = self.chromatin_axes[row_idx]
 
 			dg1_dat = self.chromatin_F[dg1_indices[row_idx]]
 			cg1_dat = self.chromatin_F[cg1_indices[row_idx]]
-			diff = dg1_dat-cg1_dat
+			diff = np.log2((dg1_dat+eps)/(cg1_dat+eps))
 			self.plot_im(ax, diff, vmin=-vmax, vmax=vmax, cmap='RdBu_r')
 
 		# Don't plot S/G2M for difference (only G1 phase makes sense for mother/daughter comparison)

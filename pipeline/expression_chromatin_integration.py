@@ -76,7 +76,7 @@ class IntegratedChromatinExpressionAnalyzer:
 			raise ValueError(f"Unknown chromatin data source: {chromatin_data_source}")
 		
 		# Get expression PTRs (filtered to genic transcripts)
-		expression_ptrs = self.expression_processor.genic_ptrs
+		expression_ptrs = self.expression_processor.get_genic_ptrs()
 		
 		# Compute correlations for each chromatin metric
 		correlation_results = {}
@@ -84,7 +84,7 @@ class IntegratedChromatinExpressionAnalyzer:
 		for metric_name in ['promoter_occupancy', 'nucleosome_entropy', 'nucleosome_occupancy']:
 			metric_ptrs = chromatin_ptrs[metric_name]
 
-			joined_ptrs = metric_ptrs.join(expression_ptrs, how='inner')
+			joined_ptrs = metric_ptrs.join(expression_ptrs[['ptr']], how='inner')
 			joined_ptrs.columns = ['chromatin_ptr', 'expression_ptr']
 			
 			# Remove NaN values
@@ -880,11 +880,11 @@ class IntegratedChromatinExpressionAnalyzer:
 
 		res = calculate_linkage_values(tb_expression, tb_chromatin, index=common_index)
 
-		expression_ptrs = self.expression_processor.genic_ptrs
+		expression_ptrs = self.expression_processor.get_genic_ptrs()
 		chromatin_ptrs = self.chromatin_processor\
 			.normalized_ptr_deconvolved[chromatin_key]
 
-		ptrs_joined = expression_ptrs.join(chromatin_ptrs, how='inner')
+		ptrs_joined = expression_ptrs[['ptr']].join(chromatin_ptrs, how='inner')
 		ptrs_joined.columns = ['expression_ptr', 'chromatin_ptr']
 		ptrs_joined = ptrs_joined.join(res)
 		ptrs_joined = ptrs_joined.sort_values('trajectory_area')
