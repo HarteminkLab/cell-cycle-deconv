@@ -3,17 +3,48 @@ import pandas as pd
 import numpy as np
 
 
-def cyclin_genes():
+def cyclin_genes(phase=None):
 
-	genes = [
-		# three G1 cyclins:
-		'CLN1', 'CLN2', 'CLN3',
+	genes_map = {
+		# G1 cyclins
+		'G1': ['CLN1', 'CLN2', 'CLN3'],
 
 		# Two S-phase cyclins:
-		'CLB5', 'CLB6',
+		'B-S': ['CLB5', 'CLB6'], # S-phase
 
-		# And four mitotic cyclins:
-		'CLB1', 'CLB2', 'CLB3', 'CLB4']
+		# Mitotic
+		'B-M': ['CLB1', 'CLB2', 'CLB3', 'CLB4'] # Mitotic
+	}
+
+	if phase is None:
+		genes = genes_map['G1'] + genes_map['B-S'] + genes_map['B-M']
+	else:
+		genes = genes_map[phase]
+
+	return genes
+
+
+def mcm_genes():
+
+	genes = [
+		'MCM1', 'MCM2', 'MCM3', 'MCM4', 'MCM5', 'MCM6', 'MCM7'
+	]
+	return genes
+
+
+def histone_genes(group=None):
+
+	genes_map = {
+		 'H2A': ['HTA1', 'HTA2'], # H2A
+ 		 'H2B': ['HTB1', 'HTB2'], # H2B
+ 		 'H3': ['HHT1', 'HHT2'], # H3
+ 		 'H4': ['HHF1', 'HHF2'], # H4
+	}
+
+	if group is None:
+		genes = genes_map['H2A']+genes_map['H2B']+genes_map['H3']+genes_map['H4']
+	else:
+		genes = genes_map[group]
 
 	return genes
 

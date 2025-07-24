@@ -10,6 +10,13 @@ from matplotlib.colors import ListedColormap
 from src.sgd import get_gene_title_name
 
 
+trajectory_lims_mapping = {
+	'expression': (-1, 17),
+	'promoter_occupancy': (-0.25, 3),
+	'nucleosome_occupancy': (-0.5, 6),
+	'nucleosome_entropy': (-0.5, 6),
+}
+
 class IntegratedChromatinExpressionAnalyzer:
 	"""
 	Integrates chromatin and expression analysis to perform combined analyses
@@ -163,24 +170,23 @@ class IntegratedChromatinExpressionAnalyzer:
 				dsc_plotter.s = 5
 				dsc_plotter.plot_ax(ax)
 
-			elif color_by in ['trajectory_area', 'pearsonr', 'spearmanr']:
+			elif color_by in self.trajectory_area_linkages[metric_name].columns:
 
-				if color_by == 'trajectory_area':
-					vmin = 0
-					vmax = 4
-				else:
-					vmin = -1
-					vmax = 1
+				#if color_by == 'trajectory_area' or 
+				vmin = 0
+				vmax = 0.5
 
 				# We only have area plots for the deconvolved data, currently
 				if not chromatin_data_source == 'deconvolved':
 					raise ValueError("Unimplemented trajectory area plotting for non deconvolved data set")
 
 				data = self.trajectory_area_linkages[metric_name]
+				color_by_value = data[color_by]
+
 				ax.scatter(data.chromatin_ptr, data.expression_ptr, edgecolor='#aaa',
 					facecolor='none',
 					s=7) # outline
-				ax.scatter(data.chromatin_ptr, data.expression_ptr, c=data[color_by],
+				ax.scatter(data.chromatin_ptr, data.expression_ptr, c=color_by_value,
 					cmap=cmap, s=5, vmax=vmax, vmin=vmin)
 			else:
 				raise ValueError("Error in color_by argument: " + color_by)
@@ -285,7 +291,7 @@ class IntegratedChromatinExpressionAnalyzer:
 			# as a rough estimate for these plots
 			chromatin_sample = chromatin_sample[:len(expression_sample)]
 
-		plt.plot(expression_sample, chromatin_sample, color='#777', lw=1, zorder=1)
+		plt.plot(chromatin_sample, expression_sample, color='#777', lw=1, zorder=1)
 
 		from pipeline.chromatin_metrics_processor import plot_formatting_map
 
@@ -293,20 +299,17 @@ class IntegratedChromatinExpressionAnalyzer:
 
 		z = np.arange(len(chromatin_sample))
 
-		plt.scatter(expression_sample, chromatin_sample, s=3, lw=2,
+		plt.scatter(chromatin_sample, expression_sample, s=3, lw=2,
 			edgecolor='#aaa', facecolor='none', zorder=2)
-		plt.scatter(expression_sample, chromatin_sample, s=2, c=z, cmap=cmap, zorder=2)
+		plt.scatter(chromatin_sample, expression_sample, s=2, c=z, cmap=cmap, zorder=2)
 		
-		ylabel = chromatin_key.replace('_', '\n')
-		ylabel = ylabel[0].upper() + ylabel[1:]
-		plt.ylabel(f"{ylabel}")
-		plt.xlabel(f"Expression")
+		plt.ylabel(f"Expression")
 		plt.xlim(*xlim)
 		plt.ylim(*ylim)
 		plt.title(chromatin_key)
 	
 	def plot_orf_phase_state_deconvolved(self, orf_or_gene_name, chromatin_key=None, 
-		ylim=(-0.5, 8), xlim=(-0.5, 12), plot_arrows=True):
+		xlim=(-0.5, 8), ylim=(-0.5, 12), plot_arrows=True):
 		"""
 		Plot chromatin vs expression data colored by cell cycle phase for a single gene.
 		
@@ -359,7 +362,7 @@ class IntegratedChromatinExpressionAnalyzer:
 							chromatin_sample[b_indices].values)/2
 		expression_values = np.concatenate([expression_values, expression_values[0:1]])
 		chromatin_values = np.concatenate([chromatin_values, chromatin_values[0:1]])
-		plt.plot(expression_values, chromatin_values,
+		plt.plot(chromatin_values, expression_values,
 				   lw=1, color='#aaa', zorder=0)
 
 		for phase in phases:
@@ -378,83 +381,34 @@ class IntegratedChromatinExpressionAnalyzer:
 				chromatin_values = chromatin_sample[indices].values
 
 			color = color_for_key(phase)
-			plt.scatter(expression_values, chromatin_values,
+			plt.scatter(chromatin_values, expression_values,
 					   s=1, color=color, label=phase, zorder=1)
 
 			if phase == 'meanG1':
 
 				# Add arrows to show trajectory direction
 				if plot_arrows:
-					add_trajectory_arrows(ax, expression_values,
-						chromatin_values,
+					add_trajectory_arrows(ax, chromatin_values, expression_values,
 						index=10, index_offset=1, # Plot the 10th to the 11th index (smooth here)
 						arrow_color=color)
 
 				# Starting point
-				plt.scatter(expression_values[0], chromatin_values[0],
+				plt.scatter(chromatin_values[0], expression_values[0],
 						   s=2, color='black', marker='D', label=phase, zorder=1)
 
 			elif phase == 'S':
 
 				if plot_arrows:
-					add_trajectory_arrows(ax, expression_values,
-						chromatin_values,
+					add_trajectory_arrows(ax, chromatin_values, expression_values,
 						index=len(indices)-7, index_offset=1, # Plot the end of S
 						arrow_color=color)
 
-		plt.ylabel(f"{chromatin_key}")
-		plt.xlabel(f"Expression")
+		plt.xlabel(f"{chromatin_key}")
+		plt.ylabel(f"Expression")
 		plt.xlim(*xlim)
 		plt.ylim(*ylim)
 		plt.title(chromatin_key)
 	
-	def plot_state_phase_all_metrics_gene(self, gene_or_orf_name, figsize=(9, 3),
-			chromatin_data_source='deconvolved', save_plots=False):
-		"""
-		Create 3-panel plot showing all chromatin metrics vs expression for a single gene.
-		
-		Parameters
-		----------
-		gene_or_orf_name : str
-			Gene name or ORF name to plot
-		figsize : tuple, optional
-			Figure size
-		save_plots : bool, optional
-			Whether to save the plot
-		"""
-		if chromatin_data_source == 'deconvolved':
-			plot_metric_function = self.plot_orf_phase_state_deconvolved
-			kwargs = {}
-		elif chromatin_data_source == 'raw_rep1':
-			plot_metric_function = self.plot_orf_phase_state_raw
-			kwargs = {'replicate': 1}
-		elif chromatin_data_source == 'raw_rep2':
-			plot_metric_function = self.plot_orf_phase_state_raw
-			kwargs = {'replicate': 2}
-		else:
-			raise ValueError()
-
-		fig = plt.figure(figsize=figsize)
-		
-		plt.subplot(1, 3, 1)
-		plot_metric_function(gene_or_orf_name, chromatin_key='nucleosome_occupancy', **kwargs)
-		
-		plt.subplot(1, 3, 2)
-		plot_metric_function(gene_or_orf_name, chromatin_key='promoter_occupancy', 
-								 xlim=(-0.5, 3), **kwargs)
-		
-		plt.subplot(1, 3, 3)
-		plot_metric_function(gene_or_orf_name, chromatin_key='nucleosome_entropy', **kwargs,
-			xlim=(1, 9))
-		
-		from src.sgd import get_gene_title_name
-		gene_title_name = get_gene_title_name(gene_or_orf_name)
-		
-		plt.suptitle(gene_title_name, fontweight='demi', fontsize=12)
-		plt.tight_layout()
-
-		return fig
-
 	def plot_all_metrics_all_replicates_gene(self, gene_or_orf_name, figsize=(4, 4),
 											save_plots=False):
 		"""
@@ -484,18 +438,18 @@ class IntegratedChromatinExpressionAnalyzer:
 		metrics_config = {
 			'nucleosome_occupancy': {
 				'title': 'Nucleosome Occupancy',
-				'ylim': (0, 5),
-				'xlim': (0, 15)
+				'xlim': (0, 5),
+				'ylim': (0, 15)
 			},
 			'promoter_occupancy': {
 				'title': 'Promoter Occupancy', 
-				'ylim': (0, 3),
-				'xlim': (0, 15)
+				'xlim': (0, 3),
+				'ylim': (0, 15)
 			},
 			'nucleosome_entropy': {
 				'title': 'Nucleosome Entropy',
-				'ylim': (0, 3),
-				'xlim': (0, 15)
+				'xlim': (0, 3),
+				'ylim': (0, 15)
 			}
 		}
 		
@@ -538,28 +492,49 @@ class IntegratedChromatinExpressionAnalyzer:
 				
 				# Set titles for top row
 				if row_idx == 0:
-					ax.set_title(col_title, fontweight='demi', fontsize=12)
+					ax.set_title(col_title, fontsize=12)
 				else:
 					ax.set_title('')  # Clear default title from individual plot functions
+
+				ax.set_xticks([])
+				ax.set_yticks([])
 				
 				# Set y-axis labels only for leftmost column
 				if col_idx > 0:
 					ax.set_ylabel('')
-					ax.set_yticks([])
+				else:
+					ylabel = metric.replace('_', '\n')
+					ylabel = ylabel[0].upper() + ylabel[1:]
+					plt.ylabel(f"{ylabel}", rotation=0, ha='right', va='center',
+						labelpad=20)
+
+					# Position based on xlims
+					xlims = metric_config['xlim']
+					xlims_diff = xlims[1]-xlims[0]
+					x_pos = xlims[0]-xlims_diff*0.125
+
+					ax.text(x_pos, 0.12, 'Expression', rotation=90, ha='left', 
+						va='bottom', fontsize=8)  # Bottom row
 				
 				# Set x-axis labels only for bottom row
 				if row_idx < 2:
 					ax.set_xlabel('')
-					ax.set_xticks([])
+				else:
+
+					if col_idx == 0 or col_idx == 2:
+
+						x_pos = 0
+
+						ax.text(x_pos, -2.5, 'Chromatin value', ha='left', 
+							va='bottom', fontsize=8)  # Bottom row
+						ax.set_xlabel('')
+					else:
+						ax.set_xlabel('')
 
 		# Add overall title with gene name
 		gene_title_name = get_gene_title_name(gene_or_orf_name)
 		fig.suptitle(f'{gene_title_name}',
 					fontweight='demi', fontsize=14)
-		
-		if save_plots:
-			# Add save functionality here if needed
-			pass
 		
 		return fig
 	
@@ -887,7 +862,7 @@ class IntegratedChromatinExpressionAnalyzer:
 		ptrs_joined = expression_ptrs[['ptr']].join(chromatin_ptrs, how='inner')
 		ptrs_joined.columns = ['expression_ptr', 'chromatin_ptr']
 		ptrs_joined = ptrs_joined.join(res)
-		ptrs_joined = ptrs_joined.sort_values('trajectory_area')
+		ptrs_joined = ptrs_joined.sort_values('normalized_trajectory_area')
 
 		return ptrs_joined
 
@@ -900,12 +875,12 @@ class IntegratedChromatinExpressionAnalyzer:
 		
 		plot_res_data = self.trajectory_area_linkages[chromatin_key]
 		selected_orf_names = self.coordinated_genes['deconvolved'][chromatin_key]['genes']
-		selected_data = plot_res_data.loc[selected_orf_names].sort_values('trajectory_area')
+		selected_data = plot_res_data.loc[selected_orf_names].sort_values('normalized_trajectory_area')
 
 		gene_names = [get_gene_title_name(orf_name, include_system=False) \
 						  for orf_name, row in selected_data.iterrows()]
 
-		plt.scatter(selected_data.trajectory_area, gene_names, 
+		plt.scatter(selected_data.normalized_trajectory_area, gene_names, 
 					s=2, marker='D', color=plt.get_cmap(cmap)(0.7))
 		plt.title(f"{name}, n={len(selected_data)}")
 		ys = np.arange(len(gene_names))
@@ -940,15 +915,8 @@ class IntegratedChromatinExpressionAnalyzer:
 		nrows, ncols = 2, 10
 		n_tot = nrows*ncols
 		
-		lims_mapping = {
-			'expression': (-0.5, 13),
-			'promoter_occupancy': (0, 3),
-			'nucleosome_occupancy': (0, 8),
-			'nucleosome_entropy': (-0.1, 3),
-		}
-
-		xlim = lims_mapping['expression']
-		ylim = lims_mapping[chromatin_key]
+		ylim = trajectory_lims_mapping['expression']
+		xlim = trajectory_lims_mapping[chromatin_key]
 		
 		orf_names = list(orf_names[:ncols]) + list(orf_names[-ncols:])
 
@@ -970,13 +938,26 @@ class IntegratedChromatinExpressionAnalyzer:
 			plt.text(xlim[0]+(xlim[1]-xlim[0])*.05, 
 					 ylim[1]-(ylim[1]-ylim[0])*0.05, gene_title, va='top',
 					 fontsize=10)
-			
-			if i == 0:
-				plt.ylabel(f"Bottom {ncols}", rotation=0, ha='right')
-			elif i == ncols:
-				plt.ylabel(f"Top {ncols}", rotation=0, ha='right')
 
-		plt.subplots_adjust(wspace=0, hspace=0.3, top=0.81)
+			# Label the axes
+			if i == 0:
+
+				# Group labeling
+				plt.ylabel(f"Bottom {ncols}", rotation=0, ha='right', labelpad=22, fontsize=12)
+			elif i == ncols:
+
+				# Group labeling
+				plt.ylabel(f"Top {ncols}", rotation=0, ha='right', labelpad=22, fontsize=12)
+
+				# Values labeling
+				xlabel = chromatin_key.replace('_', ' ')
+				xlabel = xlabel[0].upper() + xlabel[1:]
+				plt.xlabel(xlabel, fontsize=10, labelpad=7, ha='left', x=0)
+
+		plt.subplots_adjust(wspace=0, hspace=0.3, top=0.81, left=0.15)  # More left margin
+
+		fig.text(0.131, 0.12, 'Expression', rotation=90, ha='left', 
+			va='bottom', fontsize=10)  # Bottom row
 
 	def plot_chromatin_example_trajectories(self, chromatin_key):
 		
@@ -985,9 +966,105 @@ class IntegratedChromatinExpressionAnalyzer:
 		
 		plot_res_data = self.trajectory_area_linkages[chromatin_key]
 		selected_orf_names = self.coordinated_genes['deconvolved'][chromatin_key]['genes']
-		selected_data = plot_res_data.loc[selected_orf_names].sort_values('trajectory_area',
+		selected_data = plot_res_data.loc[selected_orf_names].sort_values('normalized_trajectory_area',
 																		 ascending=True)
 		print("Number of genes", len(selected_data))
 		
 		self.plot_deconvolved_examples_grid(selected_data.index.values, chromatin_key)
-		plt.suptitle(f"{name}, sorted by trajectory area", fontweight='demi', fontsize=16)
+		plt.suptitle(f"{name}, by normalized trajectory area", fontweight='demi', fontsize=16)
+
+	def plot_gene_group_trajectories_all_metrics(self, gene_list, figsize_per_row=(6, 1.5), title=''):
+		"""
+		Plot trajectories for a set of genes across all three chromatin metrics.
+		
+		Creates an N×3 grid where each row is a gene and columns are:
+		[Promoter Occupancy, Nucleosome Entropy, Nucleosome Occupancy]
+		
+		Parameters
+		----------
+		gene_list : list
+			List of gene names or ORF names to plot in desired order
+		figsize_per_row : tuple, optional
+			Figure size per row (width, height), total figure scales with number of genes
+			
+		Returns
+		-------
+		matplotlib.figure.Figure
+			The created figure object
+		"""
+		
+		# Define the metrics and their axis limits
+		metrics = ['promoter_occupancy', 'nucleosome_entropy', 'nucleosome_occupancy']
+		metric_titles = ['Promoter Occupancy', 'Nucleosome Entropy', 'Nucleosome Occupancy']
+		
+		ylim = trajectory_lims_mapping['expression']
+		
+		# Calculate total figure size
+		n_genes = len(gene_list)
+
+		# With this - add fixed space for title:
+		title_space = 1.1  # Fixed inches for title area
+		additional_title_spacing = n_genes/10 * 0.3 # Scale the title space by the number of rows
+		title_space = title_space + additional_title_spacing
+
+		total_figsize = (figsize_per_row[0], figsize_per_row[1] * n_genes + title_space)
+		
+		# Create the subplot grid
+		fig, axes = plt.subplots(n_genes, 3, figsize=total_figsize)
+		
+		# Handle case of single gene (axes won't be 2D)
+		if n_genes == 1:
+			axes = axes.reshape(1, -1)
+		
+		# Plot each gene-metric combination
+		for row_idx, gene in enumerate(gene_list):
+			for col_idx, (metric, metric_title) in enumerate(zip(metrics, metric_titles)):
+				ax = axes[row_idx, col_idx]
+				plt.sca(ax)  # Set current axis
+				
+				# Get appropriate y-axis limits for this metric
+				xlim = trajectory_lims_mapping[metric]
+				
+				# Plot the trajectory
+				self.plot_orf_phase_state_deconvolved(
+					gene, 
+					chromatin_key=metric, 
+					xlim=xlim, 
+					ylim=ylim,
+					plot_arrows=True
+				)
+				
+				# Clear the default title from individual plot function
+				ax.set_title('')
+				
+				# Set column headers only for top row
+				if row_idx == 0:
+					ax.set_title(metric_title.replace(' ', '\n'), fontsize=14)
+
+				ax.set_ylabel('')
+				
+				# Set gene names only for leftmost column
+				if col_idx == 0:
+					from src.sgd import get_gene_title_name
+					gene_title_name = get_gene_title_name(gene, include_system=False)
+					ax.set_ylabel(gene_title_name, rotation=0, ha='right', fontsize=24,
+						labelpad=7)
+
+				elif col_idx == 2:
+					axis_label_ax = ax.twinx()
+					axis_label_ax.set_yticks([])
+					axis_label_ax.set_ylabel('Expression', fontsize=14, rotation=270,
+						labelpad=12, ha='center')
+
+				ax.set_yticks([])
+				ax.set_xticks([])
+				ax.set_xlabel('')
+
+		# Then at the end, use subplots_adjust with calculated top margin:
+		plot_area_height = figsize_per_row[1] * n_genes
+		top_margin = plot_area_height / total_figsize[1]  # This will be consistent
+
+		plt.suptitle(title, fontweight='demi', fontsize=26)
+		plt.subplots_adjust(wspace=0, hspace=0, top=top_margin, bottom=0)
+		
+		return fig

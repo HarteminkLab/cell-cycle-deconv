@@ -28,6 +28,26 @@ def calculate_trajectory_area(var1_data: np.ndarray, var2_data: np.ndarray) -> f
 	
 	return abs(area) / 2.0
 
+def calculate_diameter_squared(var1_data: np.ndarray, var2_data: np.ndarray) -> float:
+    """Calculate the square of the maximum distance between any two points."""
+    if len(var1_data) < 2:
+        return 0.0
+    
+    max_dist_sq = 0.0
+    for i in range(len(var1_data)):
+        for j in range(i + 1, len(var1_data)):
+            dist_sq = (var1_data[j] - var1_data[i])**2 + (var2_data[j] - var2_data[i])**2
+            max_dist_sq = max(max_dist_sq, dist_sq)
+    
+    return max_dist_sq
+
+
+def calculate_bounding_box_area(var1_data: np.ndarray, var2_data: np.ndarray) -> float:
+    """Calculate the area of the bounding rectangle."""
+    var1_range = np.max(var1_data) - np.min(var1_data)
+    var2_range = np.max(var2_data) - np.min(var2_data)
+    return var1_range * var2_range
+
 
 def calculate_linkage_values(df1, df2, index) -> pd.DataFrame:
 	"""
@@ -53,8 +73,15 @@ def calculate_linkage_values(df1, df2, index) -> pd.DataFrame:
 		spearmanr_value, spearman_p = spearmanr(var1_data, var2_data)
 		traj_area = calculate_trajectory_area(var1_data, var2_data)
 		
+		# Normalization scalars
+		diameter_sq = calculate_diameter_squared(var1_data, var2_data)
+		bounding_box_area = calculate_bounding_box_area(var1_data, var2_data)
+
 		results.append({
 			'trajectory_area': traj_area,
+			'normalized_trajectory_area': traj_area/diameter_sq,
+			'diameter_sq': diameter_sq,
+			'bounding_box_area': bounding_box_area,
 			'pearsonr': pearsonr_value,
 			'spearmanr': spearmanr_value,
 			'pearsonr_p': pearson_p,

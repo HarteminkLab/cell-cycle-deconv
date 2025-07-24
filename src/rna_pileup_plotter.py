@@ -23,6 +23,7 @@ class RNASeqPileupPlotter:
 		self.span = None
 		self.chromosome = None
 		self.replicate = None
+		self.ylim = 8
 		
 	def set_chrom_span(self, chrom, span, replicate):
 		"""
@@ -153,7 +154,7 @@ class RNASeqPileupPlotter:
 			raise ValueError("Mode must be 'timepoints' or 'minmax'")
 		
 		# Set axis properties
-		ax.set_ylim(-5, 5)
+		ax.set_ylim(-self.ylim, self.ylim)
 		ax.set_xlim(*self.span)
 		
 		return ax

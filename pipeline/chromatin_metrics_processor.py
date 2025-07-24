@@ -9,19 +9,19 @@ from matplotlib import pyplot as plt
 plot_formatting_map = {
 	'promoter_occupancy': {
 		'bw': 0.007,
-		'ptr_lims': (0.95, 2.5),
+		'ptr_lims': (0.95, 2.0),
 		'cmap': 'Oranges',
 		'name': "Promoter occupancy"
 	},
 	'nucleosome_entropy': {
 		'bw': 0.007,		
-		'ptr_lims': (0.95, 2.5),
+		'ptr_lims': (0.95, 2.0),
 		'cmap': 'Purples',
 		'name': "Nucleosome entropy"
 	},        
 	'nucleosome_occupancy': {
 		'bw': 0.007,
-		'ptr_lims': (0.95, 2.5),
+		'ptr_lims': (0.95, 2.0),
 		'cmap': 'Blues',
 		'name': "Nucleosome occupancy"
 	}

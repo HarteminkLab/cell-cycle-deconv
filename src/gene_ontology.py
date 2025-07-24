@@ -113,5 +113,5 @@ def genes_for_go(go_genes, go_terms):
 		for go_term in go_terms:
 			go_mask = go_mask | go_genes.ontology.str.contains(go_term)
 
-	return go_genes[go_mask], go_mask
+	return go_genes[go_mask]
 
