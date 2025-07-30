@@ -103,6 +103,7 @@ def layout_images_vertically(compositor, image_paths_arr, height_proportions=Non
 	current_y = top_margin
 	
 	for i, (path, width, height, offset, key) in enumerate(zip(image_paths_arr, widths, heights, offsets, image_keys)):
+
 		x_pos = x_position + offset[0]
 		y_pos = current_y + offset[1]
 		
@@ -118,7 +119,7 @@ def layout_images_vertically(compositor, image_paths_arr, height_proportions=Non
 		)
 		
 		placed_images[key] = img_info
-		
+
 		# Update y position for next image based on the actual height of the placed image
 		current_y += img_info['logical_size'][1] + between_padding
 	

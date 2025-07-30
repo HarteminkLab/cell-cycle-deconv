@@ -2,7 +2,7 @@
 import numpy as np
 from scipy.stats.distributions import norm
 
-def get_smoothing_kernel(plot=False, smoothing_window=200, smoothing_sigma=10):
+def get_smoothing_kernel(plot=False, smoothing_window=100, smoothing_sigma=10):
 	n = smoothing_window
 	xs = np.linspace(-n//2, n//2+1, n)
 	kernel = norm.pdf(xs, 0, smoothing_sigma)

@@ -206,11 +206,13 @@ class TranscriptBoundaryCaller:
 			# Calculate average value
 			region_values = pileup_vector[start_idx:end_idx+1]
 			avg_value = np.mean(region_values)
+			max_value = np.max(region_values)
 			
 			result = {
 				'start': genomic_start,
 				'end': genomic_end,
-				'average_value': avg_value
+				'average_value': avg_value,
+				'max_value': max_value
 			}
 				
 			results.append(result)
@@ -474,13 +476,12 @@ class TranscriptBoundaryCaller:
 
 		self.plot_called_watson_crick_transcripts_ax(plt.gca())
 			
-		plt.ylim(-3, 3)
 		plt.xlim(span[0], span[1])
 		plt.suptitle("Called transcript boundaries", fontweight='demi')
 
 		return fig
 
-	def plot_called_watson_crick_transcripts_ax(self, ax):
+	def plot_called_watson_crick_transcripts_ax(self, ax, minimum_transcript_level=0.25):
 
 		def plot_called_row(ax, row, flip):
 			y = -20 if flip else 20
@@ -488,16 +489,17 @@ class TranscriptBoundaryCaller:
 			ax.plot([row.start, row.end], 
 				[mean_y, mean_y], color='black', ls='dotted', lw=0.75)
 			ax.fill_between([row.start, row.end],  
-				[y, y], 0, lw=0,
-					 color='#eee', zorder=0, alpha=0.45)
+				[y, y], 0, lw=0, color='#eee', zorder=0, alpha=0.45)
 			ax.plot([row.start, row.start], [0, y], c='black', lw=0.25)
 			ax.plot([row.end, row.end], [0, y], c='black', lw=0.25)
 
 		for i, row in self.called_watson_transcripts.iterrows():
-			plot_called_row(ax, row, False)
+			if row.average_value >= minimum_transcript_level:
+				plot_called_row(ax, row, False)
 			
 		for i, row in self.called_crick_transcripts.iterrows():
-			plot_called_row(ax, row, True)
+			if row.average_value >= minimum_transcript_level:
+				plot_called_row(ax, row, True)
 
 	def assign_genes_to_transcripts(self, genes_df):
 		"""

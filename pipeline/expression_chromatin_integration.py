@@ -278,7 +278,10 @@ class IntegratedChromatinExpressionAnalyzer:
 
 		from src.sgd import get_gene_name_orf_name, get_gene_title_name
 
-		orf_name, gene_name = get_gene_name_orf_name(orf_or_gene_name)
+		if orf_or_gene_name in chromatin_metrics_data.index:
+			orf_name = orf_or_gene_name
+		else:
+			orf_name, gene_name = get_gene_name_orf_name(orf_or_gene_name)
 		
 		# Extract time course data
 		chromatin_sample = chromatin_metrics_data.loc[orf_name]
@@ -335,7 +338,10 @@ class IntegratedChromatinExpressionAnalyzer:
 		deconvolved_chromatin_data = chromatin_metrics_data[chromatin_key]
 		deconvolved_transcription_data = self.expression_processor.expression_data
 		
-		orf_name, gene_name = get_gene_name_orf_name(orf_or_gene_name)
+		if orf_or_gene_name in chromatin_metrics_data[chromatin_key].index:
+			orf_name = orf_or_gene_name
+		else:
+			orf_name, gene_name = get_gene_name_orf_name(orf_or_gene_name)
 		
 		# Extract time course data
 		chromatin_sample = deconvolved_chromatin_data.loc[orf_name]
@@ -410,7 +416,7 @@ class IntegratedChromatinExpressionAnalyzer:
 		plt.title(chromatin_key)
 	
 	def plot_all_metrics_all_replicates_gene(self, gene_or_orf_name, figsize=(4, 4),
-											save_plots=False):
+											save_plots=False, title=None):
 		"""
 		Create 9-panel plot showing all chromatin metrics vs expression for all data sources.
 		
@@ -532,8 +538,10 @@ class IntegratedChromatinExpressionAnalyzer:
 						ax.set_xlabel('')
 
 		# Add overall title with gene name
-		gene_title_name = get_gene_title_name(gene_or_orf_name)
-		fig.suptitle(f'{gene_title_name}',
+		if title is None:
+			title = get_gene_title_name(gene_or_orf_name)
+
+		fig.suptitle(f'{title}',
 					fontweight='demi', fontsize=14)
 		
 		return fig

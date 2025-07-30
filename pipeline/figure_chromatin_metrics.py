@@ -155,10 +155,10 @@ class FigureChromatinMetrics:
 				'save_name': 'locus_HTA1_HTB1',
 				'figsize': (7, 11)
 			},
-			'MCM1': {
-				'title': f"{get_gene_title_name('MCM1', include_system=False)}",
+			'MCM2': {
+				'title': f"{get_gene_title_name('MCM2', include_system=False)}",
 				'span_offset': (-1500, 1500),
-				'save_name': 'locus_MCM1',
+				'save_name': 'locus_MCM2',
 				'figsize': (7, 11)
 			},
 			'MCM7': {
@@ -270,8 +270,8 @@ class FigureChromatinMetrics:
 		self.create_locus_plots()
 		
 		print("Creating panel layout...")
-		self.layout_metrics_panel1()
-		self.layout_metrics_panel2()
+		self.layout_trajectories_panel()
+		self.layout_chromatin_transcription_ptrs()
 		self.layout_genesets_panel()
 		self.layout_mcm_panel()
 		self.layout_supplemental_panel()
@@ -279,20 +279,20 @@ class FigureChromatinMetrics:
 		print("Complete figure generation finished!")
 
 
-	def layout_metrics_panel1(self, margin=(30, 30), between_padding=20, 
+	def layout_trajectories_panel(self, margin=(30, 30), between_padding=20, 
 							  panel_padding=40, add_labels=True, font_size=36):
 		"""Layout the figure panel for """
 		import os
 
-		from pipeline.figure_composer_helpers import layout_images_horizontally
+		from pipeline.figure_composer_helpers import layout_images_vertically
 
-		compositor = FigureCompositor(1024, 900, debug_mode=True)
+		compositor = FigureCompositor(1024, 530, debug_mode=True)
 		image_dir = self.figures_dir
 		panel_save_path = os.path.join(self.panel_figures_dir, 'Figure5_Chromatin_Metrics.png')
 		
 		# Define image paths
 		image_paths = {
-			'raw_vs_deconv': os.path.join(image_dir, 'raw_vs_deconvolved_all_metrics_ptrs.png'),
+			'traj_diagrams': './diagrams/Transcription_Chromatin_Diagrams.png',
 			'clb1_traj': os.path.join(image_dir, 'trajectories_CLB1.png'),
 			'mcm7_traj': os.path.join(image_dir, 'trajectories_MCM7.png')
 		}
@@ -303,39 +303,43 @@ class FigureChromatinMetrics:
 			raise FileNotFoundError(f"Missing image files: {missing_images}")
 		
 		all_placed_images = {}
-		
-		# 1. Place the first figure full width at the top
-		top_img = compositor.place_image(
-			image_paths['raw_vs_deconv'],
-			x=margin[0],
-			y=margin[1],
-			width=compositor.logical_width - (2 * margin[0]),
-			name='RawVsDeconv'
-		)
-		all_placed_images['RawVsDeconv'] = top_img
-		
-		# 2. Place two images side by side below the first
-		# Calculate y position for the second row
-		second_row_y = top_img['logical_position'][1] + top_img['logical_size'][1] + panel_padding
-		
-		# Layout two images horizontally
-		side_by_side_paths = [image_paths['clb1_traj'], image_paths['mcm7_traj']]
-		side_by_side_keys = ['CLB1Trajectories', 'MCM7Trajectories']
-		
-		side_by_side_images = layout_images_horizontally(
+
+		# Calculate proportions - gene examples on left, diagram on right
+		left_prop = 0.31  # Gene examples get ~31% of width
+		left_width = (compositor.logical_width - panel_padding - (2 * margin[0])) * left_prop
+
+		# 1. Place two gene example images vertically on the left
+		vertical_paths = [image_paths['clb1_traj'], image_paths['mcm7_traj']]
+		vertical_keys = ['CLB1Trajectories', 'MCM7Trajectories']
+
+		vertical_images = layout_images_vertically(
 			compositor,
-			side_by_side_paths,
-			width_proportions=[1, 1],  # Equal widths
+			vertical_paths,
+			x_position=margin[0],
 			between_padding=between_padding,
-			margin=(margin[0], second_row_y),
-			image_keys=side_by_side_keys
+			margin=(margin[0], margin[1]),
+			widths=[left_width, left_width],
+			image_keys=vertical_keys
 		)
-		all_placed_images.update(side_by_side_images)
+		all_placed_images.update(vertical_images)
 		
-		# 4. Add panel labels if requested
+		# 2. Place the diagram on the right side
+		right_col_x = margin[0] + left_width + panel_padding
+		right_width = (compositor.logical_width - panel_padding - (2 * margin[0]) - left_width)
+
+		right_img = compositor.place_image(
+			image_paths['traj_diagrams'],
+			x=right_col_x,
+			y=margin[1],
+			width=right_width,
+			name='TrajDiagrams'
+		)
+		all_placed_images['TrajDiagrams'] = right_img
+		
+		# 3. Add panel labels if requested
 		if add_labels:
-			# Order images for labeling: top, left, right, bottom
-			ordered_keys = ['RawVsDeconv', 'CLB1Trajectories', 'MCM7Trajectories']
+			# Order images for labeling: gene examples first, then diagram
+			ordered_keys = ['CLB1Trajectories', 'MCM7Trajectories', 'TrajDiagrams']
 			labels = ['A', 'B', 'C']
 			
 			for key, label in zip(ordered_keys, labels):
@@ -347,6 +351,15 @@ class FigureChromatinMetrics:
 						font_size=font_size,
 						font_type='bold'
 					)
+
+		# Add the second diagram label (as in original)
+		compositor.add_panel_label_to_image(
+			'TrajDiagrams',
+			'D',
+			offset=(-10, 235),
+			font_size=font_size,
+			font_type='bold'
+		)
 		
 		# Save the composed figure
 		compositor.save(panel_save_path)
@@ -355,8 +368,8 @@ class FigureChromatinMetrics:
 		return panel_save_path
 
 
-	def layout_metrics_panel2(self, margin=(30, 30), between_padding=20,
-							 left_width_percent=49, add_labels=True, font_size=24):
+	def layout_chromatin_transcription_ptrs(self, margin=(30, 30), between_padding=20,
+							 left_width_percent=41, add_labels=True, font_size=24):
 		"""
 		Layout metrics panel 2 with the following arrangement:
 		- Left column (35% width): ptrs_vs_ptr_trajectory.png, cell_cycle_trajectory_values.png
@@ -367,12 +380,13 @@ class FigureChromatinMetrics:
 		import os
 
 		image_dir = self.figures_dir
-		panel_save_path = os.path.join(self.panel_figures_dir, 'Figure6_Chromatin_Transcription.png')
+		panel_save_path = os.path.join(self.panel_figures_dir, 'Supplemental_Chromatin_Transcription.png')
 
-		compositor = FigureCompositor(1024, 480, debug_mode=True)
+		compositor = FigureCompositor(1024, 580, debug_mode=True)
 		
 		# Define image paths
 		image_paths = {
+			'raw_vs_ptr':  os.path.join(image_dir, 'raw_vs_deconvolved_all_metrics_ptrs.png'),
 			'ptrs_vs_ptr': os.path.join(image_dir, 'ptrs_vs_ptr_trajectory.png'),
 			'cell_cycle_values': os.path.join(image_dir, 'cell_cycle_trajectory_values.png'),
 			'promoter_occupancy': os.path.join(image_dir, 'top_bottom_trajectories_promoter_occupancy.png'),
@@ -398,17 +412,18 @@ class FigureChromatinMetrics:
 		
 		# Left column - vertical layout (first two figures)
 		left_column_paths = [
+			image_paths['raw_vs_ptr'],
 			image_paths['ptrs_vs_ptr'],
 			image_paths['cell_cycle_values']
 		]
-		left_column_keys = ['PTRsVsPTR', 'CellCycleValues']
+		left_column_keys = ['RawvsPTR', 'PTRsVsPTR', 'CellCycleValues']
 		
 		left_images = layout_images_vertically(
 			compositor,
 			left_column_paths,
 			between_padding=between_padding,
 			margin=(left_x, margin[1]),
-			widths=[left_width, left_width],
+			widths=[left_width, left_width, left_width],
 			image_keys=left_column_keys
 		)
 		all_placed_images.update(left_images)
@@ -439,10 +454,10 @@ class FigureChromatinMetrics:
 		if add_labels:
 			# Order images for labeling: left column first, then right column
 			ordered_keys = [
-				'PTRsVsPTR', 'CellCycleValues',  # Left column
+				'RawvsPTR', 'PTRsVsPTR', 'CellCycleValues',  # Left column
 				'PromoterOccupancy', 'NucleosomeEntropy', 'NucleosomeOccupancy'  # Right column
 			]
-			labels = ['A', 'B', 'C', 'D', 'E']
+			labels = ['A', 'B', 'C', 'D', 'E', 'F']
 			
 			for key, label in zip(ordered_keys, labels):
 				if key in all_placed_images:
@@ -461,7 +476,7 @@ class FigureChromatinMetrics:
 		return panel_save_path
 
 	def layout_genesets_panel(self, margin=(30, 30), between_padding=30, traj_vertical_padding=15, 
-							  panel_padding=30, add_labels=True, font_size=28):
+						  panel_padding=30, add_labels=True, font_size=28):
 		"""Layout the figure panel for genesets analysis"""
 		import os
 		
@@ -469,7 +484,7 @@ class FigureChromatinMetrics:
 
 		compositor = FigureCompositor(1024, 520, debug_mode=True)
 		image_dir = self.figures_dir
-		panel_save_path = os.path.join(self.panel_figures_dir, 'Figure_Genesets_Panel.png')
+		panel_save_path = os.path.join(self.panel_figures_dir, 'Figure6_Genesets.png')
 		
 		# Define image paths
 		image_paths = {
@@ -491,85 +506,90 @@ class FigureChromatinMetrics:
 		
 		all_placed_images = {}
 		
-		# 1. Place locus images side by side on the left (60% width)
-		# Calculate dimensions for each locus image
+		# Calculate fixed height for locus plots
 		locus_height = compositor.logical_height - (2 * margin[1])
 		
-		# Place CLB1 locus image
+		# STEP 1: Place locus plots from right to left
+		
+		# Place CLB1 locus (rightmost)
 		clb1_img = compositor.place_image(
 			image_paths['locus_clb1'],
-			x=margin[0],
+			x=compositor.logical_width - margin[0],  # Start from right edge
 			y=margin[1],
 			height=locus_height,
-			name='LocusCLB1'
+			name='LocusCLB1',
+			anchor='top_right'  # Anchor to right edge
 		)
 		all_placed_images['LocusCLB1'] = clb1_img
-		clb1_width = clb1_img['logical_size'][0]	
-
-		# Place HTA1_HTB1 locus image
+		clb1_width = clb1_img['logical_size'][0]
+		
+		# Place HTA1_HTB1 locus (to the left of CLB1)
+		hta1_htb1_x = compositor.logical_width - margin[0] - clb1_width - between_padding
 		hta1_htb1_img = compositor.place_image(
 			image_paths['locus_hta1_htb1'],
-			x=margin[0] + clb1_width + between_padding,
+			x=hta1_htb1_x,
 			y=margin[1],
 			height=locus_height,
-			name='LocusHTA1HTB1'
+			name='LocusHTA1HTB1',
+			anchor='top_right'  # Anchor to right edge of its position
 		)
 		all_placed_images['LocusHTA1HTB1'] = hta1_htb1_img
-
-		# 2. NOW calculate trajectory section dimensions based on actual locus widths
-		hta1_width = hta1_htb1_img['logical_size'][0]
-		actual_locus_section_width = clb1_width + between_padding + hta1_width
-		traj_start_x = margin[0] + actual_locus_section_width + panel_padding
-
-		# Calculate remaining width for trajectory columns
-		remaining_width = compositor.logical_width - margin[0] - actual_locus_section_width - \
-			panel_padding - margin[0]
-		trajectory_column_width = (remaining_width - between_padding) // 2
+		hta1_htb1_width = hta1_htb1_img['logical_size'][0]
 		
-		# 2. Place cyclins column (G1, S, M) - first column of trajectory section
-		cyclin_paths = [image_paths['traj_g1'], image_paths['traj_s'], image_paths['traj_m']]
-		cyclin_keys = ['TrajG1', 'TrajS', 'TrajM']
-
-		cyclins_placed = layout_images_vertically(
-			compositor=compositor,
-			image_paths_arr=cyclin_paths,
-			between_padding=traj_vertical_padding,
-			margin=(0, margin[1]),  # No horizontal margin since we're setting x_position
-			x_position=traj_start_x,
-			image_keys=cyclin_keys,
-			widths=[trajectory_column_width] * len(cyclin_paths),
-			preserve_aspect_ratio=True
-		)
-		all_placed_images.update(cyclins_placed)
-
-		# 3. Place histones column (H2A, H2B, H3, H4) - second column of trajectory section
+		# STEP 2: Calculate remaining width for trajectory columns
+		total_locus_width = clb1_width + between_padding + hta1_htb1_width
+		available_width = (compositor.logical_width - (2 * margin[0]) - 
+						   total_locus_width - panel_padding)
+		
+		# Equal width for each trajectory column with padding between them
+		trajectory_column_padding = 30
+		trajectory_column_width = (available_width - trajectory_column_padding) // 2
+		
+		# STEP 3: Place trajectory columns (left side)
+		
+		# Place histones column (leftmost)
 		histone_paths = [image_paths['traj_h2a'], image_paths['traj_h2b'], 
 						 image_paths['traj_h3'], image_paths['traj_h4']]
 		histone_keys = ['TrajH2A', 'TrajH2B', 'TrajH3', 'TrajH4']
-
-		trajectory_column_padding = 30
-		histone_start_x = traj_start_x + trajectory_column_width + trajectory_column_padding
 
 		histones_placed = layout_images_vertically(
 			compositor=compositor,
 			image_paths_arr=histone_paths,
 			between_padding=traj_vertical_padding,
-			margin=(0, margin[1]),  # No horizontal margin since we're setting x_position
-			x_position=histone_start_x,
+			margin=(0, margin[1]),
+			x_position=margin[0],
 			image_keys=histone_keys,
 			widths=[trajectory_column_width] * len(histone_paths),
 			preserve_aspect_ratio=True
 		)
 		all_placed_images.update(histones_placed)
+
+		# Place cyclins column (second from left)
+		cyclin_paths = [image_paths['traj_g1'], image_paths['traj_s'], image_paths['traj_m']]
+		cyclin_keys = ['TrajG1', 'TrajS', 'TrajM']
 		
-		# 4. Add panel labels if requested
+		cyclins_x = margin[0] + trajectory_column_width + trajectory_column_padding
+
+		cyclins_placed = layout_images_vertically(
+			compositor=compositor,
+			image_paths_arr=cyclin_paths,
+			between_padding=traj_vertical_padding,
+			margin=(0, margin[1]),
+			x_position=cyclins_x,
+			image_keys=cyclin_keys,
+			widths=[trajectory_column_width] * len(cyclin_paths),
+			preserve_aspect_ratio=True
+		)
+		all_placed_images.update(cyclins_placed)
+		
+		# STEP 4: Add panel labels if requested
 		if add_labels:
-			# Labels for the four main sections: A=CLB1, B=HTA1_HTB1, C=cyclins column, D=histones column
+			# Labels for the four main sections in order: A=histones, B=cyclins, C=HTA1_HTB1, D=CLB1
 			label_assignments = [
-				('LocusCLB1', 'A'),
-				('LocusHTA1HTB1', 'B'),
-				('TrajG1', 'C'),  # Label the cyclins column with the top image
-				('TrajH2A', 'D')  # Label the histones column with the top image
+				('TrajH2A', 'A'),        # Histones column (leftmost)
+				('TrajG1', 'B'),         # Cyclins column 
+				('LocusHTA1HTB1', 'C'),  # HTA1_HTB1 locus
+				('LocusCLB1', 'D')       # CLB1 locus (rightmost)
 			]
 			
 			for key, label in label_assignments:
@@ -595,7 +615,7 @@ class FigureChromatinMetrics:
 		
 		Arranges three figures side by side:
 		- locus_MCM7.png
-		- locus_MCM1.png 
+		- locus_MCM5.png 
 		- trajectories_group_MCM2-7_complex.png
 		
 		Parameters:
@@ -620,17 +640,17 @@ class FigureChromatinMetrics:
 		# Set up compositor - adjust width as needed for three horizontal images
 		compositor = FigureCompositor(1024, 620, debug_mode=True)
 		image_dir = self.figures_dir
-		panel_save_path = os.path.join(self.panel_figures_dir, 'Figure_MCM_Panel.png')
+		panel_save_path = os.path.join(self.panel_figures_dir, 'Supplemental_MCM_Panel.png')
 		
 		# Define image paths
 		image_paths = [
 			os.path.join(image_dir, 'locus_MCM7.png'),
-			os.path.join(image_dir, 'locus_MCM1.png'),
+			os.path.join(image_dir, 'locus_MCM2.png'),
 			os.path.join(image_dir, 'trajectories_group_MCM2-7_complex.png')
 		]
 		
 		# Define image keys for referencing
-		image_keys = ['MCM7Locus', 'MCM1Locus', 'MCMTrajectories']
+		image_keys = ['MCM7Locus', 'MCM5Locus', 'MCMTrajectories']
 		
 		# Verify all images exist
 		missing_images = [path for path in image_paths if not os.path.exists(path)]

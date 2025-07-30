@@ -34,56 +34,26 @@ def plot_genic_non_genic_transcript_calls(ax, chrom, span, outdir):
 
 
 def plot_tx_transcript_context(outdir, chrom, span, orf_plotter, rna_plotter, combined_model,
-	caller):
+	caller, figsize=(12, 5)):
 
 	orf_plotter.set_span_chrom(span, chrom)
 	rna_plotter.set_chrom_span(chrom, span, 1)
 	combined_model.load_mnase_span(chrom, span)
-	
-	# watson_selected_pileup = caller.watson_rep1[range(span[0], span[1])]
-	# crick_selected_pileup = caller.crick_rep1[range(span[0], span[1])]
 
-	plt.figure(figsize=(17, 11))
+	plt.figure(figsize=figsize)
 
-	plt.subplot(6, 1, 1)
+	plt.subplot(2, 1, 1)
 	ax = plt.gca()
 	orf_plotter.plot_orf_annotations(ax)
 
-	plt.subplot(6, 1, 2)
+	plt.subplot(2, 1, 2)
 	ax = plt.gca()
-	rna_plotter.replicate = 'combined'
-	rna_plotter.plot_pileup(ax=ax, mode='timepoints')
-	ax.set_xticks([])
-	ax.set_yticks([])
-	plot_genic_non_genic_transcript_calls(ax, chrom, span, outdir)
-	
-	plt.subplot(6, 1, 3)
-	ax = plt.gca()
+	rna_plotter.ylim = 6
 	rna_plotter.plot_pileup(ax=ax, mode='minmax')
 	ax.set_yticks([])
 	ax.set_xticks([])
 
 	caller.plot_called_watson_crick_transcripts_ax(ax)
-	
-	plt.subplot(6, 1, 4)
-	ax = plt.gca()
-	combined_model.chrom1_model.plot_raw_data(ax=ax, timepoint=0)
-	ax.set_xticks([])
-	plt.ylabel('0')
-	
-	plt.subplot(6, 1, 5)
-	ax = plt.gca()
-	combined_model.chrom1_model.plot_raw_data(ax=ax, timepoint=30)
-	ax.set_xticks([])
-	plt.ylabel('30')
-	
-	plt.subplot(6, 1, 6)
-	ax = plt.gca()
-	combined_model.chrom1_model.plot_raw_data(ax=ax, timepoint=60)
-	ax.set_xticks(np.arange(span[0], span[1]+1000, 1000))
-	plt.ylabel('60')
-	ax.set_xlim(*span)
-
 
 
 # -------------------------------------------------------------

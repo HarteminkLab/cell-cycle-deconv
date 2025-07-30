@@ -219,11 +219,12 @@ class FigureCompositor:
 		return int(value * self.scale_factor)
 	
 	def place_image(self, image_path: str, x: int, y: int, 
-				   width: Optional[int] = None, height: Optional[int] = None,
-				   name: Optional[str] = None, 
-				   preserve_aspect_ratio: bool = True,
-				   fill_transparent: bool = True,
-				   fill_color: Union[str, Tuple[int, int, int]] = (255, 255, 255)) -> Dict:
+					width: Optional[int] = None, height: Optional[int] = None,
+					name: Optional[str] = None, 
+					preserve_aspect_ratio: bool = True,
+					fill_transparent: bool = True,
+					fill_color: Union[str, Tuple[int, int, int]] = (255, 255, 255),
+					anchor: str = 'top_left') -> Dict:
 		"""
 		Place an image on the canvas at the specified position.
 		
@@ -321,6 +322,23 @@ class FigureCompositor:
 				# If no resize requested, the final dimensions are the original ones
 				logical_final_width = int(final_width / self.scale_factor)
 				logical_final_height = int(final_height / self.scale_factor)
+
+			# Adjust coordinates based on anchor point
+			if anchor == 'top_right':
+				x = x - logical_final_width
+			elif anchor == 'bottom_left':
+				y = y - logical_final_height
+			elif anchor == 'bottom_right':
+				x = x - logical_final_width
+				y = y - logical_final_height
+			elif anchor == 'center':
+				x = x - logical_final_width // 2
+				y = y - logical_final_height // 2
+
+			# Update the scaled positions for storage
+			# following adjustments to anchor
+			scaled_x = self._scale(x)
+			scaled_y = self._scale(y)
 			
 			# Paste the image onto the canvas at the scaled coordinates
 			self.canvas.paste(img, (scaled_x, scaled_y))

@@ -116,10 +116,12 @@ class RNASeqPileupPlotter:
 			crick_data = np.concatenate([self.crick_replicate1.values, self.crick_replicate2.values], axis=0)
 
 			# Plot min/max ranges with mean lines
-			watson_lower = np.quantile(watson_data, q=0.05, axis=0)
-			watson_upper = np.quantile(watson_data, q=0.95, axis=0)
-			crick_lower = np.quantile(crick_data, q=0.05, axis=0)
-			crick_upper = np.quantile(crick_data, q=0.95, axis=0)
+			qmax = 0.95
+			qmin = 0.05
+			watson_lower = np.quantile(watson_data, q=qmin, axis=0)
+			watson_upper = np.quantile(watson_data, q=qmax, axis=0)
+			crick_lower = np.quantile(crick_data, q=qmin, axis=0)
+			crick_upper = np.quantile(crick_data, q=qmax, axis=0)
 
 			watson_med = watson_data.mean(0)
 			crick_med = crick_data.mean(0)
