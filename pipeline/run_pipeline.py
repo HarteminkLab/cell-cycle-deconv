@@ -520,6 +520,16 @@ def main():
 		fig_metrics.setup_integration()
 		fig_metrics.generate_figures_and_panel()
 
+	elif command == 'figures_antisense':
+		
+		(_, command, output_dir) = system_args
+
+		from pipeline.figure_antisense_nongenic import FigureNongenicTranscripts
+
+		# Initialize and automatically load all data
+		fig_nongenic = FigureNongenicTranscripts(output_dir)
+		fig_nongenic.create_plots()
+		fig_nongenic.layout_panel()
 	else:
 
 		raise ValueError(f"Invalid command" + command)

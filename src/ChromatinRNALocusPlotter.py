@@ -22,7 +22,8 @@ class SingleBranchChromatinPlotter:
 	RNA pileup, and cell cycle annotations.
 	"""
 
-	def __init__(self, outdir, config1, branch_type="mother", figsize=(6, 5), title=None):
+	def __init__(self, outdir, config1, branch_type="mother", figsize=(6, 5), title=None,
+		rna_plotter=None):
 		"""
 		Initialize the plotter with configuration for a single branch
 		
@@ -77,7 +78,11 @@ class SingleBranchChromatinPlotter:
 			)
 			
 		self.orf_plotter = load_default_orf_plotter()
-		self.rna_plotter = RNASeqPileupPlotter(outdir)
+
+		if rna_plotter is None:
+			self.rna_plotter = RNASeqPileupPlotter(outdir)
+		else:
+			self.rna_plotter = rna_plotter
 
 		# Initialize the axes
 		self._initialize_axes()

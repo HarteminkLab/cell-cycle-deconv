@@ -13,6 +13,7 @@ from src.transcript_boundary_visualizer import plot_tx_transcript_context
 from pipeline.transcription_processor import ExpressionAnalysisProcessor
 from pipeline.chromatin_metrics_processor import ChromatinMetricsProcessor
 from src.utils import mkdir_safe
+from pipeline.expression_chromatin_integration import IntegratedChromatinExpressionAnalyzer
 
 class FigureNongenicTranscripts:
 	"""
@@ -61,9 +62,10 @@ class FigureNongenicTranscripts:
 
 		# Selected transcripts for scatter plot annotation
 		self.selected_transcripts = [
-			('1', 'Divergent', 'nogene_chr16_821687_822100'),  # Divergent transcribed transcript
+			('1', 'Divergent', 'nogene_chr16_821687_822100'), # Divergent transcribed transcript
 			('2', 'Upstream', 'nogene_chr2_307023_307915'),   # Antisense, ribosomal gene, nucleosome occ ptr
-			('3', 'Antisense', 'nogene_chr13_618858_619269'),  # Antisense transcript
+			('3', 'Antisense', 'nogene_chr15_594632_594826'), # Antisense transcript
+			# ('3', 'Antisense', 'nogene_chr4_130361_130486'),  # Antisense transcript, ribosomal
 		]
 		
 		# Initialize data processors and other components
@@ -77,6 +79,9 @@ class FigureNongenicTranscripts:
 		# Initialize processors
 		self.expression_processor = ExpressionAnalysisProcessor(self.output_dir)
 		self.chromatin_metrics_processor = ChromatinMetricsProcessor(self.output_dir)
+		self.integration = IntegratedChromatinExpressionAnalyzer(self.chromatin_metrics_processor,
+												   self.expression_processor,
+												   self.output_dir)	
 		
 		# Initialize genome deconvolution analysis
 		self.genome_deconv_analysis = GenomeDeconvolutionAnalysis(
@@ -90,6 +95,7 @@ class FigureNongenicTranscripts:
 		self.config2 = config2
 		self.orf_plotter = load_default_orf_plotter()
 		self.rna_plotter = RNASeqPileupPlotter(self.output_dir)
+		self.rna_plotter.ylim = 13
 		self.combined_model = CombinedChromatinModel(config1=config1, config2=config2)
 	
 	def load_data(self):
@@ -286,13 +292,24 @@ class FigureNongenicTranscripts:
 		
 		return fig
 	
-	def _create_scatter_subplot(self, joined_data, x_column, title, xlabel, colormap, subplot_pos, qthreshold):
+	def _create_scatter_subplot(self, joined_data, x_column, title, xlabel, colormap, 
+			subplot_pos, qthreshold):
 		"""Create individual scatter plot subplot."""
 
 		nrows, ncols = 3, 1
 
 		threshold = np.quantile(joined_data.expression_ptr.values, q=qthreshold)
 		plt.subplot(nrows, ncols, subplot_pos)
+
+
+		# Examine how many genes will be collected when a threshold is applied
+		# to the chromatin as well.
+
+		chromatin_values = joined_data[x_column].values
+		chromatin_ptr_threshold = np.quantile(chromatin_values, q=qthreshold)
+
+		print("Value threshold for chromatin measure:", x_column, chromatin_ptr_threshold)
+
 		
 		# Background scatter - below threshold
 		below_threshold_all = joined_data[joined_data.expression_ptr < threshold]
@@ -323,7 +340,7 @@ class FigureNongenicTranscripts:
 		plt.axhline(threshold, c='red', lw=1, alpha=0.5)
 
 		# Plot selected transcripts
-		xlim = 0.99, 1.4
+		xlim = 0.99, 2
 		for label, category, transcript_name in self.selected_transcripts:
 			if transcript_name in joined_data.index:
 				x, y = joined_data.loc[transcript_name][x_column], \
@@ -383,7 +400,8 @@ class FigureNongenicTranscripts:
 		fig = self.genome_deconv_analysis.plot_loaded_data(
 			figsize=(7, 11), 
 			title=title,
-			highlight_bins=[]
+			highlight_bins=[],
+			rna_plotter=self.rna_plotter
 		)
 		
 		return fig
@@ -457,6 +475,23 @@ class FigureNongenicTranscripts:
 		}
 		
 		return stats
+
+	def plot_selected_phase_space_plots(self):
+		"""Plot the phase space plots to see how the non-genic transcripts look in this visualization.
+
+		It's possible that the deconvolved transcripts could use a higher kappa or gamma value. As there
+		is an unusual sinusoidal wave on the daughter-branch.
+
+		Keep these plots available, in case we want to include them in the figure panel
+		"""
+		from src.figure_configs import save_figure_for_paper
+
+		for label, cat, transcript_name in self.selected_transcripts:
+			title = (f"{label} - {cat} transcript")
+			self.integration.plot_all_metrics_all_replicates_gene(transcript_name,
+				title=title)
+			save_figure_for_paper(f"{self.save_dir}/phase_space_{label}_{transcript_name}.png")
+
 	
 	def print_summary(self):
 		"""Print a formatted summary of the analysis."""
@@ -488,42 +523,53 @@ class FigureNongenicTranscripts:
 			fig2 = self.plot_transcript_locus(transcript_name, title=title)
 			save_figure_for_paper(f"{self.save_dir}/locus_{label}_{transcript_name}.png")
 
+		self.plot_selected_phase_space_plots()
+
 	def layout_panel(self):
-	    from pipeline.figure_composer import FigureCompositor
-	    from pipeline.figure_composer_helpers import layout_images_horizontally, \
-	        add_panel_labels_to_images
+		from pipeline.figure_composer import FigureCompositor
+		from pipeline.figure_composer_helpers import layout_images_horizontally, \
+			add_panel_labels_to_images
 
-	    # Create compositor with wider dimensions for horizontal layout
-	    compositor = FigureCompositor(1024, 460, debug_mode=True)
+		# Create compositor with wider dimensions for horizontal layout
+		compositor = FigureCompositor(1024, 460, debug_mode=True)
 
-	    image_paths = [
-	        f'{self.save_dir}/nongenic_ptrs.png',
-	        f'{self.save_dir}/locus_1_nogene_chr16_821687_822100.png',
-	        f'{self.save_dir}/locus_2_nogene_chr2_307023_307915.png',
-	        f'{self.save_dir}/locus_3_nogene_chr13_618858_619269.png'
-	    ]
+		image_paths = [
+			f'{self.save_dir}/nongenic_ptrs.png',
+			f'{self.save_dir}/locus_1_nogene_chr16_821687_822100.png',
+			f'{self.save_dir}/locus_2_nogene_chr2_307023_307915.png',
+			f'{self.save_dir}/phase_space_1_nogene_chr16_821687_822100.png',
+			f'{self.save_dir}/phase_space_2_nogene_chr2_307023_307915.png',
+		]
 
-	    # Layout images horizontally with custom width proportions
-	    # Adjust these proportions based on your image content needs
-	    placed_images = layout_images_horizontally(
-	        compositor,
-	        image_paths,
-	        width_proportions=[0.73, 1.0, 1.0, 1.0],  # First image slightly wider
-	        between_padding=30,
-	        margin=(40, 40),
-	        image_keys=['nongenic_ptrs', 'locus_1', 'locus_2', 'locus_3']  # Custom keys
-	    )
+		# Layout images horizontally with custom width proportions
+		# Adjust these proportions based on your image content needs
+		placed_images = layout_images_horizontally(
+			compositor,
+			image_paths[:4],
+			width_proportions=[0.71, 1.0, 1.0, 1.05],  # First image slightly wider
+			between_padding=30,
+			margin=(40, 40),
+			image_keys=['nongenic_ptrs', 'locus_1', 'locus_2', 'phase_space_1']  # Custom keys
+		)
 
-	    # Add panel labels (A, B, C, D)
-	    add_panel_labels_to_images(
-	        compositor, 
-	        compositor.placed_images,
-	        font_size=26,
-	        offset=(-15, -15)  # Adjust offset as needed
-	    )
+		# Place the last phase space plot below the first
+		position_x = compositor.placed_images['phase_space_1']['logical_position'][0]
+		phase_height = compositor.placed_images['phase_space_1']['logical_size'][1]
+		phase_width = compositor.placed_images['phase_space_1']['logical_size'][0]
+		position_y = compositor.placed_images['phase_space_1']['logical_position'][1]+phase_height+30
+		compositor.place_image(image_paths[4], position_x, position_y, phase_width, 
+							  None, 'phase_space_2')
 
-	    # Save the composite figure
-	    compositor.save(f'{self.figures_dir}/Supplemental_Nongenic_transcription.png')
+		# Add panel labels (A, B, C, D)
+		add_panel_labels_to_images(
+			compositor, 
+			compositor.placed_images,
+			font_size=26,
+			offset=(-15, -15)  # Adjust offset as needed
+		)
+
+		# Save the composite figure
+		compositor.save(f'{self.figures_dir}/Supplemental4_Nongenic_transcription.png')
 
 def parse_transcript_name(transcript_name):
 	transcript_split = transcript_name.split('_')
