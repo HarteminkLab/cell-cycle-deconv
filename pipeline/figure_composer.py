@@ -112,7 +112,12 @@ class FigureCompositor:
 			'semi_bold': os.path.join(self.font_dir, 'OpenSans-SemiBold.ttf'),
 			'medium': os.path.join(self.font_dir, 'OpenSans-Medium.ttf'),
 			'light': os.path.join(self.font_dir, 'OpenSans-Light.ttf'),
-			'extra_bold': os.path.join(self.font_dir, 'OpenSans-ExtraBold.ttf')
+			'extra_bold': os.path.join(self.font_dir, 'OpenSans-ExtraBold.ttf'),
+
+			# Italic variants
+			'italic': os.path.join(self.font_dir, 'OpenSans-Italic.ttf'),
+			'bold_italic': os.path.join(self.font_dir, 'OpenSans-BoldItalic.ttf'),
+			'semi_bold_italic': os.path.join(self.font_dir, 'OpenSans-SemiBoldItalic.ttf'),
 		}
 		
 		# Initialize font dictionaries
@@ -346,7 +351,7 @@ class FigureCompositor:
 			# Track the placed image
 			if name is None:
 				name = os.path.basename(image_path)
-				
+
 			# Store both logical and actual information
 			img_info = {
 				'path': image_path,

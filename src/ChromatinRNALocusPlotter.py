@@ -302,7 +302,9 @@ class SingleBranchChromatinPlotter:
 		# Get sampled indices for each phase
 		dg1_indices = get_sample_indices(self.config1, self.num_g1_rows, 'DG1')
 		cg1_indices = get_sample_indices(self.config1, self.num_g1_rows, 'CG1')
-
+		s_indices = get_sample_indices(self.config1, self.num_s_rows, 'S')
+		g2m_indices = get_sample_indices(self.config1, self.num_g2m_rows, 'G2M')
+		
 		# Plot G1 phase chromatin difference
 		vmax = 5
 		eps = 1e-5
@@ -315,7 +317,19 @@ class SingleBranchChromatinPlotter:
 			diff = np.log2((dg1_dat+eps)/(cg1_dat+eps))
 			self.plot_im(ax, diff, vmin=-vmax, vmax=vmax, cmap='RdBu_r')
 
-		# Don't plot S/G2M for difference (only G1 phase makes sense for mother/daughter comparison)
+		# Plot zeros for the remaining indices
+
+		# Plot S phase chromatin
+		zeros = np.zeros_like(diff)
+		for row_idx, idx in enumerate(s_indices):
+			ax = self.chromatin_axes[row_idx + self.num_g1_rows]
+			self.plot_im(ax, zeros, vmin=-vmax, vmax=vmax, cmap='RdBu_r')
+
+		# Plot G2M phase chromatin
+		for row_idx, idx in enumerate(g2m_indices):
+			ax = self.chromatin_axes[row_idx + self.num_g1_rows + self.num_s_rows]
+			self.plot_im(ax, zeros, vmin=-vmax, vmax=vmax, cmap='RdBu_r')
+
 
 	def _plot_chromatin_for_branch_type(self, branch_type):
 		"""Plot chromatin data based on branch type"""

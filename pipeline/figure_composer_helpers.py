@@ -128,7 +128,8 @@ def layout_images_vertically(compositor, image_paths_arr, height_proportions=Non
 
 def layout_images_horizontally(compositor, image_paths_arr, width_proportions=None, 
 							 between_padding=20, margin=(20, 20), y_position=None,
-							 offsets=None, image_keys=None, heights=None, preserve_aspect_ratio=True):
+							 offsets=None, image_keys=None, heights=None, preserve_aspect_ratio=True,
+							 available_width=None):
 	"""
 	Layout images horizontally with specified proportions, padding, and margins.
 	
@@ -195,7 +196,11 @@ def layout_images_horizontally(compositor, image_paths_arr, width_proportions=No
 		raise ValueError(f"Image keys length ({len(image_keys)}) must match number of images ({len(image_paths_arr)})")
 	
 	# Calculate available width for images (canvas width minus margins and padding)
-	available_width = compositor.logical_width - (2 * left_margin) - ((len(image_paths_arr) - 1) * between_padding)
+	if available_width is None:
+		available_width = compositor.logical_width - (2 * left_margin) - ((len(image_paths_arr) - 1) * between_padding)
+
+	if available_width < 0:
+		raise ValueError("Available width is less than zero, cannot apply horizontal layout")
 	
 	# Calculate total proportion units
 	total_proportion = sum(width_proportions)
