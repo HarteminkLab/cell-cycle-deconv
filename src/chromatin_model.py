@@ -390,7 +390,7 @@ class ChromatinModel:
 			self.downsampled_bins, self.target_length_distribution,
 			self.window_10kb_g_curve, axs=axs)
 
-	def plot_raw_data(self, ax=None, figsize=(2, 7), vmax=40, timepoint=None):
+	def plot_raw_data(self, ax=None, figsize=(2, 11), vmax=40, timepoint=None):
 
 		if timepoint is None:
 			return plot_raw(self, figsize, vmax=vmax)
@@ -488,8 +488,8 @@ def plot_raw_G(G, config, chrom, mnase_span, figsize=(2, 7),
 		plot_G_img(ax, G_imgs[i-1], cmap=cmap, vmax=vmax, extent=extent, vmin=vmin)
 		ax.set_ylabel(f"{timepoints[i-1]}'")
 
-	plt.suptitle(title)
-	plt.subplots_adjust(top=0.95)
+	plt.suptitle(title, fontweight='demi', fontsize=18)
+	plt.subplots_adjust(top=0.957)
 
 	return fig
 

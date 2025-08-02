@@ -5,6 +5,9 @@ from src.figure_configs import FiguresConfig
 from src.chromatin_model import plot_img
 from src.utils import mkdir_safe
 from src.figure_configs import save_figure_for_paper
+from src.GenomeDeconvolutionAnalysis import GenomeDeconvolutionAnalysis
+from src.transcripts_dataset import load_transcripts_sets
+
 
 SUBPANEL_COLOR = '#f5f5f5'
 
@@ -31,27 +34,39 @@ class FigureDeconvolution(object):
 		self.config1 = config1
 		self.config2 = config2
 		self.chrom_model = CombinedChromatinModel(config1, config2)
-		self.chrom_model.load_combined_mnase_gene("CLN2")
 
-	def run_and_save_all(self, chromatin_data_path=
-			'output/draft3_run/chromatin_deconvolution_partial_daughter/deconvolution_data/'):
+		self.genome_deconvolution_analysis = GenomeDeconvolutionAnalysis(self.output_dir)
+		self.genes, _ = load_transcripts_sets(self.output_dir)
+
+	def run_and_save_all(self):
 
 		save_dir = self.save_dir
+
 		fig, axs = self.plot_H_matrices()
 		save_figure_for_paper(f"{save_dir}/Kernel_H_diagram.png")
 
+		# Load the region for the histogram and profiles
+		# The locus plots will override
+		self.chrom_model.load_combined_mnase_gene("CLN2")
 		self.plot_mnase_reads_histogram()
 		save_figure_for_paper(f"{save_dir}/MNase_2D_Histogram.png")
 
 		self.plot_chromatin_profiles_G()
 		save_figure_for_paper(f"{save_dir}/Chromatin_profiles_G.png")
 
-		print(f"todo: temporary chromatin data path {chromatin_data_path}")
-		self.plot_deconvolved_phase_annotated(chromatin_data_path)
+		self.plot_deconvolved_phase_annotated()
 		save_figure_for_paper(f"{save_dir}/Deconvolved_Profiles_F.png")
 
-	def create_panel(self):
+		# Save loci to disk
+		self.plot_and_save_all_loci()
+
+	def create_panels(self):
+
 		layout_figure_panel(self.save_dir, self.fig_save_dir)
+
+		# Layout supplemental panels
+		self.layout_supplemental_raw_locus()
+		self.layout_supplemental_raw_deconvolved_thi22_locus()
 
 
 	def plot_H(self):
@@ -219,9 +234,6 @@ class FigureDeconvolution(object):
 
 		return fig, (ax1, ax2)
 
-	def plot_deconvolution(self, should_smooth_data=True):
-		fig = self.combined_model.create_deconvolution_plots_abbreviated_flipped(
-			ge_model=self.combined_ge_model, vmax=10, should_smooth_data=should_smooth_data)
 
 	def plot_chromatin_profiles_G(self):
 
@@ -298,7 +310,7 @@ class FigureDeconvolution(object):
 		plot_column_imgs(axs[1], self.chrom_model.chrom2_model, show_labels=False, title="Replicate 2")
 
 
-	def plot_deconvolved_phase_annotated(self, chromatin_data_path):
+	def plot_deconvolved_phase_annotated(self):
 
 		from src.plot_helpers import plot_rect2
 		from src.plot_helpers import hide_spines
@@ -309,7 +321,7 @@ class FigureDeconvolution(object):
 		# Loading example genomic locus
 		from src.GenomeDeconvolutionAnalysis import GenomeDeconvolutionAnalysis
 		
-		genome_analysis = GenomeDeconvolutionAnalysis(chromatin_data_path)
+		genome_analysis = GenomeDeconvolutionAnalysis(self.output_dir)
 		span = (10000, 11001)
 		chrom = 1
 		imgs, loaded_span = genome_analysis.load_mnase_span(chrom, span)
@@ -356,7 +368,7 @@ class FigureDeconvolution(object):
 
 			img_data = plt_imgs[i]
 
-			plot_img(ax, img_data, vmax=10, extent=[x1, x2, y1, y2], zorder=100)
+			plot_img(ax, img_data, vmax=25, extent=[x1, x2, y1, y2], zorder=100)
 			plt.plot([x1+w/2., x1+w/2.], [y1, y2], c='black', lw=1, alpha=0.25)
 			plot_rect2(ax, x1, y1, x2, y2, edgecolor='black', fill=None, lw=0.5, zorder=100)
 			phase = phases[i]
@@ -512,102 +524,330 @@ class FigureDeconvolution(object):
 			print(f"{param_name}\t&\t{mean_1:.3f}\t&\t({q025_1:.3f}," +
 				  f"{q975_1:.3f})\t&&\t{mean_2:.3f}\t&\t({q025_2:.3f},{q975_2:.3f}) \\\\")
 
+	def plot_deconvolve_locus(self, chrom, span, title):
+		"""
+		Plot deconvolved locus data.
+		
+		Parameters:
+		-----------
+		chrom : int
+			Chromosome number
+		span : tuple
+			(start, end) genomic coordinates
+		title : str
+			Plot title
+			
+		Returns:
+		--------
+		matplotlib.figure.Figure
+			The created figure
+		"""
+		# Load the span data
+		_ = self.genome_deconvolution_analysis.load_mnase_span(chrom, span)
+		
+		# Create the plot
+		plotter = self.genome_deconvolution_analysis.plot_loaded_data(
+			figsize=(11, 11), 
+			title=title
+		)
+		
+		return plt.gcf()
+
+	def plot_raw_data_locus(self, chrom, span, title, replicate):
+		"""
+		Plot raw data locus for specified replicate.
+		
+		Parameters:
+		-----------
+		chrom : int
+			Chromosome number
+		span : tuple
+			(start, end) genomic coordinates
+		title : str
+			Plot title
+		replicate : int
+			Replicate number (1 or 2)
+			
+		Returns:
+		--------
+		matplotlib.figure.Figure
+			The created figure
+		"""
+		# Load the span data
+		self.chrom_model.load_mnase_span(chrom, span)
+		
+		# Plot based on replicate
+		if replicate == 1:
+			fig = self.chrom_model.chrom1_model.plot_raw_data(figsize=(11, 16))
+		elif replicate == 2:
+			fig = self.chrom_model.chrom2_model.plot_raw_data(figsize=(11, 16))
+		else:
+			raise ValueError("Replicate must be 1 or 2")
+		
+		# Add title if provided
+		if title:
+			fig.suptitle(title, fontsize=FiguresConfig.FIG_SUPTITLE_FONTSIZE)
+		
+		return fig
+
+	def plot_and_save_all_loci(self):
+		"""
+		Plot and save all loci (deconvolved and raw data for both replicates).
+		Saves files with 'locus_' prefix using save_figure_for_paper function.
+		"""
+		# Define gene spans relative to TSS
+		gene_spans = {
+			'CLB5': (-4600, 2400),
+			'THI22': (-2300, 2000)
+		}
+		
+		# Define titles for each gene
+		gene_titles = {
+			'CLB5': "",
+			'THI22': "Deconvolved region $\\it{THI22}$"
+		}
+		
+		save_dir = self.save_dir
+		
+		for gene_name, (start_offset, end_offset) in gene_spans.items():
+			# Get gene information
+			gene = self.genes[self.genes['gene'] == gene_name].iloc[0]
+			chrom = gene.chr
+			span = (gene.TSS + start_offset, gene.TSS + end_offset)
+			title = gene_titles[gene_name]
+			
+			# Plot and save deconvolved locus
+			fig_deconv = self.plot_deconvolve_locus(chrom, span, title)
+			save_figure_for_paper(f"{save_dir}/locus_{gene_name}_deconvolved.png")
+			plt.close(fig_deconv)
+			
+			# Plot and save raw data for both replicates
+			for replicate in [1, 2]:
+				raw_title = f"Raw data {title} - Replicate {replicate}"
+				fig_raw = self.plot_raw_data_locus(chrom, span, raw_title, replicate)
+				save_figure_for_paper(f"{save_dir}/locus_{gene_name}_raw_rep{replicate}.png")
+				plt.close(fig_raw)
+			
+			print(f"Saved locus plots for {gene_name}")
+		
+		print("All locus plots saved successfully")
+
+	def layout_supplemental_raw_locus(self):
+		"""
+		Layout CLB5 raw locus images horizontally taking up the full width.
+		
+		Layouts:
+		- locus_CLB5_raw_rep2.png
+		- locus_CLB5_raw_rep1.png
+		"""
+		from pipeline.figure_composer import FigureCompositor
+		from pipeline.figure_composer_helpers import layout_images_horizontally, add_panel_labels_to_images
+
+		compositor = FigureCompositor(1024, 7900, debug_mode=True)
+
+		image_paths = [
+			f'{self.save_dir}/locus_CLB5_raw_rep2.png',
+			f'{self.save_dir}/locus_CLB5_raw_rep1.png',
+		]
+
+		placed_images = layout_images_horizontally(
+			compositor,
+			image_paths,
+			width_proportions=[1, 1],  # Equal width for both images
+			between_padding=20,
+			margin=(30, 30),
+			image_keys=['CLB5_rep2', 'CLB5_rep1']  # Custom keys for the images
+		)
+
+		add_panel_labels_to_images(
+			compositor, 
+			compositor.placed_images,
+			font_size=36,
+			offset=(-10, -12)
+		)
+
+		compositor.save(f'{self.fig_save_dir}/Supplemental_CLB5_raw_locus.png')
+
+
+	def layout_supplemental_raw_deconvolved_thi22_locus(self):
+		"""
+		Layout THI22 raw and deconvolved locus images horizontally taking up the full width.
+		
+		Layouts:
+		- locus_THI22_raw_rep1.png
+		- locus_THI22_raw_rep2.png  
+		- locus_THI22_deconvolved.png
+		"""
+		from pipeline.figure_composer import FigureCompositor
+		from pipeline.figure_composer_helpers import layout_images_horizontally, add_panel_labels_to_images
+
+		compositor = FigureCompositor(1024, 470, debug_mode=True)
+
+		image_paths = [
+			f'{self.save_dir}/locus_THI22_raw_rep1.png',
+			f'{self.save_dir}/locus_THI22_raw_rep2.png',
+			f'{self.save_dir}/locus_THI22_deconvolved.png',
+		]
+
+		placed_images = layout_images_horizontally(
+			compositor,
+			image_paths,
+			width_proportions=[0.73, 0.73, 1],  # Equal width for all three images
+			between_padding=20,
+			margin=(30, 30),
+			image_keys=['THI22_rep1', 'THI22_rep2', 'THI22_deconvolved']  # Custom keys for the images
+		)
+
+		add_panel_labels_to_images(
+			compositor, 
+			compositor.placed_images,
+			font_size=36,
+			offset=(-10, -12)
+		)
+
+		compositor.save(f'{self.fig_save_dir}/Supplemental_THI22_raw_deconvolved_locus.png')
+
 
 def layout_figure_panel(save_dir, figures_dir):
-
 	from pipeline.figure_composer import FigureCompositor
 
 	image_names = [
-	    # A, B
-	    'Branching_Diagram',
-	    'MNase_2D_Histogram', 
-	    
-	    # C
-	    'Chromatin_profiles_G',
-	    'Kernel_H_diagram',
-	    'Deconvolved_Profiles_F',
+		# A, B
+		'Branching_Diagram',
+		'MNase_2D_Histogram', 
+		
+		# C
+		'Chromatin_profiles_G',
+		'Kernel_H_diagram',
+		'Deconvolved_Profiles_F',
+		
+		# D - New panel
+		'Deconvolved_Locus'
 	]
 
 	image_paths = [f"{save_dir}/{name}.png" for name in image_names]
-
+	
 	# Use project pathed branching diagram
 	image_paths[0] = "diagrams/Branching_diagram.png"
+	# Use the specific filename for the new locus panel
+	image_paths[5] = f"{save_dir}/locus_CLB5_deconvolved.png"
 
-	# Create compositor with a scale factor of 4
-	# Logical canvas size is 1024x800, but actual output will be 4096x3200
-	compositor = FigureCompositor(1024, 820, debug_mode=True)
+	# Create compositor with same canvas size
+	compositor = FigureCompositor(1024, 480, debug_mode=True)
 
+	# Layout parameters
 	margin = 20
+	top_margin = margin + 30
+	canvas_width = 1024
+	usable_width = canvas_width - 2 * margin  # 984px
+	
+	# ABC panels occupy 60% of usable width
+	abc_width = int(0.575 * usable_width)  # 590px
+	section_padding = 30  # padding between ABC and D sections
+	
+	# Panel D gets the remaining width
+	d_width = usable_width - abc_width - section_padding  # 364px
+	d_x_position = margin + abc_width + section_padding
+	
+	# Calculate scaling factor for ABC panels
+	# Current layout uses roughly 1000px for max width (A+padding+B or C panels)
+	current_max_width = 1000  # Based on your current layout
+	scaling_factor = abc_width / current_max_width  # 0.59
+	
+	print(f"ABC panel width: {abc_width}px")
+	print(f"Panel D width: {d_width}px") 
+	print(f"Scaling factor: {scaling_factor:.2f}")
 
-	top_margin = margin+30
-
-	branch_img = compositor.place_image(image_paths[0], margin, top_margin, 640, None, 'branch')
-	compositor.add_panel_label_to_image('branch', 'A', offset=(0, -40),
-	                                   font_size=36)
-
-	branch_width = branch_img['logical_size'][0]
+	# ========== SCALED ABC PANELS ==========
+	
+	# A: Branch diagram (scaled)
+	branch_width_scaled = int(640 * scaling_factor)  # 378px
+	branch_img = compositor.place_image(image_paths[0], margin, top_margin, 
+									   branch_width_scaled, None, 'branch')
+	compositor.add_panel_label_to_image('branch', 'A', offset=(0, -40), font_size=30)
+	
 	branch_height = branch_img['logical_size'][1]
-	padding = 20
-	hist_img = compositor.place_image(image_paths[1], margin+branch_width+padding, top_margin, 340, None, 
-	    'hist')
-	compositor.add_panel_label_to_image('hist', 'B', offset=(0, -40),
-	                                   font_size=36)
+	
+	# B: MNase histogram (scaled)
+	padding_ab_scaled = int(20 * scaling_factor)  # 12px
+	hist_width_scaled = int(340 * scaling_factor)  # 201px
+	hist_img = compositor.place_image(image_paths[1], 
+									 margin + branch_width_scaled + padding_ab_scaled, 
+									 top_margin, hist_width_scaled, None, 'hist')
+	compositor.add_panel_label_to_image('hist', 'B', offset=(0, -40), font_size=30)
 
-	# ---------- C panels
+	# C panels (scaled)
+	vertical_pad = 50
+	c_y_position = top_margin + branch_height + vertical_pad
+	
+	# C1: Raw profiles (scaled)
+	g_width_scaled = int(325 * scaling_factor)  # 192px
+	g_img = compositor.place_image(image_paths[2], margin, c_y_position, 
+								  g_width_scaled, None, 'raw')
+	compositor.add_panel_label_to_image('raw', 'C', offset=(0, -50), font_size=30)
 
-	vertical_pad = 70
-	g_img = compositor.place_image(image_paths[2], margin, 
-	    top_margin+branch_height+vertical_pad, 
-	    325, None, 
-	    'raw')
-	compositor.add_panel_label_to_image('raw', 'C', offset=(0, -60),
-	    font_size=36)
-
-	g_width = g_img['logical_size'][0]
-	padding = 15
+	# C2: Kernel H diagram (scaled)
+	padding_gh_scaled = int(15 * scaling_factor)  # 9px
+	h_width_scaled = int(410 * scaling_factor)  # 242px
 	h_img = compositor.place_image(image_paths[3], 
-	    margin+g_width+padding, 
-	    top_margin+branch_height+vertical_pad-7,
-	    410, None, 
-	    'H')
+								  margin + g_width_scaled + padding_gh_scaled, 
+								  c_y_position - int(7 * scaling_factor),  # scaled offset
+								  h_width_scaled, None, 'H')
 
-	h_width = h_img['logical_size'][0]
+	# C3: Deconvolved profiles (scaled)
+	f_width_scaled = int(256 * scaling_factor)  # 154px
 	f_img = compositor.place_image(image_paths[4], 
-	    margin+g_width+padding+h_width-10, 
-	    top_margin+branch_height+vertical_pad, 
-	    260, None, 
-	    'F')
+								  margin + g_width_scaled + padding_gh_scaled + h_width_scaled - int(0 * scaling_factor), 
+								  c_y_position, f_width_scaled, None, 'F')
 
-	compositor.add_panel_label("Cell cycling branching model", margin+40, top_margin-30, 
-	    font_size=24,
-	    font_type='semi_bold')
+	# ========== PANEL D: FULL HEIGHT ==========
+	
+	# Calculate full height for panel D (from top margin to bottom of C panels)
+	c_bottom = 480
+
+	d_height = c_bottom - top_margin
+	
+	# Place panel D
+	d_img = compositor.place_image(image_paths[5], d_x_position, top_margin, 
+								  d_width, d_height, 'locus_deconv')
+	compositor.add_panel_label_to_image('locus_deconv', 'D', offset=(0, -40), font_size=30)
+
+	# ========== LABELS (scaled positions) ==========
+	
+	# Main section titles
+	compositor.add_panel_label("Cell cycling branching model", margin + 40, top_margin - 34,
+							  font_size=22, font_type='semi_bold')
 
 	compositor.add_panel_label("MNase data", 
-	    hist_img['logical_position'][0]+40, 
-	    top_margin-30, 
-	    font_size=24,
-	    font_type='semi_bold')
+							  hist_img['logical_position'][0] + int(50 * scaling_factor), 
+							  top_margin - 34, font_size=22, font_type='semi_bold')
 
+	compositor.add_panel_label("Chromatin deconvolution", margin + 40, 
+							  g_img['logical_position'][1] - 40, 
+							  font_size=22, font_type='semi_bold')
 
-	compositor.add_panel_label("Chromatin deconvolution", 
-	    margin+40, 
-	    g_img['logical_position'][1]-50, 
-	    font_size=24,
-	    font_type='semi_bold')
+	compositor.add_panel_label("Deconvolved Locus", d_img['logical_position'][0] + 40, 
+							  d_img['logical_position'][1] - 36, 
+							  font_size=22, font_type='semi_bold')
 
+	# Mathematical symbols (scaled positions)
 	compositor.add_panel_label("=", 
-	    h_img['logical_position'][0]-26, 
-	    g_img['logical_position'][1]+150, 
-	    font_size=36,
-	    font_type='semi_bold')
+							  h_img['logical_position'][0] - int(26 * scaling_factor), 
+							  g_img['logical_position'][1] + int(150 * scaling_factor), 
+							  font_size=32, font_type='semi_bold')
 
 	compositor.add_panel_label("X", 
-	    f_img['logical_position'][0]+8,
-	    g_img['logical_position'][1]+150, 
-	    font_size=20,
-	    font_type='semi_bold')
+							  f_img['logical_position'][0] + int(8 * scaling_factor),
+							  g_img['logical_position'][1] + int(162 * scaling_factor), 
+							  font_size=18, font_type='semi_bold')
 
+	# Save the figure
 	save_path = f"{figures_dir}/Figure1_Deconvolution.png"
 	compositor.save(save_path)
-
 	print(f"Saved figure panel: {save_path}")
+	
+	# Print layout summary
+	print("\n=== Layout Summary ===")
+	print(f"ABC panels area: {abc_width}px wide (scaling factor: {scaling_factor:.2f})")
+	print(f"Panel D area: {d_width}px wide × {d_height}px tall")
+	print(f"Total canvas: {canvas_width}px wide × 820px tall")

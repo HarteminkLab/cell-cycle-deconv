@@ -77,12 +77,14 @@ class SingleBranchChromatinPlotter:
 				n_rows=self.num_rows
 			)
 			
-		self.orf_plotter = load_default_orf_plotter()
+		self.orf_plotter = load_default_orf_plotter(outdir)
 
 		if rna_plotter is None:
 			self.rna_plotter = RNASeqPileupPlotter(outdir)
 		else:
 			self.rna_plotter = rna_plotter
+
+		self.rna_plotter.ylim = 5
 
 		# Initialize the axes
 		self._initialize_axes()

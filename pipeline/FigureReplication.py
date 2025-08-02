@@ -139,13 +139,13 @@ class FigureReplicationDeconvolution():
 		plt.tick_params(axis='x', length=0, pad=10)
 
 		fig.legend(
-		    [line1, line2, line3],
-		    ['Early', 'Intermediate', 'Late'],
+			[line1, line2, line3],
+			['Early', 'Intermediate', 'Late'],
 			loc='upper center',
-    		bbox_to_anchor=(0.25, -0.0), # Place below the first subplot
-		    ncol=2,
-		    fontsize=14,
-		    frameon=False
+			bbox_to_anchor=(0.25, -0.0), # Place below the first subplot
+			ncol=2,
+			fontsize=14,
+			frameon=False
 		)
 
 		# ------------------------
@@ -194,31 +194,31 @@ class FigureReplicationDeconvolution():
 	def layout_panel(self):
 		from pipeline.figure_composer import FigureCompositor
 		from pipeline.figure_composer_helpers import layout_images_vertically,\
-		    add_panel_labels_to_images
+			add_panel_labels_to_images
 
 
 		compositor = FigureCompositor(1024, 960, debug_mode=True)
 
 		image_paths = [
-		    f'{self.save_dir}/DNA_replication_diagram.png',
-		    f'{self.save_dir}/Replication_diagram.png',
-		    f'{self.save_dir}/Replication_components.png',
+			f'{self.save_dir}/DNA_replication_diagram.png',
+			f'{self.save_dir}/Replication_diagram.png',
+			f'{self.save_dir}/Replication_components.png',
 		]
 
 		placed_images = layout_images_vertically(
-		    compositor,
-		    image_paths,
-		    height_proportions=[0.35, 0.4, 0.6],
-		    between_padding=40,
-		    margin=(30, 30),
-		    image_keys=['DNA', 'Replication', 'Components']  # Custom keys for the images
+			compositor,
+			image_paths,
+			height_proportions=[0.35, 0.4, 0.6],
+			between_padding=40,
+			margin=(30, 30),
+			image_keys=['DNA', 'Replication', 'Components']  # Custom keys for the images
 		)
 
 		add_panel_labels_to_images(
-		    compositor, 
-		    compositor.placed_images,
-		    font_size=36,
-		    offset=(-10, -12)
+			compositor, 
+			compositor.placed_images,
+			font_size=36,
+			offset=(-10, -12)
 		)
 
 		compositor.save(f'{self.figures_dir}/Figure2_Replication.png')

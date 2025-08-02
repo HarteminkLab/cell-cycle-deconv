@@ -540,13 +540,3 @@ def load_chromatin_model_from_disk(gene_name, chromatin_dir, f_only=False):
 
 	return chromatin_model
 
-
-def load_combined_model(config_type='shared'):
-	from src.config import load_configs_by_config_type
-	chrom_config1, chrom_config2 = load_configs_by_config_type(config_type,
-		with_copy_correction=True)
-	from src.combined_chromatin_model import CombinedChromatinModel
-	combined_model = CombinedChromatinModel(chrom_config1, chrom_config2)
-	return combined_model
-
-
