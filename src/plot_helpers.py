@@ -871,3 +871,19 @@ def add_trajectory_arrows(ax, x_data, y_data, index, index_offset, arrow_scale=0
 
 		ax.add_patch(arrow)
 		
+
+# For the last chromatin axes, plot the genomic scale legend
+def add_im_genomic_scale_legend(ax, x_start, x_length, legend_y=-80):
+	import matplotlib.patheffects as path_effects
+	ax.plot([x_start, x_start+x_length], [legend_y, legend_y], 
+		linewidth=3, color='gray',
+			clip_on=False, label='Scale line (2 units)')
+	ax.text((x_start+x_start+x_length)/2., legend_y, f"{x_length} bp", 
+		   va='center', ha='center',
+		   path_effects=[path_effects.withStroke(linewidth=3, 
+												foreground='white')])
+			
+
+def _plot_index_label(ax, x, y, index, total):
+	# Add label for index in total of the branch
+	ax.text(x, y, f"{index} of {total}", clip_on=False)

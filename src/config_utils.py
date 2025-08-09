@@ -2,7 +2,7 @@
 import numpy as np
 
 
-def get_sample_indices(config, num_rows, phase):
+def get_sample_indices(config, num_rows, phase, return_absolute=False):
     """
     Get indices to sample from G1 and postG1 phases to match row layout
     
@@ -27,9 +27,17 @@ def get_sample_indices(config, num_rows, phase):
     """
     # Get indices for specific G1 phase and postG1
     indices = config.get_Hpositions_for_phase(phase)
+    total_indices = len(indices)
+
+    step = total_indices / num_rows
     
     # Sample evenly from each phase
-    indices_sampled = np.linspace(0, len(indices)-1, num_rows, dtype=int)
-    indices_sampled = indices[indices_sampled]
+    indices_sampled_absolute = np.arange(0, total_indices, step, dtype=int)
+    indices_sampled = indices[indices_sampled_absolute]
+
+    # If we need the absolute indices from the linespace
+    # return these as well
+    if return_absolute:
+        return indices_sampled, indices_sampled_absolute
         
     return indices_sampled

@@ -60,9 +60,12 @@ class FigureDeconvolution(object):
 		# Save loci to disk
 		self.plot_and_save_all_loci()
 
+	def layout_figure_panel(self):
+		layout_figure_panel(self.save_dir, self.fig_save_dir)
+
 	def create_panels(self):
 
-		layout_figure_panel(self.save_dir, self.fig_save_dir)
+		self.layout_figure_panel()
 
 		# Layout supplemental panels
 		self.layout_supplemental_raw_locus()
@@ -547,7 +550,7 @@ class FigureDeconvolution(object):
 		
 		# Create the plot
 		plotter = self.genome_deconvolution_analysis.plot_loaded_data(
-			figsize=(11, 11), 
+			figsize=(11, 7), 
 			title=title
 		)
 		
@@ -590,7 +593,7 @@ class FigureDeconvolution(object):
 		
 		return fig
 
-	def plot_and_save_all_loci(self):
+	def plot_and_save_all_loci(self, plot_gene_name=None, mode='both'):
 		"""
 		Plot and save all loci (deconvolved and raw data for both replicates).
 		Saves files with 'locus_' prefix using save_figure_for_paper function.
@@ -610,23 +613,29 @@ class FigureDeconvolution(object):
 		save_dir = self.save_dir
 		
 		for gene_name, (start_offset, end_offset) in gene_spans.items():
+
+			if plot_gene_name is not None and not plot_gene_name == gene_name:
+				continue
+
 			# Get gene information
 			gene = self.genes[self.genes['gene'] == gene_name].iloc[0]
 			chrom = gene.chr
 			span = (gene.TSS + start_offset, gene.TSS + end_offset)
 			title = gene_titles[gene_name]
 			
-			# Plot and save deconvolved locus
-			fig_deconv = self.plot_deconvolve_locus(chrom, span, title)
-			save_figure_for_paper(f"{save_dir}/locus_{gene_name}_deconvolved.png")
-			plt.close(fig_deconv)
+			if mode in ['both', 'deconvolved']:
+				# Plot and save deconvolved locus
+				fig_deconv = self.plot_deconvolve_locus(chrom, span, title)
+				save_figure_for_paper(f"{save_dir}/locus_{gene_name}_deconvolved.png")
+				plt.close(fig_deconv)
 			
 			# Plot and save raw data for both replicates
-			for replicate in [1, 2]:
-				raw_title = f"Raw data {title} - Replicate {replicate}"
-				fig_raw = self.plot_raw_data_locus(chrom, span, raw_title, replicate)
-				save_figure_for_paper(f"{save_dir}/locus_{gene_name}_raw_rep{replicate}.png")
-				plt.close(fig_raw)
+			if mode in ['both', 'raw']:
+				for replicate in [1, 2]:
+					raw_title = f"Raw data {title} - Replicate {replicate}"
+					fig_raw = self.plot_raw_data_locus(chrom, span, raw_title, replicate)
+					save_figure_for_paper(f"{save_dir}/locus_{gene_name}_raw_rep{replicate}.png")
+					plt.close(fig_raw)
 			
 			print(f"Saved locus plots for {gene_name}")
 		
@@ -643,11 +652,11 @@ class FigureDeconvolution(object):
 		from pipeline.figure_composer import FigureCompositor
 		from pipeline.figure_composer_helpers import layout_images_horizontally, add_panel_labels_to_images
 
-		compositor = FigureCompositor(1024, 7900, debug_mode=True)
+		compositor = FigureCompositor(1024, 790, debug_mode=True)
 
 		image_paths = [
-			f'{self.save_dir}/locus_CLB5_raw_rep2.png',
 			f'{self.save_dir}/locus_CLB5_raw_rep1.png',
+			f'{self.save_dir}/locus_CLB5_raw_rep2.png',
 		]
 
 		placed_images = layout_images_horizontally(
@@ -656,7 +665,7 @@ class FigureDeconvolution(object):
 			width_proportions=[1, 1],  # Equal width for both images
 			between_padding=20,
 			margin=(30, 30),
-			image_keys=['CLB5_rep2', 'CLB5_rep1']  # Custom keys for the images
+			image_keys=['CLB5_rep1', 'CLB5_rep2']  # Custom keys for the images
 		)
 
 		add_panel_labels_to_images(
@@ -681,7 +690,7 @@ class FigureDeconvolution(object):
 		from pipeline.figure_composer import FigureCompositor
 		from pipeline.figure_composer_helpers import layout_images_horizontally, add_panel_labels_to_images
 
-		compositor = FigureCompositor(1024, 470, debug_mode=True)
+		compositor = FigureCompositor(1024, 380, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/locus_THI22_raw_rep1.png',
@@ -692,8 +701,8 @@ class FigureDeconvolution(object):
 		placed_images = layout_images_horizontally(
 			compositor,
 			image_paths,
-			width_proportions=[0.73, 0.73, 1],  # Equal width for all three images
-			between_padding=20,
+			width_proportions=[0.45, 0.45, 1],  # Equal width for all three images
+			between_padding=40,
 			margin=(30, 30),
 			image_keys=['THI22_rep1', 'THI22_rep2', 'THI22_deconvolved']  # Custom keys for the images
 		)
@@ -701,8 +710,8 @@ class FigureDeconvolution(object):
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			font_size=36,
-			offset=(-10, -12)
+			font_size=24,
+			offset=(-20, -12)
 		)
 
 		compositor.save(f'{self.fig_save_dir}/Supplemental_THI22_raw_deconvolved_locus.png')
@@ -733,7 +742,7 @@ def layout_figure_panel(save_dir, figures_dir):
 	image_paths[5] = f"{save_dir}/locus_CLB5_deconvolved.png"
 
 	# Create compositor with same canvas size
-	compositor = FigureCompositor(1024, 480, debug_mode=True)
+	compositor = FigureCompositor(1024, 1460, debug_mode=True)
 
 	# Layout parameters
 	margin = 20
@@ -741,12 +750,13 @@ def layout_figure_panel(save_dir, figures_dir):
 	canvas_width = 1024
 	usable_width = canvas_width - 2 * margin  # 984px
 	
-	# ABC panels occupy 60% of usable width
-	abc_width = int(0.575 * usable_width)  # 590px
+	# ABC panels
+	# note: Refactoring D to below ABC, so multiply by 1.0 usable width
+	abc_width = int(1.0 * usable_width)  # 590px
 	section_padding = 30  # padding between ABC and D sections
 	
 	# Panel D gets the remaining width
-	d_width = usable_width - abc_width - section_padding  # 364px
+	d_width = usable_width
 	d_x_position = margin + abc_width + section_padding
 	
 	# Calculate scaling factor for ABC panels
@@ -804,12 +814,11 @@ def layout_figure_panel(save_dir, figures_dir):
 	
 	# Calculate full height for panel D (from top margin to bottom of C panels)
 	c_bottom = 480
-
-	d_height = c_bottom - top_margin
 	
 	# Place panel D
-	d_img = compositor.place_image(image_paths[5], d_x_position, top_margin, 
-								  d_width, d_height, 'locus_deconv')
+	y_position = g_img['logical_position'][1] + g_img['logical_size'][1] + vertical_pad
+	d_img = compositor.place_image(image_paths[5], margin, y_position, 
+								  width=d_width, name='locus_deconv')
 	compositor.add_panel_label_to_image('locus_deconv', 'D', offset=(0, -40), font_size=30)
 
 	# ========== LABELS (scaled positions) ==========
@@ -845,9 +854,3 @@ def layout_figure_panel(save_dir, figures_dir):
 	save_path = f"{figures_dir}/Figure1_Deconvolution.png"
 	compositor.save(save_path)
 	print(f"Saved figure panel: {save_path}")
-	
-	# Print layout summary
-	print("\n=== Layout Summary ===")
-	print(f"ABC panels area: {abc_width}px wide (scaling factor: {scaling_factor:.2f})")
-	print(f"Panel D area: {d_width}px wide × {d_height}px tall")
-	print(f"Total canvas: {canvas_width}px wide × 820px tall")

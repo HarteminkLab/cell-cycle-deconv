@@ -64,14 +64,15 @@ class SingleBranchChromatinPlotter:
 		self.chromatin_F = None
 		
 		# Set row parameters
-		self.num_rows = 11
+		self.num_rows = 8
 		self.vmax = 40
-		self.num_g1_rows = 6
-		self.num_s_rows = 3
+		self.num_g1_rows = 4
+		self.num_s_rows = 2
 		self.num_g2m_rows = self.num_rows - self.num_g1_rows - self.num_s_rows
 
 		# Create the layout using our new single-branch layout function
-		self.fig, self.chromatin_axes, self.annotation_axis, self.rna_pileup_axis, self.cell_cycle_axis = \
+		self.fig, self.chromatin_axes, self.annotation_axis, self.rna_pileup_axis, \
+		self.cell_cycle_axis = \
 			create_single_branch_chromatin_layout(
 				figsize=figsize, 
 				n_rows=self.num_rows
@@ -165,6 +166,8 @@ class SingleBranchChromatinPlotter:
 			vmax = self.vmax
 		ax.imshow(img, aspect='auto', cmap=cmap, origin='lower', interpolation='none',
 			vmin=vmin, vmax=vmax, extent=[self.span[0], self.span[1], 0, 260])
+		ax.set_xlim(self.span[0], self.span[1])
+		ax.set_ylim(0, 260)
 
 		from src.plot_helpers import plot_rect2
 
@@ -204,7 +207,7 @@ class SingleBranchChromatinPlotter:
 		# Constants for positioning
 		bar_width = 1.0
 		bar_x = 0.0
-		text_x = 0.5  # Centered
+		text_x = 0.4  # Centered, shifted slightly
 		
 		ax = self.cell_cycle_axis
 		g1_phase = self._get_phase_for_branch_type(branch_type)
@@ -227,24 +230,46 @@ class SingleBranchChromatinPlotter:
 							   facecolor=g2m_color, alpha=1)
 		ax.add_patch(g2m_rect)
 
+
+		config = self.config1
+
+		t_indices = config.get_Hpositions_for_branch('t')
+		cg1_indices = config.get_Hpositions_for_phase('CG1')
+		s_indices = config.get_Hpositions_for_phase('S')
+		g2m_indices = config.get_Hpositions_for_phase('G2M')
+
+		g1_num_label = f"n={len(cg1_indices)}"
+		s_num_label = f"n={len(s_indices)}"
+		g2m_num_label = f"n={len(g2m_indices)}"
+
 		# Add vertical text labels
 		# G1 phase text
-		g1_center = self.num_g1_rows / 2
-		ax.text(text_x, g1_center, self.map_phase_name[g1_phase], fontsize=18,
-				rotation=270, va='center', ha='center', color='white',
-				fontdict={'fontname': 'Open Sans'})
-		
-		# S phase text
-		s_center = self.num_g1_rows + (self.num_s_rows / 2)
-		ax.text(text_x, s_center, self.map_phase_name['S'], fontsize=18,
-				rotation=270, va='center', ha='center', color='white',
-				fontdict={'fontname': 'Open Sans'})
+		annotation_fontsize = 10
+		num_fontsize = 8
 
-		# G2/M phase text
+		def _plot_annotation_text(x, y, label, fontsize, ha='left'):
+			ax.text(x, y, label, fontsize=fontsize,
+					rotation=270, ha=ha, va='center', color='white',
+					fontdict={'fontname': 'Open Sans'})
+
+		g1_center = self.num_g1_rows / 2
+		s_center = self.num_g1_rows + (self.num_s_rows / 2)
 		g2m_center = self.num_g1_rows + self.num_s_rows + (self.num_g2m_rows / 2)
-		ax.text(text_x, g2m_center, self.map_phase_name['G2M'], fontsize=18,
-				rotation=270, va='center', ha='center', color='white',
-				fontdict={'fontname': 'Open Sans'})
+		label_between_padding = 0.1
+		pad_2 = label_between_padding/2
+
+		# Phase label names
+		_plot_annotation_text(text_x+pad_2, g1_center, self.map_phase_name[g1_phase], annotation_fontsize)
+		_plot_annotation_text(text_x+pad_2, s_center, self.map_phase_name['S'], annotation_fontsize)
+		_plot_annotation_text(text_x+pad_2, g2m_center, self.map_phase_name['G2M'], annotation_fontsize)
+
+		# Number of indices per phase
+		_plot_annotation_text(text_x-pad_2, g1_center, g1_num_label, num_fontsize,
+			ha='right')
+		_plot_annotation_text(text_x-pad_2, s_center, s_num_label, num_fontsize,
+			ha='right')
+		_plot_annotation_text(text_x-pad_2, g2m_center, g2m_num_label, num_fontsize,
+			ha='right')
 		
 		# Set axis limits
 		ax.set_xlim(0, 1)
@@ -253,8 +278,14 @@ class SingleBranchChromatinPlotter:
 	def _plot_mean_mother_daughter_chromatin(self):
 		"""Plot the average of mother and daughter chromatin data"""
 		
-		dg1_indices = get_sample_indices(self.config1, self.num_g1_rows, 'DG1')
-		mg1_indices = get_sample_indices(self.config1, self.num_g1_rows, 'CG1')
+		dg1_indices, dg1_abs = get_sample_indices(self.config1, self.num_g1_rows, 
+			'DG1', return_absolute=True)
+		mg1_indices, mg1_abs = get_sample_indices(self.config1, self.num_g1_rows, 
+			'CG1', return_absolute=True)
+
+		total_branch_indices = len(self.config1.get_Hpositions_for_branch('t'))
+
+		from src.plot_helpers import _plot_index_label
 		
 		# Plot G1 phase chromatin
 		for row_idx in range(len(mg1_indices)):
@@ -268,22 +299,35 @@ class SingleBranchChromatinPlotter:
 			ax = self.chromatin_axes[row_idx]
 			self.plot_im(ax, mean_img)
 
+			_plot_index_label(ax, self.span[1]+50, 130, dg1_abs[row_idx]+1, total_branch_indices)
+
 		self._plot_s_g2m_chromatin()
 
 	def _plot_s_g2m_chromatin(self):
 		"""Plot S and G2M phase chromatin data"""
-		s_indices = get_sample_indices(self.config1, self.num_s_rows, 'S')
-		g2m_indices = get_sample_indices(self.config1, self.num_g2m_rows, 'G2M')
+		s_indices, s_abs = get_sample_indices(self.config1, self.num_s_rows, 'S', True)
+		g2m_indices, g2m_abs = get_sample_indices(self.config1, self.num_g2m_rows, 'G2M', True)
+
+		total_g1 = len(self.config1.get_Hpositions_for_phase('CG1'))
+		total_s = len(self.config1.get_Hpositions_for_phase('S'))
+		total_branch_indices = len(self.config1.get_Hpositions_for_branch('t'))
 		
+		from src.plot_helpers import _plot_index_label
+
 		# Plot S phase chromatin
 		for row_idx, idx in enumerate(s_indices):
 			ax = self.chromatin_axes[row_idx + self.num_g1_rows]
 			self.plot_im(ax, self.chromatin_F[idx])
+			_plot_index_label(ax, self.span[1]+50, 130, s_abs[row_idx]+1+total_g1, 
+				total_branch_indices)
 
 		# Plot G2M phase chromatin
 		for row_idx, idx in enumerate(g2m_indices):
 			ax = self.chromatin_axes[row_idx + self.num_g1_rows + self.num_s_rows]
 			self.plot_im(ax, self.chromatin_F[idx])
+
+			_plot_index_label(ax, self.span[1]+50, 130, g2m_abs[row_idx]+1+total_g1+total_s, 
+				total_branch_indices)
 
 	def _plot_chromatin_branch(self, g1_phase):
 		"""Plot chromatin data for a single branch"""
@@ -347,6 +391,11 @@ class SingleBranchChromatinPlotter:
 			self._plot_difference_mother_daughter_chromatin()
 		else:
 			raise ValueError(f"Unknown branch type: {branch_type}")
+
+		from src.plot_helpers import add_im_genomic_scale_legend
+
+		ax = self.chromatin_axes[-1]
+		add_im_genomic_scale_legend(ax, self.span[0], 600, legend_y=-80)
 
 	def set_chrom_span(self, chrom, span):
 		"""
@@ -424,15 +473,15 @@ class SingleBranchChromatinPlotter:
 
 
 def create_single_branch_chromatin_layout(
-	n_rows=7,  # Number of rows in chromatin data (excluding annotation)
+	n_rows=7,  # Number of rows in chromatin data (excluding annotation+rna)
 	figsize=(6, 5),  # Figure size
 	cell_cycle_annotations_width=0.07,  # Width of cell cycle annotations plot relative to chromatin
 	top_margin=0.95,  # Top margin for titles
 	bottom_margin=0.1,  # Bottom margin
 	height_ratios=None,  # Optional custom height ratios for rows
-	annotation_height=1.2,  # Height of annotation row relative to data rows
+	annotation_height=1.0,  # Height of annotation row relative to data rows
 	annotation_spacing=0.2,  # Height of spacing between annotation and rna_pileup rows
-	rna_pileup_height=1.0,  # Height of rna_pileup row relative to data rows
+	rna_pileup_height=1.6,  # Height of rna_pileup row relative to data rows
 	rna_pileup_spacing=0.2,  # Height of spacing between rna_pileup and chromatin data rows
 ):
 	"""
