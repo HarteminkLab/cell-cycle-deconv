@@ -103,25 +103,49 @@ class ReplicationTiming:
 			chrom_joined_dfs_arr.append(chrom_joined_df)
 
 		joined_replication_df = pd.concat(chrom_joined_dfs_arr)
+
 		from scipy.stats import pearsonr
+		import numpy as np
 
 		self.joined_muller_replication_df = joined_replication_df
-		self.muller_pearsonr = pearsonr(-joined_replication_df.copy_number_ratio, joined_replication_df.replication_time)
+
+		correlation_data = self.joined_muller_replication_df.copy()
+		repl_timing = correlation_data.replication_time
+
+		# Filter the replication timing by the top 95%
+		q95_val = np.quantile(repl_timing, q=0.95)
+		filtered_repl_timings = correlation_data[correlation_data.replication_time < q95_val]
+		self.filtered_joined_muller_replication_data = filtered_repl_timings
+		self.muller_pearsonr = pearsonr(-filtered_repl_timings.copy_number_ratio, filtered_repl_timings.replication_time)
+		print("Filtering the called replication timings to 95 percentile")
+		print(f"Filtered timings from {len(correlation_data)} to {len(filtered_repl_timings)}")
+		print(f"{len(correlation_data)-len(filtered_repl_timings)} were filtered out")
+
+	def load_mean_dg1_mg1_length(self):
+		from src.config import load_default_chrom_configs
+
+		config1, config2 = load_default_chrom_configs()
+		cg1_tps = config1.get_timepoints_for_phase('CG1')
+		dg1_tps = config1.get_timepoints_for_phase('DG1')
+		mean_g1_len = (-cg1_tps[0]+-dg1_tps[0])/2.
+		return mean_g1_len
 
 	def plot_muller_correlation(self):
 		from src.DensityScatterPlotter import DensityScatterPlotter
 		import matplotlib.pyplot as plt
 
+		mean_g1_len = self.load_mean_dg1_mg1_length()
+
 		fig = plt.figure(figsize=(5.25, 5))
 		plotter = DensityScatterPlotter()
-		plotter.set_data(self.joined_muller_replication_df['copy_number_ratio'].values,
-				   self.joined_muller_replication_df['replication_time'].values)
+		plotter.set_data(self.filtered_joined_muller_replication_data['copy_number_ratio'].values,
+				   self.filtered_joined_muller_replication_data['replication_time'].values+mean_g1_len)
 		plotter.bw = [0.02, 0.5]
 		plotter.cmap = 'Purples'
 		plotter.plot_ax(plt.gca())
-		plt.ylim(35, -15)
+		plt.ylim(65, 25)
 		plt.title(f"Deep sequencing vs MNase-seq\n"
-				  f"n={len(self.joined_muller_replication_df)}, Pearson r = {self.muller_pearsonr[0]:.2g}",
+				  f"n={len(self.filtered_joined_muller_replication_data)}, Pearson r = {self.muller_pearsonr[0]:.2g}",
 				 fontweight='demi', fontsize=18, y=1.02)
 		plt.ylabel("Replication time, min (Deconvolved MNase-seq)")
 		plt.xlabel("Copy # ratio (Deep Sequencing, Müller, 2014)")
@@ -130,13 +154,16 @@ class ReplicationTiming:
 		
 		import matplotlib.pyplot as plt
 
+		mean_g1_len = self.load_mean_dg1_mg1_length()
+
 		fig = plt.figure(figsize=(7, 4))
 
-		chr_replication = self.replications_df.loc[chrom]
+		plot_data = self.filtered_joined_muller_replication_data
+		chr_replication = plot_data.loc[chrom]
 
 		plt.subplot(2, 1, 1)
-		plt.scatter(self.joined_muller_replication_df.loc[chrom].index,
-			self.joined_muller_replication_df.loc[chrom].copy_number_ratio, s=1,
+		plt.scatter(plot_data.loc[chrom].index,
+			plot_data.loc[chrom].copy_number_ratio, s=1,
 			c='#777')
 		plt.xlim(chr_replication.index[0], chr_replication.index[-1])
 		plt.ylim(0.75, 2.25)
@@ -146,9 +173,9 @@ class ReplicationTiming:
 
 		plt.subplot(2, 1, 2)
 		plt.scatter(chr_replication.index,
-			chr_replication['replication_time'], s=1, color=plt.cm.Oranges(0.75))
+			chr_replication['replication_time']+mean_g1_len, s=1, color=plt.cm.Oranges(0.75))
 		plt.xlim(chr_replication.index[0], chr_replication.index[-1])
-		plt.ylim(38, -25)
+		plt.ylim(32+mean_g1_len, -25+mean_g1_len)
 		plt.title("Deconvolved MNase-seq")
 		plt.ylabel("Replication time, min")
 		plt.xlabel("Genomic position, bp")

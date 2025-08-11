@@ -103,7 +103,7 @@ class FigureCopyCorrection():
 		)
 		
 		# Save the composite figure
-		output_path = f'{self.figures_dir}/Figure4_Copy_Correction.png'
+		output_path = f'{self.figures_dir}/Figure3_Copy_Correction.png'
 		compositor.save(output_path)
 		
 		return compositor
