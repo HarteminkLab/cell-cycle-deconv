@@ -119,10 +119,10 @@ def plot_density(data, ax=None, color='red', domain_values=None,
 
 	if fill:
 		if not flip_axes:
-			ax.fill_between(domain_values, y+y_offset, 0, color=color,
+			ax.fill_between(domain_values, y+y_offset, y_offset, color=color,
 					 alpha=alpha, linewidth=1, zorder=zorder, ls=ls)
 		else:
-			ax.fill_betweenx(domain_values, y+y_offset, 0, color=color,
+			ax.fill_betweenx(domain_values, y+y_offset, y_offset, color=color,
 					 alpha=alpha, linewidth=1, zorder=zorder, ls=ls)
 	else:
 		if not flip_axes:

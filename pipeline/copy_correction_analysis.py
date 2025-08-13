@@ -439,6 +439,139 @@ class CopyCorrectionAnalysis():
 			'no_cc_ptr_i': i_no_cc_ptrs,
 		}, index=self.all_cell_cycle_b_means.index)
 
+	def plot_genomic_location_ptr_changes(self):
+		# Next let's examine the set of windows for which the PTRs increased. 
+		# Is there anything distinctive about these windows compared to the rest of the genome?
+
+
+		def _identify_ptr_clusters(positions, min_cluster_size=3, max_gap=10000):
+			"""
+			Identify clusters of increased PTR windows along a chromosome.
+			
+			Parameters:
+			- positions: sorted array of genomic positions
+			- min_cluster_size: minimum number of windows to form a cluster
+			- max_gap: maximum distance between adjacent windows in a cluster
+			
+			Returns:
+			- list of tuples: [(cluster_start, cluster_end), ...]
+			"""
+			if len(positions) < min_cluster_size:
+				return []
+			
+			clusters = []
+			current_cluster_start = positions[0]
+			current_cluster_positions = [positions[0]]
+			
+			for i in range(1, len(positions)):
+				gap = positions[i] - positions[i-1]
+				
+				if gap <= max_gap:
+					# Continue current cluster
+					current_cluster_positions.append(positions[i])
+				else:
+					# End current cluster if it meets size criteria
+					if len(current_cluster_positions) >= min_cluster_size:
+						cluster_end = current_cluster_positions[-1]
+						clusters.append((current_cluster_start, cluster_end))
+					
+					# Start new cluster
+					current_cluster_start = positions[i]
+					current_cluster_positions = [positions[i]]
+			
+			# Handle final cluster
+			if len(current_cluster_positions) >= min_cluster_size:
+				cluster_end = current_cluster_positions[-1]
+				clusters.append((current_cluster_start, cluster_end))
+			
+			return clusters
+
+		all_ptrs_df = self.ptrs_df[['no_cc_ptr_all', 'cc_ptr_all']].copy()
+		all_ptrs_df['difference'] = all_ptrs_df['cc_ptr_all'] / all_ptrs_df['no_cc_ptr_all']
+
+		ptr_increase_rows = all_ptrs_df[all_ptrs_df.cc_ptr_all > all_ptrs_df.no_cc_ptr_all].copy()
+		ptr_decrease_rows = all_ptrs_df[all_ptrs_df.cc_ptr_all <= all_ptrs_df.no_cc_ptr_all].copy()
+
+		print(f"{len(ptr_increase_rows)} of {len(all_ptrs_df)} windows increased in PTR")
+		print(f"{len(ptr_decrease_rows)} of {len(all_ptrs_df)} windows decreased in PTR")
+
+		# Top 200
+		#ptr_increase_rows = ptr_increase_rows.sort_values('difference', ascending=False).head(200)
+
+		# Bottom 200
+		#ptr_decrease_rows = ptr_decrease_rows.sort_values('difference', ascending=False).tail(200)
+
+		from src.sgd import load_aux_annotations
+
+		aux = load_aux_annotations()
+		centromeres = aux[aux.cat == 'centromere'].set_index('chr')
+
+		from src.origins import load_origins
+		all_origins = load_origins()
+
+		plt.figure(figsize=(9, 6))
+		for chrom in range(1, 17):
+			from src.sgd import get_chromosome_length
+			
+			chrom_len = get_chromosome_length(chrom)
+			plt.plot([0, chrom_len], [chrom, chrom], c='black', zorder=0)
+
+			centromere = centromeres.loc[chrom]
+			centromere_mid = (centromere.start+centromere.stop)/2.
+			plt.scatter(centromere_mid, chrom, 
+				lw=4, c='black', marker='|', label=("Centromere" if chrom == 1 else None))
+			
+			# label = "Decreased PTR" if chrom == 1 else None
+			# try:
+			# 	selected_windows = ptr_decrease_rows.loc[chrom].index
+			# 	plt.scatter(selected_windows, np.repeat(chrom, len(selected_windows)),
+			# 			   color=plt.cm.Greys(0.5), alpha=0.25, label=label, edgecolor='none')
+
+			# except KeyError:
+			# 	continue
+
+			label = "Increased PTR" if chrom == 1 else None
+			try:
+				selected_windows = ptr_increase_rows.loc[chrom].index
+
+				# Identify and highlight clusters
+				clusters = _identify_ptr_clusters(
+					sorted(selected_windows)
+				)
+
+				plt.scatter(selected_windows, np.repeat(chrom, len(selected_windows)),
+					   color=plt.cm.Greens(0.65), alpha=0.5, label=label, lw=0)
+
+				# Draw rectangles around clusters
+				from src.plot_helpers import plot_rect2
+				ax = plt.gca()
+				for cluster_start, cluster_end in clusters:
+					plot_rect2(
+						ax, 
+						x1=cluster_start-6000, y1=chrom-0.3,  # Slight vertical offset
+						x2=cluster_end+6000, y2=chrom+0.3,
+						facecolor='none', alpha=0.75,
+						edgecolor=plt.cm.Greens(1.0), lw=0.5,
+						zorder=30)
+					
+			except KeyError:
+				continue
+
+			chrom_origins = all_origins[(all_origins.chr == chrom) & 
+				(all_origins.activation_time == 'early')].copy()
+			alpha_value = 0.75
+			plt.scatter(chrom_origins.pos, np.repeat(chrom, len(chrom_origins)), alpha=alpha_value,
+				color='red', s=10, marker='D', label='Early origin' if chrom == 1 else None,
+				lw=0)
+
+		plt.yticks(range(1, 17))
+		plt.suptitle("Regions with increased PTR following copy correction", 
+			fontweight='demi', fontsize=21)
+		plt.legend()
+		plt.xlabel("Genomic position, bp")
+		plt.ylabel("Chromosome")
+		plt.ylim(17, 0)
+
 
 	def plot_ptrs(self, key_1='no_cc_ptr_all', key_2='cc_ptr_all'):
 		ptrs1 = self.ptrs_df[key_1]

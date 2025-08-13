@@ -76,7 +76,25 @@ class ReplicationTiming:
 		from src.reference_data import load_muller_replication_timing_copy_number_ratio
 		from src.mnase_10kb_loader import get_bin_for_position
 		from src.read_bam import _fromRoman
+		from scipy.stats import pearsonr
+		import numpy as np
 
+		# Filter out outlier replication timings: Ones estimated at the very last
+		# timepoint (could not find an accurate timing)
+		filtered_replications_df = self.replications_df.copy()
+
+		# Replication timings at the maximal possible time are likely
+		# poor fits for some reason (the model could did not estimate a time in which
+		# the copy doubled). Various possible reasonings: alpha-factor, or areas with
+		# very strong non-replicative effects
+		repl_timing = filtered_replications_df.replication_time
+		quantile_val = np.quantile(repl_timing, q=1.0)
+		filtered_replications_df = filtered_replications_df.loc[filtered_replications_df.replication_time < quantile_val]
+
+		print("Filtering the called replication timings to 1.0 percentile (highest timing indicative "
+			"of poor fit)")
+		print(f"Filtered timings from {len(self.replications_df)} to {len(filtered_replications_df)}")
+		print(f"Number of regions removed: {len(self.replications_df)-len(filtered_replications_df)}")
 
 		# Load the muller replication timing data
 		muller_timing = load_muller_replication_timing_copy_number_ratio()
@@ -87,7 +105,7 @@ class ReplicationTiming:
 
 		for chrom in range(1, 17):
 			chrom_muller_timing = muller_timing.loc[chrom]
-			chrom_repl_timing = self.replications_df.loc[chrom]
+			chrom_repl_timing = filtered_replications_df.loc[chrom]
 
 			# Convert the muller positions into the bin positions that correspond
 			# with our replication timing
@@ -104,22 +122,15 @@ class ReplicationTiming:
 
 		joined_replication_df = pd.concat(chrom_joined_dfs_arr)
 
-		from scipy.stats import pearsonr
-		import numpy as np
+		self.filtered_joined_muller_replication_data = joined_replication_df
 
-		self.joined_muller_replication_df = joined_replication_df
-
-		correlation_data = self.joined_muller_replication_df.copy()
+		correlation_data = self.filtered_joined_muller_replication_data.copy()
 		repl_timing = correlation_data.replication_time
 
-		# Filter the replication timing by the top 95%
-		q95_val = np.quantile(repl_timing, q=0.95)
-		filtered_repl_timings = correlation_data[correlation_data.replication_time < q95_val]
-		self.filtered_joined_muller_replication_data = filtered_repl_timings
-		self.muller_pearsonr = pearsonr(-filtered_repl_timings.copy_number_ratio, filtered_repl_timings.replication_time)
-		print("Filtering the called replication timings to 95 percentile")
-		print(f"Filtered timings from {len(correlation_data)} to {len(filtered_repl_timings)}")
-		print(f"{len(correlation_data)-len(filtered_repl_timings)} were filtered out")
+		self.muller_pearsonr = pearsonr(-correlation_data.copy_number_ratio, 
+			repl_timing)
+
+		print(f"Correlation between muller and replication timing model: {self.muller_pearsonr[0]:0.2f}")
 
 	def load_mean_dg1_mg1_length(self):
 		from src.config import load_default_chrom_configs
@@ -143,12 +154,47 @@ class ReplicationTiming:
 		plotter.bw = [0.02, 0.5]
 		plotter.cmap = 'Purples'
 		plotter.plot_ax(plt.gca())
-		plt.ylim(65, 25)
+		plt.ylim(72, 25)
 		plt.title(f"Deep sequencing vs MNase-seq\n"
 				  f"n={len(self.filtered_joined_muller_replication_data)}, Pearson r = {self.muller_pearsonr[0]:.2g}",
 				 fontweight='demi', fontsize=18, y=1.02)
 		plt.ylabel("Replication time, min (Deconvolved MNase-seq)")
 		plt.xlabel("Copy # ratio (Deep Sequencing, Müller, 2014)")
+
+
+	def compute_total_num_windows_dropped(self):
+		""""Compute the total windows dropped due to poor coverage"""
+		from src.sgd import get_chromosome_length
+		import numpy as np
+		
+		replication_timings_df = self.replications_df
+		
+		# Iterate through the chromosomes, and count up how many regions were removed
+		# due to low coverage
+		total_windows = 0
+		total_repl_windows = 0
+		total_dropped_windows = 0
+
+		for chrom in range(1, 17):
+			chrom_len = get_chromosome_length(chrom)
+			windows = np.arange(0, chrom_len, 2000)
+
+			chrom_replication_timing_windows = replication_timings_df.loc[chrom].index
+			dropped_windows = set(windows).difference(set(chrom_replication_timing_windows))
+
+			print("Chromosome: ", chrom, end=", ")
+			print(f"\ttotal: {len(windows)}", end=", ")
+			print(f"\twith timing: {len(chrom_replication_timing_windows)}", end=", ")
+			print(f"\tdropped: {(len(dropped_windows))}")
+
+			total_windows += len(windows)
+			total_repl_windows += len(chrom_replication_timing_windows)
+			total_dropped_windows += len(dropped_windows)
+
+		print("Total windows: ", total_windows)
+		print("Total repl windows: ", total_repl_windows)
+		print("Total dropped windows: ", total_dropped_windows)
+
 
 	def plot_chrom_timing(self, chrom):
 		
@@ -172,13 +218,15 @@ class ReplicationTiming:
 		plt.ylabel("Copy # ratio")
 
 		plt.subplot(2, 1, 2)
-		plt.scatter(chr_replication.index,
+
+		x_positions = chr_replication.index // 1000
+		plt.scatter(x_positions,
 			chr_replication['replication_time']+mean_g1_len, s=1, color=plt.cm.Oranges(0.75))
-		plt.xlim(chr_replication.index[0], chr_replication.index[-1])
-		plt.ylim(32+mean_g1_len, -25+mean_g1_len)
+		plt.xlim(x_positions[0], x_positions[-1])
+		plt.ylim(82, -25+mean_g1_len)
 		plt.title("Deconvolved MNase-seq")
 		plt.ylabel("Replication time, min")
-		plt.xlabel("Genomic position, bp")
+		plt.xlabel("Genomic position, kb")
 
 		plot_origins = False
 		if plot_origins:
