@@ -1,0 +1,5 @@
+chr	start	end	peakVal	strand	motif	sample_id	replicate
+chr3	292786	292787	468	+	1	18478	rep1
+chr3	14661	14662	352	+	2	18478	rep1
+chr15	642280	642281	478	-	2	18478	rep1
+chr16	560836	560837	71	-	3	18478	rep1

@@ -56,26 +56,19 @@ class FigureNongenicTranscripts:
 		self.load_data()
 
 	def select_transcript_examples(self):
-		# Example non-genics to plot
-		#
-		# 
-		#  transcript_name2 = 'nogene_chr16_821687_822100' # Good example, divergent promoter, 
-		#  # promoter definition update
 
-		#  transcript_name = 'nogene_chr15_594632_594826' # Good example, divergent promoter, issue
-		#  next to a low-coverage region
+		# Example non-genic transcripts::
 
-		#  transcript_name = 'nogene_chr4_130361_130486' # Antisense transcript, good example ribosomal gene
+		#  transcript_name = 'nogene_chr4_130361_130486' # Antisense transcript, ribosomal gene
 		#  transcript_name = 'nogene_chr13_618858_619269' # Antisense transcript, 
 
-		# nogene_chr2_307023_307915 
-		# nogene_chr4_130361_130486
+		# Decent example of both, there is a lot of gene overlap here
+		#('3', 'Antisense & Divergent', 'nogene_chr4_1456150_1456694'),  # Antisense transcript, ribosomal
 
 		# Selected transcripts for scatter plot annotation
 		self.selected_transcripts = [
 			('1', 'Divergent', 'nogene_chr4_443744_444111'), # Divergently transcribed transcript
-			('2', 'Antisense', 'nogene_chr13_618858_619269'),
-			('3', 'Antisense & Divergent', 'nogene_chr4_1456150_1456694'),  # Antisense transcript, ribosomal
+			('2', 'Divergent & Antisense', 'nogene_chr13_618858_619269'),
 		]
 
 	def _initialize_processors(self):
@@ -206,7 +199,7 @@ class FigureNongenicTranscripts:
 
 		# if transcript is left to right (+), 
 		# divergent is right to left (-)
-		search_window = -500, 100
+		search_window = -600, 100
 
 		# Loop through nongenic transcripts, annotate divergent genes if criteria matches
 		for transcript_name, transcript in nongenic_transcripts_w_divergent.iterrows():
@@ -331,21 +324,24 @@ class FigureNongenicTranscripts:
 				'title': 'Promoter occupancy',
 				'xlabel': 'Promoter occupancy PTR',
 				'colormap': plt.cm.Oranges,
-				'subplot_pos': 1
+				'subplot_pos': 1,
+				'xlim': (0.99, 1.5),
 			},
 			{
 				'x_column': 'nucleosome_entropy_ptr', 
 				'title': 'Nucleosome entropy',
 				'xlabel': 'Entropy PTR',
 				'colormap': plt.cm.Purples,
-				'subplot_pos': 2
+				'subplot_pos': 2,
+				'xlim': (0.99, 1.36),
 			},
 			{
 				'x_column': 'nucleosome_occupancy_ptr',
 				'title': 'Nucleosome occupancy', 
 				'xlabel': 'Nucleosome occupancy PTR',
 				'colormap': plt.cm.Blues,
-				'subplot_pos': 3
+				'subplot_pos': 3,
+				'xlim': (0.99, 1.7),
 			}
 		]
 		
@@ -371,7 +367,7 @@ class FigureNongenicTranscripts:
 		
 		return fig
 	
-	def _create_scatter_subplot(self, joined_data, x_column, title, xlabel, colormap, 
+	def _create_scatter_subplot(self, joined_data, x_column, title, xlabel, xlim, colormap, 
 			subplot_pos, tx_ptr_threshold):
 		"""Create individual scatter plot subplot."""
 
@@ -391,8 +387,6 @@ class FigureNongenicTranscripts:
 
 		plt.axhline(tx_ptr_threshold, c='#232323',  ls='dotted', lw=1, alpha=1.0)
 
-		# Plot selected transcripts
-		xlim = 0.99, 1.7
 		for label, category, transcript_name in self.selected_transcripts:
 			if transcript_name in joined_data.index:
 				x, y = joined_data.loc[transcript_name][x_column], \
@@ -627,13 +621,12 @@ class FigureNongenicTranscripts:
 			add_panel_labels_to_images
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 450, debug_mode=True)
+		compositor = FigureCompositor(1024, 640, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/nongenic_ptrs.png',
 			f'{self.save_dir}/locus_1_nogene_chr4_443744_444111.png',
 			f'{self.save_dir}/locus_2_nogene_chr13_618858_619269.png',
-			f'{self.save_dir}/locus_3_nogene_chr4_1456150_1456694.png',
 		]
 
 		# Layout images horizontally with custom width proportions
@@ -641,10 +634,10 @@ class FigureNongenicTranscripts:
 		placed_images = layout_images_horizontally(
 			compositor,
 			image_paths,
-			width_proportions=[0.74, 1.12, 1.12, 1.12],
+			width_proportions=[0.78, 1.12, 1.12],
 			between_padding=30,
 			margin=(40, 40),
-			image_keys=['nongenic_ptrs', 'locus_1', 'locus_2', 'locus_3']  # Custom keys
+			image_keys=['nongenic_ptrs', 'locus_1', 'locus_2']  # Custom keys
 		)
 
 		# Add panel labels
