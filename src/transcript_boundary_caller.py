@@ -464,7 +464,7 @@ class TranscriptBoundaryCaller:
 		plt.subplot(2, 1, 1)
 		ax = plt.gca()
 		self.orf_plotter = load_default_orf_plotter()
-		self.orf_plotter.set_span_chrom(self.span, self.chromosome)
+		self.orf_plotter.set_chrom_span(self.chromosome, self.span)
 		self.orf_plotter.plot_orf_annotations(ax)
 
 		span = self.span

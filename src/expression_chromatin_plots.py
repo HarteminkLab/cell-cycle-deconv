@@ -426,7 +426,7 @@ class DeconvolutionChromatinExpressionPlotter:
 		"""
 		self.chrom = chrom
 		self.span = span
-		self.orf_plotter.set_span_chrom(span, chrom)
+		self.orf_plotter.set_chrom_span(chrom, span)
 
 	def _plot_annotations(self):
 		"""Plot gene annotations on all annotation axes"""

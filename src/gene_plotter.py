@@ -57,7 +57,7 @@ class GeneLocusPlotter:
 			self.set_chrom(gene.chr)
 
 		# Configure the ORF plotter
-		self.orf_plotter.set_span_chrom(self.gene_window, gene.chr)
+		self.orf_plotter.set_chrom_span(gene.chr, self.gene_window)
 		self.chr_mnase_plotter.set_gene(gene, normalize_mnase)
 		# self.chr_rna_plotter.set_gene(gene)
 

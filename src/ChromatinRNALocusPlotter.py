@@ -13,6 +13,8 @@ from src.orf_plotter import load_default_orf_plotter
 from src.rna_pileup_plotter import RNASeqPileupPlotter
 
 
+internal_spine_color = '#b0a996'
+
 class SingleBranchChromatinPlotter:
 	"""
 	Class to plot the chromatin context for a single branch.
@@ -23,7 +25,7 @@ class SingleBranchChromatinPlotter:
 	"""
 
 	def __init__(self, outdir, config1, branch_type="mother", figsize=(6, 5), title=None,
-		rna_plotter=None):
+		rna_plotter=None, deconvolved_tpm_plotter=None, plot_index_labels=True):
 		"""
 		Initialize the plotter with configuration for a single branch
 		
@@ -49,6 +51,11 @@ class SingleBranchChromatinPlotter:
 		self.title = title
 		self.branch_type = branch_type
 		self.highlight_bins = []
+		self.add_genomic_scale = False
+		self.add_xticks = True
+
+		# Right side index labels
+		self.plot_index_labels = plot_index_labels
 
 		self.map_phase_name = {
 			'R': "Recovery G1",
@@ -79,6 +86,7 @@ class SingleBranchChromatinPlotter:
 			)
 			
 		self.orf_plotter = load_default_orf_plotter(outdir)
+		self.deconvolved_tpm_plotter = deconvolved_tpm_plotter
 
 		if rna_plotter is None:
 			self.rna_plotter = RNASeqPileupPlotter(outdir)
@@ -89,6 +97,12 @@ class SingleBranchChromatinPlotter:
 
 		# Initialize the axes
 		self._initialize_axes()
+
+
+	def all_data_axes(self):
+		all_data_axes = [self.annotation_axis, self.rna_pileup_axis] + self.chromatin_axes
+		return all_data_axes
+
 		
 	def _initialize_axes(self):
 		"""Setup the axes with proper formatting"""
@@ -126,7 +140,7 @@ class SingleBranchChromatinPlotter:
 
 			for spine in internal_spines:
 				spine.set_linewidth(internal_spine_width)
-				spine.set_color('#b0a996')
+				spine.set_color(internal_spine_color)
 
 	def clear_axes(self):
 		"""Clear all axes in the plot"""
@@ -207,7 +221,7 @@ class SingleBranchChromatinPlotter:
 		# Constants for positioning
 		bar_width = 1.0
 		bar_x = 0.0
-		text_x = 0.4  # Centered, shifted slightly
+		text_x = 0.6 # Centered, shifted slightly
 		
 		ax = self.cell_cycle_axis
 		g1_phase = self._get_phase_for_branch_type(branch_type)
@@ -244,36 +258,52 @@ class SingleBranchChromatinPlotter:
 
 		# Add vertical text labels
 		# G1 phase text
-		annotation_fontsize = 10
-		num_fontsize = 8
+		annotation_fontsize = 12
+		num_fontsize = 10
 
-		def _plot_annotation_text(x, y, label, fontsize, ha='left'):
+		def _plot_annotation_text(x, y, label, fontsize, ha='center'):
 			ax.text(x, y, label, fontsize=fontsize,
-					rotation=270, ha=ha, va='center', color='white',
+					rotation=90, ha=ha, va='center', color='white',
 					fontdict={'fontname': 'Open Sans'})
 
 		g1_center = self.num_g1_rows / 2
 		s_center = self.num_g1_rows + (self.num_s_rows / 2)
 		g2m_center = self.num_g1_rows + self.num_s_rows + (self.num_g2m_rows / 2)
-		label_between_padding = 0.1
+		label_between_padding = 0.05
 		pad_2 = label_between_padding/2
 
 		# Phase label names
-		_plot_annotation_text(text_x+pad_2, g1_center, self.map_phase_name[g1_phase], annotation_fontsize)
-		_plot_annotation_text(text_x+pad_2, s_center, self.map_phase_name['S'], annotation_fontsize)
-		_plot_annotation_text(text_x+pad_2, g2m_center, self.map_phase_name['G2M'], annotation_fontsize)
+		if self.plot_index_labels:
+			phase_label_x_position = text_x-pad_2
+			number_label_x_position = text_x+pad_2
+			phase_ha = 'right'
+		else:
+			phase_label_x_position = text_x
+			phase_ha = 'center'
+
+		_plot_annotation_text(phase_label_x_position, g1_center, self.map_phase_name[g1_phase], annotation_fontsize, 
+			ha=phase_ha)
+		_plot_annotation_text(phase_label_x_position, s_center, self.map_phase_name['S'], annotation_fontsize, 
+			ha=phase_ha)
+		_plot_annotation_text(phase_label_x_position, g2m_center, self.map_phase_name['G2M'], annotation_fontsize, 
+			ha=phase_ha)
 
 		# Number of indices per phase
-		_plot_annotation_text(text_x-pad_2, g1_center, g1_num_label, num_fontsize,
-			ha='right')
-		_plot_annotation_text(text_x-pad_2, s_center, s_num_label, num_fontsize,
-			ha='right')
-		_plot_annotation_text(text_x-pad_2, g2m_center, g2m_num_label, num_fontsize,
-			ha='right')
+		if self.plot_index_labels:
+			_plot_annotation_text(number_label_x_position, g1_center, g1_num_label, num_fontsize,
+				ha='left')
+			_plot_annotation_text(number_label_x_position, s_center, s_num_label, num_fontsize,
+				ha='left')
+			_plot_annotation_text(number_label_x_position, g2m_center, g2m_num_label, num_fontsize,
+				ha='left')
 		
 		# Set axis limits
 		ax.set_xlim(0, 1)
 		ax.set_ylim(self.num_rows, 0)
+
+	def plot_deconvolved_tpm_if_needed(self, ax, indices):
+		if self.deconvolved_tpm_plotter is not None:
+			self.deconvolved_tpm_plotter.plot_mean_transcripts_for_time_indices(ax, indices)
 
 	def _plot_mean_mother_daughter_chromatin(self):
 		"""Plot the average of mother and daughter chromatin data"""
@@ -296,10 +326,18 @@ class SingleBranchChromatinPlotter:
 			mg1_img = self.chromatin_F[mg1_idx]
 			mean_img = (dg1_img+mg1_img)/2.
 
+			# Plot the chromatin image for the index
 			ax = self.chromatin_axes[row_idx]
 			self.plot_im(ax, mean_img)
 
-			_plot_index_label(ax, self.span[1]+50, 130, dg1_abs[row_idx]+1, total_branch_indices)
+			# Plot the deconvolved TPM
+			self.plot_deconvolved_tpm_if_needed(ax, [dg1_idx, mg1_idx])
+
+			# Add index label
+			if self.plot_index_labels:
+				_plot_index_label(ax, self.span[1]+50, 130, dg1_abs[row_idx]+1, total_branch_indices)
+
+			ax.set_ylim(0, 260)
 
 		self._plot_s_g2m_chromatin()
 
@@ -318,16 +356,25 @@ class SingleBranchChromatinPlotter:
 		for row_idx, idx in enumerate(s_indices):
 			ax = self.chromatin_axes[row_idx + self.num_g1_rows]
 			self.plot_im(ax, self.chromatin_F[idx])
-			_plot_index_label(ax, self.span[1]+50, 130, s_abs[row_idx]+1+total_g1, 
-				total_branch_indices)
+
+			if self.plot_index_labels:
+				_plot_index_label(ax, self.span[1]+50, 130, s_abs[row_idx]+1+total_g1, 
+					total_branch_indices)
+
+			self.plot_deconvolved_tpm_if_needed(ax, [idx])
+			ax.set_ylim(0, 260)
 
 		# Plot G2M phase chromatin
 		for row_idx, idx in enumerate(g2m_indices):
 			ax = self.chromatin_axes[row_idx + self.num_g1_rows + self.num_s_rows]
 			self.plot_im(ax, self.chromatin_F[idx])
 
-			_plot_index_label(ax, self.span[1]+50, 130, g2m_abs[row_idx]+1+total_g1+total_s, 
-				total_branch_indices)
+			if self.plot_index_labels:
+				_plot_index_label(ax, self.span[1]+50, 130, g2m_abs[row_idx]+1+total_g1+total_s, 
+					total_branch_indices)
+
+			self.plot_deconvolved_tpm_if_needed(ax, [idx])
+			ax.set_ylim(0, 260)
 
 	def _plot_chromatin_branch(self, g1_phase):
 		"""Plot chromatin data for a single branch"""
@@ -392,10 +439,11 @@ class SingleBranchChromatinPlotter:
 		else:
 			raise ValueError(f"Unknown branch type: {branch_type}")
 
-		from src.plot_helpers import add_im_genomic_scale_legend
+		if self.add_genomic_scale:
+			from src.plot_helpers import add_im_genomic_scale_legend
 
-		ax = self.chromatin_axes[-1]
-		add_im_genomic_scale_legend(ax, self.span[0], 600, legend_y=-80)
+			ax = self.chromatin_axes[-1]
+			add_im_genomic_scale_legend(ax, self.span[0], 1000, legend_y=-80)
 
 	def set_chrom_span(self, chrom, span):
 		"""
@@ -410,9 +458,12 @@ class SingleBranchChromatinPlotter:
 		"""
 		self.chrom = chrom
 		self.span = span
-		self.orf_plotter.set_span_chrom(span, chrom)
+		self.orf_plotter.set_chrom_span(chrom, span)
 		self.rna_plotter.set_chrom_span(chrom, span, replicate='combined') 
-		# todo only first replicate, plot the average of 1 and 2
+
+		if self.deconvolved_tpm_plotter is not None:
+			self.deconvolved_tpm_plotter.set_chrom_span(chrom, span)
+
 
 	def _plot_annotations(self):
 		"""Plot gene annotations on the annotation axis"""
@@ -451,8 +502,17 @@ class SingleBranchChromatinPlotter:
 		# Set title
 		title = self.title
 		if title is None:
-			title = f"chr{self.chrom}, {self.span[0]}-{self.span[1]} ({self.branch_type})"
-		plt.suptitle(title, fontsize=24, y=1, fontweight='demi')
+			from src.read_bam import _toRoman
+			title = f"chr{_toRoman(self.chrom)} {self.span[0]}...{self.span[1]}"
+
+		self.annotation_axis.set_title(title, fontsize=24, fontweight='demi', pad=13)
+
+		self.rna_pileup_axis.set_ylabel("Experiment\nRNA pileup", fontsize=12,
+			fontweight='demi', labelpad=5)
+
+		# Labe the deconvolution section
+		self.chromatin_axes[0].set_title("Deconvolved chromatin and transcription",
+			fontsize=18, fontweight='demi', pad=10)
 
 		# For the last row of the chromatin axes, show ticks for positions
 		minor_xticks = np.arange(self.span[0], self.span[1]+200, 200)
@@ -465,7 +525,7 @@ class SingleBranchChromatinPlotter:
 		ax.set_xticks(major_xticks, minor=False)
 
 		# Formatting
-		ax.tick_params(axis='x', which='major', length=5, width=1.25, labelbottom=False)
+		ax.tick_params(axis='x', which='major', length=5, width=1.25, labelbottom=self.add_xticks)
 		ax.tick_params(axis='x', which='minor', length=2, width=1, labelbottom=False)
 		ax.set_xlim(*self.span)
 
@@ -482,7 +542,7 @@ def create_single_branch_chromatin_layout(
 	annotation_height=1.0,  # Height of annotation row relative to data rows
 	annotation_spacing=0.2,  # Height of spacing between annotation and rna_pileup rows
 	rna_pileup_height=1.6,  # Height of rna_pileup row relative to data rows
-	rna_pileup_spacing=0.2,  # Height of spacing between rna_pileup and chromatin data rows
+	rna_pileup_spacing=0.6,  # Height of spacing between rna_pileup and chromatin data rows
 ):
 	"""
 	Creates a layout for single-branch chromatin data visualization with gene annotations,

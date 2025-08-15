@@ -132,26 +132,19 @@ class ReplicationTiming:
 
 		print(f"Correlation between muller and replication timing model: {self.muller_pearsonr[0]:0.2f}")
 
-	def load_mean_dg1_mg1_length(self):
-		from src.config import load_default_chrom_configs
-
-		config1, config2 = load_default_chrom_configs()
-		cg1_tps = config1.get_timepoints_for_phase('CG1')
-		dg1_tps = config1.get_timepoints_for_phase('DG1')
-		mean_g1_len = (-cg1_tps[0]+-dg1_tps[0])/2.
-		return mean_g1_len
-
 	def plot_muller_correlation(self):
 		from src.DensityScatterPlotter import DensityScatterPlotter
 		import matplotlib.pyplot as plt
+		from src.config import load_mean_dg1_mg1_length
 
-		mean_g1_len = self.load_mean_dg1_mg1_length()
+		mean_g1_len = load_mean_dg1_mg1_length()
 
 		fig = plt.figure(figsize=(5.25, 5))
 		plotter = DensityScatterPlotter()
 		plotter.set_data(self.filtered_joined_muller_replication_data['copy_number_ratio'].values,
 				   self.filtered_joined_muller_replication_data['replication_time'].values+mean_g1_len)
 		plotter.bw = [0.02, 0.5]
+		plotter.outline_color = '#eee'
 		plotter.cmap = 'Purples'
 		plotter.plot_ax(plt.gca())
 		plt.ylim(72, 25)
@@ -199,8 +192,9 @@ class ReplicationTiming:
 	def plot_chrom_timing(self, chrom):
 		
 		import matplotlib.pyplot as plt
+		from src.config import load_mean_dg1_mg1_length
 
-		mean_g1_len = self.load_mean_dg1_mg1_length()
+		mean_g1_len = load_mean_dg1_mg1_length()
 
 		fig = plt.figure(figsize=(7, 4))
 
@@ -221,7 +215,7 @@ class ReplicationTiming:
 
 		x_positions = chr_replication.index // 1000
 		plt.scatter(x_positions,
-			chr_replication['replication_time']+mean_g1_len, s=1, color=plt.cm.Oranges(0.75))
+			chr_replication['replication_time']+mean_g1_len, s=1, color=plt.cm.Greens(0.75))
 		plt.xlim(x_positions[0], x_positions[-1])
 		plt.ylim(82, -25+mean_g1_len)
 		plt.title("Deconvolved MNase-seq")

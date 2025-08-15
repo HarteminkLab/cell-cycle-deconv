@@ -326,17 +326,55 @@ def load_transcripts_sets(output_dir, combined=False):
 	nongenic_set = nongenic_set.set_index('transcript_name').rename(columns={'end': 'stop'})
 	nongenic_set['length'] = nongenic_set.stop - nongenic_set.start
 
+	# ----------- Non-genic absolute boundaries ---------------------------
+
+	# Full transcript for non-genes are defined by the start and stop
+	nongenic_set['full_transcript_start'] = nongenic_set['start']
+	nongenic_set['full_transcript_end'] = nongenic_set['stop']
+
+	# ------- For the genes use TSS and PAS to define boundaries -----------
+
+	geneset['transcript_class'] = 'genic'
+	# Add keys for full transcript ends, using the TSS and PAS's
+	# We can use the promoter and transcript boundaries, as they are derived from these locations
+	sel_watson_transcripts = geneset.strand == '+'
+	sel_crick_transcripts = geneset.strand == '-'
+
+	# Watson strand definitions
+	geneset.loc[sel_watson_transcripts, 'full_transcript_start'] = \
+		geneset.loc[sel_watson_transcripts, 'TSS']
+	geneset.loc[sel_watson_transcripts, 'full_transcript_end'] = \
+		geneset.loc[sel_watson_transcripts, 'PAS']
+
+	# Crick strand definitions
+	geneset.loc[sel_crick_transcripts, 'full_transcript_end'] = \
+		geneset.loc[sel_crick_transcripts, 'TSS']
+	geneset.loc[sel_crick_transcripts, 'full_transcript_start'] = \
+		geneset.loc[sel_crick_transcripts, 'PAS']
+
+	def set_bound_type_int(dat):
+		dat.full_transcript_start = dat.full_transcript_start.astype(int)
+
+	set_bound_type_int(geneset)
+	set_bound_type_int(nongenic_set)
+
+	# -------------------------------------------------------------------------
+
 	# Combined dataset with common keys
 	if combined:
-		preserve_keys = ['transcript_class', 'chr', 'strand', 'start', 'stop', 'length',
-		'promoter_start', 'promoter_end', 'gene_body_start', 'gene_body_end']
+		preserve_keys = ['transcript_class', 
+						 'chr', 'strand', 'start', 'stop', 'length',
+						 'promoter_start', 'promoter_end', 
+						 'gene_body_start', 'gene_body_end',
+						 'full_transcript_start', 'full_transcript_end'
+		]
 
 		nongenic_set = nongenic_set.rename(columns={'transcript_body_start': 'gene_body_start',
 			'transcript_body_end': 'gene_body_end'})
 		nongenic_set['transcript_class'] = 'nongenic'
-		geneset['transcript_class'] = 'genic'
 
 		combined_gene_nongenic = pd.concat([geneset[preserve_keys], nongenic_set[preserve_keys]])
+
 		return combined_gene_nongenic
 	
 	return geneset, nongenic_set

@@ -271,7 +271,8 @@ class CombinedReplicationDeconvolution():
 			for spine in ax.spines.values():
 				spine.set_linewidth(1.5)
 
-		plt.suptitle("Replication profile deconvolution", fontsize=47, fontweight='demi', y=1.35)
+		plt.suptitle("Replication profile deconvolution", fontsize=47, 
+			fontweight='demi', y=1.15)
 
 	def plot_N_G_Fr_B_diagram(self):
 		from src.layout_replication_plots import ReplicationSubplotLayout

@@ -11,9 +11,12 @@ from src.config import load_default_chrom_configs
 from src.transcript_boundary_caller import TranscriptBoundaryCaller
 from src.transcript_boundary_visualizer import plot_tx_transcript_context
 from pipeline.transcription_processor import ExpressionAnalysisProcessor
+from src.deconvolved_tpm_plotter import DeconvolvedTPMPlotter
 from pipeline.chromatin_metrics_processor import ChromatinMetricsProcessor
 from src.utils import mkdir_safe
 from pipeline.expression_chromatin_integration import IntegratedChromatinExpressionAnalyzer
+from src.figure_configs import save_figure_for_paper
+
 
 class FigureNongenicTranscripts:
 	"""
@@ -39,13 +42,21 @@ class FigureNongenicTranscripts:
 		self.figures_dir = f"{self.output_dir}/Figures"
 
 		# Configuration parameters (as member variables)
-		self.min_expression_level = 4
 		self.min_ptr = 0
-		self.qthreshold = 0.9
+		self.qthreshold = 0.95
 		self.locus_span_size = 1000  # bp on each side for locus plotting
 		self.wider_span_size = 3600  # bp for transcript calling visualization
+	
+		self.select_transcript_examples()
+
+		# Initialize data processors and other components
+		self._initialize_processors()
 		
-		# Example non-genics we can plot
+		# Load all data upon initialization
+		self.load_data()
+
+	def select_transcript_examples(self):
+		# Example non-genics to plot
 		#
 		# 
 		#  transcript_name2 = 'nogene_chr16_821687_822100' # Good example, divergent promoter, 
@@ -62,18 +73,11 @@ class FigureNongenicTranscripts:
 
 		# Selected transcripts for scatter plot annotation
 		self.selected_transcripts = [
-			('1', 'Divergent', 'nogene_chr16_821687_822100'), # Divergent transcribed transcript
-			('2', 'Upstream', 'nogene_chr2_307023_307915'),   # Antisense, ribosomal gene, nucleosome occ ptr
-			('3', 'Antisense', 'nogene_chr15_594632_594826'), # Antisense transcript
-			# ('3', 'Antisense', 'nogene_chr4_130361_130486'),  # Antisense transcript, ribosomal
+			('1', 'Divergent', 'nogene_chr4_443744_444111'), # Divergently transcribed transcript
+			('2', 'Antisense', 'nogene_chr13_618858_619269'),
+			('3', 'Antisense & Divergent', 'nogene_chr4_1456150_1456694'),  # Antisense transcript, ribosomal
 		]
-		
-		# Initialize data processors and other components
-		self._initialize_processors()
-		
-		# Load all data upon initialization
-		self.load_data()
-	
+
 	def _initialize_processors(self):
 		"""Initialize all required data processors and analysis components."""
 		# Initialize processors
@@ -104,6 +108,15 @@ class FigureNongenicTranscripts:
 		self.expression_processor.setup_data_loaders()
 		self.loaded_deconvolved_expression = self.expression_processor.load_deconvolved_expression()
 		self.raw_expression = self.expression_processor.load_raw_expression()
+
+		# Setting a minimum threshold for transcript level
+		mean_tx = self.expression_processor.expression_data.mean(1)	
+		self.min_expression_level = np.quantile(mean_tx, q=0.5)
+		print("Setting a minimum transcription level: The 50th percentile of the average gene expression: ", 
+			self.min_expression_level)
+
+		self.tpm_plotter = DeconvolvedTPMPlotter(self.expression_processor.expression_data,
+								   self.expression_processor.all_transcripts_set)
 		
 		print("Loading chromatin metrics...")
 		self.chromatin_metrics_processor.setup_data_loaders()
@@ -165,13 +178,59 @@ class FigureNongenicTranscripts:
 		# Add antisense gene annotations
 		for transcript_name, genes_arr in antisense_transcripts.items():
 			self.filtered_nongenic_transcripts.loc[transcript_name, 'antisense_gene'] = ','.join(genes_arr)
+
+		# Add divergent transcript annotations
+		self.filtered_nongenic_transcripts = self.identify_divergent_genes_to_nongenic_transcripts(self.filtered_nongenic_transcripts)
 		
 		self.antisense_transcripts = antisense_transcripts
 		
-		print(f"Filtered {len(nongenic_set)} nongenic transcripts:")
+		print(f"Filtered {len(nongenic_set)} nongenic transcripts overlapping with genes on the same strand")
 		print(f"  Kept: {len(self.filtered_nongenic_transcripts)}")
 		print(f"  Removed (same-strand overlap): {len(filtered_index)}")
 		print(f"  Antisense transcripts: {len(antisense_transcripts)}")
+		print(f"  Divergent transcripts: {self.filtered_nongenic_transcripts.divergent_orf.count()}")
+
+	def identify_divergent_genes_to_nongenic_transcripts(self, filtered_nongenic_transcripts):
+		from src.transcripts_dataset import load_transcripts_sets
+
+		all_genes, non_genes = load_transcripts_sets('output/draft4_run/')
+		# Let's characterize the antisense and divergent transcripts.
+
+		# Antisense should be annotated already, let's check divergent transcripts. 
+		# What is considered a shared promoter?
+		# Criteria:
+		#             given a transcript, there exists an upstream gene that is less than: 
+		#             500 bp away
+
+		nongenic_transcripts_w_divergent = filtered_nongenic_transcripts.copy()
+
+		# if transcript is left to right (+), 
+		# divergent is right to left (-)
+		search_window = -500, 100
+
+		# Loop through nongenic transcripts, annotate divergent genes if criteria matches
+		for transcript_name, transcript in nongenic_transcripts_w_divergent.iterrows():
+			strand = transcript.strand
+			if strand == '+':
+				TSS = transcript.promoter_start
+				transcript_search_span = (TSS+search_window[0], 
+										  TSS+search_window[1])
+			else:
+				TSS = transcript.promoter_end
+				transcript_search_span = (TSS-search_window[1], 
+										  TSS-search_window[0])
+
+			found_genes = all_genes[(all_genes.chr == transcript.chr) & 
+								   (all_genes.TSS > transcript_search_span[0]) & 
+								   (all_genes.TSS < transcript_search_span[1]) &
+								   (all_genes.strand != strand)]
+			
+			if len(found_genes) > 0:
+				nongenic_transcripts_w_divergent.loc[transcript_name, 'divergent_orf'] = \
+					found_genes.index[0]
+
+		return nongenic_transcripts_w_divergent
+
 	
 	def apply_expression_filters(self, min_expression_level=None, min_ptr=None):
 		"""
@@ -193,8 +252,23 @@ class FigureNongenicTranscripts:
 			min_expression_level = self.min_expression_level
 		if min_ptr is None:
 			min_ptr = self.min_ptr
-			
-		return self._retrieve_filtered_data(min_expression_level, min_ptr)
+
+		expression_level_filtered_ptr_data = self._retrieve_filtered_data(min_expression_level, min_ptr)
+		self.expression_level_filtered_ptr_data = expression_level_filtered_ptr_data
+
+		print(f"Filtered {len(self.filtered_nongenic_transcripts)} nongenic transcripts with criteria:")
+		print(f"Minimum expression level: {self.min_expression_level}")
+		print(f"Minimum PTR: {self.min_ptr}")
+		print(f"  Kept: {len(self.expression_level_filtered_ptr_data)}")
+		print(f"  Removed: {(len(self.filtered_nongenic_transcripts))-len(expression_level_filtered_ptr_data)}")
+		print(f"  Antisense transcripts: {self.expression_level_filtered_ptr_data.antisense_gene.count()}")
+		print(f"  Divergent transcripts: {self.expression_level_filtered_ptr_data.divergent_orf.count()}")
+
+		both = self.expression_level_filtered_ptr_data[~(self.expression_level_filtered_ptr_data.antisense_gene.isna())
+											& ~(self.expression_level_filtered_ptr_data.divergent_orf.isna())]
+		print(f"  Antisense & Divergent: {len(both)}")
+
+		return expression_level_filtered_ptr_data
 	
 	def _retrieve_filtered_data(self, min_expression_level, min_ptr):
 		"""Internal method to retrieve and filter transcript data."""
@@ -207,9 +281,9 @@ class FigureNongenicTranscripts:
 		
 		# Join data
 		plot_data = plot_data.join(high_quantile_expression).join(
-			self.filtered_nongenic_transcripts[['antisense_gene']], how='right')
+			self.filtered_nongenic_transcripts[['antisense_gene', 'divergent_orf']], how='right')
 		plot_data.columns = ['expression_ptr', 'transcript_class', 
-							 'percentile_90', 'antisense_gene']
+							 'percentile_90', 'antisense_gene', 'divergent_orf']
 		
 		# Apply filters
 		plot_data = plot_data[(plot_data.percentile_90 > min_expression_level) & 
@@ -276,29 +350,32 @@ class FigureNongenicTranscripts:
 		]
 		
 		# Calculate threshold info
-		tx_ptr_threshold = np.quantile(joined_data.expression_ptr.values, q=qthreshold)
+		tx_ptr_threshold = np.quantile(self.expression_processor.all_transcripts_ptrs.ptr, q=0.95)
+		self.tx_ptr_threshold = tx_ptr_threshold
+
 		num_thresh = len(joined_data[joined_data.expression_ptr >= tx_ptr_threshold])
-		
+		print(f"{num_thresh} transcripts with >95 percentile PTR (all transcription)")
+
 		# Create all subplots
 		for i, config in enumerate(plot_configs):
-			self._create_scatter_subplot(joined_data, qthreshold=qthreshold, **config)
+			self._create_scatter_subplot(joined_data, tx_ptr_threshold=tx_ptr_threshold, **config)
 		
 		# Final formatting
-		plt.suptitle(f"Non-genic transcripts,\nn="
-					 f"{len(joined_data)} transcripts\n{num_thresh} above >{int(qthreshold*100)}th percentile", 
+		plt.suptitle(f"Non-genic transcripts,\n"
+					 f"n={len(joined_data)} ({num_thresh} cycling)", 
 					 fontweight='demi', fontsize=18)
 		plt.tight_layout()
 		plt.subplots_adjust(hspace=0.5)
+
+		save_figure_for_paper(f"{self.save_dir}/nongenic_ptrs.png")
 		
 		return fig
 	
 	def _create_scatter_subplot(self, joined_data, x_column, title, xlabel, colormap, 
-			subplot_pos, qthreshold):
+			subplot_pos, tx_ptr_threshold):
 		"""Create individual scatter plot subplot."""
 
 		nrows, ncols = 3, 1
-
-		threshold = np.quantile(joined_data.expression_ptr.values, q=qthreshold)
 		plt.subplot(nrows, ncols, subplot_pos)
 
 
@@ -306,41 +383,16 @@ class FigureNongenicTranscripts:
 		# to the chromatin as well.
 
 		chromatin_values = joined_data[x_column].values
-		chromatin_ptr_threshold = np.quantile(chromatin_values, q=qthreshold)
+		#chromatin_ptr_threshold = np.quantile(chromatin_values, q=tx_ptr_threshold)
 
-		print("Value threshold for chromatin measure:", x_column, chromatin_ptr_threshold)
+		# print("Value threshold for chromatin measure:", x_column, chromatin_ptr_threshold)
 
-		
-		# Background scatter - below threshold
-		below_threshold_all = joined_data[joined_data.expression_ptr < threshold]
-		plt.scatter(below_threshold_all[x_column], below_threshold_all.expression_ptr,
-				   s=12, lw=2, edgecolor='#ccc', facecolor='none')
-		
-		# Above threshold points
-		above_threshold_all = joined_data[joined_data.expression_ptr >= threshold]
-		plt.scatter(above_threshold_all[x_column], above_threshold_all.expression_ptr,
-				   s=12, lw=2, edgecolor='#bbb', facecolor='none')
-			
-		# Segment by antisense/non-antisense
-		antisense_data = above_threshold_all.loc[~above_threshold_all.antisense_gene.isna()]
-		non_antisense_data = above_threshold_all.loc[above_threshold_all.antisense_gene.isna()]
-		
-		# Plot non-antisense data
-		non_antisense_above = non_antisense_data[non_antisense_data.expression_ptr >= threshold]
-		plt.scatter(non_antisense_above[x_column], non_antisense_above.expression_ptr,
-				   color=colormap(0.3), s=10, 
-				   label=f"Non-antisense, n={len(non_antisense_data)}")
-		
-		# Plot antisense data
-		antisense_above = antisense_data[antisense_data.expression_ptr >= threshold]
-		plt.scatter(antisense_above[x_column], antisense_above.expression_ptr,
-				   color=colormap(0.7 if subplot_pos == 1 else 0.8), s=10, 
-				   label=f"Antisense, n={len(antisense_data)}")
+		self.plot_category_ptr_scatter_data(joined_data, x_column)
 
-		plt.axhline(threshold, c='red', lw=1, alpha=0.5)
+		plt.axhline(tx_ptr_threshold, c='#232323',  ls='dotted', lw=1, alpha=1.0)
 
 		# Plot selected transcripts
-		xlim = 0.99, 2
+		xlim = 0.99, 1.7
 		for label, category, transcript_name in self.selected_transcripts:
 			if transcript_name in joined_data.index:
 				x, y = joined_data.loc[transcript_name][x_column], \
@@ -363,11 +415,40 @@ class FigureNongenicTranscripts:
 		
 		# Formatting
 		plt.legend(ncol=1)
-		plt.ylim(0.95, 9)
+		plt.ylim(0.85, 7)
 		plt.xlim(*xlim)
 		plt.title(title, fontsize=14)
 		plt.xlabel(xlabel)
 		plt.ylabel("Expression PTR")
+
+
+	def plot_category_ptr_scatter_data(self, joined_data, x_column):
+
+		antisense_select = ~joined_data.antisense_gene.isna()
+		divergent_select = ~joined_data.divergent_orf.isna()
+		both_select = antisense_select & divergent_select
+		neither_select = ~antisense_select & ~divergent_select & ~both_select
+
+		neither_transcripts = joined_data[neither_select]
+		both_transcripts = joined_data[both_select]
+		divergent_only_transcripts = joined_data[divergent_select & ~both_select]
+		antisense_only_transcripts = joined_data[antisense_select & ~both_select]
+
+		def _plot_scatter(data, marker, color, label):
+			num_threshold = len(data[data.expression_ptr > self.tx_ptr_threshold])
+			label = f"{label}, n={len(data)} ({num_threshold})"
+			plt.scatter(data[x_column],
+					   data.expression_ptr,
+					   marker=marker, edgecolor=color, lw=1, facecolor='none',
+					   alpha=0.5,
+					   s=20, label=label)
+
+		_plot_scatter(divergent_only_transcripts, marker='o', color='blue', label="Divergent only")
+		_plot_scatter(antisense_only_transcripts, marker='o', color='red', label="Antisense only")
+		_plot_scatter(both_transcripts, marker='o', color='purple', label="Both")
+		_plot_scatter(neither_transcripts, marker='o', color='#aaa', label="Neither")
+
+		plt.legend()
 	
 	def plot_transcript_locus(self, transcript_name, title=None, span_size=None):
 		"""
@@ -390,21 +471,39 @@ class FigureNongenicTranscripts:
 			
 		# Parse transcript name to get coordinates
 		chrom, span = parse_transcript_name(transcript_name)
-		center = span[0]
+		transcript_row = self.filtered_nongenic_transcripts.loc[transcript_name]
+
+		if transcript_row.strand == '+':
+			center = span[0]
+		else:
+			center = span[1]
 		
 		# Define span
-		span = center - span_size, center + span_size
+		plotting_span = center - span_size, center + span_size
+
+		# Round the plotting span to the nearest 100
+		from src.utils import nearest_span
+		plotting_span = nearest_span(plotting_span, 100)
 		
 		# Load and plot data
-		loaded_data = self.genome_deconv_analysis.load_mnase_span(chrom, span)
-		fig = self.genome_deconv_analysis.plot_loaded_data(
+		loaded_data = self.genome_deconv_analysis.load_mnase_span(chrom, plotting_span)
+		plotter = self.genome_deconv_analysis.plot_loaded_data(
 			figsize=(7, 11), 
 			title=title,
 			highlight_bins=[],
-			rna_plotter=self.rna_plotter
+			rna_plotter=self.rna_plotter,
+			tpm_plotter=self.tpm_plotter,
+			plot_index_labels=False
 		)
-		
-		return fig
+
+		for ax in [plotter.annotation_axis, plotter.rna_pileup_axis]:
+			ax.axvspan(span[0], span[1], -20, 20, color='#ddd', zorder=0, alpha=0.2)
+
+		for ax in plotter.chromatin_axes:
+			ax.axvline(span[0], color='#777', ls='dotted', zorder=0, alpha=0.5)
+			ax.axvline(span[1], color='#777',  ls='dotted', zorder=0, alpha=0.5)
+
+		return plotter
 	
 	def plot_transcript_calling(self, transcript_name, wider_span_size=None):
 		"""
@@ -484,10 +583,9 @@ class FigureNongenicTranscripts:
 
 		Keep these plots available, in case we want to include them in the figure panel
 		"""
-		from src.figure_configs import save_figure_for_paper
 
 		for label, cat, transcript_name in self.selected_transcripts:
-			title = (f"{label} - {cat} transcript")
+			title = (f"{label} - {cat}")
 			self.integration.plot_all_metrics_all_replicates_gene(transcript_name,
 				title=title)
 			save_figure_for_paper(f"{self.save_dir}/phase_space_{label}_{transcript_name}.png")
@@ -515,11 +613,9 @@ class FigureNongenicTranscripts:
 		# Create main analysis plot
 		fig = self.create_scatter_analysis()
 
-		save_figure_for_paper(f"{self.save_dir}/nongenic_ptrs.png")
-
 		for label, category, transcript_name in self.selected_transcripts:
 			chrom, span = parse_transcript_name(transcript_name)
-			title = f"{label}: {category} transcript"
+			title = f"{label}: {category}"
 			fig2 = self.plot_transcript_locus(transcript_name, title=title)
 			save_figure_for_paper(f"{self.save_dir}/locus_{label}_{transcript_name}.png")
 
@@ -531,36 +627,27 @@ class FigureNongenicTranscripts:
 			add_panel_labels_to_images
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 460, debug_mode=True)
+		compositor = FigureCompositor(1024, 450, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/nongenic_ptrs.png',
-			f'{self.save_dir}/locus_1_nogene_chr16_821687_822100.png',
-			f'{self.save_dir}/locus_2_nogene_chr2_307023_307915.png',
-			f'{self.save_dir}/phase_space_1_nogene_chr16_821687_822100.png',
-			f'{self.save_dir}/phase_space_2_nogene_chr2_307023_307915.png',
+			f'{self.save_dir}/locus_1_nogene_chr4_443744_444111.png',
+			f'{self.save_dir}/locus_2_nogene_chr13_618858_619269.png',
+			f'{self.save_dir}/locus_3_nogene_chr4_1456150_1456694.png',
 		]
 
 		# Layout images horizontally with custom width proportions
 		# Adjust these proportions based on your image content needs
 		placed_images = layout_images_horizontally(
 			compositor,
-			image_paths[:4],
-			width_proportions=[0.71, 1.0, 1.0, 1.05],  # First image slightly wider
+			image_paths,
+			width_proportions=[0.74, 1.12, 1.12, 1.12],
 			between_padding=30,
 			margin=(40, 40),
-			image_keys=['nongenic_ptrs', 'locus_1', 'locus_2', 'phase_space_1']  # Custom keys
+			image_keys=['nongenic_ptrs', 'locus_1', 'locus_2', 'locus_3']  # Custom keys
 		)
 
-		# Place the last phase space plot below the first
-		position_x = compositor.placed_images['phase_space_1']['logical_position'][0]
-		phase_height = compositor.placed_images['phase_space_1']['logical_size'][1]
-		phase_width = compositor.placed_images['phase_space_1']['logical_size'][0]
-		position_y = compositor.placed_images['phase_space_1']['logical_position'][1]+phase_height+30
-		compositor.place_image(image_paths[4], position_x, position_y, phase_width, 
-							  None, 'phase_space_2')
-
-		# Add panel labels (A, B, C, D)
+		# Add panel labels
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
@@ -569,7 +656,7 @@ class FigureNongenicTranscripts:
 		)
 
 		# Save the composite figure
-		compositor.save(f'{self.figures_dir}/Supplemental4_Nongenic_transcription.png')
+		compositor.save(f'{self.figures_dir}/Supplemental6_Nongenic_transcription.png')
 
 def parse_transcript_name(transcript_name):
 	transcript_split = transcript_name.split('_')

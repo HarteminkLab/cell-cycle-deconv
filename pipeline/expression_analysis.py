@@ -121,7 +121,7 @@ def load_deconvolved_gene_expression(output_directory, include_nongenic=False):
 
 	gene_expression_Fs_list = []
 
-	print("Loading deconvolved expression files, n=", len(genes))
+	print("Loading deconvolved expression files, n=", len(combined_gene_nongenic))
 
 	skip = 0
 	i = 0
@@ -146,9 +146,6 @@ def load_deconvolved_gene_expression(output_directory, include_nongenic=False):
 			expression_F = np.repeat(np.nan, len(gene_expression_Fs_list[0]))
 
 		gene_expression_Fs_list.append(expression_F)
-
-		if i % 1000 == 0:
-			print(f"{i}/{len(combined_gene_nongenic)}")
 
 		i += 1
 

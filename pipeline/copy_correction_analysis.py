@@ -24,8 +24,8 @@ class CopyCorrectionAnalysis():
 	def initialize_replication_time_colormaps(self):
 
 		import matplotlib as mpl
-		norm = mpl.colors.Normalize(vmin=-15, vmax=30)
-		cmap = plt.cm.RdBu  # The _r suffix reverses the colormap
+		norm = mpl.colors.Normalize(vmin=20, vmax=70)
+		cmap = plt.cm.inferno_r  # The _r suffix reverses the colormap
 
 		# Create a ScalarMappable object with the colormap
 		self.repl_sm = plt.cm.ScalarMappable(cmap=cmap, norm=norm)
@@ -213,17 +213,17 @@ class CopyCorrectionAnalysis():
 			(16, 730000), # Distal to the ARS1635 locus
 
 			# Example where PTR increases
-			(13, 610000),
+			# (13, 610000),
 		]
 
 		# Name the windows for lookup on the PTR Plot
 		self.window_names = [
 		"(1) Early, decreased PTR",
 		"(2) Mid, unchanged PTR",
-		"(3) Late, decreased PTR",
-		"(4) Increased PTR"]
+		"(3) Late, decreased PTR"]#,
+		# "(4) Increased PTR"]
 
-	def plot_sample_curves(self, figsize=(11, 5),
+	def plot_sample_curves(self, figsize=(11, 2.5),
 		override_color=None):
 		copy_correction_ptr_comparison_t = self.ptrs_df[\
 			['cc_ptr_t', 'no_cc_ptr_t']]
@@ -243,7 +243,8 @@ class CopyCorrectionAnalysis():
 		b_tps = get_average_timepoints_for_branch(config1, config2, 'b')
 		tb_tps = (t_tps + b_tps)/2.
 
-		def plot_window(axs_pair, window_idx, show_xticks, show_yticks, color):
+		def plot_window(axs_pair, window_idx, show_xticks, show_yticks, color,
+			plot_ylabel):
 			if override_color is not None:
 				color = override_color
 
@@ -312,14 +313,25 @@ class CopyCorrectionAnalysis():
 				else:
 					ax.set_xlabel("")
 
+			# No yticks for second pair ever
 			axs_pair[1].set_yticks([])
-			axs_pair[0].set_ylabel("Window occupancy")
+
+			# No yticks unless first column
+			if not show_yticks:
+				axs_pair[0].set_yticks([])
+
+			if plot_ylabel:
+				axs_pair[0].set_ylabel("Window occupancy")
 		
 		def plot_windows_row(fig, axs_pairs, windows, show_xticks,
 			window_names):
+
+			from src.config import load_mean_dg1_mg1_length
+			g1_len = load_mean_dg1_mg1_length()
+
 			"""Plot a row of windows (either all early or all late)"""
 			for col, window in enumerate(windows):
-				repl_time = self.all_replication_times.loc[window].replication_time
+				repl_time = self.all_replication_times.loc[window].replication_time+g1_len
 
 				window_name = window_names[col]
 				color = self.lookup_color_for_repl_time(repl_time)
@@ -329,21 +341,22 @@ class CopyCorrectionAnalysis():
 				axs_pair = axs_pairs[col]
 
 				plot_window(axs_pair, window, show_xticks=show_xticks, 
-						   show_yticks=show_yticks, color=color)
+						   show_yticks=(col == 0), color=color, 
+						   plot_ylabel=(col == 0))
 				
 				start = window[1]
 				end = start + 10000
 
-				title = f"{window_name}: (chr{window[0]}: {start//1000}k-{end//1000}k)"
+				title = f"{window_name}\n(chr{window[0]}: {start//1000}k-{end//1000}k)"
 				add_pair_title(fig, axs_pair, title, fontweight='demi', fontsize=12)
 				
 				# Add legend to first column
-				axs_pairs[col][1].legend(loc='lower right', ncols=2)
+				axs_pairs[col][1].legend(loc='lower right', ncols=1)
 		
 		sample_windows = self.sample_plot_windows
 
-		fig, axs_pairs = create_subplot_pairs(pair_rows=2, pair_cols=2, 
-			pair_spacing=0.2, hspacing=0.5, figsize=figsize)
+		fig, axs_pairs = create_subplot_pairs(pair_rows=1, pair_cols=3, 
+			pair_spacing=0.15, hspacing=0.5, figsize=figsize)
 		
 		# Plot late windows row
 		window_names = self.window_names
@@ -577,19 +590,30 @@ class CopyCorrectionAnalysis():
 		ptrs1 = self.ptrs_df[key_1]
 		ptrs2 = self.ptrs_df[key_2]
 
-		plot_df = pd.DataFrame({
-			key_1: ptrs1,
-			key_2: ptrs2
-		}, index=self.ptrs_df.index)
+		plot_replication_times_df = self.all_replication_times
 
 		fig = plt.figure(figsize=(5.25, 4.5))
 
-		plot_replication_times_df = self.all_replication_times
+		# Offset for start of S phase
+		from src.config import load_mean_dg1_mg1_length
+		mean_g1_len = load_mean_dg1_mg1_length()
+		replication_times = plot_replication_times_df.replication_time+mean_g1_len
+
+		plot_df = pd.DataFrame({
+			key_1: ptrs1,
+			key_2: ptrs2,
+			'replication_time': replication_times
+		}, index=self.ptrs_df.index)
+
+		np.random.seed(123)
+		random_index = np.random.permutation(plot_df.index)
+		plot_df = plot_df.loc[random_index]
+
 		plt.plot([0, 2], [0, 2], c='black', lw=0.75, ls='dotted')
 		plt.scatter(plot_df[key_1], plot_df[key_2], s=10, alpha=1, 
 					edgecolor='gray', facecolor='none')
 		plt.scatter(plot_df[key_1], plot_df[key_2], s=8, alpha=1, 
-					c=plot_replication_times_df.replication_time,
+					c=plot_df.replication_time,
 					cmap=self.repl_cmap, norm=self.repl_norm)
 		plt.xlim(1, 1.4)
 		plt.ylim(1, 1.4)
@@ -660,7 +684,7 @@ class CopyCorrectionAnalysis():
 		key_1_mean = np.mean(plot_df[key_1])
 		key_2_mean = np.mean(plot_df[key_2])
 
-		plt.suptitle("Copy correction change in PTR", fontsize=18, fontweight='demi')
+		plt.suptitle("PTR change following copy correction", fontsize=18, fontweight='demi')
 		plt.tight_layout()
 
 	def plot_branch_ptrs(self):

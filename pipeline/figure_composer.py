@@ -447,7 +447,8 @@ class FigureCompositor:
 	
 	def add_panel_label(self, label: str, x: int, y: int, 
 					   font_size: int = 24, color: Union[str, Tuple[int, int, int]] = (0, 0, 0),
-					   name: Optional[str] = None, font_type: str = 'bold') -> None:
+					   name: Optional[str] = None, font_type: str = 'bold',
+					   text_anchor='lt') -> None:
 		"""
 		Add a panel label (e.g., 'A', 'B', 'C') to the canvas.
 		
@@ -468,6 +469,7 @@ class FigureCompositor:
 		font_type : str, optional
 			Type of font to use ('regular', 'bold', 'semi_bold') (default: 'bold')
 		"""
+
 		# Scale coordinates
 		scaled_x = self._scale(x)
 		scaled_y = self._scale(y)
@@ -476,7 +478,8 @@ class FigureCompositor:
 		font = self.get_font(font_type, font_size)
 		
 		# Draw the label
-		self.draw.text((scaled_x, scaled_y), label, fill=color, font=font)
+		self.draw.text((scaled_x, scaled_y), label, fill=color, font=font,
+			anchor=text_anchor)
 		
 		# Track the annotation with both logical and scaled values
 		if name is None:
@@ -489,7 +492,8 @@ class FigureCompositor:
 			'logical_font_size': font_size,
 			'font_size': self._scale(font_size),
 			'color': color,
-			'font_type': font_type
+			'font_type': font_type,
+			'anchor': text_anchor
 		}
 	
 	def save(self, output_path: str, quality: int = 95, dpi: Tuple[int, int] = (300, 300),
@@ -513,104 +517,101 @@ class FigureCompositor:
 		bool
 			True if successfully saved, False otherwise
 		"""
-		try:
-			# Ensure the directory exists
-			os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+		# Ensure the directory exists
+		os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+		
+		# If we need a debug version and debug mode is off, create a new debug compositor
+		if save_debug_version and not self.debug_mode:
+			# Create a copy with debug enabled, same scale factor
+			debug_comp = FigureCompositor(self.logical_width, self.logical_height, 
+										 self.background_color, debug_mode=True,
+										 grid_size=self.logical_grid_size, 
+										 grid_color=self.grid_color,
+										 scale_factor=self.scale_factor,
+										 font_dir=self.font_dir)
 			
-			# If we need a debug version and debug mode is off, create a new debug compositor
-			if save_debug_version and not self.debug_mode:
-				# Create a copy with debug enabled, same scale factor
-				debug_comp = FigureCompositor(self.logical_width, self.logical_height, 
-											 self.background_color, debug_mode=True,
-											 grid_size=self.logical_grid_size, 
-											 grid_color=self.grid_color,
-											 scale_factor=self.scale_factor,
-											 font_dir=self.font_dir)
-				
-				# Copy all placed images
-				for name, info in self.placed_images.items():
-					debug_comp.place_image(
-						info['path'], 
-						info['logical_position'][0], 
+			# Copy all placed images
+			for name, info in self.placed_images.items():
+				debug_comp.place_image(
+					info['path'], 
+					info['logical_position'][0], 
+					info['logical_position'][1],
+					info['logical_size'][0],
+					info['logical_size'][1],
+					name=name
+				)
+			
+			# Copy all annotations
+			for name, info in self.annotations.items():
+				if 'text' in info:
+					font_type = info.get('font_type', 'bold')
+					debug_comp.add_panel_label(
+						info['text'],
+						info['logical_position'][0],
 						info['logical_position'][1],
-						info['logical_size'][0],
-						info['logical_size'][1],
-						name=name
+						info.get('logical_font_size', 24),
+						info.get('color', (0, 0, 0)),
+						name=name,
+						font_type=font_type,
+						text_anchor=info['anchor']
 					)
-				
-				# Copy all annotations
-				for name, info in self.annotations.items():
-					if 'text' in info:
-						font_type = info.get('font_type', 'bold')
-						debug_comp.add_panel_label(
-							info['text'],
-							info['logical_position'][0],
-							info['logical_position'][1],
-							info.get('logical_font_size', 24),
-							info.get('color', (0, 0, 0)),
-							name=name,
-							font_type=font_type
-						)
-				
-				# Save the debug version
-				debug_path = self._get_debug_path(output_path)
-				debug_comp.canvas.save(debug_path, quality=quality, dpi=dpi)
-				print(f"Debug figure saved to: {debug_path}")
 			
-			# If we're in debug mode and don't need a separate debug version,
-			# save a clean version as well
-			elif self.debug_mode and not save_debug_version:
-				# Save the debug version (current canvas with debug annotations)
-				debug_path = self._get_debug_path(output_path)
-				self.canvas.save(debug_path, quality=quality, dpi=dpi)
-				print(f"Debug figure saved to: {debug_path}")
-				
-				# Create a clean version with same scale factor
-				clean_comp = FigureCompositor(self.logical_width, self.logical_height, 
-											 self.background_color, debug_mode=False,
-											 scale_factor=self.scale_factor,
-											 font_dir=self.font_dir)
-				
-				# Copy all placed images
-				for name, info in self.placed_images.items():
-					clean_comp.place_image(
-						info['path'], 
-						info['logical_position'][0], 
+			# Save the debug version
+			debug_path = self._get_debug_path(output_path)
+			debug_comp.canvas.save(debug_path, quality=quality, dpi=dpi)
+			print(f"Debug figure saved to: {debug_path}")
+		
+		# If we're in debug mode and don't need a separate debug version,
+		# save a clean version as well
+		elif self.debug_mode and not save_debug_version:
+			# Save the debug version (current canvas with debug annotations)
+			debug_path = self._get_debug_path(output_path)
+			self.canvas.save(debug_path, quality=quality, dpi=dpi)
+			print(f"Debug figure saved to: {debug_path}")
+			
+			# Create a clean version with same scale factor
+			clean_comp = FigureCompositor(self.logical_width, self.logical_height, 
+										 self.background_color, debug_mode=False,
+										 scale_factor=self.scale_factor,
+										 font_dir=self.font_dir)
+			
+			# Copy all placed images
+			for name, info in self.placed_images.items():
+				clean_comp.place_image(
+					info['path'], 
+					info['logical_position'][0], 
+					info['logical_position'][1],
+					info['logical_size'][0],
+					info['logical_size'][1],
+					name=name
+				)
+			
+			# Copy all annotations
+			for name, info in self.annotations.items():
+				if 'text' in info:
+					font_type = info.get('font_type', 'bold')
+					clean_comp.add_panel_label(
+						info['text'],
+						info['logical_position'][0],
 						info['logical_position'][1],
-						info['logical_size'][0],
-						info['logical_size'][1],
-						name=name
+						info.get('logical_font_size', 24),
+						info.get('color', (0, 0, 0)),
+						name=name,
+						font_type=font_type,
+						text_anchor=info['anchor']
 					)
-				
-				# Copy all annotations
-				for name, info in self.annotations.items():
-					if 'text' in info:
-						font_type = info.get('font_type', 'bold')
-						clean_comp.add_panel_label(
-							info['text'],
-							info['logical_position'][0],
-							info['logical_position'][1],
-							info.get('logical_font_size', 24),
-							info.get('color', (0, 0, 0)),
-							name=name,
-							font_type=font_type
-						)
-				
-				# Save the clean version to the original path
-				clean_comp.canvas.save(output_path, quality=quality, dpi=dpi)
-				print(f"Clean figure saved to: {output_path}")
-				
-				return True
 			
-			# Normal case - just save the current canvas
-			self.canvas.save(output_path, quality=quality, dpi=dpi)
-			print(f"Figure saved to: {output_path}")
+			# Save the clean version to the original path
+			clean_comp.canvas.save(output_path, quality=quality, dpi=dpi)
+			print(f"Clean figure saved to: {output_path}")
 			
 			return True
-			
-		except Exception as e:
-			print(f"Error saving figure to {output_path}: {e}")
-			return False
+		
+		# Normal case - just save the current canvas
+		self.canvas.save(output_path, quality=quality, dpi=dpi)
+		print(f"Figure saved to: {output_path}")
+		
+		return True
 	
 	def _get_debug_path(self, output_path: str) -> str:
 		"""
@@ -728,7 +729,8 @@ class FigureCompositor:
 								font_type: str = 'bold',
 								background: Optional[Union[str, Tuple[int, int, int]]] = None,
 								bg_padding: int = 4,
-								bg_opacity: int = 200) -> bool:
+								bg_opacity: int = 200,
+								text_anchor='lt') -> bool:
 		"""
 		Add a panel label directly to a previously placed image.
 		
@@ -769,7 +771,7 @@ class FigureCompositor:
 		# Calculate label position in logical coordinates
 		logical_x = img_info['logical_position'][0] + offset[0]
 		logical_y = img_info['logical_position'][1] + offset[1]
-		
+
 		# Scale coordinates and font size
 		scaled_x = self._scale(logical_x)
 		scaled_y = self._scale(logical_y)
@@ -811,7 +813,8 @@ class FigureCompositor:
 			self.canvas.paste(bg_img, (scaled_x - scaled_bg_padding, scaled_y - scaled_bg_padding), bg_img)
 		
 		# Draw the label text
-		self.draw.text((scaled_x, scaled_y), label, fill=color, font=font)
+		self.draw.text((scaled_x, scaled_y), label, fill=color, font=font,
+			anchor=text_anchor)
 		
 		# Track the annotation with both logical and scaled values
 		label_name = f"label_{image_name}_{label}"
@@ -824,7 +827,8 @@ class FigureCompositor:
 			'color': color,
 			'font_type': font_type,
 			'attached_to': image_name,
-			'offset': offset
+			'offset': offset,
+			'anchor': text_anchor,
 		}
 		
 		return True

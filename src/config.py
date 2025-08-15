@@ -690,6 +690,16 @@ def retrieve_replication_timing(config1, config2, selected_replication_indices):
 	return mean_replication_timing
 
 
+def load_mean_dg1_mg1_length():
+	from src.config import load_default_chrom_configs
+
+	config1, config2 = load_default_chrom_configs()
+	cg1_tps = config1.get_timepoints_for_phase('CG1')
+	dg1_tps = config1.get_timepoints_for_phase('DG1')
+	mean_g1_len = (-cg1_tps[0]+-dg1_tps[0])/2.
+	return mean_g1_len
+
+
 def get_average_timepoints_for_branch(config1, config2, branch):
 	tp1 = config1.get_timepoints_for_branch(branch)
 	tp2 = config2.get_timepoints_for_branch(branch)

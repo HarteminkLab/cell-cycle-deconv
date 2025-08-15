@@ -31,7 +31,7 @@ class ORFAnnotationPlotter:
 		self.text_vertical_offset = 18
 		self.y_padding = 10
 
-	def set_span_chrom(self, span, chrom):
+	def set_chrom_span(self, chrom, span):
 
 		self.chrom = chrom
 		self.span = int(span[0]), int(span[1])

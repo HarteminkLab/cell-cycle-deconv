@@ -72,7 +72,7 @@ class FigureReplicationDeconvolution():
 
 		xlims = 0, 18
 
-		plt.subplot(1, 3, 1)
+		plt.subplot(1, 3, 2)
 		xs = np.arange(0, 18, 2)
 		ys = np.repeat(0, len(xs))
 
@@ -84,9 +84,9 @@ class FigureReplicationDeconvolution():
 		mid_color = adjust_lightness_saturation(mid_color, 1.0, 0.5)
 
 		num_tps = len(xs)
-		plot_strand_series(0.5, -1.85, xs, ys, early_repl, early_color)
+		plot_strand_series(0.5, 1.85, xs, ys, early_repl, early_color)
 		plot_strand_series(0.5, 0, xs, ys, mid_repl, mid_color)
-		plot_strand_series(0.5,  1.85, xs, ys, late_repl, late_color)
+		plot_strand_series(0.5, -1.85, xs, ys, late_repl, late_color)
 
 		plt.ylim(-3.5, 3.5)
 		plt.xlim(*xlims)
@@ -99,7 +99,7 @@ class FigureReplicationDeconvolution():
 
 		# ------------------------
 
-		plt.subplot(1, 3, 2)
+		plt.subplot(1, 3, 1)
 		plt.yticks([])
 
 		num_tps = 19
@@ -143,7 +143,7 @@ class FigureReplicationDeconvolution():
 			['Early', 'Intermediate', 'Late'],
 			loc='upper center',
 			bbox_to_anchor=(0.25, -0.0), # Place below the first subplot
-			ncol=2,
+			ncol=3,
 			fontsize=14,
 			frameon=False
 		)
@@ -196,8 +196,7 @@ class FigureReplicationDeconvolution():
 		from pipeline.figure_composer_helpers import layout_images_vertically,\
 			add_panel_labels_to_images
 
-
-		compositor = FigureCompositor(1024, 960, debug_mode=True)
+		compositor = FigureCompositor(1024, 890, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/DNA_replication_diagram.png',
@@ -209,7 +208,7 @@ class FigureReplicationDeconvolution():
 			compositor,
 			image_paths,
 			height_proportions=[0.35, 0.4, 0.6],
-			between_padding=40,
+			between_padding=16,
 			margin=(30, 30),
 			image_keys=['DNA', 'Replication', 'Components']  # Custom keys for the images
 		)

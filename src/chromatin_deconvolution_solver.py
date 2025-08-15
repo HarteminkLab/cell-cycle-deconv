@@ -149,7 +149,7 @@ def plot_branches(config, chrom, mnase_span, full_deconvolved_F, vmax=40, figsiz
 	from src.sgd import read_nondubious_genes_dataset
 
 	orf_plotter = load_default_orf_plotter()
-	orf_plotter.set_span_chrom(mnase_span, chrom)
+	orf_plotter.set_chrom_span(chrom, mnase_span)
 
 	i_indices = config.get_Hpositions_for_branch('i')
 	t_indices = config.get_Hpositions_for_branch('t')

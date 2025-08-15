@@ -476,7 +476,7 @@ def plot_raw_G(G, config, chrom, mnase_span, figsize=(2, 7),
 
 
 	orf_plotter = load_default_orf_plotter()
-	orf_plotter.set_span_chrom(mnase_span, chrom)
+	orf_plotter.set_chrom_span(chrom, mnase_span)
 
 	orf_plotter.plot_orf_annotations(axs[0])
 
@@ -512,7 +512,7 @@ def plot_prediction(chromatin_model, G, N, F, F_replicate, b):
 	chrom, mnase_span = chromatin_model.chr, chromatin_model.mnase_span
 
 	orf_plotter = load_default_orf_plotter()
-	orf_plotter.set_span_chrom(mnase_span, chrom)
+	orf_plotter.set_chrom_span(chrom, mnase_span)
 
 	for ax in axs_rows[0]:
 		orf_plotter.plot_orf_annotations(ax)

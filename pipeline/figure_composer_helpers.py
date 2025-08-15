@@ -128,7 +128,8 @@ def layout_images_vertically(compositor, image_paths_arr, height_proportions=Non
 
 def layout_images_horizontally(compositor, image_paths_arr, width_proportions=None, 
 							 between_padding=20, margin=(20, 20), y_position=None,
-							 offsets=None, image_keys=None, heights=None, preserve_aspect_ratio=True,
+							 offsets=None, image_keys=None, heights=None, 
+							 preserve_aspect_ratio=True,
 							 available_width=None):
 	"""
 	Layout images horizontally with specified proportions, padding, and margins.

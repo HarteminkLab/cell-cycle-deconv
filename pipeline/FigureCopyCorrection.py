@@ -50,7 +50,7 @@ class FigureCopyCorrection():
 		save_figure_for_paper(f"{self.save_dir}/Replication_Timing_correlation.png")
 
 
-	def layout_panel(self, canvas_width=1024, canvas_height=720, margins=20, 
+	def layout_panel(self, canvas_width=1024, canvas_height=620, margins=20, 
 				 column_padding=30, row_padding=30, debug_mode=True):
 		"""
 		Create a 2x2 composite figure panel with replication timing and copy correction plots.
@@ -85,19 +85,40 @@ class FigureCopyCorrection():
 		bottom_row_images = layout_images_horizontally(
 			compositor,
 			[copy_ptrs_path, copy_examples_path],
-			width_proportions=[0.35, 0.65],  # Equal width for both bottom images
-			between_padding=column_padding,
+			width_proportions=[0.24, 0.76],  # Equal width for both bottom images
+			between_padding=column_padding+20,
+			offsets=[(20, 0), (0, 0)],
 			margin=(margins, bottom_row_start_y),
 			image_keys=['copy_ptrs', 'copy_examples']
 		)
 		
-		# Add panel labels (A, B, C, D) to each quadrant
+		def _retrieve_subset_dict(original_dict, keys_to_extract):
+			return {key: original_dict[key] for key in keys_to_extract if key in original_dict}
+
+		abd_imgs = _retrieve_subset_dict(compositor.placed_images,
+			['replication_chr4', 'replication_corr', 'copy_examples'])
+		c_imgs = _retrieve_subset_dict(compositor.placed_images,
+			['copy_ptrs'])
+	
+		font_size=28
+		# Add panel labels (A, B, D) to each quadrant
 		add_panel_labels_to_images(
 			compositor,
-			compositor.placed_images,
-			labels='ABCD',
-			font_size=36,
+			abd_imgs,
+			labels='ABD',
+			font_size=font_size,
 			offset=(-10, -12),
+			font_type='bold',
+			color=(0, 0, 0)
+		)
+
+		# Add panel labels (C) to each quadrant
+		add_panel_labels_to_images(
+			compositor,
+			c_imgs,
+			labels='C',
+			font_size=font_size,
+			offset=(-20, -12),
 			font_type='bold',
 			color=(0, 0, 0)
 		)
@@ -107,46 +128,6 @@ class FigureCopyCorrection():
 		compositor.save(output_path)
 		
 		return compositor
-
-
-	def layout_supplemental(self):
-		"""
-		Create a 2x2 composite figure panel with replication timing and copy correction plots.
-		"""
-		from pipeline.figure_composer import FigureCompositor
-		from pipeline.figure_composer_helpers import layout_images_horizontally, layout_images_vertically, add_panel_labels_to_images
-		
-		# Create compositor 
-		compositor = FigureCompositor(1024, 780, debug_mode=True)
-		
-		# Define file paths for your four figures
-		increased_ptr_path = f'{self.save_dir}/increased_ptr_chromosome_location.png'
-		
-		# Layout top row (replication timing figures)
-		top_row_images = layout_images_horizontally(
-			compositor,
-			[increased_ptr_path],
-			width_proportions=[1.0],  # Equal width for both top images
-			between_padding=0.0,
-			margin=60,
-			image_keys=['increased_ptr']
-		)
-		
-		# Add panel labels: (A)
-		add_panel_labels_to_images(
-			compositor,
-			compositor.placed_images,
-			labels='A',
-			font_size=36,
-			offset=(-20, 2),
-			font_type='bold',
-			color=(0, 0, 0)
-		)
-		
-		# Save the composite figure
-		output_path = f'{self.figures_dir}/Supplemental2.5_Copy_Correction.png'
-		compositor.save(output_path)
-
 
 	def plot_increased_ptr(self):
 		# Plot the genomic locations for increased PTRs

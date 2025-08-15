@@ -49,6 +49,18 @@ def run_cmd(bashCommand, stdout_file=None):
 	return output, error
 
 
+def nearest(value, nearest, func, type_fun=float):
+    return type_fun(func(float(value) / nearest) * nearest)
+
+
+def nearest_span(span, round_to):
+    """Round the span to the nearest round_to value"""
+    import math
+    span = (nearest(span[0], round_to, math.floor, int), 
+            nearest(span[1], round_to, math.floor, int))
+    return span
+
+
 def save_print_df(df, path):
 	df.to_csv(path)
 	print(f"Saved to {path}")

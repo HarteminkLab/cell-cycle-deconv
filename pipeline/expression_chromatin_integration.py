@@ -312,7 +312,7 @@ class IntegratedChromatinExpressionAnalyzer:
 		plt.title(chromatin_key)
 	
 	def plot_orf_phase_state_deconvolved(self, orf_or_gene_name, chromatin_key=None, 
-		xlim=(-0.5, 8), ylim=(-0.5, 12), plot_arrows=True):
+		xlim=(-0.5, 8), ylim=(-0.5, 12), plot_arrows=False):
 		"""
 		Plot chromatin vs expression data colored by cell cycle phase for a single gene.
 		
@@ -934,7 +934,7 @@ class IntegratedChromatinExpressionAnalyzer:
 
 			plt.subplot(nrows, ncols, i+1)
 			self.plot_orf_phase_state_deconvolved(orf_name, chromatin_key,
-																plot_arrows=True,
+																plot_arrows=False,
 																	xlim=xlim, ylim=ylim)
 			plt.title('')
 			plt.xlabel('')
@@ -1039,7 +1039,7 @@ class IntegratedChromatinExpressionAnalyzer:
 					chromatin_key=metric, 
 					xlim=xlim, 
 					ylim=ylim,
-					plot_arrows=True
+					plot_arrows=False
 				)
 				
 				# Clear the default title from individual plot function
