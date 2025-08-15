@@ -480,7 +480,6 @@ class TranscriptionFactorProcessor:
 		return self.comprehensive_df[mask]
 
 	def plot_tf_boxplots(self, column='ptr', figsize=(6, 7), 
-						 title="Cell cycling transcription factor binding", 
 						 show_outliers=False, 
 						 show_points=True, 
 						 point_color='#aaa', point_alpha=1.0, 
@@ -489,7 +488,9 @@ class TranscriptionFactorProcessor:
 		Plot box plots for specified column values grouped by transcription factor (tf).
 		"""
 
-		ptr_values = self.comprehensive_df[['ptr']]
+		ptr_values = self.comprehensive_df[['ptr']].dropna()
+		number_of_cell_cycle_sites = len(ptr_values[ptr_values.ptr > self.ptr_threshold])
+		n = len(ptr_values)
 
 		median_ptrs = ptr_values.reset_index()[['tf', 'ptr']].groupby('tf').median()\
 			.rename(columns={'ptr': 'median'})
@@ -500,7 +501,7 @@ class TranscriptionFactorProcessor:
 		num_sites = num_sites.sort_values('ptr').rename(columns={'ptr': 'num_total'})
 		
 		# Count number of cycling sites
-		cycling_counts = ptr_values[ptr_values > self.ptr_threshold].dropna().reset_index()[['tf', 'ptr']]\
+		cycling_counts = ptr_values[ptr_values > self.ptr_threshold].reset_index()[['tf', 'ptr']]\
 			.groupby('tf').count()
 		cycling_counts = cycling_counts.sort_values('ptr').rename(columns={'ptr': 'num_cycling'})
 
@@ -511,6 +512,8 @@ class TranscriptionFactorProcessor:
 		# Subset by threshold, min 20
 		num_threshold = 20
 		ptr_counts_df = ptr_counts_df[ptr_counts_df.num_total > num_threshold]
+
+		print(f"Number of transcription factors with >{num_threshold} sites", len(ptr_counts_df))
 		
 		# Sort by number of cycling counts
 		sorted_tf_index = ptr_counts_df.index
@@ -532,7 +535,7 @@ class TranscriptionFactorProcessor:
 		# Create box plots
 		color=plt.cm.Oranges(0.35)
 		
-		max_ptr_plot = 2.5
+		max_ptr_plot = 4
 		max_xlim = max_ptr_plot + 0.02
 
 		# Add jittered scatter points if requested
@@ -569,6 +572,8 @@ class TranscriptionFactorProcessor:
 		# Customize the plot
 		ax.set_xlabel(f'{column.upper()} Value', fontsize=12)
 		ax.set_ylabel('Transcription Factor', fontsize=12)
+
+		title = f"Cell cycling transcription factor\nbinding, n={n}, {number_of_cell_cycle_sites} cycling ({number_of_cell_cycle_sites/n*100:.0f}%)"
 		ax.set_title(title, fontsize=21, fontweight='demi', pad=13)
 		
 		# Add some statistics as text
@@ -612,8 +617,9 @@ class TranscriptionFactorProcessor:
 		for i, tf_name in enumerate(sorted_tf_index):
 			if tf_name.upper() in self.binding_sites.cell_cycle_rossi_tfs:
 				ax.get_yticklabels()[i].set_color(plt.cm.Oranges(0.7))  # Darker orange for text readability
+				right_side_ax.get_yticklabels()[i].set_color(plt.cm.Oranges(0.7))  # Darker orange for text readability
 			else:
-				ax.get_yticklabels()[i].set_color('black')  # Default color for non-cell cycle TFs
+				right_side_ax.get_yticklabels()[i].set_color('black')  # Default color for non-cell cycle TFs
 
 		# Create custom legend
 		legend_elements = [
@@ -622,6 +628,6 @@ class TranscriptionFactorProcessor:
 		]
 		ax.legend(handles=legend_elements)
 			
-		return fig, ax
+		return fig, ax, sorted_tf_index
 
 
