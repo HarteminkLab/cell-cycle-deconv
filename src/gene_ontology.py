@@ -106,6 +106,15 @@ def get_term_names(obodag, terms):
 
 def genes_for_go(go_genes, go_terms):
 
+	""""
+	Usage with:
+	
+	from src.sgd import read_sgd_w_go
+	genes_with_go = read_sgd_w_go()
+
+	genes_for_go(genes_with_go, 'GO:0006355')
+	"""
+
 	if type(go_terms) == str:
 		go_mask = go_genes.ontology.str.contains(go_terms)
 	else:

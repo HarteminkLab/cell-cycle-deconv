@@ -308,3 +308,36 @@ def load_muller_replication_timing_copy_number_ratio():
 
 	return t7107_haploid_file
 
+
+def read_rossi_bed(filename):
+	df = pd.read_csv(filename, sep='\t')
+	tf = filename.split('/')[-1].split('_')[0]
+	df['tf'] = tf.title()
+	return df
+
+
+def read_all_rossi_sites():
+
+	from glob import glob
+
+	all_rossi_tf_dfs = pd.DataFrame()
+	bed_filenames = glob('data/reference_data/rossi_chip_exo/stranded_peaks/*.bed')
+	for filename in bed_filenames:
+		tf_df = read_rossi_bed(filename)
+		all_rossi_tf_dfs = pd.concat([all_rossi_tf_dfs, tf_df])
+
+	chroms = all_rossi_tf_dfs.chr.str.replace('chr', '').astype(int)
+	all_rossi_tf_dfs.chr = chroms
+	all_rossi_tf_dfs = all_rossi_tf_dfs[all_rossi_tf_dfs.peakVal == 1000].reset_index(drop=True)
+
+	final_index = all_rossi_tf_dfs[['chr', 'start', 'strand', 'tf']].drop_duplicates().index
+	all_rossi_tf_dfs = all_rossi_tf_dfs.loc[final_index].reset_index(drop=True)
+
+	return all_rossi_tf_dfs
+
+def read_kelliher_cc_tfs():
+	cctf_df = pd.read_csv('data/reference_data/mbc-29-2644-s002.csv', skiprows=2,
+				   header=0)
+	keep_rows = ~cctf_df['Common Name'].isna()
+	cctf_df = cctf_df.loc[keep_rows].set_index('Standard Name')[['Common Name', 'Cell-Cycle Function']]
+	return cctf_df
