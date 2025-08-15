@@ -4,6 +4,7 @@ from src.tf_sites import TFBindingSites
 from src.deconvolved_chromatin_loader import DeconvolvedChromatinDataLoader
 from src.transcripts_dataset import load_transcripts_sets
 from src.peak_to_trough import compute_quantile_ptr_2d
+import matplotlib.pyplot as plt
 
 
 class TranscriptionFactorProcessor:
@@ -41,6 +42,9 @@ class TranscriptionFactorProcessor:
 		self.gene_promoters = None
 		self.gene_associations = None
 		self.comprehensive_df = None
+
+		# Chromatin processor computes ptr threshold
+		self._load_chromatin_processor()
 	
 	def build_dataframe(self):
 		"""
@@ -396,6 +400,15 @@ class TranscriptionFactorProcessor:
 		n_with_genes = sum(1 for genes in associated_genes_list if genes)
 		print(f"Added gene associations: {n_with_genes} sites with gene overlaps")
 	
+	def _load_chromatin_processor(self):
+		from pipeline.chromatin_metrics_processor import ChromatinMetricsProcessor
+
+		chromatin_processor = ChromatinMetricsProcessor(self.output_dir)
+		chromatin_processor.load_and_assign_saved_metrics()
+		promoter_values = chromatin_processor.deconvolved_chromatin_metrics['promoter_occupancy'].dropna().values.flatten()
+		self.ptr_threshold = np.quantile(promoter_values, q=0.95)
+
+
 	def _add_ptr_values(self):
 		"""
 		Calculate and add peak-to-trough ratios to results DataFrame.
@@ -466,20 +479,149 @@ class TranscriptionFactorProcessor:
 		
 		return self.comprehensive_df[mask]
 
+	def plot_tf_boxplots(self, column='ptr', figsize=(6, 7), 
+						 title="Cell cycling transcription factor binding", 
+						 show_outliers=False, 
+						 show_points=True, 
+						 point_color='#aaa', point_alpha=1.0, 
+						 point_size=1, jitter_width=0.1):
+		"""
+		Plot box plots for specified column values grouped by transcription factor (tf).
+		"""
 
+		ptr_values = self.comprehensive_df[['ptr']]
 
-def read_transcription_factor_set_from_go():
+		median_ptrs = ptr_values.reset_index()[['tf', 'ptr']].groupby('tf').median()\
+			.rename(columns={'ptr': 'median'})
+		
+		# Count number of sites
+		num_sites = ptr_values.dropna().reset_index()[['tf', 'ptr']]\
+			.groupby('tf').count()
+		num_sites = num_sites.sort_values('ptr').rename(columns={'ptr': 'num_total'})
+		
+		# Count number of cycling sites
+		cycling_counts = ptr_values[ptr_values > self.ptr_threshold].dropna().reset_index()[['tf', 'ptr']]\
+			.groupby('tf').count()
+		cycling_counts = cycling_counts.sort_values('ptr').rename(columns={'ptr': 'num_cycling'})
 
-	from src.sgd import read_sgd_w_go
-	genes_with_go = read_sgd_w_go()
-	from src.gene_ontology import genes_for_go
+		ptr_counts_df = cycling_counts.join(num_sites).join(median_ptrs)
+		ptr_counts_df['prop_cycling'] = ptr_counts_df.num_cycling / ptr_counts_df.num_total
+		ptr_counts_df = ptr_counts_df.sort_values(['prop_cycling', 'num_cycling', 'num_total'])
+		
+		# Subset by threshold, min 20
+		num_threshold = 20
+		ptr_counts_df = ptr_counts_df[ptr_counts_df.num_total > num_threshold]
+		
+		# Sort by number of cycling counts
+		sorted_tf_index = ptr_counts_df.index
 
-	go_terms = [
-			'GO:0016563', # TF activity
-			'GO:0043565' # Sequence specific binding
+		# Prepare data for box plots
+		data_list = []
+		tf_names = []
+		
+		for tf_name in sorted_tf_index:
+			clean_data = ptr_values.loc[tf_name][column].dropna().values
+			
+			if len(clean_data) > 0:  # Only include if there's data
+				data_list.append(clean_data)
+				tf_names.append(tf_name)
+
+		# Create the box plot
+		fig, ax = plt.subplots(figsize=figsize)
+		
+		# Create box plots
+		color=plt.cm.Oranges(0.35)
+		
+		max_ptr_plot = 2.5
+		max_xlim = max_ptr_plot + 0.02
+
+		# Add jittered scatter points if requested
+		if show_points:
+			np.random.seed(42)  # For reproducible jitter
+			for i, data in enumerate(data_list):
+				# Create jittered y-positions
+				y_pos = i + 1  # Box positions are 1-indexed
+				y_jitter = np.random.uniform(-jitter_width, jitter_width, len(data))
+				y_positions = y_pos + y_jitter
+
+				plot_data = data.copy()
+				plot_data[plot_data > max_ptr_plot] = max_ptr_plot
+				
+				# Plot the scattered points
+				ax.scatter(plot_data, y_positions, alpha=point_alpha, 
+						  color=point_color, s=point_size, zorder=0)
+
+		box_plot = ax.boxplot(data_list, labels=tf_names, patch_artist=True, 
+							 showfliers=show_outliers, vert=False)
+		
+		# Color the boxes
+		for i, patch in enumerate(box_plot['boxes']):
+			tf = sorted_tf_index[i]
+
+			# Color the cell cycle tfs
+			if tf.upper() in self.binding_sites.cell_cycle_rossi_tfs:
+				patch.set_facecolor(color)
+			else:
+				patch.set_facecolor('#ddd')
+
+			patch.set_alpha(0.25)
+		
+		# Customize the plot
+		ax.set_xlabel(f'{column.upper()} Value', fontsize=12)
+		ax.set_ylabel('Transcription Factor', fontsize=12)
+		ax.set_title(title, fontsize=21, fontweight='demi', pad=13)
+		
+		# Add some statistics as text
+		n_factors = len(tf_names)
+		total_sites = sum(len(data) for data in data_list)
+		
+		tick_names = []
+		numeric_tick_names = []
+		for i, tf_name in enumerate(sorted_tf_index):
+			tick_names.append(tf_name)
+			
+			num_total_sites = num_sites.loc[tf_name].num_total
+			num_cycling_sites = cycling_counts.loc[tf_name].num_cycling
+			tick_name = f"n= {num_total_sites}, {num_cycling_sites} ({num_cycling_sites/num_total_sites*100:.0f}%)"
+			
+			y_position = i+1
+			x = 0.45
+			numeric_tick_names.append(tick_name)
+
+		right_side_ax = ax.twinx()
+		right_side_ax.set_yticks(range(1, len(numeric_tick_names)+1))
+		right_side_ax.set_yticklabels(numeric_tick_names, fontsize=8)
+		right_side_ax.tick_params(axis='y', which='major', length=0, pad=5)
+
+		ax.set_yticklabels(tick_names, fontsize=10)
+		ax.set_ylim(0, len(sorted_tf_index)+1)
+		right_side_ax.set_ylim(0, len(sorted_tf_index)+1)
+		xticks = np.arange(1, 2.25, 0.25)
+		xticklabels = [f"{x}" for x in xticks]
+		xticklabels[-1] = f"{max_ptr_plot}+"
+
+		ax.set_xticks(xticks)
+		ax.set_xticklabels(xticklabels)
+
+		ax.set_xlim(0.95, max_xlim)
+		plt.tight_layout()
+
+		ax.axvline(self.ptr_threshold, c='black', lw=1, ls='dotted')
+
+		# Color the y-tick labels based on cell cycle criteria
+		for i, tf_name in enumerate(sorted_tf_index):
+			if tf_name.upper() in self.binding_sites.cell_cycle_rossi_tfs:
+				ax.get_yticklabels()[i].set_color(plt.cm.Oranges(0.7))  # Darker orange for text readability
+			else:
+				ax.get_yticklabels()[i].set_color('black')  # Default color for non-cell cycle TFs
+
+		# Create custom legend
+		legend_elements = [
+		    plt.Line2D([0], [0], color=color, lw=2, label='Cell cycle TF (Kelliher, 2018)'),
+		    plt.Line2D([0], [0], color='gray', lw=2, label='Non cell cycle')
 		]
+		ax.legend(handles=legend_elements)
+			
+		return fig, ax
 
-	dna_binding_genes = genes_for_go(genes_with_go, go_terms)
 
-	go_binding_genes = dna_binding_genes['name'].values
-	return go_binding_genes, go_terms

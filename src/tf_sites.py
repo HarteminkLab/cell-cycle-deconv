@@ -35,8 +35,6 @@ class TFBindingSites:
 		self.kelliher_rossi_intersection = kelliher_rossi_intersection
 		self.all_kelliher_cell_cycle_tfs = kelliher_cctfs
 
-		from src.TranscriptionFactorProcessor import read_transcription_factor_set_from_go
-
 		rossi_tfs = self.all_rossi_tf_dfs.tf.unique()
 		kelliher_cell_cycle_tfs = self.kelliher_rossi_intersection.copy()
 
@@ -59,3 +57,19 @@ class TFBindingSites:
 		self.tfs_with_tf_go_term = go_binding_genes
 		self.rossi_tfs_with_tf_go = go_rossi_tfs
 		self.cell_cycle_rossi_tfs = cell_cycle_rossi_tfs
+
+def read_transcription_factor_set_from_go():
+
+	from src.sgd import read_sgd_w_go
+	genes_with_go = read_sgd_w_go()
+	from src.gene_ontology import genes_for_go
+
+	go_terms = [
+			'GO:0016563', # TF activity
+			'GO:0043565' # Sequence specific binding
+		]
+
+	dna_binding_genes = genes_for_go(genes_with_go, go_terms)
+
+	go_binding_genes = dna_binding_genes['name'].values
+	return go_binding_genes, go_terms
