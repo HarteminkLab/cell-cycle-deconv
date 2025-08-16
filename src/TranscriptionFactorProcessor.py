@@ -5,6 +5,7 @@ from src.deconvolved_chromatin_loader import DeconvolvedChromatinDataLoader
 from src.transcripts_dataset import load_transcripts_sets
 from src.peak_to_trough import compute_quantile_ptr_2d
 import matplotlib.pyplot as plt
+from src.figure_configs import save_figure_for_paper
 
 
 class TranscriptionFactorProcessor:
@@ -28,7 +29,15 @@ class TranscriptionFactorProcessor:
 		fragment_range : tuple
 			Fragment length filter range (default (0, 100))
 		"""
+
+		from src.utils import mkdir_safe
+
 		self.output_dir = output_dir
+		self.save_dir = f"{self.output_dir}/figures_transcription_factors"
+		mkdir_safe(self.save_dir)
+
+		self.figures_dir = f"{self.output_dir}/Figures"
+
 		self.window_size = window_size
 		self.fragment_range = fragment_range
 		
@@ -209,25 +218,6 @@ class TranscriptionFactorProcessor:
 			index=multi_index,
 			columns=columns
 		)
-	
-	def get_summary_stats(self):
-		"""
-		Get summary statistics about the analysis results.
-		
-		Returns:
-		--------
-		dict
-			Summary statistics
-		"""
-		if self.results_df is None:
-			return {"error": "No results available. Run build_dataframe() first."}
-		
-		return {
-			"total_sites": len(self.results_df),
-			"unique_tfs": len(self.results_df.index.get_level_values('tf').unique()),
-			"timepoints": len(self.results_df.columns),
-			"tf_counts": self.results_df.index.get_level_values('tf').value_counts().to_dict()
-		}
 	
 	def get_tf_data(self, tf_name):
 		"""
@@ -479,10 +469,221 @@ class TranscriptionFactorProcessor:
 		
 		return self.comprehensive_df[mask]
 
+	def statistical_test_for_promoters(self):
+		cycling_site_locations = self.cell_cycle_site_counts_pivoted
+		all_site_locations = self.all_site_counts_pivoted
+
+		cell_cycle_location_props = cycling_site_locations / \
+			cycling_site_locations.sum(1).values[:, None]
+		all_location_props = all_site_locations / \
+			all_site_locations.sum(1).values[:, None]
+
+		joined_comparison = cycling_site_locations.join(all_site_locations, lsuffix='_cycling',
+								   rsuffix='_all')
+		total_joined = joined_comparison.sum()
+
+		total_cycling = total_joined.gene_body_cycling+total_joined.promoter_cycling+\
+			total_joined.intergenic_cycling
+
+		total_all = total_joined.gene_body_all+total_joined.promoter_all+\
+			total_joined.intergenic_all
+		
+		from src.stats_utils import test_z_proportion_change
+
+		ret_text = test_z_proportion_change(total_joined.promoter_cycling, total_cycling,
+							 total_joined.promoter_all, total_all)
+
+		test_filepath = f"{self.save_dir}/promoter_statistical_test.txt"
+		with open(test_filepath, 'w') as f:
+			f.write(ret_text)
+		print("Wrote to: ", test_filepath)
+
+
+	def classify_genomic_cell_cycle_sites(self):
+
+		def classify_site_with_genes(site, gene_boundaries):
+			# Check if the site is within a gene's body: TSS-PAS
+
+			# Check if the site is within a promoter: predefined promoter range
+			chrom_strand_check = (site.chr == gene_boundaries.chr) & \
+							(site.strand == gene_boundaries.strand)
+
+			found_in_genes = gene_boundaries[chrom_strand_check & 
+							(site.end > gene_boundaries.full_transcript_start) &
+							(site.start < gene_boundaries.full_transcript_end)]
+
+			found_in_promoter = gene_boundaries[chrom_strand_check & 
+							(site.end > gene_boundaries.promoter_start) &
+							(site.start < gene_boundaries.promoter_end)]
+
+			if len(found_in_genes) > 0:
+				classification = 'gene_body'
+			elif len(found_in_promoter) > 0:
+				classification = 'promoter'
+			else:
+				classification = 'intergenic'
+			return classification
+
+		from src.transcripts_dataset import load_transcripts_sets
+		gene_boundaries, _  = load_transcripts_sets(self.output_dir)
+		ptrs = self.comprehensive_df[['ptr']].dropna()
+
+		def pivot_sites_data(sites):
+
+			# Next we'll look through these sites and count the occurrence in various gene contexts
+			tf_sites = self.tf_sites.copy()
+			tf_sites.index.name = 'identifier'
+			tf_sites = tf_sites.reset_index().set_index(["tf", 'identifier'])
+			sites_with_peaks = sites.join(tf_sites, how='left').loc[self.sorted_boxplot_tfs_index]
+			for site_index, site in sites_with_peaks.iterrows():
+				classification = classify_site_with_genes(site, gene_boundaries)
+				sites_with_peaks.loc[site_index, 'genomic_classification'] = classification
+			# Group by both TF and classification
+			counts = sites_with_peaks.groupby(['tf', 'genomic_classification']).size().reset_index(name='count')
+
+			# Pivot for easier viewing
+			pivot_counts = counts.pivot(index='tf', columns='genomic_classification', values='count').fillna(0)\
+				.loc[self.sorted_boxplot_tfs_index]
+			return pivot_counts
+
+		cell_cycle_sites = ptrs[ptrs.ptr > self.ptr_threshold]
+
+		self.cell_cycle_site_counts_pivoted = pivot_sites_data(cell_cycle_sites)
+		self.all_site_counts_pivoted = pivot_sites_data(ptrs)
+
+	def test_cycling_tfs_for_prom_testing(self):
+		"""
+		Perform statistical test to see which TFs are significantly bound to promoters
+		"""
+		
+		from src.stats_utils import test_z_proportion_change
+		def _test_p_value_promoter_change(self, tf):
+			all_counts = self.all_site_counts_pivoted.loc[tf]
+			cycling_counts = self.cell_cycle_site_counts_pivoted.loc[tf]
+
+			total_all = all_counts.sum()
+			total_cycling = cycling_counts.sum()
+			res = test_z_proportion_change(cycling_counts.promoter, total_cycling, 
+										   self.all_site_counts_pivoted.promoter.sum(), 
+										   self.all_site_counts_pivoted.sum().sum(),
+										   print_results=False, alpha=0.01)
+			return res
+
+		stat_test_results = pd.DataFrame()
+
+		for tf in self.all_site_counts_pivoted.index:
+			try:
+				res = _test_p_value_promoter_change(self, tf)
+				stat_test_results.loc[tf, 'p_value'] = res[2]
+			except ZeroDivisionError:
+				continue
+
+		from statsmodels.stats.multitest import multipletests
+
+		# Your p-values
+		p_values = stat_test_results.p_value
+
+		# Apply Benjamini-Hochberg correction
+		rejected, p_adjusted, alpha_sidak, alpha_bonf = multipletests(
+			p_values, 
+			alpha=0.1,
+			method='fdr_bh'  # Benjamini-Hochberg
+		)
+		stat_test_results['p_adjusted'] = p_adjusted
+		total_cycling_sites_per_tf = self.cell_cycle_site_counts_pivoted.sum(1)
+		stat_test_results['total_cycling_sites'] = total_cycling_sites_per_tf
+
+		stats_results = stat_test_results[(stat_test_results.p_value < 0.1) & 
+						  (stat_test_results.total_cycling_sites > 5)]
+
+		self.significant_promoter_tfs = stats_results
+		self.significant_promoter_tfs.to_csv(f"{self.save_dir}/significant_cycling_promoters.csv")
+
+		return stats_results
+
+
+	def plot_genomic_classifications(self, mode='cycling'):
+		import matplotlib.pyplot as plt
+
+		if mode == 'all':
+			pivot_counts = self.all_site_counts_pivoted
+			title = 'All TF binding locations'
+			bar_colors = ['#777', '#444', '#bbb']
+		else:
+			pivot_counts = self.cell_cycle_site_counts_pivoted
+			title = 'Cycling TF binding locations'
+			bar_colors = [plt.cm.Oranges(0.45), plt.cm.Purples(0.6), '#bbb']
+
+		# Assuming your pivot table is called 'pivot_counts'
+		fig, ax = plt.subplots(figsize=(5, 7))
+
+		# Counts per category
+		counts = pivot_counts.sum(0)
+		total = pivot_counts.values.sum()
+		nonintergenic = (counts.gene_body+counts.promoter)
+		nonintergenic_perc = nonintergenic/total*100
+		promoter_num = (counts.promoter)
+		promoter_perc = promoter_num/total*100
+
+		# Plot with specific column order
+		pivot_counts[['promoter', 'gene_body', 'intergenic']].plot(kind='barh', stacked=True, ax=ax,
+			color=bar_colors, width=0.67)
+
+		# Customize the plot
+		plt.xlabel('Number of Sites')
+		plt.ylabel('Transcription Factor')
+
+		plt.title(f'{title}\n'\
+				  f'n={total:.0f}, {promoter_num:.0f} promoter-binding ({promoter_perc:.0f}%)', 
+			fontweight='demi', fontsize=18, pad=13)
+
+		plt.legend([f'Promoter, n={counts.promoter:.0f} ({counts.promoter/total*100:.0f}%)', 
+					f'Within Gene, n={counts.gene_body:.0f} ({counts.gene_body/total*100:.0f}%)', 
+					f'Intergenic, n={counts.intergenic:.0f} ({counts.intergenic/total*100:.0f}%)'], 
+					loc='lower right')
+		
+		xmax = pivot_counts.values.sum(1).max()
+		plt.xlim(0, xmax*1.6)
+
+		cc_color = plt.cm.Blues(0.7)
+		# Color the y-tick labels based on cell cycle criteria
+		for i, tf_name in enumerate(pivot_counts.index):
+
+			if tf_name.upper() in self.binding_sites.cell_cycle_rossi_tfs:
+				ax.get_yticklabels()[i].set_color(cc_color)  # Darker orange for text readability
+				color = cc_color
+			else:
+				color = 'black'
+
+			# Count labels
+			tf_counts = pivot_counts.loc[tf_name]
+			total_counts = tf_counts.values.sum()
+			num_non_intergenic = tf_counts.promoter+tf_counts.gene_body
+			num_promoter = tf_counts.promoter
+
+			label = f"{total_counts:.0f}, {num_promoter:.0f}"\
+					f" ({(num_promoter/total_counts)*100:.0f}%)"
+
+			if mode == 'cycling' and tf_name in self.significant_promoter_tfs.index:
+
+				p_value = self.significant_promoter_tfs.loc[tf_name].p_value
+
+				label += " *"
+
+				ax.axhspan(i-0.5, i+0.52, 0, 1, color='yellow', zorder=0, alpha=0.16)
+
+				if p_value < 0.01:
+					label += "*"
+
+			ax.text(total_counts+xmax*0.01, i, label, ha='left', va='center', color=color)
+
+		save_figure_for_paper(f"{self.save_dir}/binding_locations_{mode}.png")
+
+	
 	def plot_tf_boxplots(self, column='ptr', figsize=(6, 7), 
 						 show_outliers=False, 
 						 show_points=True, 
-						 point_color='#aaa', point_alpha=1.0, 
+						 point_color='#777', point_alpha=0.5, 
 						 point_size=1, jitter_width=0.1):
 		"""
 		Plot box plots for specified column values grouped by transcription factor (tf).
@@ -532,10 +733,7 @@ class TranscriptionFactorProcessor:
 		# Create the box plot
 		fig, ax = plt.subplots(figsize=figsize)
 		
-		# Create box plots
-		color=plt.cm.Oranges(0.35)
-		
-		max_ptr_plot = 4
+		max_ptr_plot = 2.5
 		max_xlim = max_ptr_plot + 0.02
 
 		# Add jittered scatter points if requested
@@ -552,12 +750,18 @@ class TranscriptionFactorProcessor:
 				
 				# Plot the scattered points
 				ax.scatter(plot_data, y_positions, alpha=point_alpha, 
-						  color=point_color, s=point_size, zorder=0)
+						  color=point_color, s=point_size, zorder=1)
 
+		boxprops = dict(linewidth=0)
+		medianprops = dict(linestyle='-.', linewidth=2.5, color='firebrick')
 		box_plot = ax.boxplot(data_list, labels=tf_names, patch_artist=True, 
-							 showfliers=show_outliers, vert=False)
+							 showfliers=show_outliers, vert=False, boxprops=boxprops,
+							 widths=0.7,
+							 medianprops=dict(color='black', solid_capstyle='butt'),
+							 showcaps=False, zorder=0)
 		
 		# Color the boxes
+		color=plt.cm.Blues(0.4)
 		for i, patch in enumerate(box_plot['boxes']):
 			tf = sorted_tf_index[i]
 
@@ -565,15 +769,15 @@ class TranscriptionFactorProcessor:
 			if tf.upper() in self.binding_sites.cell_cycle_rossi_tfs:
 				patch.set_facecolor(color)
 			else:
-				patch.set_facecolor('#ddd')
+				patch.set_facecolor('#aaa')
 
-			patch.set_alpha(0.25)
+			patch.set_alpha(1.0)
 		
 		# Customize the plot
 		ax.set_xlabel(f'{column.upper()} Value', fontsize=12)
 		ax.set_ylabel('Transcription Factor', fontsize=12)
 
-		title = f"Cell cycling transcription factor\nbinding, n={n}, {number_of_cell_cycle_sites} cycling ({number_of_cell_cycle_sites/n*100:.0f}%)"
+		title = f"Cyclicity of transcription factor\nbinding, n={n}, {number_of_cell_cycle_sites} cycling ({number_of_cell_cycle_sites/n*100:.0f}%)"
 		ax.set_title(title, fontsize=21, fontweight='demi', pad=13)
 		
 		# Add some statistics as text
@@ -587,7 +791,7 @@ class TranscriptionFactorProcessor:
 			
 			num_total_sites = num_sites.loc[tf_name].num_total
 			num_cycling_sites = cycling_counts.loc[tf_name].num_cycling
-			tick_name = f"n= {num_total_sites}, {num_cycling_sites} ({num_cycling_sites/num_total_sites*100:.0f}%)"
+			tick_name = f"{num_total_sites}, {num_cycling_sites} ({num_cycling_sites/num_total_sites*100:.0f}%)"
 			
 			y_position = i+1
 			x = 0.45
@@ -595,13 +799,13 @@ class TranscriptionFactorProcessor:
 
 		right_side_ax = ax.twinx()
 		right_side_ax.set_yticks(range(1, len(numeric_tick_names)+1))
-		right_side_ax.set_yticklabels(numeric_tick_names, fontsize=8)
+		right_side_ax.set_yticklabels(numeric_tick_names, fontsize=12)
 		right_side_ax.tick_params(axis='y', which='major', length=0, pad=5)
 
-		ax.set_yticklabels(tick_names, fontsize=10)
-		ax.set_ylim(0, len(sorted_tf_index)+1)
-		right_side_ax.set_ylim(0, len(sorted_tf_index)+1)
-		xticks = np.arange(1, 2.25, 0.25)
+		ax.set_yticklabels(tick_names, fontsize=12)
+		ax.set_ylim(0.5, len(sorted_tf_index)+0.5)
+		right_side_ax.set_ylim(0.5, len(sorted_tf_index)+0.5)
+		xticks = np.arange(1, max_xlim, 0.25)
 		xticklabels = [f"{x}" for x in xticks]
 		xticklabels[-1] = f"{max_ptr_plot}+"
 
@@ -616,18 +820,57 @@ class TranscriptionFactorProcessor:
 		# Color the y-tick labels based on cell cycle criteria
 		for i, tf_name in enumerate(sorted_tf_index):
 			if tf_name.upper() in self.binding_sites.cell_cycle_rossi_tfs:
-				ax.get_yticklabels()[i].set_color(plt.cm.Oranges(0.7))  # Darker orange for text readability
-				right_side_ax.get_yticklabels()[i].set_color(plt.cm.Oranges(0.7))  # Darker orange for text readability
+				ax.get_yticklabels()[i].set_color(plt.cm.Blues(0.7))  # Darker orange for text readability
+				right_side_ax.get_yticklabels()[i].set_color(plt.cm.Blues(0.7))  # Darker orange for text readability
 			else:
 				right_side_ax.get_yticklabels()[i].set_color('black')  # Default color for non-cell cycle TFs
 
 		# Create custom legend
 		legend_elements = [
-		    plt.Line2D([0], [0], color=color, lw=2, label='Cell cycle TF (Kelliher, 2018)'),
-		    plt.Line2D([0], [0], color='gray', lw=2, label='Non cell cycle')
+			plt.Line2D([0], [0], color=color, lw=2, label='Cell cycle TF (Kelliher, 2018)'),
+			plt.Line2D([0], [0], color='gray', lw=2, label='Non cell cycle')
 		]
 		ax.legend(handles=legend_elements)
 			
+		# Keep track of the transcription factors plotted and sorting
+		self.sorted_boxplot_tfs_index = sorted_tf_index
+
+		save_figure_for_paper(f"{self.save_dir}/factor_binding_cyclicity.png")
+
 		return fig, ax, sorted_tf_index
 
+	def layout_panel(self):
+		from pipeline.figure_composer import FigureCompositor
+		from pipeline.figure_composer_helpers import layout_images_horizontally, \
+			add_panel_labels_to_images
 
+		# Create compositor with wider dimensions for horizontal layout
+		compositor = FigureCompositor(1024, 460, debug_mode=True)
+
+		image_paths = [
+			f'{self.save_dir}/factor_binding_cyclicity.png',
+			f'{self.save_dir}/binding_locations_all.png',
+			f'{self.save_dir}/binding_locations_cycling.png',
+		]
+
+		# Layout images horizontally with custom width proportions
+		# Adjust these proportions based on your image content needs
+		placed_images = layout_images_horizontally(
+			compositor,
+			image_paths,
+			width_proportions=[1.2, 1, 1],
+			between_padding=30,
+			margin=(30, 30),
+			image_keys=['binding_cyclicity', 'locations_all', 'locations_cycling']  # Custom keys
+		)
+
+		# Add panel labels
+		add_panel_labels_to_images(
+			compositor, 
+			compositor.placed_images,
+			font_size=26,
+			offset=(-15, -15)  # Adjust offset as needed
+		)
+
+		# Save the composite figure
+		compositor.save(f'{self.figures_dir}/Supplemental5.5_Transcription_Factors.png')
