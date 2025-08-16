@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+import os
 from src.tf_sites import TFBindingSites
 from src.deconvolved_chromatin_loader import DeconvolvedChromatinDataLoader
 from src.transcripts_dataset import load_transcripts_sets
@@ -54,10 +55,99 @@ class TranscriptionFactorProcessor:
 
 		# Chromatin processor computes ptr threshold
 		self._load_chromatin_processor()
+		self._load_tf_datasets()
 	
-	def build_dataframe(self):
+	# =================== NEW: File path helpers ===================
+	
+	def _get_results_filepath(self):
+		"""Get filepath for basic results CSV."""
+		return os.path.join(self.save_dir, 'binding_results.csv')
+	
+	def _get_comprehensive_filepath(self):
+		"""Get filepath for comprehensive results CSV."""
+		return os.path.join(self.save_dir, 'full_results.csv')
+	
+	def _results_exist(self):
+		"""Check if basic results file exists."""
+		return os.path.exists(self._get_results_filepath())
+	
+	def _comprehensive_results_exist(self):
+		"""Check if comprehensive results file exists."""
+		return os.path.exists(self._get_comprehensive_filepath())
+	
+	# =================== NEW: Save/Load methods ===================
+	
+	def save_results(self):
+		"""
+		Save results to disk.
+		
+		Saves:
+		- binding_results.csv: Basic TF profiles (results_df)
+		- full_results.csv: Comprehensive results with PTR and gene associations (comprehensive_df)
+		"""
+		if self.results_df is not None:
+			self.results_df.to_csv(self._get_results_filepath())
+			print(f"Saved basic results to: {self._get_results_filepath()}")
+		
+		if self.comprehensive_df is not None:
+			self.comprehensive_df.to_csv(self._get_comprehensive_filepath())
+			print(f"Saved comprehensive results to: {self._get_comprehensive_filepath()}")
+	
+	def load_results(self):
+		"""
+		Load previously saved results from disk.
+		
+		Returns:
+		--------
+		tuple
+			(basic_loaded, comprehensive_loaded) - booleans indicating what was loaded
+		"""
+		basic_loaded = False
+		comprehensive_loaded = False
+		
+		# Load basic results
+		if self._results_exist():
+			try:
+				self.results_df = pd.read_csv(self._get_results_filepath(), index_col=[0, 1])
+				print(f"Loaded basic results from: {self._get_results_filepath()}")
+				basic_loaded = True
+			except Exception as e:
+				print(f"Warning: Failed to load basic results: {e}")
+		
+		# Load comprehensive results
+		if self._comprehensive_results_exist():
+			try:
+				self.comprehensive_df = pd.read_csv(self._get_comprehensive_filepath(), index_col=[0, 1])
+				print(f"Loaded comprehensive results from: {self._get_comprehensive_filepath()}")
+				comprehensive_loaded = True
+			except Exception as e:
+				print(f"Warning: Failed to load comprehensive results: {e}")
+		
+		return basic_loaded, comprehensive_loaded
+	
+	def clear_saved_results(self):
+		"""
+		Remove saved result files from disk.
+		"""
+		files_to_remove = [self._get_results_filepath(), self._get_comprehensive_filepath()]
+		
+		for filepath in files_to_remove:
+			if os.path.exists(filepath):
+				os.remove(filepath)
+				print(f"Removed: {filepath}")
+			else:
+				print(f"File not found: {filepath}")
+	
+	# =================== UPDATED: Main analysis methods ===================
+	
+	def build_dataframe(self, force_recompute=False):
 		"""
 		Main method that orchestrates the entire workflow.
+		
+		Parameters:
+		-----------
+		force_recompute : bool
+			If True, recompute even if saved results exist
 		
 		Returns:
 		--------
@@ -65,12 +155,70 @@ class TranscriptionFactorProcessor:
 			MultiIndex ['tf', 'identifier'] with timepoint columns containing
 			mean accessibility values across the 80bp window
 		"""
+
 		# Execute workflow steps
-		self._load_tf_datasets()
 		self._prepare_binding_sites()
+
+		# Check if we can load from disk
+		if not force_recompute and self._results_exist():
+			basic_loaded, _ = self.load_results()
+			if basic_loaded and self.results_df is not None:
+				print("Using saved basic results. Use force_recompute=True to regenerate.")
+				return self.results_df
+		
+		print("Computing basic TF binding profiles...")
+
 		self._load_chromatin_data()
 		
+		# Save results
+		self.save_results()
+		
 		return self.results_df
+	
+	def build_comprehensive_dataframe(self, force_recompute=False):
+		"""
+		Build complete dataframe with TF profiles, PTR values, and gene associations.
+		
+		Parameters:
+		-----------
+		force_recompute : bool
+			If True, recompute even if saved results exist
+			
+		Returns:
+		--------
+		pd.DataFrame
+			MultiIndex ['tf', 'identifier'] with columns:
+			- timepoint_0, timepoint_1, ... (accessibility profiles)
+			- ptr (if include_ptr=True)
+			- associated_genes (comma-separated gene names)
+			- association_type ('overlap' or 'none')
+		"""
+		# Check if we can load comprehensive results from disk
+		if not force_recompute and self._comprehensive_results_exist():
+			_, comprehensive_loaded = self.load_results()
+			if comprehensive_loaded and self.comprehensive_df is not None:
+				print("Using saved comprehensive results. Use force_recompute=True to regenerate.")
+				return self.comprehensive_df
+		
+		print("Building comprehensive dataframe with gene associations...")
+		
+		# First get the basic TF profiles (may load from disk if available)
+		if self.results_df is None:
+			self.build_dataframe(force_recompute=force_recompute)
+		
+		# Start with the TF profile data
+		self.comprehensive_df = self.results_df.copy()
+		
+		# Add PTR values if requested
+		self._add_ptr_values()
+		
+		# Save comprehensive results
+		self.save_results()
+		
+		print(f"Comprehensive dataframe complete with {len(self.comprehensive_df)} sites")
+		return self.comprehensive_df
+	
+	# =================== EXISTING METHODS (unchanged) ===================
 	
 	def _load_tf_datasets(self):
 		"""
@@ -87,12 +235,14 @@ class TranscriptionFactorProcessor:
 		
 		# Get Rossi data and filter for cell cycle TFs with high confidence
 		rossi_sites = self.binding_sites.filtered_rossi_go_tf_binding_sites
+		rossi_sites['identifier'] = rossi_sites['chr'].astype(str) +'_'+ rossi_sites['start'].astype(str)\
+			+rossi_sites['strand']
 		
 		# Sort by chromosome and start position for efficient loading
-		self.tf_sites = rossi_sites.sort_values(['chr', 'start'])
+		self.tf_sites = rossi_sites.sort_values(['chr', 'start']).set_index(['tf', 'identifier'])
 		
 		print(f"Found {len(self.tf_sites)} high-confidence binding sites for "
-			  f"{len(self.tf_sites.tf.unique())} cell cycle TFs")
+			  f"{len(self.tf_sites.reset_index().tf.unique())} cell cycle TFs")
 	
 	def _prepare_binding_sites(self):
 		"""
@@ -127,17 +277,20 @@ class TranscriptionFactorProcessor:
 		results_list = []
 		
 		# Process each binding site
-		for idx, (identifier, tf_site) in enumerate(self.tf_sites.iterrows()):
+		for idx, (index, tf_site) in enumerate(self.tf_sites.iterrows()):
+
+			tf, identifier = index
+
 			if idx % 200 == 0:  # Progress indicator
 				print(f"Processing site {idx + 1}/{len(self.tf_sites)}")
-			
+
 			try:
 				# Calculate mean accessibility for this site
 				mean_profile = self._calculate_site_mean(tf_site)
 				
 				# Store results with metadata
 				site_result = {
-					'tf': tf_site['tf'],
+					'tf': tf,
 					'identifier': identifier,
 					'mean_profile': mean_profile
 				}
@@ -237,49 +390,6 @@ class TranscriptionFactorProcessor:
 			raise ValueError("No results available. Run build_dataframe() first.")
 		
 		return self.results_df.loc[tf_name]
-	
-	def build_comprehensive_dataframe(self, include_ptr=True):
-		"""
-		Build complete dataframe with TF profiles, PTR values, and gene associations.
-		
-		Parameters:
-		-----------
-		include_ptr : bool
-			Whether to calculate and include peak-to-trough ratios
-			
-		Returns:
-		--------
-		pd.DataFrame
-			MultiIndex ['tf', 'identifier'] with columns:
-			- timepoint_0, timepoint_1, ... (accessibility profiles)
-			- ptr (if include_ptr=True)
-			- associated_genes (comma-separated gene names)
-			- association_type ('overlap' or 'none')
-		"""
-		print("Building comprehensive dataframe with gene associations...")
-		
-		# First get the basic TF profiles
-		if self.results_df is None:
-			self.build_dataframe()
-		
-		# Load gene promoter data
-		self._load_gene_promoters()
-		
-		# Find gene associations
-		self._find_gene_associations()
-		
-		# Start with the TF profile data
-		self.comprehensive_df = self.results_df.copy()
-		
-		# Add PTR values if requested
-		if include_ptr:
-			self._add_ptr_values()
-		
-		# Add gene association information
-		self._integrate_gene_associations()
-		
-		print(f"Comprehensive dataframe complete with {len(self.comprehensive_df)} sites")
-		return self.comprehensive_df
 	
 	def _load_gene_promoters(self):
 		"""
@@ -498,10 +608,9 @@ class TranscriptionFactorProcessor:
 			f.write(ret_text)
 		print("Wrote to: ", test_filepath)
 
+	def pivot_sites_data(self, sites):
 
-	def classify_genomic_cell_cycle_sites(self):
-
-		def classify_site_with_genes(site, gene_boundaries):
+		def _classify_site_with_genes(site, gene_boundaries):
 			# Check if the site is within a gene's body: TSS-PAS
 
 			# Check if the site is within a promoter: predefined promoter range
@@ -526,30 +635,29 @@ class TranscriptionFactorProcessor:
 
 		from src.transcripts_dataset import load_transcripts_sets
 		gene_boundaries, _  = load_transcripts_sets(self.output_dir)
+
+		# Next we'll look through these sites and count the occurrence in various gene contexts
+		tf_sites = self.tf_sites.copy()
+
+		sites_with_peaks = sites.join(tf_sites, how='left').loc[self.sorted_boxplot_tfs_index]
+		for site_index, site in sites_with_peaks.iterrows():
+			classification = _classify_site_with_genes(site, gene_boundaries)
+			sites_with_peaks.loc[site_index, 'genomic_classification'] = classification
+		# Group by both TF and classification
+		counts = sites_with_peaks.groupby(['tf', 'genomic_classification']).size().reset_index(name='count')
+
+		# Pivot for easier viewing
+		pivot_counts = counts.pivot(index='tf', columns='genomic_classification', values='count').fillna(0)\
+			.loc[self.sorted_boxplot_tfs_index]
+		return pivot_counts
+
+	def classify_genomic_cell_cycle_sites(self):
+
 		ptrs = self.comprehensive_df[['ptr']].dropna()
-
-		def pivot_sites_data(sites):
-
-			# Next we'll look through these sites and count the occurrence in various gene contexts
-			tf_sites = self.tf_sites.copy()
-			tf_sites.index.name = 'identifier'
-			tf_sites = tf_sites.reset_index().set_index(["tf", 'identifier'])
-			sites_with_peaks = sites.join(tf_sites, how='left').loc[self.sorted_boxplot_tfs_index]
-			for site_index, site in sites_with_peaks.iterrows():
-				classification = classify_site_with_genes(site, gene_boundaries)
-				sites_with_peaks.loc[site_index, 'genomic_classification'] = classification
-			# Group by both TF and classification
-			counts = sites_with_peaks.groupby(['tf', 'genomic_classification']).size().reset_index(name='count')
-
-			# Pivot for easier viewing
-			pivot_counts = counts.pivot(index='tf', columns='genomic_classification', values='count').fillna(0)\
-				.loc[self.sorted_boxplot_tfs_index]
-			return pivot_counts
-
 		cell_cycle_sites = ptrs[ptrs.ptr > self.ptr_threshold]
 
-		self.cell_cycle_site_counts_pivoted = pivot_sites_data(cell_cycle_sites)
-		self.all_site_counts_pivoted = pivot_sites_data(ptrs)
+		self.cell_cycle_site_counts_pivoted = self.pivot_sites_data(cell_cycle_sites)
+		self.all_site_counts_pivoted = self.pivot_sites_data(ptrs)
 
 	def test_cycling_tfs_for_prom_testing(self):
 		"""
@@ -593,8 +701,8 @@ class TranscriptionFactorProcessor:
 		total_cycling_sites_per_tf = self.cell_cycle_site_counts_pivoted.sum(1)
 		stat_test_results['total_cycling_sites'] = total_cycling_sites_per_tf
 
-		stats_results = stat_test_results[(stat_test_results.p_value < 0.1) & 
-						  (stat_test_results.total_cycling_sites > 5)]
+		stats_results = stat_test_results[(stat_test_results.p_value < 0.2) & 
+						  (stat_test_results.total_cycling_sites > 7)]
 
 		self.significant_promoter_tfs = stats_results
 		self.significant_promoter_tfs.to_csv(f"{self.save_dir}/significant_cycling_promoters.csv")
@@ -602,7 +710,16 @@ class TranscriptionFactorProcessor:
 		return stats_results
 
 
-	def plot_genomic_classifications(self, mode='cycling'):
+	def plot_before_after_genomic_classifications(self):
+
+		fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 7))
+		self.plot_genomic_classifications(mode='all', ax=ax1)
+		self.plot_genomic_classifications(mode='cycling', ax=ax2)
+		plt.subplots_adjust(wspace=0.3)
+		save_figure_for_paper(f'{self.save_dir}/binding_locations_both.png')
+
+
+	def plot_genomic_classifications(self, mode='cycling', ax=None):
 		import matplotlib.pyplot as plt
 
 		if mode == 'all':
@@ -615,7 +732,8 @@ class TranscriptionFactorProcessor:
 			bar_colors = [plt.cm.Oranges(0.45), plt.cm.Purples(0.6), '#bbb']
 
 		# Assuming your pivot table is called 'pivot_counts'
-		fig, ax = plt.subplots(figsize=(5, 7))
+		if ax is None:
+			fig, ax = plt.subplots(figsize=(5, 7))
 
 		# Counts per category
 		counts = pivot_counts.sum(0)
@@ -630,20 +748,21 @@ class TranscriptionFactorProcessor:
 			color=bar_colors, width=0.67)
 
 		# Customize the plot
-		plt.xlabel('Number of Sites')
-		plt.ylabel('Transcription Factor')
+		ax.set_xlabel('Number of Sites')
+		ax.set_ylabel('')
 
-		plt.title(f'{title}\n'\
+		ax.set_title(f'{title}\n'\
 				  f'n={total:.0f}, {promoter_num:.0f} promoter-binding ({promoter_perc:.0f}%)', 
 			fontweight='demi', fontsize=18, pad=13)
 
-		plt.legend([f'Promoter, n={counts.promoter:.0f} ({counts.promoter/total*100:.0f}%)', 
+		ax.legend([f'Promoter, n={counts.promoter:.0f} ({counts.promoter/total*100:.0f}%)', 
 					f'Within Gene, n={counts.gene_body:.0f} ({counts.gene_body/total*100:.0f}%)', 
 					f'Intergenic, n={counts.intergenic:.0f} ({counts.intergenic/total*100:.0f}%)'], 
 					loc='lower right')
 		
 		xmax = pivot_counts.values.sum(1).max()
-		plt.xlim(0, xmax*1.6)
+		ax.set_xlim(0, xmax*1.6)
+		ax.set_yticklabels(pivot_counts.index, fontsize=12)
 
 		cc_color = plt.cm.Blues(0.7)
 		# Color the y-tick labels based on cell cycle criteria
@@ -667,17 +786,17 @@ class TranscriptionFactorProcessor:
 			if mode == 'cycling' and tf_name in self.significant_promoter_tfs.index:
 
 				p_value = self.significant_promoter_tfs.loc[tf_name].p_value
-
 				label += " *"
 
 				ax.axhspan(i-0.5, i+0.52, 0, 1, color='yellow', zorder=0, alpha=0.16)
+
+				if p_value < 0.1:
+					label += "*"
 
 				if p_value < 0.01:
 					label += "*"
 
 			ax.text(total_counts+xmax*0.01, i, label, ha='left', va='center', color=color)
-
-		save_figure_for_paper(f"{self.save_dir}/binding_locations_{mode}.png")
 
 	
 	def plot_tf_boxplots(self, column='ptr', figsize=(6, 7), 
@@ -845,12 +964,11 @@ class TranscriptionFactorProcessor:
 			add_panel_labels_to_images
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 460, debug_mode=True)
+		compositor = FigureCompositor(1024, 400, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/factor_binding_cyclicity.png',
-			f'{self.save_dir}/binding_locations_all.png',
-			f'{self.save_dir}/binding_locations_cycling.png',
+			f'{self.save_dir}/binding_locations_both.png',
 		]
 
 		# Layout images horizontally with custom width proportions
@@ -858,10 +976,10 @@ class TranscriptionFactorProcessor:
 		placed_images = layout_images_horizontally(
 			compositor,
 			image_paths,
-			width_proportions=[1.2, 1, 1],
+			width_proportions=[1, 1.95],
 			between_padding=30,
 			margin=(30, 30),
-			image_keys=['binding_cyclicity', 'locations_all', 'locations_cycling']  # Custom keys
+			image_keys=['binding_cyclicity', 'locations_both']  # Custom keys
 		)
 
 		# Add panel labels
@@ -869,7 +987,14 @@ class TranscriptionFactorProcessor:
 			compositor, 
 			compositor.placed_images,
 			font_size=26,
-			offset=(-15, -15)  # Adjust offset as needed
+			offset=(-15, 0)  # Adjust offset as needed
+		)
+
+		compositor.add_panel_label_to_image(
+			'locations_both', 
+			'C', 
+			offset=(320, 0),
+			font_size=26,
 		)
 
 		# Save the composite figure
