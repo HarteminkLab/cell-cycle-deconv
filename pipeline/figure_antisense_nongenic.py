@@ -16,6 +16,7 @@ from pipeline.chromatin_metrics_processor import ChromatinMetricsProcessor
 from src.utils import mkdir_safe
 from pipeline.expression_chromatin_integration import IntegratedChromatinExpressionAnalyzer
 from src.figure_configs import save_figure_for_paper
+from src.transcripts_dataset import load_transcripts_sets
 
 
 class FigureNongenicTranscripts:
@@ -120,7 +121,7 @@ class FigureNongenicTranscripts:
 		
 		print("Loading gene annotations...")
 		self.genes = read_nondubious_genes_dataset()
-		self.geneset = read_geneset_with_computed_regions()
+		self.geneset, _ = load_transcripts_sets(self.output_dir)
 		
 		print("Filtering overlapping transcripts...")
 		self.filter_overlapping_transcripts()
@@ -140,17 +141,28 @@ class FigureNongenicTranscripts:
 		keep_index = []
 		filtered_index = []
 		antisense_transcripts = {}
+
+		# add left and right ends, for boundary searching
+		geneset = self.geneset.copy()
+		watson = geneset.strand == '+'
+		crick = geneset.strand == '-'
+
+		geneset.loc[watson, 'left_end'] = geneset.loc[watson, 'TSS']
+		geneset.loc[watson, 'right_end'] = geneset.loc[watson, 'PAS']
+
+		geneset.loc[crick, 'left_end'] = geneset.loc[crick, 'PAS']
+		geneset.loc[crick, 'right_end'] = geneset.loc[crick, 'TSS']
 		
 		for transcript_name, transcript_row in nongenic_set.iterrows():
 			span = transcript_row.start, transcript_row.stop
 			chrom = transcript_row.chr
-			within_span = (span[1] >= self.geneset.left_end) & (span[0] <= self.geneset.right_end)
-			same_strand = self.geneset.strand == transcript_row.strand
+			within_span = (span[1] >= geneset.left_end) & (span[0] <= geneset.right_end)
+			same_strand = geneset.strand == transcript_row.strand
 			
-			overlapping_genes = self.geneset[(self.geneset.chr == chrom) & 
+			overlapping_genes = geneset[(geneset.chr == chrom) & 
 				within_span & 
 				same_strand]
-			antisense_genes = self.geneset[(self.geneset.chr == chrom) & 
+			antisense_genes = geneset[(geneset.chr == chrom) & 
 				within_span & 
 				~(same_strand)]
 			
@@ -184,7 +196,6 @@ class FigureNongenicTranscripts:
 		print(f"  Divergent transcripts: {self.filtered_nongenic_transcripts.divergent_orf.count()}")
 
 	def identify_divergent_genes_to_nongenic_transcripts(self, filtered_nongenic_transcripts):
-		from src.transcripts_dataset import load_transcripts_sets
 
 		all_genes, non_genes = load_transcripts_sets('output/draft4_run/')
 		# Let's characterize the antisense and divergent transcripts.
@@ -443,6 +454,92 @@ class FigureNongenicTranscripts:
 		_plot_scatter(neither_transcripts, marker='o', color='#aaa', label="Neither")
 
 		plt.legend()
+
+	def plot_TSS_update_examples(self):
+		gene_updates = self.update_analyzer.analysis_df
+
+		# Identify examples in with the Park TSS were updated
+		# Plot examples near the boundaries
+		updated_TSS_from_geneset = self.geneset.copy()
+		updated_TSS_from_geneset['rna_Park_difference'] = updated_TSS_from_geneset.Park_TSS-\
+		    updated_TSS_from_geneset.TSS
+
+		self.plot_TSS_update('YBL041W', updated_TSS_from_geneset)
+		save_figure_for_paper(f"{self.save_dir}/updated_TSS_example1.png")
+
+		self.plot_TSS_update('YBR040W', updated_TSS_from_geneset)
+		save_figure_for_paper(f"{self.save_dir}/updated_TSS_example2.png")
+
+
+	def plot_TSS_update(self, orf_name, updated_TSS_from_geneset):
+
+		gene_updates = self.update_analyzer.analysis_df
+
+		updated_TSS_from_geneset = updated_TSS_from_geneset.loc[orf_name]
+		plotting_orf = self.geneset.loc[orf_name]
+
+		park_TSS, updated_TSS = updated_TSS_from_geneset.Park_TSS, plotting_orf.TSS
+
+		num_difference = int(updated_TSS-park_TSS)
+		difference = f'+{num_difference}' if num_difference > 0 else f'{num_difference}'
+
+		plotter = self.plot_gene_locus(orf_name, title=f"Updated Park TSS: {difference}")
+
+		ax = plotter.annotation_axis
+		ax.axvline(plotting_orf.TSS, c='red', ls='dotted', lw='1')
+
+		if num_difference > 0:
+			alignments = 'right', 'left'
+		else:
+			alignments = 'left', 'right'
+
+		ax.text(park_TSS+5, -50, 'Park call', ha=alignments[0])
+		ax.text(updated_TSS-5, -50, 'RNA called', c='red', ha=alignments[1])
+		ax.axvline(updated_TSS_from_geneset.Park_TSS, c='black', ls='dotted', lw=1)
+
+
+	def plot_gene_locus(self, orf_name, title=None, span_size=None):
+		"""
+		Plot the chromatin and expression data for a specific transcript locus.
+		"""
+		if span_size is None:
+			span_size = self.locus_span_size
+
+		from src.transcripts_dataset import load_transcripts_sets
+
+		self.geneset, _ = load_transcripts_sets(self.output_dir)
+			
+		# Parse transcript name to get coordinates
+		gene = self.geneset.loc[orf_name]
+		chrom, span = gene.chr, (gene.TSS, gene.PAS)
+		center = gene.TSS
+		
+		# Define span
+		plotting_span = center - span_size, center + span_size
+
+		# Round the plotting span to the nearest 100
+		from src.utils import nearest_span
+		plotting_span = nearest_span(plotting_span, 100)
+		
+		# Load and plot data
+		loaded_data = self.genome_deconv_analysis.load_mnase_span(chrom, plotting_span)
+		plotter = self.genome_deconv_analysis.plot_loaded_data(
+			figsize=(7, 11), 
+			title=title,
+			highlight_bins=[],
+			rna_plotter=self.rna_plotter,
+			tpm_plotter=self.tpm_plotter,
+			plot_index_labels=False
+		)
+
+		for ax in [plotter.annotation_axis, plotter.rna_pileup_axis]:
+			ax.axvspan(span[0], span[1], -20, 20, color='#ddd', zorder=0, alpha=0.2)
+
+		for ax in plotter.chromatin_axes:
+			ax.axvline(span[0], color='#777', ls='dotted', zorder=0, alpha=0.5)
+			ax.axvline(span[1], color='#777',  ls='dotted', zorder=0, alpha=0.5)
+
+		return plotter
 	
 	def plot_transcript_locus(self, transcript_name, title=None, span_size=None):
 		"""
@@ -614,6 +711,55 @@ class FigureNongenicTranscripts:
 			save_figure_for_paper(f"{self.save_dir}/locus_{label}_{transcript_name}.png")
 
 		self.plot_selected_phase_space_plots()
+
+		# Flow chart of TSS updates
+		self.create_tss_update_flowchart()
+
+	def create_tss_update_flowchart(self):
+
+		from pipeline.transcripts_TSS_update_analyzer import TranscriptTSSUpdateAnalyzer
+		update_analyzer = TranscriptTSSUpdateAnalyzer(self.output_dir)
+		update_analyzer.run_full_analysis()
+		save_figure_for_paper(f"{self.save_dir}/tss_update_flow.png")
+		self.update_analyzer = update_analyzer
+
+
+	def layout_supplemental_TSSes(self):
+		from pipeline.figure_composer import FigureCompositor
+		from pipeline.figure_composer_helpers import layout_images_horizontally, \
+			add_panel_labels_to_images
+
+		# Create compositor with wider dimensions for horizontal layout
+		compositor = FigureCompositor(1024, 400, debug_mode=True)
+
+		image_paths = [
+			f'{self.save_dir}/tss_update_flow.png',
+			f'{self.save_dir}/updated_TSS_example1.png',
+			f'{self.save_dir}/updated_TSS_example2.png'
+		]
+
+		# Layout images horizontally with custom width proportions
+		# Adjust these proportions based on your image content needs
+		placed_images = layout_images_horizontally(
+			compositor,
+			image_paths,
+			width_proportions=[1.0, 0.45, 0.45],
+			between_padding=30,
+			margin=(40, 40),
+			image_keys=['flow', 'update1', 'update2']  # Custom keys
+		)
+
+		# Add panel labels
+		add_panel_labels_to_images(
+			compositor, 
+			compositor.placed_images,
+			font_size=32,
+			offset=(-15, -15)  # Adjust offset as needed
+		)
+
+		# Save the composite figure
+		compositor.save(f'{self.figures_dir}/Supplemental_TSS_update.png')
+
 
 	def layout_panel(self):
 		from pipeline.figure_composer import FigureCompositor

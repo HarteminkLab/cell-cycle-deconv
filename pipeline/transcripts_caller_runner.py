@@ -102,3 +102,57 @@ class TranscriptCallerRunner:
 		self.save_results()
 
 		return self.results_df
+
+
+def remove_duplicate_transcripts(df, index_name='orf_name'):
+	"""
+	Remove duplicate transcripts by keeping the one with the closest position.
+	
+	For '+' strand: keeps transcript with rna_start closest to start
+	For '-' strand: keeps transcript with rna_stop closest to stop
+	
+	Parameters:
+	-----------
+	df : pandas.DataFrame
+		DataFrame with columns: rna_start, rna_stop, strand, start, stop
+		Index should contain the gene identifiers
+	
+	Returns:
+	--------
+	pandas.DataFrame
+		Deduplicated DataFrame with same structure as input
+	"""
+
+	# Create a copy to avoid modifying original
+	df = df.copy()
+	df.index.name = index_name
+	df_work = df.reset_index()
+	
+	# Add distance column
+	df_work['_distance'] = df_work.apply(calculate_distance, axis=1)
+	
+	# Group by index (gene name) and keep row with minimum distance
+	# In case of ties, keep the first occurrence
+	idx_to_keep = df_work.groupby(index_name)['_distance'].idxmin()
+	
+	# Filter original dataframe to keep only selected rows
+	result = df_work.loc[idx_to_keep]
+	
+	return result.set_index(index_name)[df.columns]
+
+
+# Calculate distance based on strand
+def calculate_distance(row, start_keys=['rna_start', 'start'], stop_keys=['rna_stop', 'stop'], 
+		compute_absolute=True):
+
+	if row['strand'] == '+':
+		if compute_absolute:
+			return abs(row[start_keys[0]] - row[start_keys[1]])
+		else:
+			return (row[start_keys[0]] - row[start_keys[1]])
+
+	else:  # strand == '-'
+		if compute_absolute:
+			return abs(row[stop_keys[0]] - row[stop_keys[1]])
+		else:
+			return (row[stop_keys[0]] - row[stop_keys[1]])
