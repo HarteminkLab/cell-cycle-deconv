@@ -1,4 +1,6 @@
 import os
+
+import matplotlib.pyplot as plt
 from pipeline.chromatin_metrics_processor import ChromatinMetricsProcessor
 from pipeline.transcription_processor import ExpressionAnalysisProcessor
 
@@ -48,6 +50,9 @@ class FigureChromatinMetrics:
 		# Set selected genes to cyclin genes
 		self.chromatin_processor.selected_genes = ['CLB5', 'CLB1', 'CLB4', 'CLN1']
 
+		# Setup TPM plotter for locus plots
+		self.load_deconvolved_expression_plotter()
+
 	def setup_integration(self):
 		from pipeline.expression_chromatin_integration import IntegratedChromatinExpressionAnalyzer
 
@@ -96,11 +101,17 @@ class FigureChromatinMetrics:
 			self.integration.plot_chromatin_example_trajectories(metric)
 			save_figure_for_paper(f"{self.figures_dir}/top_bottom_trajectories_{metric}.png")
 
-		# Sample genes to plot
+		# Plot the raw vs deconvolved trajectory plots
+		# for sample genes
 		genes_to_plot = ['MCM7', 'CLB1', 'HHT1', 'HTA1']
 		for gene in genes_to_plot:
 			fig = self.integration.plot_all_metrics_all_replicates_gene(gene)
 			save_figure_for_paper(f"{self.figures_dir}/trajectories_{gene}.png")
+
+		# Plot trajectories for each gene group
+		self.create_gene_group_trajectories_plots()
+
+	def create_gene_group_trajectories_plots(self):
 
 		from src.geneset import cyclin_genes, mcm_genes, histone_genes
 
@@ -112,6 +123,7 @@ class FigureChromatinMetrics:
 			mcm_genes(), 
 			cyclin_genes('G1'), 
 			cyclin_genes('B-S'), 
+			cyclin_genes('B-G2'),
 			cyclin_genes('B-M')]
 
 		group_titles = [
@@ -119,16 +131,21 @@ class FigureChromatinMetrics:
 			'Histones H2B', 
 			'Histones H3', 
 			'Histones H4', 
-			'MCM2-7 complex', 
-			'G1-type cyclins', 
-			'B-type cyclins (S)',
-			'B-type cyclins (M)'
+			'MCM2-7 complex',
+			'Early, G1-type cyclins',
+			'S-phase, B-type cyclins',
+			'G2-phase, B-type cyclins',
+			'M-phase, B-type cyclins',
 		]
 
 		for i, gene_group in enumerate(groups_to_plot):
 			fig = self.integration.plot_gene_group_trajectories_all_metrics(gene_group,
 				title=group_titles[i])
-			save_figure_for_paper(f"{self.figures_dir}/trajectories_group_{group_titles[i].replace(' ', '_')}.png")
+
+			save_path = f"{self.figures_dir}/trajectories_group_{group_titles[i].replace(' ', '_')}.png"
+			print('Wrote to: ', save_path)
+			save_figure_for_paper(save_path)
+			plt.close(fig)
 
 
 	def create_locus_plots(self):
@@ -173,9 +190,25 @@ class FigureChromatinMetrics:
 			gene = genes[genes['gene'] == gene_key].iloc[0]
 			span = gene.TSS+gene_dict['span_offset'][0], gene.TSS+gene_dict['span_offset'][1]
 			loaded_data = genome_deconv_analysis.load_mnase_span(gene.chr, span)
-			genome_deconv_analysis.plot_loaded_data(figsize=gene_dict['figsize'], title=gene_dict['title'])
+			genome_deconv_analysis.plot_loaded_data(figsize=gene_dict['figsize'], 
+				title=gene_dict['title'],
+				plot_index_labels=False,
+				tpm_plotter=self.tpm_plotter)
 			save_figure_for_paper(f'{self.figures_dir}/{gene_dict["save_name"]}.png')
 
+
+	def load_deconvolved_expression_plotter(self):
+		"""Expression plotter requires the loading of the deconvolved TPM data"""
+
+		from pipeline.transcription_processor import ExpressionAnalysisProcessor
+		from src.deconvolved_tpm_plotter import DeconvolvedTPMPlotter
+
+		self.expression_processor = ExpressionAnalysisProcessor(self.output_dir)
+		self.expression_processor.setup_data_loaders()
+		self.expression_processor.load_deconvolved_expression()
+
+		self.tpm_plotter = DeconvolvedTPMPlotter(self.expression_processor.expression_data,
+								   self.expression_processor.all_transcripts_set)
 
 	def create_metrics_plots(self):
 		"""
@@ -490,9 +523,14 @@ class FigureChromatinMetrics:
 		image_paths = {
 			'locus_clb1': os.path.join(image_dir, 'locus_CLB1.png'),
 			'locus_hta1_htb1': os.path.join(image_dir, 'locus_HTA1_HTB1.png'),
-			'traj_g1': os.path.join(image_dir, 'trajectories_group_G1-type_cyclins.png'),
-			'traj_s': os.path.join(image_dir, 'trajectories_group_B-type_cyclins_(S).png'),
-			'traj_m': os.path.join(image_dir, 'trajectories_group_B-type_cyclins_(M).png'),
+
+			# Cyclins
+			'traj_g1': os.path.join(image_dir, 'trajectories_group_Early,_G1-type_cyclins.png'),
+			'traj_s': os.path.join(image_dir, 'trajectories_group_S-phase,_B-type_cyclins.png'),
+			'traj_g2': os.path.join(image_dir, 'trajectories_group_G2-phase,_B-type_cyclins.png'),
+			'traj_m': os.path.join(image_dir, 'trajectories_group_M-phase,_B-type_cyclins.png'),
+
+			# Histones
 			'traj_h2a': os.path.join(image_dir, 'trajectories_group_Histones_H2A.png'),
 			'traj_h2b': os.path.join(image_dir, 'trajectories_group_Histones_H2B.png'),
 			'traj_h3': os.path.join(image_dir, 'trajectories_group_Histones_H3.png'),
@@ -523,31 +561,16 @@ class FigureChromatinMetrics:
 		all_placed_images['LocusCLB1'] = clb1_img
 		clb1_width = clb1_img['logical_size'][0]
 		
-		# Place HTA1_HTB1 locus (to the left of CLB1)
-		hta1_htb1_x = compositor.logical_width - margin[0] - clb1_width - between_padding
-		hta1_htb1_img = compositor.place_image(
-			image_paths['locus_hta1_htb1'],
-			x=hta1_htb1_x,
-			y=margin[1],
-			height=locus_height,
-			name='LocusHTA1HTB1',
-			anchor='top_right'  # Anchor to right edge of its position
-		)
-		all_placed_images['LocusHTA1HTB1'] = hta1_htb1_img
-		hta1_htb1_width = hta1_htb1_img['logical_size'][0]
+		# STEP 2: Calculate widths for the middle sections
+		# Now we have: Histones | HTA1_HTB1 | Cyclins | CLB1
+
+		# Divide remaining space: histones column, HTA1_HTB1, cyclins column
+		section_padding = 30
+		trajectory_column_width = 135
 		
-		# STEP 2: Calculate remaining width for trajectory columns
-		total_locus_width = clb1_width + between_padding + hta1_htb1_width
-		available_width = (compositor.logical_width - (2 * margin[0]) - 
-						   total_locus_width - panel_padding)
-		
-		# Equal width for each trajectory column with padding between them
-		trajectory_column_padding = 30
-		trajectory_column_width = (available_width - trajectory_column_padding) // 2
-		
-		# STEP 3: Place trajectory columns (left side)
-		
-		# Place histones column (leftmost)
+		# STEP 3: Place sections from left to right
+
+		# Place histones column (leftmost - A)
 		histone_paths = [image_paths['traj_h2a'], image_paths['traj_h2b'], 
 						 image_paths['traj_h3'], image_paths['traj_h4']]
 		histone_keys = ['TrajH2A', 'TrajH2B', 'TrajH3', 'TrajH4']
@@ -564,11 +587,24 @@ class FigureChromatinMetrics:
 		)
 		all_placed_images.update(histones_placed)
 
-		# Place cyclins column (second from left)
-		cyclin_paths = [image_paths['traj_g1'], image_paths['traj_s'], image_paths['traj_m']]
-		cyclin_keys = ['TrajG1', 'TrajS', 'TrajM']
-		
-		cyclins_x = margin[0] + trajectory_column_width + trajectory_column_padding
+		# Place HTA1_HTB1 locus (second from left - B)
+		hta1_htb1_x = margin[0] + trajectory_column_width + section_padding
+		hta1_htb1_img = compositor.place_image(
+			image_paths['locus_hta1_htb1'],
+			x=hta1_htb1_x,
+			y=margin[1],
+			height=locus_height,
+			name='LocusHTA1HTB1',
+			anchor='top_left'
+		)
+		hta1_htb1_width = hta1_htb1_img['logical_size'][0]
+		all_placed_images['LocusHTA1HTB1'] = hta1_htb1_img
+
+		# Place cyclins column (third from left - C)
+		cyclins_x = 490
+		cyclin_paths = [image_paths['traj_g1'], image_paths['traj_s'], 
+						image_paths['traj_g2'], image_paths['traj_m']]
+		cyclin_keys = ['TrajG1', 'TrajS', 'TrajG2', 'TrajM']
 
 		cyclins_placed = layout_images_vertically(
 			compositor=compositor,
@@ -581,14 +617,26 @@ class FigureChromatinMetrics:
 			preserve_aspect_ratio=True
 		)
 		all_placed_images.update(cyclins_placed)
+
+		# Place CLB1 locus (rightmost - D)
+		clb1_x = compositor.logical_width - margin[0] - clb1_width
+		clb1_img = compositor.place_image(
+			image_paths['locus_clb1'],
+			x=clb1_x,
+			y=margin[1],
+			height=locus_height,
+			name='LocusCLB1',
+			anchor='top_left'
+		)
+		all_placed_images['LocusCLB1'] = clb1_img
 		
 		# STEP 4: Add panel labels if requested
 		if add_labels:
 			# Labels for the four main sections in order: A=histones, B=cyclins, C=HTA1_HTB1, D=CLB1
 			label_assignments = [
 				('TrajH2A', 'A'),        # Histones column (leftmost)
-				('TrajG1', 'B'),         # Cyclins column 
-				('LocusHTA1HTB1', 'C'),  # HTA1_HTB1 locus
+				('LocusHTA1HTB1', 'B'),  # HTA1_HTB1 locus (second from left)
+				('TrajG1', 'C'),         # Cyclins column (third from left)
 				('LocusCLB1', 'D')       # CLB1 locus (rightmost)
 			]
 			
@@ -644,13 +692,13 @@ class FigureChromatinMetrics:
 		
 		# Define image paths
 		image_paths = [
-			os.path.join(image_dir, 'locus_MCM7.png'),
+			os.path.join(image_dir, 'trajectories_group_MCM2-7_complex.png'),
 			os.path.join(image_dir, 'locus_MCM2.png'),
-			os.path.join(image_dir, 'trajectories_group_MCM2-7_complex.png')
+			os.path.join(image_dir, 'locus_MCM7.png'),
 		]
 		
 		# Define image keys for referencing
-		image_keys = ['MCM7Locus', 'MCM5Locus', 'MCMTrajectories']
+		image_keys = ['MCMTrajectories', 'MCM2Locus', 'MCM7Locus']
 		
 		# Verify all images exist
 		missing_images = [path for path in image_paths if not os.path.exists(path)]
@@ -661,7 +709,7 @@ class FigureChromatinMetrics:
 		placed_images = layout_images_horizontally(
 			compositor,
 			image_paths,
-			width_proportions=[1.01, 1.01, 0.96],  # Equal widths for all three images
+			width_proportions=[0.96, 1.01, 1.01],  # Equal widths for all three images
 			between_padding=between_padding,
 			margin=margin,
 			image_keys=image_keys

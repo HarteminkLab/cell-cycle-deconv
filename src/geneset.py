@@ -6,18 +6,22 @@ import numpy as np
 def cyclin_genes(phase=None):
 
 	genes_map = {
+
 		# G1 cyclins
 		'G1': ['CLN1', 'CLN2', 'CLN3'],
 
 		# Two S-phase cyclins:
 		'B-S': ['CLB5', 'CLB6'], # S-phase
 
-		# Mitotic
-		'B-M': ['CLB1', 'CLB2', 'CLB3', 'CLB4'] # Mitotic
+		# G2
+		'B-G2': ['CLB3', 'CLB4'], # G2
+
+		# M
+		'B-M': ['CLB1', 'CLB2'] # Mitotic
 	}
 
 	if phase is None:
-		genes = genes_map['G1'] + genes_map['B-S'] + genes_map['B-M']
+		genes = genes_map['G1'] + genes_map['B-S'] + genes_map['B-G2'] + genes_map['B-M']
 	else:
 		genes = genes_map[phase]
 

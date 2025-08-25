@@ -27,6 +27,12 @@ plot_formatting_map = {
 	}
 }
 
+fragment_lengths = {
+	'small': (0, 100),
+	'nucleosome': (130, 200),
+	'all': (0, 260)
+}
+
 class ChromatinMetricsProcessor:
 	"""
 	Process chromatin data to compute metrics for both raw and deconvolved data.
@@ -56,11 +62,7 @@ class ChromatinMetricsProcessor:
 		self.deconv_analyzer = None
 		
 		# Processing parameters
-		self.fragment_lengths = {
-			'small': (0, 100),
-			'nucleosome': (130, 200),
-			'all': (0, 260)
-		}
+		self.fragment_lengths = fragment_lengths
 		self.metric_types = ['promoter_occupancy', 'nucleosome_entropy', 'nucleosome_occupancy']
 
 	def setup_data_loaders(self):

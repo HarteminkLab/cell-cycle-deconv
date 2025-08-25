@@ -887,3 +887,22 @@ def add_im_genomic_scale_legend(ax, x_start, x_length, legend_y=-80):
 def _plot_index_label(ax, x, y, index, total):
 	# Add label for index in total of the branch
 	ax.text(x, y, f"{index} of {total}", clip_on=False)
+
+
+
+def get_truncated_RdBu_r():
+	from matplotlib.colors import LinearSegmentedColormap
+	
+	# Get the original colormap
+	original_cmap = plt.get_cmap('RdBu_r')
+	new_cmap_name = 'truncated_RdBu_r'
+	cmin = 0.25
+	cmax = 0.75
+
+	# Extract the colors from the original colormap within the specified range
+	n_colors = 256
+	original_colors = original_cmap(np.linspace(cmin, cmax, n_colors))
+
+	# Create a new colormap from the extracted colors
+	new_cmap = LinearSegmentedColormap.from_list(new_cmap_name, original_colors)
+	return new_cmap

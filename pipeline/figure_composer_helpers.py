@@ -97,7 +97,7 @@ def layout_images_vertically(compositor, image_paths_arr, height_proportions=Non
 					heights[i] = int(reference_height * prop)
 		# If no heights specified, proportions are still useful for compositor.place_image
 		# but won't be pre-calculated here
-	
+
 	# Place images
 	placed_images = {}
 	current_y = top_margin
@@ -320,7 +320,7 @@ def place_image_below(compositor, image_path, img_key,
 	return img_info
 
 def add_panel_labels_to_images(compositor, placed_images, labels=None, font_size=24, 
-							 offset=(0, -40), font_type='bold', 
+							 offset=(0, -40), offsets=None, font_type='bold', 
 							 color=(0, 0, 0), background=None):
 	"""
 	Add panel labels (A, B, C, etc.) to a set of placed images.
@@ -369,6 +369,10 @@ def add_panel_labels_to_images(compositor, placed_images, labels=None, font_size
 	label_info = {}
 	
 	for i, (key, label) in enumerate(zip(image_keys, labels)):
+
+		if offsets is not None:
+			offset = offsets[i]
+
 		result = compositor.add_panel_label_to_image(
 			key, 
 			label, 
