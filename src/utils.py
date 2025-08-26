@@ -95,3 +95,7 @@ def print_memory_usage(label=""):
 	memory_gb = memory_mb / 1024  # Convert to GB
 	print(f"Memory usage {label}: {memory_mb:.1f} MB ({memory_gb:.2f} GB)")
 	sys.stdout.flush()
+
+
+def round_nearest(x, round_to_value):
+	return int(int(round(x/round_to_value)) * round_to_value)

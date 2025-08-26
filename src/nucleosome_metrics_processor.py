@@ -3,6 +3,7 @@ import os
 import numpy as np
 import pandas as pd
 from src.utils import mkdir_safe
+from src.global_config import GlobalConstants
 
 class NucleosomeDataLoader:
 	"""
@@ -25,7 +26,7 @@ class NucleosomeDataLoader:
 		self.save_dir = f"{self.output_dir}/nucleosome_metrics"
 		mkdir_safe(self.save_dir)
 
-		self.nucleosome_fragment_lengths = (130, 200)
+		self.nucleosome_fragment_lengths = GlobalConstants.WIDER_NUCLEOSOME_FRAGMENT_LENGTHS
 		self.deconvolved_loader = None
 		self._setup_loader()
 

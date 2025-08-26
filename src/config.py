@@ -609,7 +609,7 @@ def retrieve_phase_ticks(branch, config1, config2, with_labels=False):
 
 	if with_labels:
 		if branch == 'i': labels = ['RG1', 'S', 'G2/M']
-		elif branch == 'tb': labels = ['SG1', 'S', 'G2/M']
+		elif branch == 'tb': labels = ['mean G1', 'S', 'G2/M']
 		else: raise ValueError()
 		return phase_ticks, edge_ticks, labels
 
@@ -701,8 +701,20 @@ def load_mean_dg1_mg1_length():
 
 
 def get_average_timepoints_for_branch(config1, config2, branch):
+
+	if branch == 'tb':
+		t_tps = get_average_timepoints_for_branch(config1, config2, 't')
+		b_tps = get_average_timepoints_for_branch(config1, config2, 'b')
+		tps = (t_tps+b_tps)/2.
+		return tps
+
 	tp1 = config1.get_timepoints_for_branch(branch)
 	tp2 = config2.get_timepoints_for_branch(branch)
+	return (tp1+tp2)/2.
+
+def get_average_timepoints_for_phase(config1, config2, phase):
+	tp1 = config1.get_timepoints_for_phase(phase)
+	tp2 = config2.get_timepoints_for_phase(phase)
 	return (tp1+tp2)/2.
 
 

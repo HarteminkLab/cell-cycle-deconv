@@ -4,6 +4,7 @@ from src.config import load_default_chrom_configs
 from src.utils import print_fl, mkdir_safe
 from src.figure_configs import save_figure_for_paper
 from matplotlib import pyplot as plt
+from src.global_config import GlobalConstants
 
 # Formatting map for ptr plots for each metric
 plot_formatting_map = {
@@ -29,7 +30,7 @@ plot_formatting_map = {
 
 fragment_lengths = {
 	'small': (0, 100),
-	'nucleosome': (130, 200),
+	'nucleosome': GlobalConstants.WIDER_NUCLEOSOME_FRAGMENT_LENGTHS,
 	'all': (0, 260)
 }
 

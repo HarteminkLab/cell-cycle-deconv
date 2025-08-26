@@ -62,6 +62,9 @@ class GlobalConstants:
 	REPL_DECONV_BIN_WIDTH = 10000
 	REPL_DECONV_BIN_STEP = 2000
 
+	# Wider nucleosome fragment length selection
+	WIDER_NUCLEOSOME_FRAGMENT_LENGTHS = (130, 200)
+
 
 def load_expression_timepoints(replicate):
 	if replicate == 1:
