@@ -602,12 +602,13 @@ class OriginFootprintProcessor:
 			config1, config2 = load_default_chrom_configs()
 		
 		footprint_occupancy = self.origin_footprint_metrics['occupancy'].loc[sorted_index]
-		upstream_positioning = self.upstream_nucleosome_metrics['entropy'].loc[sorted_index]
-		downstream_positioning = self.downstream_nucleosome_metrics['entropy'].loc[sorted_index]
+		upstream_positioning = self.upstream_nucleosome_metrics['occupancy'].loc[sorted_index]
+		downstream_positioning = self.downstream_nucleosome_metrics['occupancy'].loc[sorted_index]
 
 		mean_normed_upstream_pos = upstream_positioning - upstream_positioning.mean(1).values[:, None]
 		mean_normed_downstream_pos = downstream_positioning - downstream_positioning.mean(1).values[:, None]
-		mean_normed_footprint_occupancy = footprint_occupancy - footprint_occupancy.mean(1).values[:, None]
+		mean_normed_footprint_occupancy = footprint_occupancy - \
+			footprint_occupancy[config1.t_indices()].mean(1).values[:, None]
 
 		def get_tb_data(df):
 			"""Average the mother and daughter branches"""
@@ -629,41 +630,37 @@ class OriginFootprintProcessor:
 			# Plot g1 data
 			extent = [-g1_length, 0, 0, len(data)]
 			plt.imshow(data[:, :num_g1], aspect='auto', cmap=cmap,
-				  vmin=vmin, vmax=vmax, extent=extent, origin='lower')
+				  vmin=vmin, vmax=vmax, extent=extent, origin='upper', 
+				  interpolation='none')
 			
 			# Plot S/G2M data
 			extent = [0, post_g1_time, 0, len(data)]
 			plt.imshow(data[:, num_g1:], aspect='auto', cmap=cmap,
-				  vmin=vmin, vmax=vmax, extent=extent, origin='lower')
+				  vmin=vmin, vmax=vmax, extent=extent, origin='upper',
+				  interpolation='none')
 			plt.xlim(-g1_length, post_g1_time)
 			add_phase_ticks(plt.gca(), config1, config2)
 			
 			plt.ylim(len(data)+0.5, -0.5)
 			plt.yticks([])
 				   
-		plt.figure(figsize=(5.5, 3))
+		plt.figure(figsize=(5.5, 6))
 		plt.subplot(1, 3, 1)
 		plot_branch_im(get_tb_data(mean_normed_upstream_pos), cmap='RdBu_r',
-				  vmin=-1, vmax=1)
+				  vmin=-0.5, vmax=0.5)
 		_plot_replication()
 		plt.title("Upstream entropy")
 		plt.ylabel("Origin sorted by replication time")
 
-		# if highlight_column is not None:
-		# 	boolean_values_of_highlight = sorted_origins_data[highlight_column]
-		# 	for row, value in enumerate(boolean_values_of_highlight):
-		# 		if value:
-		# 			plt.axhline(row, c='red', lw=0.5)
-
 		plt.subplot(1, 3, 2)
 		plot_branch_im(get_tb_data(mean_normed_footprint_occupancy), cmap='Oranges',
-				  vmin=0, vmax=0.5)
+				  vmin=0, vmax=0.25)
 		_plot_replication()
 		plt.title("Footprint occupancy")
 
 		plt.subplot(1, 3, 3)
 		plot_branch_im(get_tb_data(mean_normed_downstream_pos), cmap='RdBu_r',
-				  vmin=-1, vmax=1)
+				  vmin=-0.5, vmax=0.5)
 		_plot_replication()
 
 		plt.title("Downstream entropy")

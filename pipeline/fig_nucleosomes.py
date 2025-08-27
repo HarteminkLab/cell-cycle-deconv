@@ -345,11 +345,14 @@ class FigureNucleosomes:
 		self.plot_cyclicity_p1_histograms()
 		save_figure_for_paper(f"{self.save_dir}/plus_one_ptr_histograms.png")
 
-		self.plot_all_metrics_enrichment(group='high')
+		self.plot_all_metrics_enrichment(group='high', plot_key='difference')
 		save_figure_for_paper(f"{self.save_dir}/plus_one_high_enrichment.png")
 
-		self.plot_all_metrics_enrichment(group='random')
+		self.plot_all_metrics_enrichment(group='random', plot_key='difference')
 		save_figure_for_paper(f"{self.save_dir}/plus_one_random_enrichment.png")
+
+		self.histone_mod_plotter.plot_colorbar()
+		save_figure_for_paper(f"{self.save_dir}/plus_one_heatmap_colorbar.png")
 
 
 	def run_analysis_for_metric(self, metric):
@@ -385,7 +388,9 @@ class FigureNucleosomes:
 			z_score = (test_mean - pop_mean) / standard_error
 			
 			# Two-tailed p-value
-			p_value = 2 * (1 - stats.norm.cdf(abs(z_score)))
+			eps = 1e-10 # Very highly enriched values will be zero, so let's
+						# set a minimum threshold
+			p_value = 2 * (1 - stats.norm.cdf(abs(z_score)))+eps
 			
 			# Effect size (Cohen's d)
 			cohens_d = (test_mean - pop_mean) / pop_std
@@ -433,70 +438,21 @@ class FigureNucleosomes:
 		return all_results
 
 
-	def plot_all_metrics_enrichment(self, group='high'):
-		import matplotlib.gridspec as gridspec
-		from src.plot_helpers import get_truncated_RdBu_r
-		from src.histones import histones_ordering
+	def plot_all_metrics_enrichment(self, group='high', plot_key='p_value_fdr'):
+		from src.histone_group_plotter import HistoneModificationGroupedPlotter
 
-		def _plot_p_values(data_enrichment, metric_name, show_xticks=False):
+		# Initialize the plotter with your enrichment results
+		self.histone_mod_plotter = HistoneModificationGroupedPlotter(
+			enrichment_results=self.all_metrics_enrichment_results,
+			subset_n=self.subset_n  # or whatever your subset size variable is called
+		)
 
-			# Sort on specified ordering of modification function
-			data_enrichment = data_enrichment.set_index('modification')
-			data_enrichment = data_enrichment.loc[histones_ordering()]
+		# Create the main grouped plot showing differences for high cycling nucleosomes
+		fig = self.histone_mod_plotter.plot_grouped_enrichment(
+			group=group, 
+			plot_key=plot_key
+		)
 
-			p_val = data_enrichment.p_value_fdr.values
-
-			logpval = -np.log10(p_val)
-			sign = np.sign(data_enrichment.difference).values
-			plot_values = np.multiply(logpval, sign)[None, :]
-
-			cmap = get_truncated_RdBu_r()
-			im = plt.imshow(plot_values, cmap=cmap, vmin=-10, vmax=10, aspect='auto')
-			plt.yticks([])
-			plt.ylabel(metric_name, rotation=0, ha='right', va='center', fontsize=12)
-			
-			if show_xticks:
-				xticks = np.arange(len(data_enrichment))
-				xtick_labels = data_enrichment.index
-				plt.xticks(xticks, xtick_labels, rotation=45, ha='right')
-			else:
-				plt.xticks([])
-			
-			return im
-
-		occ_enrichment = self.all_metrics_enrichment_results['occupancy'][group]
-		entropy_enrichment = self.all_metrics_enrichment_results['entropy'][group]
-		pos_enrichment = self.all_metrics_enrichment_results['positioning'][group]
-
-		fig = plt.figure(figsize=(9, 2.5))
-
-		# Create GridSpec layout: 3 rows, 2 columns
-		# Main plots take up most of the width, colorbar gets a narrow column
-		gs = gridspec.GridSpec(3, 2, width_ratios=[20, 0.5], hspace=0.25, 
-							   top=0.72, right=0.95, left=0.1, wspace=0.05)
-
-		# Create main subplots
-		suffix = "cyclers" if group == 'high' else '(random)'
-		titlesuffix = "highest cycling nucleosomes" if group == 'high' else 'random nucleosomes'
-
-		ax1 = fig.add_subplot(gs[0, 0])
-		im1 = _plot_p_values(occ_enrichment, f"Occupancy {suffix},\nn={self.subset_n}")
-
-		ax2 = fig.add_subplot(gs[1, 0])
-		im2 = _plot_p_values(entropy_enrichment, f"Entropy {suffix},\nn={self.subset_n}")
-
-		ax3 = fig.add_subplot(gs[2, 0])
-		im3 = _plot_p_values(pos_enrichment, f"Position {suffix},\nn={self.subset_n}", show_xticks=True)
-
-		# Create colorbar subplot spanning all rows
-		cbar_ax = fig.add_subplot(gs[:, 1])
-		cbar = fig.colorbar(im1, cax=cbar_ax)
-		cbar_ax.set_title('p-value', pad=11)
-		cbar_ax.set_yticks([-10, 0, 10])
-		cbar_ax.set_yticklabels(["$10^{-10}$ depleted", "0", "$10^{-10}$ enriched"])
-
-		plt.suptitle(f"Histone modifications, {titlesuffix}", fontsize=20,
-					fontweight='demi')
 
 	def plot_cyclicity_p1_histograms(self):
 		def _plot_hist_ptrs(ptrs_data, bins=30):
@@ -507,22 +463,22 @@ class FigureNucleosomes:
 
 		plt.figure(figsize=(9, 3))
 		plt.subplot(1, 3, 1)
+		_plot_hist_ptrs(self.plus_one_ptrs['positioning'], 
+					  bins=np.linspace(1, 1.4, 30))
+		plt.title("Positioning")
+		plt.xlabel("Peak-to-Trough Ratio (PTR)")
+
+		plt.subplot(1, 3, 2)
 		_plot_hist_ptrs(self.plus_one_ptrs['occupancy'], np.linspace(1, 2.5, 30))
 		plt.title("Occupancy")
 		plt.xlabel("Peak-to-Trough Ratio (PTR)")
 		plt.xlim(0.9, 2.5)
 
-		plt.subplot(1, 3, 2)
+		plt.subplot(1, 3, 3)
 		_plot_hist_ptrs(self.plus_one_ptrs['entropy'], np.linspace(1, 1.4, 30))
 		plt.title("Entropy")
 		plt.xlabel("Peak-to-Trough Ratio (PTR)")
 		plt.xlim(0.99, 1.35)
-
-		plt.subplot(1, 3, 3)
-		_plot_hist_ptrs(self.plus_one_ptrs['positioning'], 
-					  bins=np.linspace(1, 1.4, 30))
-		plt.title("Positioning")
-		plt.xlabel("Peak-to-Trough Ratio (PTR)")
 
 		plt.suptitle("Cyclicity of +1 Chereji, (2018) nucleosomes,\n"
 					f"n={len(self.plus_one_ptrs['entropy'])}, {self.subset_n} cycling ({self.subset_qval*100:.0f}th perc.) each",
@@ -543,12 +499,13 @@ class FigureNucleosomes:
 			f'{self.save_dir}/plus_one_ptr_histograms.png',
 			f'{self.save_dir}/plus_one_high_enrichment.png',
 			f'{self.save_dir}/plus_one_random_enrichment.png',
+			f'{self.save_dir}/plus_one_heatmap_colorbar.png',
 		]
 
 		placed_images = layout_images_vertically(
 			compositor,
-			image_paths,
-			heights=[275, 300, 300],
+			image_paths[:3],
+			heights=[275, 283, 280],
 			between_padding=30,
 			offsets=[(50, 0), (0, 0), (0, 0)],
 			margin=(30, 30),
@@ -562,6 +519,9 @@ class FigureNucleosomes:
 			font_size=40,
 			offsets=[(-65, 0), (-15, 0), (-15, 0)]  # Adjust offset as needed
 		)
+
+		compositor.place_image(image_paths[-1], 970, 380, width=50,
+			name='colorbar')
 
 		# Save the composite figure
 		compositor.save(f'{self.figures_dir}/Supplemental5.6_Nucleosome_Histones.png')
