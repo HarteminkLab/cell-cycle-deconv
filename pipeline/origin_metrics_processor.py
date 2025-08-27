@@ -574,13 +574,16 @@ class OriginFootprintProcessor:
 		
 		return results
 
-	def plot_origin_metrics_heatmaps(self, sorted_index=None):
+	def plot_origin_metrics_heatmaps(self, sorted_index=None, highlight_column=None):
 
 		from src.config import load_default_chrom_configs
 		config1, config2 = load_default_chrom_configs()
 
 		if sorted_index is None:
 			sorted_index = self.processed_origins.sort_values('replication_time').index
+
+		# In case we need any information on the plotted origins
+		sorted_origins_data = self.processed_origins.loc[sorted_index]
 
 		from src.config import load_default_chrom_configs, get_average_timepoints_for_phase, \
 			load_mean_dg1_mg1_length, retrieve_phase_ticks, get_average_timepoints_for_branch
@@ -604,8 +607,7 @@ class OriginFootprintProcessor:
 
 		mean_normed_upstream_pos = upstream_positioning - upstream_positioning.mean(1).values[:, None]
 		mean_normed_downstream_pos = downstream_positioning - downstream_positioning.mean(1).values[:, None]
-
-		footprint_occupancy = footprint_occupancy - footprint_occupancy.mean(1).values[:, None]
+		mean_normed_footprint_occupancy = footprint_occupancy - footprint_occupancy.mean(1).values[:, None]
 
 		def get_tb_data(df):
 			"""Average the mother and daughter branches"""
@@ -639,20 +641,25 @@ class OriginFootprintProcessor:
 			plt.ylim(len(data)+0.5, -0.5)
 			plt.yticks([])
 				   
-		plt.figure(figsize=(5, 2.5))
-		plt.subplot(1, 3, 2)
-		plot_branch_im(get_tb_data(footprint_occupancy), cmap='Oranges',
-				  vmin=0, vmax=0.5)
-		_plot_replication()
-
-		plt.title("Footprint occupancy")
-
+		plt.figure(figsize=(5.5, 3))
 		plt.subplot(1, 3, 1)
 		plot_branch_im(get_tb_data(mean_normed_upstream_pos), cmap='RdBu_r',
 				  vmin=-1, vmax=1)
 		_plot_replication()
 		plt.title("Upstream entropy")
 		plt.ylabel("Origin sorted by replication time")
+
+		# if highlight_column is not None:
+		# 	boolean_values_of_highlight = sorted_origins_data[highlight_column]
+		# 	for row, value in enumerate(boolean_values_of_highlight):
+		# 		if value:
+		# 			plt.axhline(row, c='red', lw=0.5)
+
+		plt.subplot(1, 3, 2)
+		plot_branch_im(get_tb_data(mean_normed_footprint_occupancy), cmap='Oranges',
+				  vmin=0, vmax=0.5)
+		_plot_replication()
+		plt.title("Footprint occupancy")
 
 		plt.subplot(1, 3, 3)
 		plot_branch_im(get_tb_data(mean_normed_downstream_pos), cmap='RdBu_r',
@@ -662,7 +669,7 @@ class OriginFootprintProcessor:
 		plt.title("Downstream entropy")
 
 		plt.suptitle(f"Origin of replication metrics, n={len(mean_normed_downstream_pos)}",
-					fontweight='demi', fontsize=16)
+					fontweight='demi', fontsize=18)
 		plt.tight_layout()
 		plt.subplots_adjust(wspace=0.15)
 		

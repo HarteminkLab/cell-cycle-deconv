@@ -196,7 +196,7 @@ dynamics. Then sharing some clear examples of these dynamics.
 		normalized_score = (es_early / max_possible_enrichment) * 100
 
 		observed_es, p_value, permuted_scores = permutation_test(origins_ranked, 'early',
-			n_permutations=1000)
+			n_permutations=20000)
 		observed_es, p_value
 
 		ax.plot(range(1, len(es_early)+1), normalized_score, lw=2,
@@ -236,7 +236,7 @@ dynamics. Then sharing some clear examples of these dynamics.
 		inferred_firing_origin = self.origin_timings
 		inferred_firing_origin = inferred_firing_origin[inferred_firing_origin.inferred_firing].sort_values('replication_time')
 		self.origin_processor.plot_origin_metrics_heatmaps(inferred_firing_origin.index)
-		save_figure_for_paper(f"{self.save_dir}/inferred_firig_origin_metrics_heatmap.png")
+		save_figure_for_paper(f"{self.save_dir}/inferred_firing_origin_metrics_heatmap.png")
 
 		# 'oridb_526', # ARS1213, early firing with downstream shift
 		# 'oridb_189', # Late firing origin
@@ -258,7 +258,7 @@ dynamics. Then sharing some clear examples of these dynamics.
 		image_paths = [
 			f'{self.save_dir}/origin_replication_times.png',
 			f'{self.save_dir}/early_origin_enrichments.png',
-			f'{self.save_dir}/inferred_firig_origin_metrics_heatmap.png',
+			f'{self.save_dir}/all_origin_metrics_heatmap.png',
 			f'{self.save_dir}/early_origin_locus.png',
 			f'{self.save_dir}/late_origin_locus.png',
 		]
@@ -323,7 +323,7 @@ def calculate_enrichment_score(ranked_df, group_label):
 def permutation_test(ranked_df, group_label, n_permutations=1000):
 	"""Test significance of enrichment score via permutation"""
 	
-	np.random.choice(123)
+	np.random.seed(123)
 
 	observed_es = calculate_enrichment_score(ranked_df, group_label).max()
 	
@@ -336,5 +336,8 @@ def permutation_test(ranked_df, group_label, n_permutations=1000):
 		permuted_scores.append(permuted_es)
 	
 	# P-value: fraction of permutations with score >= observed
-	p_value = np.mean(np.array(permuted_scores) >= observed_es)
+	# Add pseudocount to avoid exact p=0
+	n_greater_equal = np.sum(np.array(permuted_scores) >= observed_es)
+	p_value = (n_greater_equal + 1) / (n_permutations + 1)
+
 	return observed_es, p_value, permuted_scores
