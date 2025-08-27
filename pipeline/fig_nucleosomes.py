@@ -81,6 +81,17 @@ class FigureNucleosomes:
 		print(f"Loaded {len(self.integrated_data)} genes with nucleosome data")
 		print(f"Loaded {len(self.weiner_histones)} nucleosomes with histone modifications")
 		print(f"Found {len(self.histone_cols)} histone modifications")
+
+	def setup_processors(self):
+		from src.GenomeDeconvolutionAnalysis import GenomeDeconvolutionAnalysis
+		from pipeline.transcription_processor import ExpressionAnalysisProcessor
+		from src.deconvolved_tpm_plotter import DeconvolvedTPMPlotter
+
+		# For locus plotting
+		self.expression_processor = ExpressionAnalysisProcessor(self.output_dir)
+		self.expression_processor.setup_data_loaders()
+		self.expression_processor.load_deconvolved_expression()
+		self.expression_processor.compute_expression_ptrs()
 	
 	def compute_nucleosome_metrics(self):
 		"""Process all gene nucleosomes to compute chromatin metrics across timepoints."""
@@ -354,6 +365,9 @@ class FigureNucleosomes:
 		self.histone_mod_plotter.plot_colorbar()
 		save_figure_for_paper(f"{self.save_dir}/plus_one_heatmap_colorbar.png")
 
+		self.plot_nucleosome_expression_ptrs()
+		save_figure_for_paper(f"{self.save_dir}/tx_nucleosome_ptrs.png")
+
 
 	def run_analysis_for_metric(self, metric):
 
@@ -453,6 +467,47 @@ class FigureNucleosomes:
 			plot_key=plot_key
 		)
 
+	def plot_nucleosome_expression_ptrs(self):
+
+		measures = ['positioning', 'occupancy', 'entropy']
+
+		plt.figure(figsize=(7, 2.75))
+
+		formatting = {
+		    'positioning': {
+		        'xlims': (0.99, 1.5)
+		    },
+		    'occupancy': {
+		        'xlims': (0.95, 3)
+		    },
+		    'entropy': {
+		        'xlims': (0.99, 1.45)
+		    },
+		}
+		expression_processor = self.expression_processor
+
+		for i, measure in enumerate(measures):
+		    joined_chromatin_tx_ptrs = expression_processor.all_transcripts_ptrs[['ptr']]\
+		        .join(self.plus_one_ptrs[measure],
+		        how='inner')
+		    joined_chromatin_tx_ptrs.columns = ['expression_ptr', 'chromatin_ptr']
+
+		    plt.subplot(1, 3, i+1)
+		    plt.scatter(joined_chromatin_tx_ptrs.chromatin_ptr,
+		        joined_chromatin_tx_ptrs.expression_ptr, color=plt.cm.Purples(0.5),
+		                alpha=0.35, s=2)
+		    plt.xlabel(measure.title() + " PTR")
+
+		    if i == 0: plt.ylabel('Expression PTR')
+		    else: plt.yticks([])
+
+		    plt.xlim(*formatting[measure]['xlims'])
+		    plt.title(measure.title())
+		    
+		plt.suptitle(f"+1 nucleosome vs expression cyclicity, n={len(joined_chromatin_tx_ptrs)}", fontweight='demi', 
+		            fontsize=16)
+		plt.tight_layout()
+
 
 	def plot_cyclicity_p1_histograms(self):
 		def _plot_hist_ptrs(ptrs_data, bins=30):
@@ -497,6 +552,7 @@ class FigureNucleosomes:
 
 		image_paths = [
 			f'{self.save_dir}/plus_one_ptr_histograms.png',
+			f'{self.save_dir}/tx_nucleosome_ptrs.png',
 			f'{self.save_dir}/plus_one_high_enrichment.png',
 			f'{self.save_dir}/plus_one_random_enrichment.png',
 			f'{self.save_dir}/plus_one_heatmap_colorbar.png',
@@ -504,23 +560,30 @@ class FigureNucleosomes:
 
 		placed_images = layout_images_vertically(
 			compositor,
-			image_paths[:3],
-			heights=[275, 283, 280],
+			list(np.array(image_paths)[[0, 2, 3]]),
+			heights=[160, 283, 280],
 			between_padding=30,
-			offsets=[(50, 0), (0, 0), (0, 0)],
+			offsets=[(0, 0), (0, 0), (0, 0)],
 			margin=(30, 30),
 			image_keys=['histograms', 'high', 'random']  # Custom keys
 		)
+
+		x = 540
+		compositor.place_image(image_paths[1], 
+			x,
+			30, width=440,
+			name='ptrs')
 
 		# Add panel labels
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
+			"ACDB",
 			font_size=40,
-			offsets=[(-65, 0), (-15, 0), (-15, 0)]  # Adjust offset as needed
+			offsets=[(-15, 0), (-15, 0), (-15, 0), (-15, 0)]  # Adjust offset as needed
 		)
 
-		compositor.place_image(image_paths[-1], 970, 380, width=50,
+		compositor.place_image(image_paths[-1], 970, 256, width=50,
 			name='colorbar')
 
 		# Save the composite figure
