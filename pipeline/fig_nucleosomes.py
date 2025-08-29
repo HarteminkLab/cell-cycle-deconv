@@ -359,6 +359,9 @@ class FigureNucleosomes:
 		self.plot_all_metrics_enrichment(group='high', plot_key='difference')
 		save_figure_for_paper(f"{self.save_dir}/plus_one_high_enrichment.png")
 
+		self.plot_all_metrics_enrichment(group='low', plot_key='difference')
+		save_figure_for_paper(f"{self.save_dir}/plus_one_low_enrichment.png")
+
 		self.plot_all_metrics_enrichment(group='random', plot_key='difference')
 		save_figure_for_paper(f"{self.save_dir}/plus_one_random_enrichment.png")
 
@@ -548,24 +551,25 @@ class FigureNucleosomes:
 			add_panel_labels_to_images
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 960, debug_mode=True)
+		compositor = FigureCompositor(1024, 1120, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/plus_one_ptr_histograms.png',
 			f'{self.save_dir}/tx_nucleosome_ptrs.png',
 			f'{self.save_dir}/plus_one_high_enrichment.png',
+			f'{self.save_dir}/plus_one_low_enrichment.png',
 			f'{self.save_dir}/plus_one_random_enrichment.png',
 			f'{self.save_dir}/plus_one_heatmap_colorbar.png',
 		]
 
 		placed_images = layout_images_vertically(
 			compositor,
-			list(np.array(image_paths)[[0, 2, 3]]),
-			heights=[160, 283, 280],
+			list(np.array(image_paths)[[0, 2, 3, 4]]),
+			heights=[160, 280, 278, 282],
 			between_padding=30,
-			offsets=[(0, 0), (0, 0), (0, 0)],
+			offsets=[(0, 0), (10, 0), (-5, 0), (0, 0)],
 			margin=(30, 30),
-			image_keys=['histograms', 'high', 'random']  # Custom keys
+			image_keys=['histograms', 'high', 'low', 'random']  # Custom keys
 		)
 
 		x = 540
@@ -578,9 +582,9 @@ class FigureNucleosomes:
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			"ACDB",
+			"ACDEB",
 			font_size=40,
-			offsets=[(-15, 0), (-15, 0), (-15, 0), (-15, 0)]  # Adjust offset as needed
+			offset=(-15, 0)
 		)
 
 		compositor.place_image(image_paths[-1], 970, 256, width=50,

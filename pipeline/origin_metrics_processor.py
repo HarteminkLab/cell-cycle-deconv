@@ -605,8 +605,10 @@ class OriginFootprintProcessor:
 		upstream_positioning = self.upstream_nucleosome_metrics['occupancy'].loc[sorted_index]
 		downstream_positioning = self.downstream_nucleosome_metrics['occupancy'].loc[sorted_index]
 
-		mean_normed_upstream_pos = upstream_positioning - upstream_positioning.mean(1).values[:, None]
-		mean_normed_downstream_pos = downstream_positioning - downstream_positioning.mean(1).values[:, None]
+		mean_normed_upstream_pos = (upstream_positioning - upstream_positioning.mean(1).values[:, None])/\
+			(upstream_positioning.std(1).values[:, None])
+		mean_normed_downstream_pos = (downstream_positioning - downstream_positioning.mean(1).values[:, None])/\
+			(downstream_positioning.std(1).values[:, None])
 		mean_normed_footprint_occupancy = footprint_occupancy - \
 			footprint_occupancy[config1.t_indices()].mean(1).values[:, None]
 
@@ -644,10 +646,12 @@ class OriginFootprintProcessor:
 			plt.ylim(len(data)+0.5, -0.5)
 			plt.yticks([])
 				   
+		entropy_vmax = 4
+
 		plt.figure(figsize=(5.5, 6))
 		plt.subplot(1, 3, 1)
 		plot_branch_im(get_tb_data(mean_normed_upstream_pos), cmap='RdBu_r',
-				  vmin=-0.5, vmax=0.5)
+				  vmin=-entropy_vmax, vmax=entropy_vmax)
 		_plot_replication()
 		plt.title("Upstream entropy")
 		plt.ylabel("Origin sorted by replication time")
@@ -660,7 +664,7 @@ class OriginFootprintProcessor:
 
 		plt.subplot(1, 3, 3)
 		plot_branch_im(get_tb_data(mean_normed_downstream_pos), cmap='RdBu_r',
-				  vmin=-0.5, vmax=0.5)
+				  vmin=-entropy_vmax, vmax=entropy_vmax)
 		_plot_replication()
 
 		plt.title("Downstream entropy")

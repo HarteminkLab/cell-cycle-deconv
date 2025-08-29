@@ -183,7 +183,13 @@ class HistoneModificationGroupedPlotter:
 		entropy_enrichment = self.enrichment_results['entropy'][group]
 		
 		# Create metric names
-		suffix = "cyclers" if group == 'high' else '(random)'
+		if group == 'high':
+			suffix = "cyclers"
+		elif group == 'low':
+			suffix = "non-cyclers"
+		else:
+			suffix = "(random)"
+
 		metric_names = [
 			f"Position {suffix},\nn={self.subset_n}",
 			f"Occupancy {suffix},\nn={self.subset_n}",
@@ -208,7 +214,13 @@ class HistoneModificationGroupedPlotter:
 
 		
 		# Add overall title
-		titlesuffix = "highest cycling" if group == 'high' else 'random nucleosomes'
+		if group == 'high':
+			titlesuffix = "highest cyclers"
+		elif group == 'low':
+			titlesuffix = "lowest cyclers"
+		else:
+			 titlesuffix = 'random nucleosomes'
+
 		title_label = "enrichment" if plot_key == 'p_value_fdr' else "differences"
 		fig.suptitle(f"Histone modification {title_label}, {titlesuffix}", 
 					fontsize=24, fontweight='demi', y=1.16)

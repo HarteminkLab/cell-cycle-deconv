@@ -258,18 +258,18 @@ class FigureNongenicTranscripts:
 			min_ptr = self.min_ptr
 
 		expression_level_filtered_ptr_data = self._retrieve_filtered_data(min_expression_level, min_ptr)
-		self.expression_level_filtered_ptr_data = expression_level_filtered_ptr_data
+		self.final_filtered_nongenic_transcripts_with_ptr = expression_level_filtered_ptr_data
 
 		print(f"Filtered {len(self.filtered_nongenic_transcripts)} nongenic transcripts with criteria:")
 		print(f"Minimum expression level: {self.min_expression_level}")
 		print(f"Minimum PTR: {self.min_ptr}")
-		print(f"  Kept: {len(self.expression_level_filtered_ptr_data)}")
+		print(f"  Kept: {len(expression_level_filtered_ptr_data)}")
 		print(f"  Removed: {(len(self.filtered_nongenic_transcripts))-len(expression_level_filtered_ptr_data)}")
-		print(f"  Antisense transcripts: {self.expression_level_filtered_ptr_data.antisense_gene.count()}")
-		print(f"  Divergent transcripts: {self.expression_level_filtered_ptr_data.divergent_orf.count()}")
+		print(f"  Antisense transcripts: {expression_level_filtered_ptr_data.antisense_gene.count()}")
+		print(f"  Divergent transcripts: {expression_level_filtered_ptr_data.divergent_orf.count()}")
 
-		both = self.expression_level_filtered_ptr_data[~(self.expression_level_filtered_ptr_data.antisense_gene.isna())
-											& ~(self.expression_level_filtered_ptr_data.divergent_orf.isna())]
+		both = expression_level_filtered_ptr_data[~(expression_level_filtered_ptr_data.antisense_gene.isna())
+											& ~(expression_level_filtered_ptr_data.divergent_orf.isna())]
 		print(f"  Antisense & Divergent: {len(both)}")
 
 		return expression_level_filtered_ptr_data
@@ -697,9 +697,37 @@ class FigureNongenicTranscripts:
 		for key, value in stats['config'].items():
 			print(f"  {key}: {value}")
 
+	def plot_transcript_length_distributions(self):
+		from src.transcripts_dataset import load_transcripts_sets
+
+		geneset, nongenic_transcripts = load_transcripts_sets(self.output_dir)
+		filtered_ptr_set = self.final_filtered_nongenic_transcripts_with_ptr
+		filtered_nongenic_transcripts = nongenic_transcripts.loc[filtered_ptr_set.index]
+
+		plt.figure(figsize=(4, 6))
+		plt.subplot(2, 1, 1)
+		plt.hist(geneset['length'], bins=60,
+		        color=plt.cm.Greys(0.5))
+		plt.title(f"Gene transcript lengths,\nn={len(geneset)}", 
+		    fontsize=14, fontweight='demi')
+		plt.ylabel("Frequency")
+		plt.xlim(0, 8000)
+
+		plt.subplot(2, 1, 2)
+		plt.hist(filtered_nongenic_transcripts['length'], bins=30,
+		        color=plt.cm.Reds(0.55))
+		plt.title(f"Non-genic transcript lengths,\nn={len(filtered_nongenic_transcripts)}", 
+		    fontsize=14, fontweight='demi')
+		plt.xlabel("Transcript length, bp")
+		plt.ylabel("Frequency")
+		plt.tight_layout()
+		plt.xlim(0, 8000)
+		plt.subplots_adjust(hspace=0.5)
+
+		save_figure_for_paper(f"{self.save_dir}/transcript_length_distributions.png")
+
 
 	def create_plots(self):
-		from src.figure_configs import save_figure_for_paper
 
 		# Create main analysis plot
 		fig = self.create_scatter_analysis()
@@ -714,6 +742,10 @@ class FigureNongenicTranscripts:
 
 		# Flow chart of TSS updates
 		self.create_tss_update_flowchart()
+
+		# Plot length distributions
+		self.plot_transcript_length_distributions()
+
 
 	def create_tss_update_flowchart(self):
 
@@ -730,31 +762,42 @@ class FigureNongenicTranscripts:
 			add_panel_labels_to_images
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 400, debug_mode=True)
+		compositor = FigureCompositor(1024, 1340, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/tss_update_flow.png',
+			f'{self.save_dir}/transcript_length_distributions.png',
 			f'{self.save_dir}/updated_TSS_example1.png',
-			f'{self.save_dir}/updated_TSS_example2.png'
+			f'{self.save_dir}/updated_TSS_example2.png',
 		]
 
 		# Layout images horizontally with custom width proportions
 		# Adjust these proportions based on your image content needs
 		placed_images = layout_images_horizontally(
 			compositor,
-			image_paths,
-			width_proportions=[1.0, 0.45, 0.45],
+			image_paths[0:2],
+			width_proportions=[1.0, 0.53],
 			between_padding=30,
 			margin=(40, 40),
-			image_keys=['flow', 'update1', 'update2']  # Custom keys
+			image_keys=['flow', 'lengths']  # Custom keys
+		)
+
+		placed_images = layout_images_horizontally(
+			compositor,
+			image_paths[2:],
+			width_proportions=[0.5, 0.5],
+			between_padding=30,
+			offsets=[(0, 500), (0, 500)],
+			margin=(40, 40),
+			image_keys=['update1', 'update2']  # Custom keys
 		)
 
 		# Add panel labels
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			font_size=32,
-			offset=(-15, -15)  # Adjust offset as needed
+			font_size=40,
+			offset=(-15, 0)  # Adjust offset as needed
 		)
 
 		# Save the composite figure

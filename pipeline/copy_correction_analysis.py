@@ -617,8 +617,8 @@ class CopyCorrectionAnalysis():
 					cmap=self.repl_cmap, norm=self.repl_norm)
 		plt.xlim(1, 1.4)
 		plt.ylim(1, 1.4)
-		plt.xlabel("No correction, PTRs")
-		plt.ylabel("Copy corrected, PTRs")
+		plt.xlabel("No correction, window occupancy PTRs", fontsize=13)
+		plt.ylabel("Copy corrected, window occupancy PTRs", fontsize=13)
 
 		# Create the colorbar
 		cbar = plt.colorbar()
