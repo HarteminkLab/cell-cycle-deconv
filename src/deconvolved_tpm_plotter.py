@@ -16,7 +16,6 @@ class DeconvolvedTPMPlotter:
 	"""
 
 	def __init__(self, expression_data, transcripts):
-
 		self.expression_data = expression_data
 		self.transcripts_boundaries = transcripts
 

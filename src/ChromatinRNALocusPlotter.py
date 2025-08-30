@@ -378,14 +378,26 @@ class SingleBranchChromatinPlotter:
 
 	def _plot_chromatin_branch(self, g1_phase):
 		"""Plot chromatin data for a single branch"""
+
+		from src.plot_helpers import _plot_index_label
 		
 		# Get sampled indices for each phase
 		g1_indices = get_sample_indices(self.config1, self.num_g1_rows, g1_phase)
+		absolute_indices = np.arange(len(g1_indices)) # Indices for plotting labels
+		total_branch_indices = len(self.config1.get_Hpositions_for_branch('t'))
 	
 		# Plot G1 phase chromatin
 		for row_idx, idx in enumerate(g1_indices):
 			ax = self.chromatin_axes[row_idx]
 			self.plot_im(ax, self.chromatin_F[idx])
+
+			# Plot the deconvolved TPM
+			self.plot_deconvolved_tpm_if_needed(ax, [idx])
+
+			# Add index label
+			if self.plot_index_labels:
+				_plot_index_label(ax, self.span[1]+50, 130, absolute_indices[row_idx]+1, 
+					total_branch_indices)
 
 		self._plot_s_g2m_chromatin()
 
@@ -397,7 +409,7 @@ class SingleBranchChromatinPlotter:
 		cg1_indices = get_sample_indices(self.config1, self.num_g1_rows, 'CG1')
 		s_indices = get_sample_indices(self.config1, self.num_s_rows, 'S')
 		g2m_indices = get_sample_indices(self.config1, self.num_g2m_rows, 'G2M')
-		
+
 		# Plot G1 phase chromatin difference
 		vmax = 5
 		eps = 1e-5

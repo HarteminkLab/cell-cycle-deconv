@@ -32,10 +32,19 @@ class OriginFootprintProcessor:
 		
 		# Window sizes
 		self.footprint_window_size = 200  # Larger window to handle footprint/ACS positioning variability
-		self.nucleosome_window_size = 500  # Collect three flanking nucleosomes on each side
-		
+
 		# Nucleosome positioning relative to origin (approximate distances)
-		self.nucleosome_offset = 100  # bp offset for downstream or upstream of origin center
+		# self.nucleosome_window_size = 2000  # Collect three flanking nucleosomes on each side
+		# self.nucleosome_offset = 250  # bp offset for downstream or upstream of origin center
+
+		# print("***********************")
+		# print(f"***** TODO: Testing if setting the nucleosome window to 2000 bp wide "
+		# 	"windows outside of the 500 bp window of origins will identify the replication timing "
+		# 	"relationship *****")
+		# print("***********************")
+
+		self.nucleosome_window_size = 500  # Collect three flanking nucleosomes on each side
+		self.nucleosome_offset = 80  # bp offset for downstream or upstream of origin center
 		
 		self.deconvolved_loader = None
 		self._setup_loader()
@@ -602,13 +611,13 @@ class OriginFootprintProcessor:
 			config1, config2 = load_default_chrom_configs()
 		
 		footprint_occupancy = self.origin_footprint_metrics['occupancy'].loc[sorted_index]
-		upstream_positioning = self.upstream_nucleosome_metrics['occupancy'].loc[sorted_index]
-		downstream_positioning = self.downstream_nucleosome_metrics['occupancy'].loc[sorted_index]
+		upstream_entropy = self.upstream_nucleosome_metrics['occupancy'].loc[sorted_index]
+		downstream_entropy = self.downstream_nucleosome_metrics['occupancy'].loc[sorted_index]
 
-		mean_normed_upstream_pos = (upstream_positioning - upstream_positioning.mean(1).values[:, None])/\
-			(upstream_positioning.std(1).values[:, None])
-		mean_normed_downstream_pos = (downstream_positioning - downstream_positioning.mean(1).values[:, None])/\
-			(downstream_positioning.std(1).values[:, None])
+		mean_normed_upstream_pos = (upstream_entropy - upstream_entropy.mean(1).values[:, None])/\
+			(upstream_entropy.std(1).values[:, None])
+		mean_normed_downstream_pos = (downstream_entropy - downstream_entropy.mean(1).values[:, None])/\
+			(downstream_entropy.std(1).values[:, None])
 		mean_normed_footprint_occupancy = footprint_occupancy - \
 			footprint_occupancy[config1.t_indices()].mean(1).values[:, None]
 
@@ -646,7 +655,7 @@ class OriginFootprintProcessor:
 			plt.ylim(len(data)+0.5, -0.5)
 			plt.yticks([])
 				   
-		entropy_vmax = 4
+		entropy_vmax = 3
 
 		plt.figure(figsize=(5.5, 6))
 		plt.subplot(1, 3, 1)

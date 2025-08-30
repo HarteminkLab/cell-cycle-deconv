@@ -153,5 +153,6 @@ class GenomeDeconvolutionAnalysis:
 			plotter.set_expression_data(expression_f)
 		
 		plotter.plot()
-		
+
+		self.plotter = plotter
 		return plotter
