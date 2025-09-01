@@ -1009,4 +1009,4 @@ class TranscriptionFactorProcessor:
 		)
 
 		# Save the composite figure
-		compositor.save(f'{self.figures_dir}/Supplemental5.5_Transcription_Factors.png')
+		compositor.save(f'{self.figures_dir}/Supplemental8_Transcription_Factors.png')

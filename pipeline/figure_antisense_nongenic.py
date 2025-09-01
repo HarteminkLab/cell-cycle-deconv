@@ -801,7 +801,7 @@ class FigureNongenicTranscripts:
 		)
 
 		# Save the composite figure
-		compositor.save(f'{self.figures_dir}/Supplemental_TSS_update.png')
+		compositor.save(f'{self.figures_dir}/Supplemental11_TSS_update.png')
 
 
 	def layout_panel(self):

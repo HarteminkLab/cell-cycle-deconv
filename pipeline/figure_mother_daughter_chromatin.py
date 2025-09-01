@@ -560,7 +560,7 @@ class FigureDaughterSpecific:
 		
 		# STEP 5: Save the composite figure
 		print("Saving composite figure...")
-		output_path = os.path.join(figures_directory, 'Supplemental7_Daughter_Chromatin.png')
+		output_path = os.path.join(figures_directory, 'Supplemental12_Daughter_Chromatin.png')
 		
 		success = compositor.save(output_path, quality=95, dpi=(300, 300))
 		

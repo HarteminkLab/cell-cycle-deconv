@@ -281,7 +281,7 @@ class FigureChromatinMetrics:
 		)
 		
 		# Save the composed figure
-		output_path = f'{self.panel_figures_dir}/Supplemental_Chromatin_Metrics.png'
+		output_path = f'{self.panel_figures_dir}/Supplemental5_Chromatin_Metrics.png'
 		compositor.save(output_path)
 		
 		print(f"Panel layout saved to: {output_path}")
@@ -413,7 +413,7 @@ class FigureChromatinMetrics:
 		import os
 
 		image_dir = self.figures_dir
-		panel_save_path = os.path.join(self.panel_figures_dir, 'Supplemental_Chromatin_Transcription.png')
+		panel_save_path = os.path.join(self.panel_figures_dir, 'Supplemental6_Chromatin_Transcription.png')
 
 		compositor = FigureCompositor(1024, 580, debug_mode=True)
 		
@@ -688,7 +688,7 @@ class FigureChromatinMetrics:
 		# Set up compositor - adjust width as needed for three horizontal images
 		compositor = FigureCompositor(1024, 620, debug_mode=True)
 		image_dir = self.figures_dir
-		panel_save_path = os.path.join(self.panel_figures_dir, 'Supplemental_MCM_Panel.png')
+		panel_save_path = os.path.join(self.panel_figures_dir, 'Supplemental7_MCM_Panel.png')
 		
 		# Define image paths
 		image_paths = [

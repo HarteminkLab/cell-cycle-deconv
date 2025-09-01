@@ -605,7 +605,7 @@ class FigureNucleosomes:
 			name='colorbar')
 
 		# Save the composite figure
-		compositor.save(f'{self.figures_dir}/Supplemental5.6_Nucleosome_Histones.png')
+		compositor.save(f'{self.figures_dir}/Figure7_Nucleosome_Histones.png')
 
 	def layout_supplemental_panel(self):
 
@@ -640,4 +640,4 @@ class FigureNucleosomes:
 		)
 
 		# Save the composite figure
-		compositor.save(f'{self.figures_dir}/Supplemental5.7_Nucleosome_metrics.png')
+		compositor.save(f'{self.figures_dir}/Supplemental9_Nucleosome_metrics.png')

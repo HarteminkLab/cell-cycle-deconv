@@ -695,7 +695,7 @@ class FigureDeconvolution(object):
 			offset=(-10, -12)
 		)
 
-		compositor.save(f'{self.fig_save_dir}/Supplemental2_CLB5_raw_locus.png')
+		compositor.save(f'{self.fig_save_dir}/Supplemental3_CLB5_raw_locus.png')
 
 
 	def layout_supplemental_raw_deconvolved_thi22_locus(self):
@@ -734,7 +734,7 @@ class FigureDeconvolution(object):
 			offset=(-20, -12)
 		)
 
-		compositor.save(f'{self.fig_save_dir}/Supplemental3_THI22_raw_deconvolved_locus.png')
+		compositor.save(f'{self.fig_save_dir}/Supplemental4_THI22_raw_deconvolved_locus.png')
 
 
 def layout_figure_panel(save_dir, figures_dir):

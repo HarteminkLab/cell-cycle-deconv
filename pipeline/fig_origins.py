@@ -318,7 +318,7 @@ dynamics. Then sharing some clear examples of these dynamics.
 		)
 
 		# Save the composite figure
-		compositor.save(f'{self.figures_dir}/Supplemental5.7_Origins.png')
+		compositor.save(f'{self.figures_dir}/Figure6_Origins.png')
 
 
 def calculate_enrichment_score(ranked_df, group_label):

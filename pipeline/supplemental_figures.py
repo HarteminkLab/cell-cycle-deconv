@@ -64,7 +64,7 @@ class FigureSupplemental:
 			font_size=24, font_type='semi_bold')
 
 		# Save the composite figure
-		compositor.save(f'{self.figures_dir}/Supplemental0_flow_cytometry.png')
+		compositor.save(f'{self.figures_dir}/Supplemental1_flow_cytometry.png')
 
 	def layout_supplemental_cloccs_fits(self):
 
@@ -103,5 +103,5 @@ class FigureSupplemental:
 		)
 
 		# Save the composite figure
-		compositor.save(f'{self.figures_dir}/Supplemental0.1_fit_curves.png')
+		compositor.save(f'{self.figures_dir}/Supplemental2_fit_curves.png')
 
