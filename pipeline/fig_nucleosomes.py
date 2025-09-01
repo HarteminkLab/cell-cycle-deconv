@@ -20,7 +20,7 @@ class FigureNucleosomes:
 	"""
 	
 	def __init__(self, output_dir="output/draft4_run/", window_size=160, 
-				 subset_qval=0.95, random_seed=123):
+				 subset_qval=0.9, random_seed=123):
 		"""
 		Initialize the analyzer with configuration parameters.
 		"""
@@ -37,12 +37,13 @@ class FigureNucleosomes:
 		# Core data processing objects
 		self.histones_nucleosomes_dataset = HistonesNucleosomesDataset()
 		self.nucleosome_loader = NucleosomeDataLoader(output_dir=output_dir)
+		self.expression_processor = None
 		
 		# Data storage members
 		self.integrated_data = None
 		self.weiner_histones = None
 		self.histone_cols = None
-		
+
 		# Chromatin metrics storage
 		self.plus_one_chromatin_metrics = None
 		self.minus_one_chromatin_metrics = None
@@ -88,12 +89,13 @@ class FigureNucleosomes:
 		from src.deconvolved_tpm_plotter import DeconvolvedTPMPlotter
 
 		# For locus plotting
-		self.expression_processor = ExpressionAnalysisProcessor(self.output_dir)
-		self.expression_processor.setup_data_loaders()
-		self.expression_processor.load_deconvolved_expression()
-		self.expression_processor.compute_expression_ptrs()
+		if self.expression_processor is None:
+			self.expression_processor = ExpressionAnalysisProcessor(self.output_dir)
+			self.expression_processor.setup_data_loaders()
+			self.expression_processor.load_deconvolved_expression()
+			self.expression_processor.compute_expression_ptrs()
 	
-	def compute_nucleosome_metrics(self):
+	def compute_nucleosome_metrics(self, force_recompute=False):
 		"""Process all gene nucleosomes to compute chromatin metrics across timepoints."""
 		print("Computing nucleosome metrics across cell cycle timepoints...")
 		
@@ -101,7 +103,8 @@ class FigureNucleosomes:
 		self.plus_one_chromatin_metrics, self.minus_one_chromatin_metrics = \
 			self.nucleosome_loader.process_all_gene_nucleosomes(
 				gene_dataset=self.integrated_data,
-				window_size=self.window_size
+				window_size=self.window_size,
+				force_recompute=force_recompute,
 			)
 		
 		print(f"Computed metrics for {len(self.plus_one_chromatin_metrics['entropy'])} +1 nucleosomes")
@@ -331,19 +334,21 @@ class FigureNucleosomes:
 			return "Data not loaded. Call load_and_integrate_data() first."
 	
 
-	def run_full_analysis(self):
+	def run_full_analysis(self, force_recompute=False):
 		"""
 		Execute the complete analysis workflow.
 		
 		Args:
 			metric (str): Metric to use for cyclicity analysis ('occupancy', 'entropy', 'positioning')
 		"""
+		self.setup_processors()
+
 		print(f"Starting full cell cycle nucleosome analysis...")
 		print("=" * 60)
 		
 		# Execute complete pipeline
 		self.load_and_integrate_data()
-		self.compute_nucleosome_metrics()
+		self.compute_nucleosome_metrics(force_recompute=force_recompute)
 		self.calculate_cyclicity_measures()
 
 		metrics = ['occupancy', 'entropy', 'positioning']
@@ -370,6 +375,9 @@ class FigureNucleosomes:
 
 		self.plot_nucleosome_expression_ptrs()
 		save_figure_for_paper(f"{self.save_dir}/tx_nucleosome_ptrs.png")
+
+		self.plot_p1_tss_agreement()
+		save_figure_for_paper(f"{self.save_dir}/plus_one_tss_comparison.png")
 
 
 	def run_analysis_for_metric(self, metric):
@@ -470,6 +478,19 @@ class FigureNucleosomes:
 			plot_key=plot_key
 		)
 
+	def plot_p1_tss_agreement(self):
+		from src.transcripts_dataset import load_transcripts_sets
+		genes, _ = load_transcripts_sets(self.output_dir)
+		joined_tss_p1 = genes[['TSS']].join(self.integrated_data[['+1 nucleosome']], how='inner').dropna()
+		joined_tss_p1['difference'] = joined_tss_p1.TSS-joined_tss_p1['+1 nucleosome']
+
+		plt.figure(figsize=(5, 2))
+		plt.hist(joined_tss_p1['difference'], bins=np.linspace(-600, 600, 100))
+		plt.xlim(-600, 600)
+		plt.title(f"+1 nucleosomes (Chereji, 2018) vs TSSes,\nn={len(joined_tss_p1)}")
+		plt.xlabel("Difference, bp")
+		plt.ylabel("Frequency")
+
 	def plot_nucleosome_expression_ptrs(self):
 
 		measures = ['positioning', 'occupancy', 'entropy']
@@ -477,38 +498,38 @@ class FigureNucleosomes:
 		plt.figure(figsize=(7, 2.75))
 
 		formatting = {
-		    'positioning': {
-		        'xlims': (0.99, 1.5)
-		    },
-		    'occupancy': {
-		        'xlims': (0.95, 3)
-		    },
-		    'entropy': {
-		        'xlims': (0.99, 1.45)
-		    },
+			'positioning': {
+				'xlims': (0.99, 1.5)
+			},
+			'occupancy': {
+				'xlims': (0.95, 3)
+			},
+			'entropy': {
+				'xlims': (0.99, 1.45)
+			},
 		}
 		expression_processor = self.expression_processor
 
 		for i, measure in enumerate(measures):
-		    joined_chromatin_tx_ptrs = expression_processor.all_transcripts_ptrs[['ptr']]\
-		        .join(self.plus_one_ptrs[measure],
-		        how='inner')
-		    joined_chromatin_tx_ptrs.columns = ['expression_ptr', 'chromatin_ptr']
+			joined_chromatin_tx_ptrs = expression_processor.all_transcripts_ptrs[['ptr']]\
+				.join(self.plus_one_ptrs[measure],
+				how='inner')
+			joined_chromatin_tx_ptrs.columns = ['expression_ptr', 'chromatin_ptr']
 
-		    plt.subplot(1, 3, i+1)
-		    plt.scatter(joined_chromatin_tx_ptrs.chromatin_ptr,
-		        joined_chromatin_tx_ptrs.expression_ptr, color=plt.cm.Purples(0.5),
-		                alpha=0.35, s=2)
-		    plt.xlabel(measure.title() + " PTR")
+			plt.subplot(1, 3, i+1)
+			plt.scatter(joined_chromatin_tx_ptrs.chromatin_ptr,
+				joined_chromatin_tx_ptrs.expression_ptr, color=plt.cm.Purples(0.5),
+						alpha=0.35, s=2)
+			plt.xlabel(measure.title() + " PTR")
 
-		    if i == 0: plt.ylabel('Expression PTR')
-		    else: plt.yticks([])
+			if i == 0: plt.ylabel('Expression PTR')
+			else: plt.yticks([])
 
-		    plt.xlim(*formatting[measure]['xlims'])
-		    plt.title(measure.title())
-		    
+			plt.xlim(*formatting[measure]['xlims'])
+			plt.title(measure.title())
+			
 		plt.suptitle(f"+1 nucleosome vs expression cyclicity, n={len(joined_chromatin_tx_ptrs)}", fontweight='demi', 
-		            fontsize=16)
+					fontsize=16)
 		plt.tight_layout()
 
 
@@ -544,6 +565,7 @@ class FigureNucleosomes:
 		plt.tight_layout()
 		plt.xlim(0.99, 1.35)
 
+
 	def layout_panel(self):
 
 		from pipeline.figure_composer import FigureCompositor
@@ -551,11 +573,9 @@ class FigureNucleosomes:
 			add_panel_labels_to_images
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 1120, debug_mode=True)
+		compositor = FigureCompositor(1024, 940, debug_mode=True)
 
 		image_paths = [
-			f'{self.save_dir}/plus_one_ptr_histograms.png',
-			f'{self.save_dir}/tx_nucleosome_ptrs.png',
 			f'{self.save_dir}/plus_one_high_enrichment.png',
 			f'{self.save_dir}/plus_one_low_enrichment.png',
 			f'{self.save_dir}/plus_one_random_enrichment.png',
@@ -564,31 +584,60 @@ class FigureNucleosomes:
 
 		placed_images = layout_images_vertically(
 			compositor,
-			list(np.array(image_paths)[[0, 2, 3, 4]]),
-			heights=[160, 280, 278, 282],
+			list(np.array(image_paths)[[0, 1, 2]]),
+			heights=[280, 278, 282],
 			between_padding=30,
-			offsets=[(0, 0), (10, 0), (-5, 0), (0, 0)],
+			offsets=[(10, 0), (-5, 0), (0, 0)],
 			margin=(30, 30),
-			image_keys=['histograms', 'high', 'low', 'random']  # Custom keys
+			image_keys=['high', 'low', 'random']  # Custom keys
 		)
-
-		x = 540
-		compositor.place_image(image_paths[1], 
-			x,
-			30, width=440,
-			name='ptrs')
 
 		# Add panel labels
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			"ACDEB",
+			"ABC",
 			font_size=40,
 			offset=(-15, 0)
 		)
 
-		compositor.place_image(image_paths[-1], 970, 256, width=50,
+		compositor.place_image(image_paths[-1], 970, 56, width=50,
 			name='colorbar')
 
 		# Save the composite figure
 		compositor.save(f'{self.figures_dir}/Supplemental5.6_Nucleosome_Histones.png')
+
+	def layout_supplemental_panel(self):
+
+		from pipeline.figure_composer import FigureCompositor
+		from pipeline.figure_composer_helpers import layout_images_vertically, \
+			add_panel_labels_to_images
+
+		# Create compositor with wider dimensions for horizontal layout
+		compositor = FigureCompositor(480, 660, debug_mode=True)
+
+		image_paths = [
+			f'{self.save_dir}/plus_one_tss_comparison.png',
+			f'{self.save_dir}/plus_one_ptr_histograms.png',
+			f'{self.save_dir}/tx_nucleosome_ptrs.png',
+		]
+
+		placed_images = layout_images_vertically(
+			compositor,
+			image_paths,
+			between_padding=30,
+			margin=(30, 30),
+			image_keys=['tsses', 'histograms', 'ptrs']  # Custom keys
+		)
+
+		# Add panel labels
+		add_panel_labels_to_images(
+			compositor, 
+			compositor.placed_images,
+			"ABC",
+			font_size=32,
+			offset=(-15, 0)
+		)
+
+		# Save the composite figure
+		compositor.save(f'{self.figures_dir}/Supplemental5.7_Nucleosome_metrics.png')

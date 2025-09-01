@@ -176,7 +176,7 @@ class NucleosomeDataLoader:
 	
 	def process_all_gene_nucleosomes(self, gene_dataset, 
 								   nucleosome_keys=['+1 nucleosome', '-1 nucleosome'],
-								   window_size=160, force_recompute=False):
+								   wide_window_size=200, window_size=160, force_recompute=False):
 		"""
 		Process all genes and create summary DataFrames for each nucleosome type.
 		
@@ -211,7 +211,7 @@ class NucleosomeDataLoader:
 			try:
 				chrom = int(gene['Chr'])
 				nuc_center = int(gene[nucleosome_keys[0]])  # Use first nucleosome type
-				test_data = self.load_nucleosome_data(chrom, nuc_center, window_size)
+				test_data = self.load_nucleosome_data(chrom, nuc_center, wide_window_size)
 				n_timepoints = test_data.shape[0]
 				print_fl(f"Detected {n_timepoints} timepoints from sample gene {orf_name}")
 				break
@@ -254,10 +254,10 @@ class NucleosomeDataLoader:
 				nuc_center = int(gene[nuc_key])
 				
 				# Load data and compute summaries
-				data = self.load_nucleosome_data(chrom, nuc_center, window_size)
+				data = self.load_nucleosome_data(chrom, nuc_center, wide_window_size)
 
 				try:
-					summaries = self.compute_nucleosome_summaries(data, window_size)
+					summaries = self.compute_nucleosome_summaries(data, wide_window_size, window_size)
 					# Store results in appropriate DataFrames
 					target_dfs = nucleosome_results[nuc_key]
 					target_dfs['entropy'].loc[orf_name] = summaries['entropy']
@@ -393,17 +393,10 @@ class NucleosomeDataLoader:
 		
 		return np.array(weighted_positions)
 	
-	def compute_nucleosome_summaries(self, data, window_size=160):
+	def compute_nucleosome_summaries(self, data, wide_window_size, analysis_window_size=160):
 		"""
-		Compute summary metrics for nucleosome data.
-		
-		Parameters
-		----------
-		data : np.ndarray
-			Shape (timepoints, fragment_lengths, positions)
-		window_size : int, optional
-			Window size in bp for positioning calculation
-			
+		Compute summary metrics for nucleosome data with positioning-guided analysis.
+
 		Returns
 		-------
 		dict
@@ -412,23 +405,80 @@ class NucleosomeDataLoader:
 		if data is None:
 			return None
 		
-		# 1. Entropy - captures chromatin organization disorder
-		entropy = self._compute_entropy_per_timepoint(data)
+		n_timepoints, n_fragments, n_wide_positions = data.shape
 		
-		# 2. Occupancy - mean signal over fragment lengths and positions
-		occupancy = np.mean(data, axis=(1, 2))
+		# Step 1: Compute positioning for each timepoint using full wide window
+		positioning = self._compute_weighted_positioning(data, analysis_window_size)
 		
-		# 3. Positioning - weighted average position relative to nucleosome center
-		positioning = self._compute_weighted_positioning(data, window_size)
+		# Step 2: For each timepoint, extract analysis window centered on computed position
+		# and compute occupancy/entropy within repositioned windows
+		
+		entropies = []
+		occupancies = []
+		
+		# Calculate conversion factors
+		bp_per_position = wide_window_size / n_wide_positions
+		analysis_positions = int(analysis_window_size / bp_per_position)
+		half_analysis_window = analysis_positions // 2
+		
+		for t in range(n_timepoints):
+			# Convert positioning coordinate back to array index
+			half_wide_window = wide_window_size / 2
+			position_bp = positioning[t]  # bp relative to center
+			position_index = int((position_bp + half_wide_window) / bp_per_position)
+			
+			# Calculate sub-window bounds
+			start_idx = position_index - half_analysis_window
+			end_idx = position_index + half_analysis_window
+			
+			# Handle edge cases - clamp to valid array bounds
+			start_idx = max(0, start_idx)
+			end_idx = min(n_wide_positions, end_idx)
+			
+			# Extract repositioned sub-window for this timepoint
+			repositioned_data = data[t, :, start_idx:end_idx]  # shape: (fragments, analysis_positions)
+			
+			# Compute metrics on repositioned window
+			if repositioned_data.size > 0:
+				# Occupancy: mean signal over fragments and positions
+				occupancy = np.mean(repositioned_data)
+				
+				# Entropy: flatten and compute entropy
+				flattened = repositioned_data.flatten()
+				entropy = self._compute_entropy_single(flattened + 0.001)  # Add small value for log(0)
+			else:
+				# Handle degenerate case
+				occupancy = 0.0
+				entropy = 0.0
+				
+			occupancies.append(occupancy)
+			entropies.append(entropy)
 		
 		return {
-			'entropy': entropy,
-			'occupancy': occupancy, 
-			'positioning': positioning
+			'entropy': np.array(entropies),
+			'occupancy': np.array(occupancies), 
+			'positioning': positioning  # Computed from wide window
 		}
+
+	def _compute_entropy_single(self, data_vector):
+		"""
+		Compute entropy for a single flattened data vector.
+		
+		Parameters
+		----------
+		data_vector : np.ndarray
+			1D array of signal values
+			
+		Returns
+		-------
+		float
+			Entropy value
+		"""
+		from src.helpers import calc_entropy
+		return calc_entropy(data_vector)
 	
 	def load_and_summarize_nucleosome(self, chrom: int, nucleosome_center: int, 
-									window_size: int = 160):
+									  wide_window_size = 200, window_size: int = 160):
 		"""
 		Load nucleosome data and compute summary metrics in one step.
 		
@@ -447,10 +497,10 @@ class NucleosomeDataLoader:
 			Dictionary with summary metrics and raw data
 		"""
 		# Load the raw data
-		data = self.load_nucleosome_data(chrom, nucleosome_center, window_size)
+		data = self.load_nucleosome_data(chrom, nucleosome_center, wide_window_size)
 		
 		# Compute summaries
-		summaries = self.compute_nucleosome_summaries(data, window_size)
+		summaries = self.compute_nucleosome_summaries(data, wide_window_size, window_size)
 		
 		return {
 			'data': data,
@@ -458,6 +508,7 @@ class NucleosomeDataLoader:
 			'metadata': {
 				'chrom': chrom,
 				'center': nucleosome_center,
+				'wide_window_size': wide_window_size,
 				'window_size': window_size,
 				'data_shape': data.shape
 			}

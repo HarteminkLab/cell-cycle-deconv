@@ -17,7 +17,7 @@ class TranscriptionFactorProcessor:
 	filtered by Kelliher cell cycle TF list.
 	"""
 	
-	def __init__(self, output_dir, window_size=40, fragment_range=(0, 100)):
+	def __init__(self, output_dir, window_size=25, fragment_range=(0, 100)):
 		"""
 		Initialize the ChromatinTFAnalyzer.
 		
@@ -25,8 +25,7 @@ class TranscriptionFactorProcessor:
 		-----------
 		output_dir : str
 			Path to chromatin data directory
-		window_size : int
-			Base pairs around binding site (default ±40bp = 80bp total)
+		window_size: around binding site
 		fragment_range : tuple
 			Fragment length filter range (default (0, 100))
 		"""
@@ -254,8 +253,8 @@ class TranscriptionFactorProcessor:
 		print("Preparing binding site coordinates...")
 		
 		# Add window coordinates for analysis
-		self.tf_sites['window_start'] = self.tf_sites['start'] - self.window_size
-		self.tf_sites['window_end'] = self.tf_sites['end'] + self.window_size
+		self.tf_sites['window_start'] = self.tf_sites['start'] - self.window_size//2
+		self.tf_sites['window_end'] = self.tf_sites['end'] + self.window_size//2
 		
 		print(f"Prepared {len(self.tf_sites)} binding sites with ±{self.window_size}bp windows")
 	
@@ -631,6 +630,9 @@ class TranscriptionFactorProcessor:
 				classification = 'promoter'
 			else:
 				classification = 'intergenic'
+
+			# print(len(found_in_genes), len(found_in_promoter), classification)
+
 			return classification
 
 		from src.transcripts_dataset import load_transcripts_sets
@@ -639,7 +641,10 @@ class TranscriptionFactorProcessor:
 		# Next we'll look through these sites and count the occurrence in various gene contexts
 		tf_sites = self.tf_sites.copy()
 
-		sites_with_peaks = sites.join(tf_sites, how='left').loc[self.sorted_boxplot_tfs_index]
+		sites_with_peaks = sites.join(tf_sites, how='left')
+		#sites_with_peaks = sites_with_peaks.reset_index().set_index('tf').loc[self.sorted_boxplot_tfs_index]\
+		#.reset_index().set_index(['tf', 'identifier'])
+
 		for site_index, site in sites_with_peaks.iterrows():
 			classification = _classify_site_with_genes(site, gene_boundaries)
 			sites_with_peaks.loc[site_index, 'genomic_classification'] = classification
@@ -647,8 +652,15 @@ class TranscriptionFactorProcessor:
 		counts = sites_with_peaks.groupby(['tf', 'genomic_classification']).size().reset_index(name='count')
 
 		# Pivot for easier viewing
-		pivot_counts = counts.pivot(index='tf', columns='genomic_classification', values='count').fillna(0)\
-			.loc[self.sorted_boxplot_tfs_index]
+		pivot_counts = counts.pivot(index='tf', columns='genomic_classification', values='count')
+
+		# Add any missing tfs that don't have cell cycle binding for consistency
+		pivot_counts = pivot_counts.join(pd.DataFrame(index=self.sorted_boxplot_tfs_index), 
+			how='right').fillna(0)
+
+		# Then order according to box plot ordering
+		pivot_counts = pivot_counts.loc[self.sorted_boxplot_tfs_index]
+
 		return pivot_counts
 
 	def classify_genomic_cell_cycle_sites(self):
@@ -683,7 +695,7 @@ class TranscriptionFactorProcessor:
 			try:
 				res = _test_p_value_promoter_change(self, tf)
 				stat_test_results.loc[tf, 'p_value'] = res[2]
-			except ZeroDivisionError:
+			except Exception:
 				continue
 
 		from statsmodels.stats.multitest import multipletests
@@ -712,7 +724,7 @@ class TranscriptionFactorProcessor:
 
 	def plot_before_after_genomic_classifications(self):
 
-		fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 7))
+		fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 13))
 		self.plot_genomic_classifications(mode='all', ax=ax1)
 		self.plot_genomic_classifications(mode='cycling', ax=ax2)
 		plt.subplots_adjust(wspace=0.3)
@@ -780,26 +792,25 @@ class TranscriptionFactorProcessor:
 			num_non_intergenic = tf_counts.promoter+tf_counts.gene_body
 			num_promoter = tf_counts.promoter
 
-			label = f"{total_counts:.0f}, {num_promoter:.0f}"\
-					f" ({(num_promoter/total_counts)*100:.0f}%)"
+			label = ""
+			if total_counts > 0:
+				label = f"{total_counts:.0f}, {num_promoter:.0f}"\
+						f" ({(num_promoter/total_counts)*100:.0f}%)"
+			else:
+				label = "0, 0 (0%)"
 
 			if mode == 'cycling' and tf_name in self.significant_promoter_tfs.index:
 
 				p_value = self.significant_promoter_tfs.loc[tf_name].p_value
-				label += " *"
 
-				ax.axhspan(i-0.5, i+0.52, 0, 1, color='yellow', zorder=0, alpha=0.16)
-
-				if p_value < 0.1:
-					label += "*"
-
-				if p_value < 0.01:
+				if p_value < 0.05:
+					ax.axhspan(i-0.5, i+0.52, 0, 1, color='yellow', zorder=0, alpha=0.16)
 					label += "*"
 
 			ax.text(total_counts+xmax*0.01, i, label, ha='left', va='center', color=color)
 
 	
-	def plot_tf_boxplots(self, column='ptr', figsize=(6, 7), 
+	def plot_tf_boxplots(self, column='ptr', figsize=(6, 13), 
 						 show_outliers=False, 
 						 show_points=True, 
 						 point_color='#777', point_alpha=0.5, 
@@ -830,7 +841,7 @@ class TranscriptionFactorProcessor:
 		ptr_counts_df = ptr_counts_df.sort_values(['prop_cycling', 'num_cycling', 'num_total'])
 		
 		# Subset by threshold, min 20
-		num_threshold = 20
+		num_threshold = 5
 		ptr_counts_df = ptr_counts_df[ptr_counts_df.num_total > num_threshold]
 
 		print(f"Number of transcription factors with >{num_threshold} sites", len(ptr_counts_df))
@@ -896,7 +907,7 @@ class TranscriptionFactorProcessor:
 		ax.set_xlabel(f'{column.upper()} Value', fontsize=12)
 		ax.set_ylabel('Transcription Factor', fontsize=12)
 
-		title = f"Cyclicity of transcription factor\nbinding, n={n}, {number_of_cell_cycle_sites} cycling ({number_of_cell_cycle_sites/n*100:.0f}%)"
+		title = f"Binding cyclicity for {len(sorted_tf_index)} TFs,\n{n} sites, {number_of_cell_cycle_sites} cycling ({number_of_cell_cycle_sites/n*100:.0f}%)"
 		ax.set_title(title, fontsize=21, fontweight='demi', pad=13)
 		
 		# Add some statistics as text
@@ -964,7 +975,7 @@ class TranscriptionFactorProcessor:
 			add_panel_labels_to_images
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 400, debug_mode=True)
+		compositor = FigureCompositor(1024, 690, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/factor_binding_cyclicity.png',
@@ -976,7 +987,7 @@ class TranscriptionFactorProcessor:
 		placed_images = layout_images_horizontally(
 			compositor,
 			image_paths,
-			width_proportions=[1, 1.95],
+			width_proportions=[1, 2.125],
 			between_padding=30,
 			margin=(30, 30),
 			image_keys=['binding_cyclicity', 'locations_both']  # Custom keys
