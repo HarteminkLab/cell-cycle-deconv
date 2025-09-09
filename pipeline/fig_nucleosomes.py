@@ -211,6 +211,72 @@ class FigureNucleosomes:
 		print(f"High cyclicity: {len(self.high_cyclicity_group)} nucleosomes")
 		print(f"Random control: {len(self.random_group)} nucleosomes")
 		print(f"Genomic background: {len(self.genomic_background)} nucleosomes")
+
+	def perform_go_on_nucleosome_groups(self):
+		from src.gene_ontology import GeneOntology
+
+		gene_ontology = GeneOntology()
+		from src.sgd import read_nondubious_genes_dataset
+
+		all_go_results_df = pd.DataFrame()
+		for group in ['high', 'low']:
+			for metric in ['positioning', 'occupancy', 'entropy']:
+				genes = read_nondubious_genes_dataset()
+
+				selected_orfs = self._retrieve_orfs_for_group(
+					metric, group)
+				selected_gene_names = genes.loc[selected_orfs]['gene'].values
+				gene_ontology.run_go(selected_gene_names)
+				results = gene_ontology.results_df.copy()
+				results['metric'] = metric
+				results['group'] = group
+
+				all_go_results_df = pd.concat([all_go_results_df, results])
+
+		results = all_go_results_df
+
+		omit_groups = ['biological_process', 'cellular_component', 'molecular_function']
+		all_results = results[~results['name'].isin(omit_groups)].set_index(['group', 'metric'])
+		sig_results = all_results[all_results.fdr_bh < 0.05]
+
+		self.all_go_results = all_results
+		self.sig_go_results = sig_results
+
+
+	def create_table_for_go_group(self, group):
+		from pipeline.latex_helpers import simple_df_to_latex_table
+
+		self.perform_go_on_nucleosome_groups()
+
+		plot_sig_data = self.sig_go_results[['id', 'name', 'fdr_bh']].loc[group]
+		plot_sig_data = plot_sig_data.reset_index()
+		# Generate LaTeX table
+		plot_sig_data.metric = plot_sig_data.metric.str.title()
+
+		def apply_go_name_capitalization(name):
+			if not (name.startswith('rRNA') or name.startswith('tRNA')):
+				name = name[0].upper() + name[1:]
+			return name
+		plot_sig_data['name'] = plot_sig_data['name'].apply(apply_go_name_capitalization)
+		plot_sig_data.columns = ['Metric', 'GO ID', 'GO term', 'FDR (BH)']
+		
+		latex_output = simple_df_to_latex_table(plot_sig_data)
+		return latex_output
+
+	def create_latex_go_tables(self):
+
+		res = self.create_table_for_go_group('low')
+		save_path = f'{self.save_dir}/low_go_group.txt'
+		with open(save_path, 'w') as f:
+			f.write(res)
+		print(f"Wrote to: ", save_path)
+
+		res = self.create_table_for_go_group('high')
+		save_path = f'{self.save_dir}/high_go_group.txt'
+		with open(save_path, 'w') as f:
+			f.write(res)
+		print(f"Wrote to: ", save_path)
+		
 	
 	def run_enrichment_analysis(self):
 		"""Perform statistical enrichment analysis comparing cyclicity groups to background."""
@@ -308,12 +374,13 @@ class FigureNucleosomes:
 			'occupancy': self.plus_one_ptrs['occupancy']['occupancy_ptr'],
 			'positioning': self.plus_one_ptrs['positioning']['positioning_ptr']
 		}
-		
+
 		for i, (ptr_metric, ptr_values) in enumerate(ptr_data.items(), 1):
 			plt.subplot(1, 3, i)
 			plt.plot(np.arange(len(ptr_values)), ptr_values.values)
 			plt.axvline(self.subset_n, c='red', linewidth=2, label=f'Top {self.subset_n} '\
 				f'({self.subset_qval*100:.0f} percentile)')
+
 			plt.xlabel('Nucleosome Rank')
 			plt.ylabel(f'{ptr_metric.title()} PTR')
 			plt.title(f'{ptr_metric.title()} Cyclicity Distribution')
@@ -353,9 +420,18 @@ class FigureNucleosomes:
 
 		metrics = ['occupancy', 'entropy', 'positioning']
 		self.all_metrics_enrichment_results = {}
+		self.all_cyclicity_groups = {}
+
+		# Intitialize cyclicity groups stored for each metric
+		for metric in metrics:
+			self.all_cyclicity_groups[metric] = {}
+
 		for metric in metrics:
 			enrichment_results = self.run_analysis_for_metric(metric)
 			self.all_metrics_enrichment_results[metric] = enrichment_results
+			self.all_cyclicity_groups[metric]['high'] = self.high_cyclicity_group
+			self.all_cyclicity_groups[metric]['low'] = self.low_cyclicity_group
+			self.all_cyclicity_groups[metric]['random'] = self.random_group
 
 		# Create combined visualizations
 		self.plot_cyclicity_p1_histograms()
@@ -378,6 +454,16 @@ class FigureNucleosomes:
 
 		self.plot_p1_tss_agreement()
 		save_figure_for_paper(f"{self.save_dir}/plus_one_tss_comparison.png")
+
+		# Create venn diagrams
+		self.plot_venn_diagrams()
+
+		# Create heatmap of intersection cyclers sets
+		self.plot_heatmap_intersections()
+		save_figure_for_paper(f"{self.save_dir}/cycler_non_cyclers_adjacency_heatmap.png")
+
+		# Create LaTeX tables
+		self.create_latex_go_tables()
 
 
 	def run_analysis_for_metric(self, metric):
@@ -485,7 +571,8 @@ class FigureNucleosomes:
 		joined_tss_p1['difference'] = joined_tss_p1.TSS-joined_tss_p1['+1 nucleosome']
 
 		plt.figure(figsize=(5, 2))
-		plt.hist(joined_tss_p1['difference'], bins=np.linspace(-600, 600, 100))
+		plt.hist(joined_tss_p1['difference'], color=plt.cm.Greys(0.5),
+		 bins=np.linspace(-600, 600, 100))
 		plt.xlim(-600, 600)
 		plt.title(f"+1 nucleosomes (Chereji, 2018) vs TSSes,\nn={len(joined_tss_p1)}")
 		plt.xlabel("Difference, bp")
@@ -510,6 +597,11 @@ class FigureNucleosomes:
 		}
 		expression_processor = self.expression_processor
 
+		colors = [
+			plt.cm.Reds(0.5),
+			plt.cm.Blues(0.5),
+			plt.cm.Purples(0.5)]
+
 		for i, measure in enumerate(measures):
 			joined_chromatin_tx_ptrs = expression_processor.all_transcripts_ptrs[['ptr']]\
 				.join(self.plus_one_ptrs[measure],
@@ -518,9 +610,17 @@ class FigureNucleosomes:
 
 			plt.subplot(1, 3, i+1)
 			plt.scatter(joined_chromatin_tx_ptrs.chromatin_ptr,
-				joined_chromatin_tx_ptrs.expression_ptr, color=plt.cm.Purples(0.5),
-						alpha=0.35, s=2)
+				joined_chromatin_tx_ptrs.expression_ptr, color=colors[i],
+						alpha=0.25, s=2)
 			plt.xlabel(measure.title() + " PTR")
+
+			# Plot vertical lines for the threshold values
+			chromatin_values = joined_chromatin_tx_ptrs.chromatin_ptr.dropna().values.flatten()
+			q_thresholds = np.quantile(chromatin_values, 
+				q=[self.subset_qval, ((1-self.subset_qval))])
+
+			for q_threshold in q_thresholds:
+				plt.axvline(q_threshold, c='red', lw=1, alpha=0.75)
 
 			if i == 0: plt.ylabel('Expression PTR')
 			else: plt.yticks([])
@@ -534,27 +634,38 @@ class FigureNucleosomes:
 
 
 	def plot_cyclicity_p1_histograms(self):
-		def _plot_hist_ptrs(ptrs_data, bins=30):
-			q_threshod = np.quantile(ptrs_data.dropna().values.flatten(), 
+		def _plot_hist_ptrs(ptrs_data, color, bins=30):
+			q_threshold = np.quantile(ptrs_data.dropna().values.flatten(), 
 				self.subset_qval)
-			plt.hist(ptrs_data, color="#81cdc6", bins=bins)
-			plt.axvline(q_threshod, c='red', lw=1, alpha=0.75)
+			plt.hist(ptrs_data, color=color, bins=bins)
+			plt.axvline(q_threshold, c='red', lw=1, alpha=0.75)
+
+			q_threshold_lower = np.quantile(ptrs_data.dropna().values.flatten(), 
+				(1-self.subset_qval))
+			plt.axvline(q_threshold_lower, c='red', lw=1, alpha=0.75)
+
+		colors = [
+			plt.cm.Reds(0.5),
+			plt.cm.Blues(0.5),
+			plt.cm.Purples(0.5)]
 
 		plt.figure(figsize=(9, 3))
 		plt.subplot(1, 3, 1)
 		_plot_hist_ptrs(self.plus_one_ptrs['positioning'], 
-					  bins=np.linspace(1, 1.4, 30))
+					  color=colors[0], bins=np.linspace(1, 1.4, 30))
 		plt.title("Positioning")
 		plt.xlabel("Peak-to-Trough Ratio (PTR)")
 
 		plt.subplot(1, 3, 2)
-		_plot_hist_ptrs(self.plus_one_ptrs['occupancy'], np.linspace(1, 2.5, 30))
+		_plot_hist_ptrs(self.plus_one_ptrs['occupancy'], color=colors[1], 
+			bins=np.linspace(1, 2.5, 30))
 		plt.title("Occupancy")
 		plt.xlabel("Peak-to-Trough Ratio (PTR)")
 		plt.xlim(0.9, 2.5)
 
 		plt.subplot(1, 3, 3)
-		_plot_hist_ptrs(self.plus_one_ptrs['entropy'], np.linspace(1, 1.4, 30))
+		_plot_hist_ptrs(self.plus_one_ptrs['entropy'], color=colors[2], 
+			bins=np.linspace(1, 1.4, 30))
 		plt.title("Entropy")
 		plt.xlabel("Peak-to-Trough Ratio (PTR)")
 		plt.xlim(0.99, 1.35)
@@ -565,6 +676,68 @@ class FigureNucleosomes:
 		plt.tight_layout()
 		plt.xlim(0.99, 1.35)
 
+	def _retrieve_orfs_for_group(self, metric, group_name):
+		orf_p1s = self.integrated_data[['matched_nuc_id_p1']].reset_index()
+		orf_p1s = orf_p1s.dropna().set_index('matched_nuc_id_p1')
+		orf_p1s.index = orf_p1s.index.astype(int)
+		selected_nucs_histones_mods = self.all_cyclicity_groups[metric][group_name].set_index('nuc_id').join(orf_p1s)
+		return selected_nucs_histones_mods.ORF.values
+
+	def plot_heatmap_intersections(self):
+		from src.heatmap_counts import create_set_adjacency_matrix
+		low_occ_nuc_orfs = self._retrieve_orfs_for_group('occupancy', 'low')
+		low_ent_nuc_orfs = self._retrieve_orfs_for_group('entropy', 'low')
+		low_pos_nuc_orfs = self._retrieve_orfs_for_group('positioning', 'low')
+
+		high_occ_nuc_orfs = self._retrieve_orfs_for_group('occupancy', 'high')
+		high_ent_nuc_orfs = self._retrieve_orfs_for_group('entropy', 'high')
+		high_pos_nuc_orfs = self._retrieve_orfs_for_group('positioning', 'high')
+
+		# Create adjacency matrix
+		result = create_set_adjacency_matrix(
+			low_pos_nuc_orfs, low_occ_nuc_orfs, low_ent_nuc_orfs,
+			high_pos_nuc_orfs, high_occ_nuc_orfs, high_ent_nuc_orfs,
+			labels=['Position\nnon-cyclers', 'Occupancy\nnon-cyclers', 'Entropy\nnon-cyclers', 
+					'Position\ncyclers', 'Occupancy\ncyclers', 'Entropy\ncyclers'],
+			metric='count',
+			title="Cycling and non-cycling nucleosome\nintersections counts"
+		)
+
+	def plot_venn_diagrams(self):
+
+		low_occ_nuc_orfs = self._retrieve_orfs_for_group('occupancy', 'low')
+		low_ent_nuc_orfs = self._retrieve_orfs_for_group('entropy', 'low')
+		low_pos_nuc_orfs = self._retrieve_orfs_for_group('positioning', 'low')
+
+		high_occ_nuc_orfs = self._retrieve_orfs_for_group('occupancy', 'high')
+		high_ent_nuc_orfs = self._retrieve_orfs_for_group('entropy', 'high')
+		high_pos_nuc_orfs = self._retrieve_orfs_for_group('positioning', 'high')
+
+		# What is the overlap between each cell cycle group?
+		# Retrieve the set of ORFs for each category tested
+		fig, ax, venn, data = create_three_set_venn(
+			low_pos_nuc_orfs, low_ent_nuc_orfs, low_occ_nuc_orfs,
+			labels=['Positioning', 'Occupancy', 'Entropy'],
+			title="Non-cycling nucleosomes",
+			alpha=0.7
+		)
+		save_figure_for_paper(f"{self.save_dir}/noncyclers_venn.png")
+
+		fig, ax, venn, data = create_three_set_venn(
+			high_pos_nuc_orfs, high_ent_nuc_orfs, high_occ_nuc_orfs,
+			labels=['Positioning', 'Occupancy', 'Entropy'],
+			title="Cycling nucleosomes",
+			alpha=0.7
+		)
+		save_figure_for_paper(f"{self.save_dir}/cyclers_venn.png")
+
+		fig, ax, venn, data = create_three_set_venn(
+		high_pos_nuc_orfs, low_occ_nuc_orfs, high_ent_nuc_orfs,
+			labels=['Cycling positioning', 'Non-cycling occupancy', 'Cycling entropy'],
+			title="Non-cycling occupancy vs cyclers",
+			alpha=0.7
+		)
+		save_figure_for_paper(f"{self.save_dir}/noncycler_occupancy_vs_cyclers.png")
 
 	def layout_panel(self):
 
@@ -611,33 +784,169 @@ class FigureNucleosomes:
 
 		from pipeline.figure_composer import FigureCompositor
 		from pipeline.figure_composer_helpers import layout_images_vertically, \
-			add_panel_labels_to_images
+			layout_images_horizontally, add_panel_labels_to_images
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(480, 660, debug_mode=True)
+		compositor = FigureCompositor(1024, 640, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/plus_one_tss_comparison.png',
 			f'{self.save_dir}/plus_one_ptr_histograms.png',
 			f'{self.save_dir}/tx_nucleosome_ptrs.png',
+
+			# Venn diagrams and adjacency matrices
+			f'{self.save_dir}/cyclers_venn.png',
+			f'{self.save_dir}/noncyclers_venn.png',
+			f'{self.save_dir}/noncycler_occupancy_vs_cyclers.png',
+
+			# Adjacency heatmap
+			f'{self.save_dir}/cycler_non_cyclers_adjacency_heatmap.png',
 		]
 
 		placed_images = layout_images_vertically(
 			compositor,
-			image_paths,
+			image_paths[:3],
 			between_padding=30,
 			margin=(30, 30),
+			widths=[400, 400, 400],
 			image_keys=['tsses', 'histograms', 'ptrs']  # Custom keys
+		)
+
+
+		placed_images = layout_images_horizontally(
+			compositor,
+			image_paths[3:5],
+			between_padding=30,
+			margin=(460, 30),
+			heights=[300, 300],
+			image_keys=['cyclers_venn', 'noncyclers_venn'],  # Custom keys
+			available_width=530
+		)
+
+		placed_images = layout_images_horizontally(
+			compositor,
+			image_paths[5:7],
+			between_padding=30,
+			margin=(460, 320),
+			heights=[300, 300],
+			image_keys=['noncyc_occ_venn', 'adjacency'],  # Custom keys
+			available_width=530
 		)
 
 		# Add panel labels
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			"ABC",
 			font_size=32,
 			offset=(-15, 0)
 		)
 
 		# Save the composite figure
 		compositor.save(f'{self.figures_dir}/Supplemental9_Nucleosome_metrics.png')
+
+
+def create_three_set_venn(set1, set2, set3, 
+						 labels=None, 
+						 colors=None, 
+						 alpha=0.6,
+						 title="Three-Set Venn Diagram",
+						 figsize=(5, 4),
+						 print_counts=False,
+						 circle_line_width=1,
+						 circle_line_color='black'):
+	"""
+	Create a three-set Venn diagram from three arrays/lists.
+	
+	Returns:
+	--------
+	fig, ax : matplotlib figure and axes objects
+	venn_diagram : matplotlib_venn object
+	intersection_data : dict containing intersection information
+	"""
+	from matplotlib_venn import venn3, venn3_circles
+	from matplotlib.patches import Circle
+
+	# Convert inputs to sets for set operations
+	s1 = set(set1)
+	s2 = set(set2)
+	s3 = set(set3)
+	
+	# Set default labels if not provided
+	if labels is None:
+		labels = ['Set 1', 'Set 2', 'Set 3']
+	
+	# Set default colors if not provided
+	if colors is None:
+		colors = [
+			plt.cm.Reds(0.3),
+			plt.cm.Blues(0.25),
+			plt.cm.Purples(0.32),
+		]
+	
+	# Create figure and axis
+	fig, ax = plt.subplots(figsize=figsize)
+	
+	# Create the Venn diagram
+	venn_diagram = venn3([s1, s2, s3], set_labels=labels, 
+		ax=ax, alpha=alpha, 
+		set_colors=colors)
+
+	from src.plot_helpers import blend_colors, blend_three_colors
+
+	# 2-way intersections
+	if venn_diagram.get_patch_by_id('110'):  # A ∩ B (not C)
+		blended_ab = blend_colors(colors[0], colors[1])
+		venn_diagram.get_patch_by_id('110').set_facecolor(blended_ab)
+	
+	if venn_diagram.get_patch_by_id('101'):  # A ∩ C (not B)
+		blended_ac = blend_colors(colors[0], colors[2])
+		venn_diagram.get_patch_by_id('101').set_facecolor(blended_ac)
+	
+	if venn_diagram.get_patch_by_id('011'):  # B ∩ C (not A)
+		blended_bc = blend_colors(colors[1], colors[2])
+		venn_diagram.get_patch_by_id('011').set_facecolor(blended_bc)
+	
+	# 3-way intersection
+	if venn_diagram.get_patch_by_id('111'):  # A ∩ B ∩ C
+		blended_abc = blend_three_colors(colors[0], colors[1], colors[2])
+		venn_diagram.get_patch_by_id('111').set_facecolor(blended_abc)
+
+	# Add lines around each circle
+	for patch in venn_diagram.patches:
+	    patch.set_edgecolor(circle_line_color)
+	    patch.set_linewidth(circle_line_width)
+	
+	# Calculate intersection data
+	intersection_data = {
+		'set1_only': len(s1 - s2 - s3),
+		'set2_only': len(s2 - s1 - s3),
+		'set3_only': len(s3 - s1 - s2),
+		'set1_and_set2_only': len(s1 & s2 - s3),
+		'set1_and_set3_only': len(s1 & s3 - s2),
+		'set2_and_set3_only': len(s2 & s3 - s1),
+		'all_three': len(s1 & s2 & s3),
+		'total_unique': len(s1 | s2 | s3),
+		'set1_total': len(s1),
+		'set2_total': len(s2),
+		'set3_total': len(s3)
+	}
+	
+	# Add title
+	plt.title(title, fontsize=16, fontweight='bold', pad=20)
+	
+	# Print intersection summary if show_counts is True
+	if print_counts:
+		print("Intersection Summary:")
+		print(f"Total unique items: {intersection_data['total_unique']}")
+		print(f"{labels[0]} only: {intersection_data['set1_only']}")
+		print(f"{labels[1]} only: {intersection_data['set2_only']}")
+		print(f"{labels[2]} only: {intersection_data['set3_only']}")
+		print(f"{labels[0]} ∩ {labels[1]} only: {intersection_data['set1_and_set2_only']}")
+		print(f"{labels[0]} ∩ {labels[2]} only: {intersection_data['set1_and_set3_only']}")
+		print(f"{labels[1]} ∩ {labels[2]} only: {intersection_data['set2_and_set3_only']}")
+		print(f"All three sets: {intersection_data['all_three']}")
+	
+	# Adjust layout and show
+	plt.tight_layout()
+	
+	return fig, ax, venn_diagram, intersection_data

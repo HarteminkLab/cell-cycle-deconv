@@ -186,23 +186,23 @@ class OriginFootprintProcessor:
 		footprint_metrics['occupancy'].to_csv(f"{self.save_dir}/footprint_occupancy.csv")
 		footprint_metrics['positioning'].to_csv(f"{self.save_dir}/footprint_positioning.csv")
 		
-		# Save proximal nucleosome metrics
-		proximal_upstream_metrics['entropy'].to_csv(f"{self.save_dir}/proximal_upstream_nucleosome_entropy.csv")
-		proximal_upstream_metrics['occupancy'].to_csv(f"{self.save_dir}/proximal_upstream_nucleosome_occupancy.csv")
-		proximal_upstream_metrics['positioning'].to_csv(f"{self.save_dir}/proximal_upstream_nucleosome_positioning.csv")
+		# # Save proximal nucleosome metrics
+		# proximal_upstream_metrics['entropy'].to_csv(f"{self.save_dir}/proximal_upstream_nucleosome_entropy.csv")
+		# proximal_upstream_metrics['occupancy'].to_csv(f"{self.save_dir}/proximal_upstream_nucleosome_occupancy.csv")
+		# proximal_upstream_metrics['positioning'].to_csv(f"{self.save_dir}/proximal_upstream_nucleosome_positioning.csv")
 		
-		proximal_downstream_metrics['entropy'].to_csv(f"{self.save_dir}/proximal_downstream_nucleosome_entropy.csv")
-		proximal_downstream_metrics['occupancy'].to_csv(f"{self.save_dir}/proximal_downstream_nucleosome_occupancy.csv")
-		proximal_downstream_metrics['positioning'].to_csv(f"{self.save_dir}/proximal_downstream_nucleosome_positioning.csv")
+		# proximal_downstream_metrics['entropy'].to_csv(f"{self.save_dir}/proximal_downstream_nucleosome_entropy.csv")
+		# proximal_downstream_metrics['occupancy'].to_csv(f"{self.save_dir}/proximal_downstream_nucleosome_occupancy.csv")
+		# proximal_downstream_metrics['positioning'].to_csv(f"{self.save_dir}/proximal_downstream_nucleosome_positioning.csv")
 		
-		# Save distal nucleosome metrics (renamed from original upstream/downstream)
-		distal_upstream_metrics['entropy'].to_csv(f"{self.save_dir}/distal_upstream_nucleosome_entropy.csv")
-		distal_upstream_metrics['occupancy'].to_csv(f"{self.save_dir}/distal_upstream_nucleosome_occupancy.csv")
-		distal_upstream_metrics['positioning'].to_csv(f"{self.save_dir}/distal_upstream_nucleosome_positioning.csv")
+		# # Save distal nucleosome metrics (renamed from original upstream/downstream)
+		# distal_upstream_metrics['entropy'].to_csv(f"{self.save_dir}/distal_upstream_nucleosome_entropy.csv")
+		# distal_upstream_metrics['occupancy'].to_csv(f"{self.save_dir}/distal_upstream_nucleosome_occupancy.csv")
+		# distal_upstream_metrics['positioning'].to_csv(f"{self.save_dir}/distal_upstream_nucleosome_positioning.csv")
 		
-		distal_downstream_metrics['entropy'].to_csv(f"{self.save_dir}/distal_downstream_nucleosome_entropy.csv")
-		distal_downstream_metrics['occupancy'].to_csv(f"{self.save_dir}/distal_downstream_nucleosome_occupancy.csv")
-		distal_downstream_metrics['positioning'].to_csv(f"{self.save_dir}/distal_downstream_nucleosome_positioning.csv")
+		# distal_downstream_metrics['entropy'].to_csv(f"{self.save_dir}/distal_downstream_nucleosome_entropy.csv")
+		# distal_downstream_metrics['occupancy'].to_csv(f"{self.save_dir}/distal_downstream_nucleosome_occupancy.csv")
+		# distal_downstream_metrics['positioning'].to_csv(f"{self.save_dir}/distal_downstream_nucleosome_positioning.csv")
 
 	def _load_origin_metrics(self):
 		"""
@@ -225,67 +225,69 @@ class OriginFootprintProcessor:
 			'positioning': _load_integer_columns_csv(f"{self.save_dir}/footprint_positioning.csv"),
 			'entropy': _load_integer_columns_csv(f"{self.save_dir}/footprint_entropy.csv")
 		}
-		
-		proximal_upstream_metrics = {
-			'entropy': _load_integer_columns_csv(f"{self.save_dir}/proximal_upstream_nucleosome_entropy.csv"),
-			'occupancy': _load_integer_columns_csv(f"{self.save_dir}/proximal_upstream_nucleosome_occupancy.csv"),
-			'positioning': _load_integer_columns_csv(f"{self.save_dir}/proximal_upstream_nucleosome_positioning.csv")
-		}
-		
-		proximal_downstream_metrics = {
-			'entropy': _load_integer_columns_csv(f"{self.save_dir}/proximal_downstream_nucleosome_entropy.csv"),
-			'occupancy': _load_integer_columns_csv(f"{self.save_dir}/proximal_downstream_nucleosome_occupancy.csv"),
-			'positioning': _load_integer_columns_csv(f"{self.save_dir}/proximal_downstream_nucleosome_positioning.csv")
-		}
-		
-		distal_upstream_metrics = {
-			'entropy': _load_integer_columns_csv(f"{self.save_dir}/distal_upstream_nucleosome_entropy.csv"),
-			'occupancy': _load_integer_columns_csv(f"{self.save_dir}/distal_upstream_nucleosome_occupancy.csv"),
-			'positioning': _load_integer_columns_csv(f"{self.save_dir}/distal_upstream_nucleosome_positioning.csv")
-		}
-		
-		distal_downstream_metrics = {
-			'entropy': _load_integer_columns_csv(f"{self.save_dir}/distal_downstream_nucleosome_entropy.csv"),
-			'occupancy': _load_integer_columns_csv(f"{self.save_dir}/distal_downstream_nucleosome_occupancy.csv"),
-			'positioning': _load_integer_columns_csv(f"{self.save_dir}/distal_downstream_nucleosome_positioning.csv")
-		}
-		
-		self.origin_footprint_metrics = footprint_metrics
-		self.proximal_upstream_nucleosome_metrics = proximal_upstream_metrics
-		self.proximal_downstream_nucleosome_metrics = proximal_downstream_metrics
-		self.distal_upstream_nucleosome_metrics = distal_upstream_metrics
-		self.distal_downstream_nucleosome_metrics = distal_downstream_metrics
-		
-		return (footprint_metrics, proximal_upstream_metrics, proximal_downstream_metrics,
-				distal_upstream_metrics, distal_downstream_metrics)
 
-	def _check_cached_files_exist(self):
-		"""
-		Check if all required CSV files exist.
+		pass
 		
-		Returns
-		-------
-		bool
-			True if all files exist, False otherwise
-		"""
-		required_files = [
-			"footprint_occupancy.csv",
-			"footprint_positioning.csv",
-			"proximal_upstream_nucleosome_entropy.csv",
-			"proximal_upstream_nucleosome_occupancy.csv", 
-			"proximal_upstream_nucleosome_positioning.csv",
-			"proximal_downstream_nucleosome_entropy.csv",
-			"proximal_downstream_nucleosome_occupancy.csv", 
-			"proximal_downstream_nucleosome_positioning.csv",
-			"distal_upstream_nucleosome_entropy.csv",
-			"distal_upstream_nucleosome_occupancy.csv", 
-			"distal_upstream_nucleosome_positioning.csv",
-			"distal_downstream_nucleosome_entropy.csv",
-			"distal_downstream_nucleosome_occupancy.csv", 
-			"distal_downstream_nucleosome_positioning.csv"
-		]
+		# proximal_upstream_metrics = {
+		# 	'entropy': _load_integer_columns_csv(f"{self.save_dir}/proximal_upstream_nucleosome_entropy.csv"),
+		# 	'occupancy': _load_integer_columns_csv(f"{self.save_dir}/proximal_upstream_nucleosome_occupancy.csv"),
+		# 	'positioning': _load_integer_columns_csv(f"{self.save_dir}/proximal_upstream_nucleosome_positioning.csv")
+		# }
 		
-		return all(os.path.exists(f"{self.save_dir}/{filename}") for filename in required_files)
+		# proximal_downstream_metrics = {
+		# 	'entropy': _load_integer_columns_csv(f"{self.save_dir}/proximal_downstream_nucleosome_entropy.csv"),
+		# 	'occupancy': _load_integer_columns_csv(f"{self.save_dir}/proximal_downstream_nucleosome_occupancy.csv"),
+		# 	'positioning': _load_integer_columns_csv(f"{self.save_dir}/proximal_downstream_nucleosome_positioning.csv")
+		# }
+		
+		# distal_upstream_metrics = {
+		# 	'entropy': _load_integer_columns_csv(f"{self.save_dir}/distal_upstream_nucleosome_entropy.csv"),
+		# 	'occupancy': _load_integer_columns_csv(f"{self.save_dir}/distal_upstream_nucleosome_occupancy.csv"),
+		# 	'positioning': _load_integer_columns_csv(f"{self.save_dir}/distal_upstream_nucleosome_positioning.csv")
+		# }
+		
+		# distal_downstream_metrics = {
+		# 	'entropy': _load_integer_columns_csv(f"{self.save_dir}/distal_downstream_nucleosome_entropy.csv"),
+		# 	'occupancy': _load_integer_columns_csv(f"{self.save_dir}/distal_downstream_nucleosome_occupancy.csv"),
+		# 	'positioning': _load_integer_columns_csv(f"{self.save_dir}/distal_downstream_nucleosome_positioning.csv")
+		# }
+		
+		# self.origin_footprint_metrics = footprint_metrics
+		# self.proximal_upstream_nucleosome_metrics = proximal_upstream_metrics
+		# self.proximal_downstream_nucleosome_metrics = proximal_downstream_metrics
+		# self.distal_upstream_nucleosome_metrics = distal_upstream_metrics
+		# self.distal_downstream_nucleosome_metrics = distal_downstream_metrics
+		
+		# return (footprint_metrics, proximal_upstream_metrics, proximal_downstream_metrics,
+		# 		distal_upstream_metrics, distal_downstream_metrics)
+
+	# def _check_cached_files_exist(self):
+	# 	"""
+	# 	Check if all required CSV files exist.
+		
+	# 	Returns
+	# 	-------
+	# 	bool
+	# 		True if all files exist, False otherwise
+	# 	"""
+	# 	required_files = [
+	# 		"footprint_occupancy.csv",
+	# 		"footprint_positioning.csv",
+	# 		"proximal_upstream_nucleosome_entropy.csv",
+	# 		"proximal_upstream_nucleosome_occupancy.csv", 
+	# 		"proximal_upstream_nucleosome_positioning.csv",
+	# 		"proximal_downstream_nucleosome_entropy.csv",
+	# 		"proximal_downstream_nucleosome_occupancy.csv", 
+	# 		"proximal_downstream_nucleosome_positioning.csv",
+	# 		"distal_upstream_nucleosome_entropy.csv",
+	# 		"distal_upstream_nucleosome_occupancy.csv", 
+	# 		"distal_upstream_nucleosome_positioning.csv",
+	# 		"distal_downstream_nucleosome_entropy.csv",
+	# 		"distal_downstream_nucleosome_occupancy.csv", 
+	# 		"distal_downstream_nucleosome_positioning.csv"
+	# 	]
+		
+	# 	return all(os.path.exists(f"{self.save_dir}/{filename}") for filename in required_files)
 
 	def process_all_origins(self, origins_dataset, force_recompute=False):
 		"""
@@ -499,37 +501,291 @@ class OriginFootprintProcessor:
 			'entropy': entropy
 		}
 
-	def compute_nucleosome_summaries(self, data):
+	# def compute_nucleosome_summaries(self, data):
+	# 	"""
+	# 	Compute summary metrics for flanking nucleosome data.
+		
+	# 	Parameters
+	# 	----------
+	# 	data : np.ndarray
+	# 		Shape (timepoints, fragment_lengths, positions)
+			
+	# 	Returns
+	# 	-------
+	# 	dict
+	# 		Dictionary with 'entropy', 'occupancy', 'positioning' arrays of shape (timepoints,)
+	# 	"""
+	# 	if data is None:
+	# 		return None
+		
+	# 	# 1. Entropy - captures chromatin organization disorder
+	# 	entropy = self._compute_entropy_per_timepoint(data)
+		
+	# 	# 2. Occupancy - mean signal over fragment lengths and positions
+	# 	occupancy = np.mean(data, axis=(1, 2))
+		
+	# 	# 3. Positioning - weighted average position relative to nucleosome center
+	# 	positioning = self._compute_weighted_positioning(data)
+		
+	# 	return {
+	# 		'entropy': entropy,
+	# 		'occupancy': occupancy, 
+	# 		'positioning': positioning
+	# 	}
+
+	def load_origin_fork_region(self, chrom: int, origin_center: int, window_size: int = 60000,
+		log=False):
 		"""
-		Compute summary metrics for flanking nucleosome data.
+		Load deconvolved chromatin data for fork progression analysis around origin.
+		
+		Parameters
+		----------
+		chrom : int
+			Chromosome number
+		origin_center : int
+			Center position of the origin
+		window_size : int, optional
+			Total window size around origin center (default: 60000bp = 60kb)
+			
+		Returns
+		-------
+		np.ndarray
+			Fork region data array with shape (timepoints, fragment_lengths, positions)
+			Always returns expected size by padding with zeros at boundaries
+		"""
+		from src.global_config import GlobalConstants
+		
+		# Calculate genomic span
+		half_window = window_size // 2
+		requested_start = int(origin_center - half_window)
+		requested_end = int(origin_center + half_window)
+		fork_span = (requested_start, requested_end)
+		
+		# Calculate expected number of positions
+		expected_positions = window_size // GlobalConstants.BIN_WIDTH
+		
+		# Load the chromosome region
+		self.deconvolved_loader.load_mnase_span(chrom, fork_span)
+		
+		# Subset for nucleosome fragments (not footprint fragments)
+		fork_data = self.deconvolved_loader.subset_loaded_data(
+			genomic_region=fork_span,
+			fragment_lengths=self.nucleosome_fragment_lengths
+		)
+		
+		if fork_data is None:
+			return None
+		
+		n_timepoints, n_fragment_lengths, actual_positions = fork_data.shape
+		
+		# Check if padding is needed
+		if actual_positions < expected_positions:
+			# Calculate how much padding is needed
+			total_padding = expected_positions - actual_positions
+			
+			# Determine front vs back padding based on requested vs actual span
+			# If requested start was negative, we need front padding
+			front_padding = max(0, -requested_start) // GlobalConstants.BIN_WIDTH
+			back_padding = total_padding - front_padding
+			
+			# Ensure non-negative padding
+			front_padding = max(0, front_padding)
+			back_padding = max(0, back_padding)
+			
+			# Create padded array
+			padded_shape = (n_timepoints, n_fragment_lengths, expected_positions)
+			padded_data = np.zeros(padded_shape, dtype=fork_data.dtype)
+			
+			# Insert original data in the correct position
+			start_insert = front_padding
+			end_insert = start_insert + actual_positions
+			padded_data[:, :, start_insert:end_insert] = fork_data
+			
+			if log:
+				print(f"Padded data: {actual_positions} -> {expected_positions} positions "
+					  f"(front: {front_padding}, back: {back_padding})")
+			
+			return padded_data
+		
+		return fork_data
+
+
+	def subset_into_1kb_windows(self, data, n_windows=60):
+		"""
+		Subset the loaded fork region data into 1kb windows.
 		
 		Parameters
 		----------
 		data : np.ndarray
 			Shape (timepoints, fragment_lengths, positions)
+		n_windows : int, optional
+			Number of 1kb windows to create (default: 60)
+			
+		Returns
+		-------
+		list
+			List of 60 arrays, each with shape (timepoints, fragment_lengths, positions_per_window)
+		"""
+		if data is None:
+			return [None] * n_windows
+		
+		n_timepoints, n_fragment_lengths, n_positions = data.shape
+		
+		# Calculate positions per window
+		positions_per_window = n_positions // n_windows
+		
+		# Subset into windows
+		windows = []
+		for i in range(n_windows):
+			start_pos = i * positions_per_window
+			end_pos = start_pos + positions_per_window
+			
+			# For the last window, include any remaining positions
+			if i == n_windows - 1:
+				end_pos = n_positions
+				
+			window_data = data[:, :, start_pos:end_pos]
+			windows.append(window_data)
+		
+		return windows
+
+	def compute_window_metrics(self, window_data):
+		"""
+		Compute entropy and occupancy for a single 1kb window.
+		
+		Parameters
+		----------
+		window_data : np.ndarray
+			Shape (timepoints, fragment_lengths, positions_in_window)
 			
 		Returns
 		-------
 		dict
-			Dictionary with 'entropy', 'occupancy', 'positioning' arrays of shape (timepoints,)
+			Dictionary with 'entropy' and 'occupancy' arrays of shape (timepoints,)
 		"""
-		if data is None:
-			return None
+		if window_data is None:
+			return {'entropy': None, 'occupancy': None}
 		
-		# 1. Entropy - captures chromatin organization disorder
-		entropy = self._compute_entropy_per_timepoint(data)
+		# Compute entropy - similar to existing method but for single window
+		entropy = self._compute_entropy_per_timepoint(window_data)
 		
-		# 2. Occupancy - mean signal over fragment lengths and positions
-		occupancy = np.mean(data, axis=(1, 2))
-		
-		# 3. Positioning - weighted average position relative to nucleosome center
-		positioning = self._compute_weighted_positioning(data)
+		# Compute occupancy - mean over fragment lengths and positions
+		occupancy = np.mean(window_data, axis=(1, 2))
 		
 		return {
 			'entropy': entropy,
-			'occupancy': occupancy, 
-			'positioning': positioning
+			'occupancy': occupancy
 		}
+
+	def process_single_origin_fork_progression(self, chrom: int, origin_center: int, origin_name: str = None):
+		"""
+		Process a single origin to compute fork progression metrics.
+		
+		Parameters
+		----------
+		chrom : int
+			Chromosome number
+		origin_center : int
+			Center position of the origin
+		origin_name : str, optional
+			Name of origin for logging
+			
+		Returns
+		-------
+		dict
+			Dictionary with 'entropy' and 'occupancy' arrays of shape (timepoints, n_windows)
+		"""
+		print(f"Processing origin {origin_name if origin_name else f'chr{chrom}:{origin_center}'}")
+		
+		# Load 60kb region around origin
+		fork_data = self.load_origin_fork_region(chrom, origin_center)
+		
+		if fork_data is None:
+			print(f"Warning: No data loaded for origin {origin_name}")
+			return {'entropy': None, 'occupancy': None}
+		
+		print(f"Loaded data shape: {fork_data.shape}")
+		
+		# Subset into 60 windows of 1kb each
+		windows = self.subset_into_1kb_windows(fork_data, n_windows=60)
+		
+		print(f"Created {len(windows)} windows")
+		if windows[0] is not None:
+			print(f"First window shape: {windows[0].shape}")
+		
+		# Initialize result arrays
+		n_timepoints = fork_data.shape[0]
+		entropy_results = np.zeros((n_timepoints, 60), dtype=np.float32)
+		occupancy_results = np.zeros((n_timepoints, 60), dtype=np.float32)
+		
+		# Process each window
+		for window_idx, window_data in enumerate(windows):
+			if window_data is not None:
+				metrics = self.compute_window_metrics(window_data)
+				
+				if metrics['entropy'] is not None:
+					entropy_results[:, window_idx] = metrics['entropy']
+				if metrics['occupancy'] is not None:
+					occupancy_results[:, window_idx] = metrics['occupancy']
+		
+		print(f"Results shapes - Entropy: {entropy_results.shape}, Occupancy: {occupancy_results.shape}")
+		
+		return {
+			'entropy': entropy_results,
+			'occupancy': occupancy_results,
+			'n_timepoints': n_timepoints,
+			'n_windows': 60
+		}
+
+	# Example usage and testing function
+	def test_single_origin_processing(self, test_origin_name=None):
+		"""
+		Test the single origin processing with a sample origin.
+		
+		Parameters
+		----------
+		test_origin_name : str, optional
+			Name of origin to test. If None, uses first origin from processed_origins
+		"""
+		if self.processed_origins is None:
+			print("Error: No origins dataset loaded. Please load origins first.")
+			return None
+		
+		# Select test origin
+		if test_origin_name is None:
+			test_origin_name = self.processed_origins.index[0]
+		
+		if test_origin_name not in self.processed_origins.index:
+			print(f"Error: Origin {test_origin_name} not found in dataset")
+			return None
+		
+		origin_info = self.processed_origins.loc[test_origin_name]
+		chrom = int(origin_info['chr'])
+		pos = int(origin_info['pos'])
+		
+		print(f"Testing with origin: {test_origin_name} at chr{chrom}:{pos}")
+		
+		# Process the origin
+		results = self.process_single_origin_fork_progression(chrom, pos, test_origin_name)
+		
+		if results['entropy'] is not None:
+			print(f"\nSuccessfully processed origin!")
+			print(f"Entropy range: {np.min(results['entropy']):.3f} to {np.max(results['entropy']):.3f}")
+			print(f"Occupancy range: {np.min(results['occupancy']):.3f} to {np.max(results['occupancy']):.3f}")
+			
+			# Show summary statistics
+			print(f"\nSummary statistics:")
+			print(f"Mean entropy across all windows/timepoints: {np.mean(results['entropy']):.3f}")
+			print(f"Mean occupancy across all windows/timepoints: {np.mean(results['occupancy']):.3f}")
+			
+			# Show variation across positions (windows)
+			entropy_by_position = np.mean(results['entropy'], axis=0)  # Average over timepoints
+			occupancy_by_position = np.mean(results['occupancy'], axis=0)  # Average over timepoints
+			
+			print(f"Position variation (entropy): {np.std(entropy_by_position):.3f}")
+			print(f"Position variation (occupancy): {np.std(occupancy_by_position):.3f}")
+			
+		return results
 
 	def _compute_entropy_per_timepoint(self, data):
 		"""

@@ -965,3 +965,26 @@ def create_proportional_subplots_3rows(sizes, labels=None, figsize=(15, 18),
         axes.append(row_axes)
     
     return fig, axes
+
+def blend_colors(color1, color2, alpha=0.5):
+	"""Blend two colors together"""
+	# Convert colors to RGB if they're named colors or hex
+	import matplotlib.colors as mcolors
+
+	rgb1 = mcolors.to_rgb(color1)
+	rgb2 = mcolors.to_rgb(color2)
+	
+	# Blend the colors
+	blended = tuple(alpha * c1 + (1 - alpha) * c2 for c1, c2 in zip(rgb1, rgb2))
+	return blended
+
+def blend_three_colors(color1, color2, color3):
+	"""Blend three colors together"""
+	import matplotlib.colors as mcolors
+	rgb1 = mcolors.to_rgb(color1)
+	rgb2 = mcolors.to_rgb(color2) 
+	rgb3 = mcolors.to_rgb(color3)
+	
+	# Average the three colors
+	blended = tuple((c1 + c2 + c3) / 3 for c1, c2, c3 in zip(rgb1, rgb2, rgb3))
+	return blended

@@ -298,3 +298,161 @@ def annotate_left_ax(left_ax, label='Peak expression time', g1_key='CG1'):
 
 	_add_annotation_text(left_ax, 0.54, 22, g1_name, rotate=True)
 	_add_annotation_text(left_ax, 0.54, 52, "S/G2/M", rotate=True)
+
+
+import numpy as np
+import matplotlib.pyplot as plt
+from itertools import combinations
+import pandas as pd
+
+def create_set_adjacency_matrix(set1, set2, set3, set4, set5, set6,
+							   labels=None,
+							   metric='count',
+							   visualize=True,
+							   figsize=(8, 7),
+							   cmap='pink_r',
+							   annot=True,
+							   fmt='.0f',
+							   title="Set Intersection Adjacency Matrix (Upper Triangular with Diagonal)",
+							   mask_value=np.nan):
+	"""
+	Create an upper triangular adjacency matrix showing intersections between 6 sets.
+	Returns a top-left triangular matrix with only lower triangle removed (diagonal included).
+	"""
+	
+	# Convert inputs to sets
+	sets = [set(s) for s in [set1, set2, set3, set4, set5, set6]]
+	
+	# Initialize 6x6 matrix
+	matrix = np.zeros((6, 6))
+	raw_intersections = {}
+	
+	# Calculate pairwise intersections for full matrix first
+	for i in range(6):
+		for j in range(6):
+			intersection = sets[i] & sets[j]
+			intersection_size = len(intersection)
+			
+			# Store raw intersection items
+			raw_intersections[(i, j)] = list(intersection)
+			
+			if metric == 'count':
+				matrix[i, j] = intersection_size
+			elif metric == 'jaccard':
+				union_size = len(sets[i] | sets[j])
+				matrix[i, j] = intersection_size / union_size if union_size > 0 else 0
+			elif metric == 'overlap':
+				min_size = min(len(sets[i]), len(sets[j]))
+				matrix[i, j] = intersection_size / min_size if min_size > 0 else 0
+			elif metric == 'percentage':
+				smaller_set_size = min(len(sets[i]), len(sets[j]))
+				matrix[i, j] = (intersection_size / smaller_set_size * 100) if smaller_set_size > 0 else 0
+	
+	# Filter raw_intersections to include upper triangular pairs and diagonal
+	# We need to account for the flipping when creating the filtered intersections
+	filtered_intersections = {}
+	for i in range(6):
+		for j in range(6):
+			if i <= j:  # Upper triangular condition including diagonal
+				# Map flipped indices back to original indices
+				orig_i = i
+				orig_j = 5 - j  # Account for the horizontal flip
+				if orig_i <= orig_j:  # Ensure we're still in valid upper triangle + diagonal
+					filtered_intersections[(i, j)] = raw_intersections[(orig_i, orig_j)]
+				else:
+					filtered_intersections[(i, j)] = raw_intersections[(orig_j, orig_i)]
+	
+	# Create summary statistics
+	valid_intersections = [v for k, v in filtered_intersections.items() if not np.isnan(matrix[k[0], k[1]])]
+	intersection_sizes = [len(v) for v in valid_intersections]
+	
+	summary = {
+		'total_pairs': len(filtered_intersections),
+		'avg_intersection_size': np.mean(intersection_sizes) if intersection_sizes else 0,
+		'max_intersection_size': max(intersection_sizes) if intersection_sizes else 0,
+		'min_intersection_size': min(intersection_sizes) if intersection_sizes else 0,
+		'metric_used': metric
+	}
+	
+	# Create visualization
+	figure = None
+	if visualize:
+		figure = _create_triangular_heatmap(matrix, labels, metric, figsize, 
+			cmap, annot, fmt, title, mask_value)
+	
+	return {
+		'matrix': matrix,
+		'labels': labels,
+		'raw_intersections': filtered_intersections,
+		'summary': summary,
+		'figure': figure
+	}
+
+
+def _create_triangular_heatmap(matrix, labels, metric, figsize, cmap, annot, fmt, title, mask_value):
+	"""
+	Create a heatmap visualization for the upper triangular matrix (including diagonal).
+	"""
+	fig, ax = plt.subplots(figsize=figsize)
+	
+	# Create a mask for the invalid entries
+	mask = np.isnan(matrix) if np.isnan(mask_value) else (matrix == mask_value)
+	
+	# Create a custom matrix for visualization where lower triangle is white
+	vis_matrix = matrix.copy()
+	
+	# Create the heatmap - only show valid data, mask lower triangle completely
+	masked_matrix = np.ma.masked_where(mask, vis_matrix)
+	im = ax.imshow(masked_matrix, cmap=cmap, aspect='equal')
+	
+	# Set the ticks and labels - now we include all labels since diagonal is visible
+	ax.set_xticks(np.arange(len(labels)))
+	ax.set_yticks(np.arange(len(labels)))
+	
+	ax.set_xticklabels(labels, rotation=0, ha='center')
+	ax.set_yticklabels(labels)
+	
+	# Add square borders around each cell
+	# for i in range(len(labels)):
+	#     for j in range(len(labels)):
+	#         # Now we include diagonal cells: condition is len(labels) - i >= j
+	#         if len(labels) - i -1 >= j:
+	#             rect = plt.Rectangle((j-0.5, i-0.5), 1, 1, 
+	#                                fill=False, edgecolor='black', linewidth=1)
+	#             ax.add_patch(rect)
+	
+	# Add annotations if requested
+	if annot:
+		for i in range(len(labels)):
+			for j in range(len(labels)):
+				if not mask[i, j]:  # Only annotate valid cells
+					value = matrix[i, j]
+					# Special formatting for diagonal cells to emphasize they're trivial
+					if i == j:  # This is a diagonal cell
+						text = ax.text(j, i, f'{value:{fmt}}',
+									 ha="center", va="center", color="white", 
+									 fontweight='demi', fontsize=12)
+					else:
+						text = ax.text(j, i, f'{value:{fmt}}',
+									 ha="center", va="center", color="black", 
+									   fontweight='demi')
+		
+	# Remove spines
+	# for spine in ax.spines.values():
+	#     spine.set_visible(False)
+	
+	# Add colorbar
+	cbar = plt.colorbar(im, ax=ax)
+	cbar.set_label(f'Intersection {metric.capitalize()}', rotation=270, labelpad=20)
+	
+	# Set title and labels
+	ax.set_title(title, fontsize=24, fontweight='demi', pad=50)
+	
+	# Remove default grid and ticks
+	ax.set_xticks(np.arange(len(labels))+0.5, minor=True)
+	ax.set_yticks(np.arange(len(labels))+0.5, minor=True)
+	ax.tick_params(which='both', size=0)  # Hide minor tick marks
+	ax.tick_params(axis='x', labeltop=True, labelbottom=False)
+
+	plt.tight_layout()
+	return fig

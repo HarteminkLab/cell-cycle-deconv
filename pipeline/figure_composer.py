@@ -628,7 +628,14 @@ class FigureCompositor:
 			Path with '_debug' inserted before the extension
 		"""
 		base, ext = os.path.splitext(output_path)
-		return f"{base}_debug{ext}"
+
+		path_split = base.split('/')
+
+		# Insert the debug folder into the debug path
+		debug_path_split = (path_split[:-1]	+ ['Debug'] + path_split[-1:])
+		debug_base_path = '/'.join(debug_path_split)
+
+		return f"{debug_base_path}_debug{ext}"
 		
 	def _draw_debug_grid(self):
 		"""
