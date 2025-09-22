@@ -42,8 +42,9 @@ def load_plus_ones(replicate=1):
 
 def read_brogaard_nucleosomes():
 	brogaard = pd.read_csv('data/reference_data/Brogaard_nuc_positions.sacCer3.top2000.tsv', sep='\t',
-		names=['chromosome',  'position', 'NCP_score', 'NCP_score/noise_ratio'])
-	brogaard.chromosome = brogaard.chromosome.apply(_fromRoman)
+		names=['chr', 'pos', 'NCP_score', 'NCP_score/noise_ratio'])
+	brogaard.chr = brogaard.chr.apply(_fromRoman)
+
 	return brogaard
 
 

@@ -10,17 +10,28 @@ from src.nucleosome_histone_dataset import HistonesNucleosomesDataset
 from src.nucleosome_metrics_processor import NucleosomeDataLoader
 from src.peak_to_trough import compute_quantile_ptr_2d
 
+ptr_formatting = {
+	'positioning': {
+		'xlims': (0.99, 1.5)
+	},
+	'occupancy': {
+		'xlims': (0.95, 2.1)
+	},
+	'entropy': {
+		'xlims': (0.99, 1.25)
+	},
+}
 
 class FigureNucleosomes:
 	"""
 	Analyzes cell cycle nucleosome dynamics and histone modification enrichment patterns.
 	
 	Integrates Chereji nucleosome positioning data with Weiner histone modification data
-	to identify cyclicity patterns and statistical enrichments.
+	to identify cyclicity patterns and statistical enrichments using decile-based analysis.
 	"""
-	
+
 	def __init__(self, output_dir="output/draft4_run/", window_size=160, 
-				 subset_qval=0.9, random_seed=123):
+				 n_deciles=10, random_seed=123):
 		"""
 		Initialize the analyzer with configuration parameters.
 		"""
@@ -31,7 +42,7 @@ class FigureNucleosomes:
 		mkdir_safe(self.save_dir)
 
 		self.window_size = window_size
-		self.subset_qval = subset_qval
+		self.n_deciles = n_deciles
 		self.random_seed = random_seed
 		
 		# Core data processing objects
@@ -40,7 +51,7 @@ class FigureNucleosomes:
 		self.expression_processor = None
 		
 		# Data storage members
-		self.integrated_data = None
+		self.chereji_integrated_data = None
 		self.weiner_histones = None
 		self.histone_cols = None
 
@@ -52,17 +63,80 @@ class FigureNucleosomes:
 		self.plus_one_ptrs = None
 		self.minus_one_ptrs = None
 		
-		# Cyclicity measures
-		self.histones_sorted_by_ptr = None
+		# Cyclicity measures - now organized by nucleosome type
+		self.histones_sorted_by_ptr = {}  # Will store {nucleosome_type: sorted_histone_data}
 		
-		# Analysis groups
-		self.high_cyclicity_group = None
-		self.low_cyclicity_group = None
-		self.random_group = None
+		# Analysis groups - decile-based, organized by nucleosome type
+		self.decile_groups = {}  # Will store {nucleosome_type: {metric: {decile_num: group_df}}}
+		self.current_nucleosome_type = None
 		self.genomic_background = None
 		
 		# Results storage
 		self.enrichment_results = None
+
+	def create_cyclicity_groups(self, metric='occupancy', nucleosome_type='plus_one'):
+		"""
+		Create decile groups based on specified metric and nucleosome type.
+		
+		Args:
+			metric (str): Metric to use for grouping ('occupancy', 'entropy', 'positioning')
+			nucleosome_type (str): Nucleosome type ('plus_one' or 'minus_one')
+		"""
+		print(f"Creating decile groups based on {metric} metric for {nucleosome_type} nucleosomes...")
+		
+		# Select the appropriate PTR DataFrame based on nucleosome type
+		if nucleosome_type == 'plus_one':
+			ptr_source = self.plus_one_ptrs
+			nuc_id_column = 'matched_nuc_id_p1'
+		elif nucleosome_type == 'minus_one':
+			ptr_source = self.minus_one_ptrs
+			nuc_id_column = 'matched_nuc_id_m1'
+		else:
+			raise ValueError(f"Unknown nucleosome_type: {nucleosome_type}. Use 'plus_one' or 'minus_one'")
+		
+		# Select the appropriate metric
+		if metric == 'occupancy':
+			ptr_df = ptr_source['occupancy']
+			sort_column = 'occupancy_ptr'
+		elif metric == 'entropy':
+			ptr_df = ptr_source['entropy']
+			sort_column = 'entropy_ptr'
+		elif metric == 'positioning':
+			ptr_df = ptr_source['positioning']
+			sort_column = 'positioning_ptr'
+		else:
+			raise ValueError(f"Unknown metric: {metric}. Use 'occupancy', 'entropy', or 'positioning'")
+		
+		# Link to histone modification data
+		orf_to_nucleosomes = self.chereji_integrated_data[[nuc_id_column]]
+		nuc_id_sorted_by_ptr = orf_to_nucleosomes.loc[ptr_df.index]
+		
+		# Store histone data sorted by PTR for this nucleosome type
+		if nucleosome_type not in self.histones_sorted_by_ptr:
+			self.histones_sorted_by_ptr[nucleosome_type] = {}
+		
+		self.histones_sorted_by_ptr[nucleosome_type] = self.weiner_histones.loc[
+			nuc_id_sorted_by_ptr.dropna()[nuc_id_column]
+		]
+		
+		# Create decile groups
+		df = self.histones_sorted_by_ptr[nucleosome_type].reset_index()
+		df.columns = ['nuc_id'] + list(df.columns[1:])
+		
+		# Initialize storage structure if needed
+		if nucleosome_type not in self.decile_groups:
+			self.decile_groups[nucleosome_type] = {}
+		
+		# Create decile groups for this nucleosome type and metric
+		self.decile_groups[nucleosome_type][metric] = {}
+		decile_size = len(df) // self.n_deciles
+		
+		for i in range(self.n_deciles):
+			start_idx = i * decile_size
+			end_idx = (i + 1) * decile_size if i < self.n_deciles - 1 else len(df)
+			self.decile_groups[nucleosome_type][metric][i] = df.iloc[start_idx:end_idx]
+		
+		print(f"Created {self.n_deciles} decile groups with ~{decile_size} nucleosomes each for {nucleosome_type}")
 	
 	def load_and_integrate_data(self):
 		"""Load Chereji nucleosome and Weiner histone data and integrate them."""
@@ -72,16 +146,37 @@ class FigureNucleosomes:
 		self.histones_nucleosomes_dataset.load_all()
 		
 		# Store integrated data
-		self.integrated_data = self.histones_nucleosomes_dataset.integrated_data
+		self.chereji_integrated_data = self.histones_nucleosomes_dataset.integrated_data
 		self.weiner_histones = self.histones_nucleosomes_dataset.weiner_histones
+		self.brogaard_integrated_data = self.load_and_map_brogaard_data()
 		
 		# Extract histone modification column names
 		self.histone_cols = [col for col in self.weiner_histones.columns 
 							if col not in ['nuc_id', 'chr', 'start', 'end']]
 		
-		print(f"Loaded {len(self.integrated_data)} genes with nucleosome data")
+		print(f"Loaded {len(self.chereji_integrated_data)} genes with nucleosome data")
 		print(f"Loaded {len(self.weiner_histones)} nucleosomes with histone modifications")
 		print(f"Found {len(self.histone_cols)} histone modifications")
+
+	def load_and_map_brogaard_data(self):
+		"""
+		Load Brogaard nucleosome data and map to Weiner nucleosome IDs using 
+		the general matching functionality in HistonesNucleosomesDataset.
+		"""
+		from src.reference_data import read_brogaard_nucleosomes
+		
+		print("Loading Brogaard nucleosome data...")
+		brogaard_nucleosomes = read_brogaard_nucleosomes()
+		print(f"Loaded {len(brogaard_nucleosomes)} Brogaard nucleosomes")
+		
+		# Use the dataset class's general matching method
+		print("Mapping Brogaard nucleosomes to Weiner nucleosome IDs...")
+		self.brogaard_integrated_data = self.histones_nucleosomes_dataset.match_brogaard_nucleosomes(
+			brogaard_nucleosomes
+		)
+		
+		print("Brogaard-Weiner mapping completed!")
+		return self.brogaard_integrated_data
 
 	def setup_processors(self):
 		from src.GenomeDeconvolutionAnalysis import GenomeDeconvolutionAnalysis
@@ -102,14 +197,21 @@ class FigureNucleosomes:
 		# Process all metrics for gene-associated nucleosomes
 		self.plus_one_chromatin_metrics, self.minus_one_chromatin_metrics = \
 			self.nucleosome_loader.process_all_gene_nucleosomes(
-				gene_dataset=self.integrated_data,
+				gene_dataset=self.chereji_integrated_data,
 				window_size=self.window_size,
 				force_recompute=force_recompute,
 			)
+
+		self.brogaard_chromatin_metrics = self.nucleosome_loader.process_all_brogaard_nucleosomes(
+				self.brogaard_integrated_data,
+				window_size=self.window_size,
+				force_recompute=force_recompute,
+		)
 		
 		print(f"Computed metrics for {len(self.plus_one_chromatin_metrics['entropy'])} +1 nucleosomes")
 		print(f"Computed metrics for {len(self.minus_one_chromatin_metrics['entropy'])} -1 nucleosomes")
-	
+
+
 	def calculate_cyclicity_measures(self):
 		"""Calculate peak-to-trough ratios for all nucleosome metrics."""
 		print("Calculating cyclicity measures (peak-to-trough ratios)...")
@@ -119,98 +221,70 @@ class FigureNucleosomes:
 		occupancy_plus1 = self.plus_one_chromatin_metrics['occupancy']
 		positioning_plus1 = self.plus_one_chromatin_metrics['positioning']
 
-		# Calculate PTRs for +1 nucleosome metrics
+		# Calculate PTRs for -1 nucleosome metrics
 		entropy_minus1 = self.minus_one_chromatin_metrics['entropy']
 		occupancy_minus1 = self.minus_one_chromatin_metrics['occupancy']
 		positioning_minus1 = self.minus_one_chromatin_metrics['positioning']
 		
-		# Compute PTRs
+		# Compute PTRs for +1 nucleosomes
 		p1_entropy_ptrs = compute_quantile_ptr_2d(entropy_plus1)
 		p1_occupancy_ptrs = compute_quantile_ptr_2d(occupancy_plus1)
 
-		# Positioning is defined differnece from the mean, so
+		# Positioning is defined difference from the mean, so
 		# offset for positioning, ensures non-negative changes
 		p1_positioning_ptrs = compute_quantile_ptr_2d(positioning_plus1 + 100)  
 
-		# Compute PTRs
+		# Compute PTRs for -1 nucleosomes
 		m1_entropy_ptrs = compute_quantile_ptr_2d(entropy_minus1)
 		m1_occupancy_ptrs = compute_quantile_ptr_2d(occupancy_minus1)
 		m1_positioning_ptrs = compute_quantile_ptr_2d(positioning_minus1 + 100)  # Offset for positioning
 		
-		# Create sorted DataFrames
-		def _create_ptr_df(ptrs_data, name):
-			index = occupancy_plus1.index
+		# Create sorted DataFrames helper function
+		def _create_ptr_df(ptrs_data, name, index):
 			key = f'{name}_ptr'
 			ptrs_df = pd.DataFrame(
 					ptrs_data, index=index, columns=[key]
 				).sort_values(key, ascending=False)
 			return ptrs_df
 
+		# Store +1 nucleosome PTRs
 		self.plus_one_ptrs = {
-			"entropy": _create_ptr_df(p1_entropy_ptrs, 'entropy'),
-			"occupancy": _create_ptr_df(p1_occupancy_ptrs, 'occupancy'),
-			"positioning": _create_ptr_df(p1_positioning_ptrs, 'positioning'),
+			"entropy": _create_ptr_df(p1_entropy_ptrs, 'entropy', occupancy_plus1.index),
+			"occupancy": _create_ptr_df(p1_occupancy_ptrs, 'occupancy', occupancy_plus1.index),
+			"positioning": _create_ptr_df(p1_positioning_ptrs, 'positioning', occupancy_plus1.index),
 		}
 
+		# Store -1 nucleosome PTRs
 		self.minus_one_ptrs = {
-			"entropy": _create_ptr_df(m1_entropy_ptrs, 'entropy'),
-			"occupancy": _create_ptr_df(m1_occupancy_ptrs, 'occupancy'),
-			"positioning": _create_ptr_df(m1_positioning_ptrs, 'positioning'),
+			"entropy": _create_ptr_df(m1_entropy_ptrs, 'entropy', occupancy_minus1.index),
+			"occupancy": _create_ptr_df(m1_occupancy_ptrs, 'occupancy', occupancy_minus1.index),
+			"positioning": _create_ptr_df(m1_positioning_ptrs, 'positioning', occupancy_minus1.index),
 		}
 		
-		print(f"Calculated cyclicity measures for {len(self.plus_one_chromatin_metrics['entropy'])} nucleosomes")
-	
-	def create_cyclicity_groups(self, metric='occupancy'):
-		"""
-		Create high/low cyclicity groups based on specified metric.
-		
-		Args:
-			metric (str): Metric to use for grouping ('occupancy', 'entropy', 'positioning')
-		"""
-		print(f"Creating cyclicity groups based on {metric} metric...")
-		
-		# Select the appropriate PTR DataFrame
-		if metric == 'occupancy':
-			ptr_df = self.plus_one_ptrs['occupancy']
-			sort_column = 'occupancy_ptr'
-		elif metric == 'entropy':
-			ptr_df = self.plus_one_ptrs['entropy']
-			sort_column = 'entropy_ptr'
-		elif metric == 'positioning':
-			ptr_df = self.plus_one_ptrs['positioning']
-			sort_column = 'positioning_ptr'
-		else:
-			raise ValueError(f"Unknown metric: {metric}. Use 'occupancy', 'entropy', or 'positioning'")
-		
-		# Link to histone modification data
-		orf_to_p1_nucleosomes = self.integrated_data[['matched_nuc_id_p1']]
-		nuc_id_sorted_by_ptr = orf_to_p1_nucleosomes.loc[ptr_df.index]
-		
-		self.histones_sorted_by_ptr = self.weiner_histones.loc[
-			nuc_id_sorted_by_ptr.dropna().matched_nuc_id_p1
-		]
-		
-		# Create cyclicity groups
-		df = self.histones_sorted_by_ptr.reset_index()
-		df.columns = ['nuc_id'] + list(df.columns[1:])
-		
-		# Define groups
-		# subset size defined by the quantile threshold
-		self.subset_n = int(len(df)*(1-self.subset_qval))
+		print(f"Calculated cyclicity measures for {len(self.plus_one_chromatin_metrics['entropy'])} +1 nucleosomes")
+		print(f"Calculated cyclicity measures for {len(self.minus_one_chromatin_metrics['entropy'])} -1 nucleosomes")
 
-		self.high_cyclicity_group = df.iloc[:self.subset_n]  # Top (highest cyclicity)
-		self.low_cyclicity_group = df.iloc[-self.subset_n:]  # Bottom (lowest cyclicity)
-		
-		# Create random control group
-		np.random.seed(self.random_seed)
-		self.random_group = df.iloc[np.random.choice(len(df), size=self.subset_n)]
-		
-		# Define genomic background (excluding test groups)
-		self.genomic_background = df
-		
-		print(f"High cyclicity: {len(self.high_cyclicity_group)} nucleosomes")
-		print(f"Random control: {len(self.random_group)} nucleosomes")
-		print(f"Genomic background: {len(self.genomic_background)} nucleosomes")
+		# Calculate PTRs for Brogaard nucleosomes if available
+		if hasattr(self, 'brogaard_chromatin_metrics') and self.brogaard_chromatin_metrics is not None:
+			print("Calculating cyclicity measures for Brogaard nucleosomes...")
+			
+			entropy_brogaard = self.brogaard_chromatin_metrics['entropy']
+			occupancy_brogaard = self.brogaard_chromatin_metrics['occupancy']
+			positioning_brogaard = self.brogaard_chromatin_metrics['positioning']
+			
+			# Compute PTRs for Brogaard nucleosomes
+			brogaard_entropy_ptrs = compute_quantile_ptr_2d(entropy_brogaard)
+			brogaard_occupancy_ptrs = compute_quantile_ptr_2d(occupancy_brogaard)
+			brogaard_positioning_ptrs = compute_quantile_ptr_2d(positioning_brogaard + 100)  # Offset for positioning
+			
+			# Store Brogaard nucleosome PTRs
+			self.brogaard_ptrs = {
+				"entropy": _create_ptr_df(brogaard_entropy_ptrs, 'entropy', entropy_brogaard.index),
+				"occupancy": _create_ptr_df(brogaard_occupancy_ptrs, 'occupancy', occupancy_brogaard.index),
+				"positioning": _create_ptr_df(brogaard_positioning_ptrs, 'positioning', positioning_brogaard.index),
+			}
+			
+			print(f"Calculated cyclicity measures for {len(entropy_brogaard)} Brogaard nucleosomes")
 
 	def perform_go_on_nucleosome_groups(self):
 		from src.gene_ontology import GeneOntology
@@ -219,17 +293,17 @@ class FigureNucleosomes:
 		from src.sgd import read_nondubious_genes_dataset
 
 		all_go_results_df = pd.DataFrame()
-		for group in ['high', 'low']:
+		for decile_num in range(self.n_deciles):
 			for metric in ['positioning', 'occupancy', 'entropy']:
 				genes = read_nondubious_genes_dataset()
 
 				selected_orfs = self._retrieve_orfs_for_group(
-					metric, group)
+					metric, decile_num)
 				selected_gene_names = genes.loc[selected_orfs]['gene'].values
 				gene_ontology.run_go(selected_gene_names)
 				results = gene_ontology.results_df.copy()
 				results['metric'] = metric
-				results['group'] = group
+				results['group'] = f'decile_{decile_num}'
 
 				all_go_results_df = pd.concat([all_go_results_df, results])
 
@@ -241,7 +315,6 @@ class FigureNucleosomes:
 
 		self.all_go_results = all_results
 		self.sig_go_results = sig_results
-
 
 	def create_table_for_go_group(self, group):
 		from pipeline.latex_helpers import simple_df_to_latex_table
@@ -264,45 +337,35 @@ class FigureNucleosomes:
 		return latex_output
 
 	def create_latex_go_tables(self):
-
-		res = self.create_table_for_go_group('low')
-		save_path = f'{self.save_dir}/low_go_group.txt'
+		# Create tables for extreme deciles
+		res = self.create_table_for_go_group(f'decile_{self.n_deciles-1}')  # Lowest cyclicity
+		save_path = f'{self.save_dir}/lowest_decile_go_group.txt'
 		with open(save_path, 'w') as f:
 			f.write(res)
 		print(f"Wrote to: ", save_path)
 
-		res = self.create_table_for_go_group('high')
-		save_path = f'{self.save_dir}/high_go_group.txt'
+		res = self.create_table_for_go_group('decile_0')  # Highest cyclicity
+		save_path = f'{self.save_dir}/highest_decile_go_group.txt'
 		with open(save_path, 'w') as f:
 			f.write(res)
 		print(f"Wrote to: ", save_path)
 		
 	
-	def run_enrichment_analysis(self):
-		"""Perform statistical enrichment analysis comparing cyclicity groups to background."""
-		print("Running enrichment analysis...")
+	def run_enrichment_analysis(self, metric, nucleosome='plus_one'):
+		"""Perform statistical enrichment analysis for all deciles vs background."""
+		print("Running enrichment analysis for deciles...")
 		
-		# Run enrichment tests for each group
-		high_cyclicity_results = self._test_cyclicity_enrichment_zscore(
-			self.high_cyclicity_group, self.genomic_background, "High_Cyclicity"
-		)
+		results = {}
+		for decile_num in range(self.n_deciles):
+			decile_group = self.decile_groups[nucleosome][metric][decile_num]
+			decile_results = self._test_cyclicity_enrichment_zscore(
+				decile_group, self.genomic_background, f"Decile_{decile_num}"
+			)
+			results[f'decile_{decile_num}'] = self._perform_fdr_correction(decile_results)
 		
-		low_cyclicity_results = self._test_cyclicity_enrichment_zscore(
-			self.low_cyclicity_group, self.genomic_background, "Low_Cyclicity"
-		)
-		
-		random_results = self._test_cyclicity_enrichment_zscore(
-			self.random_group, self.genomic_background, "Random"
-		)
-		
-		# Apply FDR correction and format results
-		self.enrichment_results = {
-			'high': self._perform_fdr_correction(high_cyclicity_results),
-			'low': self._perform_fdr_correction(low_cyclicity_results),
-			'random': self._perform_fdr_correction(random_results)
-		}
-		
-		print("Enrichment analysis completed")
+		self.enrichment_results = results
+		print(f"Enrichment analysis completed for {self.n_deciles} deciles")
+
 	
 	def export_results(self, metric='occupancy', nucleosome='plus_one'):
 		"""
@@ -316,14 +379,14 @@ class FigureNucleosomes:
 		
 		# Export histone modification data sorted by cyclicity
 		histone_export_file = f'{self.save_dir}/histone_mod_values_nucleosomes_sorted_by_{output_prefix}.csv'
-		self.histones_sorted_by_ptr.to_csv(histone_export_file)
+		self.histones_sorted_by_ptr[nucleosome].to_csv(histone_export_file)
 		print(f"Exported histone data to: {histone_export_file}")
 		
-		# Export enrichment analysis results
-		for group_name, results in self.enrichment_results.items():
-			results_file = f'{self.save_dir}/{output_prefix}_enrichment_{group_name}.csv'
+		# Export enrichment analysis results for all deciles
+		for decile_name, results in self.enrichment_results.items():
+			results_file = f'{self.save_dir}/{output_prefix}_enrichment_{decile_name}.csv'
 			results.to_csv(results_file, index=False)
-			print(f"Exported {group_name} enrichment results to: {results_file}")
+			print(f"Exported {decile_name} enrichment results to: {results_file}")
 		
 		# Export PTR rankings
 		ptr_files = {
@@ -342,27 +405,40 @@ class FigureNucleosomes:
 		print("Generating visualizations...")
 		
 		# Create heatmap visualization
-		plt.figure(figsize=(8, 8))
+		plt.figure(figsize=(12, 8))
 		
 		# Full dataset heatmap
-		plt.subplot(1, 2, 1)
+		plt.subplot(1, 3, 1)
 		plt.imshow(self.histones_sorted_by_ptr, aspect='auto', cmap='PRGn',
 				  interpolation='none', vmin=-vmax, vmax=vmax)
-		plt.axhline(self.subset_n, c='red', linewidth=2)
+		
+		# Add decile boundary lines
+		decile_size = len(self.histones_sorted_by_ptr) // self.n_deciles
+		for i in range(1, self.n_deciles):
+			plt.axhline(i * decile_size, c='red', linewidth=1, alpha=0.7)
+		
 		plt.title(f"All +1 Nucleosomes\n(sorted by {metric} cyclicity)")
 		plt.ylabel("Nucleosomes (ranked by cyclicity)")
 		
-		# High cyclicity heatmap
-		plt.subplot(1, 2, 2)
-		plt.imshow(self.histones_sorted_by_ptr.head(self.subset_n), aspect='auto', cmap='PRGn',
+		# Top decile heatmap
+		plt.subplot(1, 3, 2)
+		top_decile = self.histones_sorted_by_ptr.head(decile_size)
+		plt.imshow(top_decile, aspect='auto', cmap='PRGn',
 				  interpolation='none', vmin=-vmax, vmax=vmax)
-		plt.title(f"Top {self.subset_n} High Cyclicity")
+		plt.title(f"Top Decile (Highest Cyclicity)")
+		
+		# Bottom decile heatmap
+		plt.subplot(1, 3, 3)
+		bottom_decile = self.histones_sorted_by_ptr.tail(decile_size)
+		plt.imshow(bottom_decile, aspect='auto', cmap='PRGn',
+				  interpolation='none', vmin=-vmax, vmax=vmax)
+		plt.title(f"Bottom Decile (Lowest Cyclicity)")
 		
 		plt.tight_layout()
 		
 		# Save figure
 		output_prefix = f"{metric}_cyclicity"
-		fig_file = f'{self.save_dir}/{output_prefix}_heatmaps.png'
+		fig_file = f'{self.save_dir}/{output_prefix}_decile_heatmaps.png'
 		save_figure_for_paper(fig_file)
 		print(f"Saved heatmap visualization to: {fig_file}")
 		
@@ -378,17 +454,23 @@ class FigureNucleosomes:
 		for i, (ptr_metric, ptr_values) in enumerate(ptr_data.items(), 1):
 			plt.subplot(1, 3, i)
 			plt.plot(np.arange(len(ptr_values)), ptr_values.values)
-			plt.axvline(self.subset_n, c='red', linewidth=2, label=f'Top {self.subset_n} '\
-				f'({self.subset_qval*100:.0f} percentile)')
+			
+			# Add decile boundary lines
+			decile_size = len(ptr_values) // self.n_deciles
+			for j in range(1, self.n_deciles):
+				plt.axvline(j * decile_size, c='red', linewidth=1, alpha=0.7, 
+						   label='Decile boundaries' if j == 1 else '')
 
 			plt.xlabel('Nucleosome Rank')
 			plt.ylabel(f'{ptr_metric.title()} PTR')
 			plt.title(f'{ptr_metric.title()} Cyclicity Distribution')
+			if i == 1:
+				plt.legend()
 		
 		plt.tight_layout()
 		
 		# Save distribution plot
-		dist_fig_file = f'{self.save_dir}/nucleosome_cyclicity_distributions.png'
+		dist_fig_file = f'{self.save_dir}/nucleosome_cyclicity_decile_distributions.png'
 		save_figure_for_paper(dist_fig_file)
 		print(f"Saved distribution plot to: {dist_fig_file}")
 		plt.show()
@@ -399,18 +481,30 @@ class FigureNucleosomes:
 			return self.histones_nucleosomes_dataset.get_summary_stats()
 		else:
 			return "Data not loaded. Call load_and_integrate_data() first."
-	
+
+	def create_chereji_cyclicity_groups(self):
+		metrics = ['occupancy', 'entropy', 'positioning']
+
+		for nucleosome in ['plus_one', 'minus_one']:
+
+			# Initialize stored enrichment and cyclicity groups per nucleosome
+			self.all_metrics_enrichment_results[nucleosome] = {}
+
+			for metric in metrics:
+				self.create_cyclicity_groups(metric=metric, nucleosome_type=nucleosome)
+				enrichment_results = self.run_analysis_for_metric(metric, nucleosome)
+				self.all_metrics_enrichment_results[nucleosome][metric] = enrichment_results
 
 	def run_full_analysis(self, force_recompute=False):
 		"""
 		Execute the complete analysis workflow.
 		
 		Args:
-			metric (str): Metric to use for cyclicity analysis ('occupancy', 'entropy', 'positioning')
+			force_recompute (bool): Whether to recompute nucleosome metrics
 		"""
 		self.setup_processors()
 
-		print(f"Starting full cell cycle nucleosome analysis...")
+		print(f"Starting full cell cycle nucleosome analysis with {self.n_deciles} deciles...")
 		print("=" * 60)
 		
 		# Execute complete pipeline
@@ -418,33 +512,17 @@ class FigureNucleosomes:
 		self.compute_nucleosome_metrics(force_recompute=force_recompute)
 		self.calculate_cyclicity_measures()
 
-		metrics = ['occupancy', 'entropy', 'positioning']
 		self.all_metrics_enrichment_results = {}
-		self.all_cyclicity_groups = {}
 
-		# Intitialize cyclicity groups stored for each metric
-		for metric in metrics:
-			self.all_cyclicity_groups[metric] = {}
-
-		for metric in metrics:
-			enrichment_results = self.run_analysis_for_metric(metric)
-			self.all_metrics_enrichment_results[metric] = enrichment_results
-			self.all_cyclicity_groups[metric]['high'] = self.high_cyclicity_group
-			self.all_cyclicity_groups[metric]['low'] = self.low_cyclicity_group
-			self.all_cyclicity_groups[metric]['random'] = self.random_group
+		self.create_chereji_cyclicity_groups()
+		self.create_brogaard_cyclicity_groups()
 
 		# Create combined visualizations
 		self.plot_cyclicity_p1_histograms()
 		save_figure_for_paper(f"{self.save_dir}/plus_one_ptr_histograms.png")
 
-		self.plot_all_metrics_enrichment(group='high', plot_key='difference')
-		save_figure_for_paper(f"{self.save_dir}/plus_one_high_enrichment.png")
-
-		self.plot_all_metrics_enrichment(group='low', plot_key='difference')
-		save_figure_for_paper(f"{self.save_dir}/plus_one_low_enrichment.png")
-
-		self.plot_all_metrics_enrichment(group='random', plot_key='difference')
-		save_figure_for_paper(f"{self.save_dir}/plus_one_random_enrichment.png")
+		self.plot_all_metrics_enrichment_deciles(plot_key='difference')
+		save_figure_for_paper(f"{self.save_dir}/plus_one_decile_enrichment.png")
 
 		self.histone_mod_plotter.plot_colorbar()
 		save_figure_for_paper(f"{self.save_dir}/plus_one_heatmap_colorbar.png")
@@ -455,29 +533,110 @@ class FigureNucleosomes:
 		self.plot_p1_tss_agreement()
 		save_figure_for_paper(f"{self.save_dir}/plus_one_tss_comparison.png")
 
-		# Create venn diagrams
-		self.plot_venn_diagrams()
-
-		# Create heatmap of intersection cyclers sets
-		self.plot_heatmap_intersections()
-		save_figure_for_paper(f"{self.save_dir}/cycler_non_cyclers_adjacency_heatmap.png")
+		# Create heatmap of intersection across deciles
+		self.plot_heatmap_decile_intersections()
+		save_figure_for_paper(f"{self.save_dir}/decile_intersections_heatmap.png")
 
 		# Create LaTeX tables
 		self.create_latex_go_tables()
 
 
-	def run_analysis_for_metric(self, metric):
+	def create_brogaard_cyclicity_groups(self):
+		"""
+		Create decile groups based on specified metric for Brogaard nucleosomes.
+		
+		Args:
+			metric (str): Metric to use for grouping ('occupancy', 'entropy', 'positioning')
+		"""
 
+		metrics = ['occupancy', 'entropy', 'positioning']
+
+		for metric in metrics:
+			
+			# Check if Brogaard PTRs are available
+			if not hasattr(self, 'brogaard_ptrs') or self.brogaard_ptrs is None:
+				raise RuntimeError("Brogaard PTRs not calculated. Call calculate_cyclicity_measures() first.")
+			
+			# Select the appropriate PTR DataFrame
+			ptr_df = self.brogaard_ptrs[metric]
+			sort_column = f'{metric}_ptr'
+			
+			# Get Brogaard nucleosome IDs ranked by PTR (ptr_df is already sorted)
+			brogaard_nuc_ids_sorted_by_ptr = ptr_df.index
+			
+			# Map Brogaard nucleosome IDs to Weiner nucleosome IDs for histone data linkage
+			# Assuming brogaard_integrated_data has a column like 'weiner_nuc_id' or similar
+			brogaard_to_weiner_mapping = self.brogaard_integrated_data.set_index(self.brogaard_integrated_data.index)
+			
+			# Identify the correct mapping column (flexible naming)
+			mapping_column = 'matched_nuc_id'
+			
+			# Create mapping series for sorted Brogaard nucleosomes
+			weiner_ids_for_sorted_brogaard = []
+			valid_brogaard_ids = []
+			
+			for brogaard_id in brogaard_nuc_ids_sorted_by_ptr:
+				if brogaard_id in brogaard_to_weiner_mapping.index:
+					weiner_id = brogaard_to_weiner_mapping.loc[brogaard_id, mapping_column]
+					if pd.notna(weiner_id):
+						weiner_ids_for_sorted_brogaard.append(weiner_id)
+						valid_brogaard_ids.append(brogaard_id)
+			
+			print(f"Found {len(valid_brogaard_ids)} Brogaard nucleosomes with valid Weiner mappings out of {len(brogaard_nuc_ids_sorted_by_ptr)}")
+			
+			# Get histone modification data for mapped nucleosomes
+			valid_weiner_ids = [wid for wid in weiner_ids_for_sorted_brogaard if wid in self.weiner_histones.index]
+			histones_sorted_by_brogaard_ptr = self.weiner_histones.loc[valid_weiner_ids]
+			
+			print(f"Retrieved histone data for {len(histones_sorted_by_brogaard_ptr)} nucleosomes")
+			
+			# Store histone data sorted by PTR for Brogaard nucleosomes
+			if 'brogaard' not in self.histones_sorted_by_ptr:
+				self.histones_sorted_by_ptr['brogaard'] = {}
+			
+			self.histones_sorted_by_ptr['brogaard'] = histones_sorted_by_brogaard_ptr
+			
+			# Create decile groups
+			df = histones_sorted_by_brogaard_ptr.reset_index()
+			df.columns = ['nuc_id'] + list(df.columns[1:])
+			
+			# Initialize storage structure if needed
+			if 'brogaard' not in self.decile_groups:
+				self.decile_groups['brogaard'] = {}
+			
+			# Create decile groups for this metric
+			self.decile_groups['brogaard'][metric] = {}
+			decile_size = len(df) // self.n_deciles
+			
+			for i in range(self.n_deciles):
+				start_idx = i * decile_size
+				end_idx = (i + 1) * decile_size if i < self.n_deciles - 1 else len(df)
+				self.decile_groups['brogaard'][metric][i] = df.iloc[start_idx:end_idx]
+
+		nucleosome = 'brogaard'
+		self.all_metrics_enrichment_results[nucleosome] = {}
+		for metric in metrics:
+			enrichment_results = self.run_analysis_for_metric(metric, nucleosome)
+			self.all_metrics_enrichment_results[nucleosome][metric] = enrichment_results
+		
+		print(f"Created {self.n_deciles} decile groups with ~{decile_size} nucleosomes each for Brogaard dataset")
+			
+
+	def run_analysis_for_metric(self, metric, nucleosome='plus_one'):
 		print(f"Running analysis for metric {metric}")
-		self.create_cyclicity_groups(metric=metric)
-		self.run_enrichment_analysis()
-		self.export_results(metric=metric)
+
+		# Set genomic background to full dataset
+		df = self.histones_sorted_by_ptr[nucleosome].reset_index()
+		df.columns = ['nuc_id'] + list(df.columns[1:])
+		self.genomic_background = df
+		
+		self.run_enrichment_analysis(metric, nucleosome)
+		self.export_results(metric=metric, nucleosome=nucleosome)
 		
 		print("Analysis completed!")
-		print(f"Results exported with prefix: {metric}_cyclicity")
+		print(f"Results exported with prefix: {metric}_{nucleosome}_cyclicity")
 		
 		return self.enrichment_results
-
 
 	def _test_cyclicity_enrichment_zscore(self, test_group, full_population, group_name):
 		"""Test if cyclicity group differs significantly from population mean using z-test."""
@@ -548,26 +707,38 @@ class FigureNucleosomes:
 		
 		return all_results
 
-
-	def plot_all_metrics_enrichment(self, group='high', plot_key='p_value_fdr'):
+	def plot_all_metrics_enrichment_deciles(self, plot_key='difference', nucleosome='plus_one'):
+		"""Plot enrichment across all deciles for all metrics."""
 		from src.histone_group_plotter import HistoneModificationGroupedPlotter
 
 		# Initialize the plotter with your enrichment results
 		self.histone_mod_plotter = HistoneModificationGroupedPlotter(
-			enrichment_results=self.all_metrics_enrichment_results,
-			subset_n=self.subset_n  # or whatever your subset size variable is called
+			enrichment_results=self.all_metrics_enrichment_results[nucleosome],
+			n=len(self.chereji_integrated_data)
 		)
 
-		# Create the main grouped plot showing differences for high cycling nucleosomes
-		fig = self.histone_mod_plotter.plot_grouped_enrichment(
-			group=group, 
-			plot_key=plot_key
+		name_mapping = {
+			'plus_one': '+1',
+			'minus_one': '-1',
+			'brogaard': 'Brogaard',
+		}
+
+		n = len(self.chereji_integrated_data) if not nucleosome == 'brogaard' else len(self.brogaard_integrated_data)
+
+		nuc_type = name_mapping[nucleosome]
+
+		# Create plot showing gradient across deciles
+		fig = self.histone_mod_plotter.plot_decile_enrichment_gradient(
+			plot_key=plot_key,
+			n_deciles=self.n_deciles,
+			title=f"Histone modifications by nucleosome cyclicity,\n{nuc_type} "
+				  f"nucleosomes, n={n}"
 		)
 
 	def plot_p1_tss_agreement(self):
 		from src.transcripts_dataset import load_transcripts_sets
 		genes, _ = load_transcripts_sets(self.output_dir)
-		joined_tss_p1 = genes[['TSS']].join(self.integrated_data[['+1 nucleosome']], how='inner').dropna()
+		joined_tss_p1 = genes[['TSS']].join(self.chereji_integrated_data[['+1 nucleosome']], how='inner').dropna()
 		joined_tss_p1['difference'] = joined_tss_p1.TSS-joined_tss_p1['+1 nucleosome']
 
 		plt.figure(figsize=(5, 2))
@@ -579,22 +750,10 @@ class FigureNucleosomes:
 		plt.ylabel("Frequency")
 
 	def plot_nucleosome_expression_ptrs(self):
-
 		measures = ['positioning', 'occupancy', 'entropy']
 
 		plt.figure(figsize=(7, 2.75))
 
-		formatting = {
-			'positioning': {
-				'xlims': (0.99, 1.5)
-			},
-			'occupancy': {
-				'xlims': (0.95, 3)
-			},
-			'entropy': {
-				'xlims': (0.99, 1.45)
-			},
-		}
 		expression_processor = self.expression_processor
 
 		colors = [
@@ -614,35 +773,31 @@ class FigureNucleosomes:
 						alpha=0.25, s=2)
 			plt.xlabel(measure.title() + " PTR")
 
-			# Plot vertical lines for the threshold values
+			# Plot vertical lines for decile boundaries
 			chromatin_values = joined_chromatin_tx_ptrs.chromatin_ptr.dropna().values.flatten()
-			q_thresholds = np.quantile(chromatin_values, 
-				q=[self.subset_qval, ((1-self.subset_qval))])
-
-			for q_threshold in q_thresholds:
-				plt.axvline(q_threshold, c='red', lw=1, alpha=0.75)
+			decile_size = len(chromatin_values) // self.n_deciles
+			for j in range(1, self.n_deciles):
+				q_threshold = np.quantile(chromatin_values, j / self.n_deciles)
+				plt.axvline(q_threshold, c='black', lw=0.5, ls='solid', alpha=0.5, zorder=0)
 
 			if i == 0: plt.ylabel('Expression PTR')
 			else: plt.yticks([])
 
-			plt.xlim(*formatting[measure]['xlims'])
+			plt.xlim(*ptr_formatting[measure]['xlims'])
 			plt.title(measure.title())
 			
 		plt.suptitle(f"+1 nucleosome vs expression cyclicity, n={len(joined_chromatin_tx_ptrs)}", fontweight='demi', 
 					fontsize=16)
 		plt.tight_layout()
 
-
 	def plot_cyclicity_p1_histograms(self):
 		def _plot_hist_ptrs(ptrs_data, color, bins=30):
-			q_threshold = np.quantile(ptrs_data.dropna().values.flatten(), 
-				self.subset_qval)
+			# Add decile boundary lines
+			decile_size = len(ptrs_data) // self.n_deciles
 			plt.hist(ptrs_data, color=color, bins=bins)
-			plt.axvline(q_threshold, c='red', lw=1, alpha=0.75)
-
-			q_threshold_lower = np.quantile(ptrs_data.dropna().values.flatten(), 
-				(1-self.subset_qval))
-			plt.axvline(q_threshold_lower, c='red', lw=1, alpha=0.75)
+			for j in range(1, self.n_deciles):
+				q_threshold = np.quantile(ptrs_data.dropna().values.flatten(), j / self.n_deciles)
+				plt.axvline(q_threshold, c='black', lw=0.5, ls='solid', alpha=0.5)
 
 		colors = [
 			plt.cm.Reds(0.5),
@@ -652,46 +807,52 @@ class FigureNucleosomes:
 		plt.figure(figsize=(9, 3))
 		plt.subplot(1, 3, 1)
 		_plot_hist_ptrs(self.plus_one_ptrs['positioning'], 
-					  color=colors[0], bins=np.linspace(1, 1.4, 30))
+					  color=colors[0], bins=np.linspace(1, 1.2, 30))
 		plt.title("Positioning")
 		plt.xlabel("Peak-to-Trough Ratio (PTR)")
+		plt.xlim(*(ptr_formatting['positioning']['xlims']))
 
 		plt.subplot(1, 3, 2)
 		_plot_hist_ptrs(self.plus_one_ptrs['occupancy'], color=colors[1], 
 			bins=np.linspace(1, 2.5, 30))
 		plt.title("Occupancy")
 		plt.xlabel("Peak-to-Trough Ratio (PTR)")
-		plt.xlim(0.9, 2.5)
+		plt.xlim(*(ptr_formatting['occupancy']['xlims']))
 
 		plt.subplot(1, 3, 3)
 		_plot_hist_ptrs(self.plus_one_ptrs['entropy'], color=colors[2], 
 			bins=np.linspace(1, 1.4, 30))
 		plt.title("Entropy")
 		plt.xlabel("Peak-to-Trough Ratio (PTR)")
-		plt.xlim(0.99, 1.35)
 
-		plt.suptitle("Cyclicity of +1 Chereji, (2018) nucleosomes,\n"
-					f"n={len(self.plus_one_ptrs['entropy'])}, {self.subset_n} cycling ({self.subset_qval*100:.0f}th perc.) each",
+		decile_size = len(self.plus_one_ptrs['entropy']) // self.n_deciles
+		plt.suptitle(f"Cyclicity of +1 Chereji, (2018) nucleosomes,\n"
+					f"n={len(self.plus_one_ptrs['entropy'])}, {decile_size} nucleosomes per decile",
 					fontweight='demi', fontsize=18)
 		plt.tight_layout()
-		plt.xlim(0.99, 1.35)
+		plt.xlim(*(ptr_formatting['entropy']['xlims']))
 
-	def _retrieve_orfs_for_group(self, metric, group_name):
-		orf_p1s = self.integrated_data[['matched_nuc_id_p1']].reset_index()
+	def _retrieve_orfs_for_group(self, metric, decile_num):
+		"""Retrieve ORFs for a specific decile."""
+		orf_p1s = self.chereji_integrated_data[['matched_nuc_id_p1']].reset_index()
 		orf_p1s = orf_p1s.dropna().set_index('matched_nuc_id_p1')
 		orf_p1s.index = orf_p1s.index.astype(int)
-		selected_nucs_histones_mods = self.all_cyclicity_groups[metric][group_name].set_index('nuc_id').join(orf_p1s)
+		
+		selected_nucs_histones_mods = self.decile_groups[metric][decile_num].set_index('nuc_id').join(orf_p1s)
 		return selected_nucs_histones_mods.ORF.values
 
-	def plot_heatmap_intersections(self):
+	def plot_heatmap_decile_intersections(self):
+		"""Plot heatmap showing intersections between deciles across metrics."""
 		from src.heatmap_counts import create_set_adjacency_matrix
-		low_occ_nuc_orfs = self._retrieve_orfs_for_group('occupancy', 'low')
-		low_ent_nuc_orfs = self._retrieve_orfs_for_group('entropy', 'low')
-		low_pos_nuc_orfs = self._retrieve_orfs_for_group('positioning', 'low')
+		
+		# Get ORFs for extreme deciles across metrics
+		low_occ_nuc_orfs = self._retrieve_orfs_for_group('occupancy', self.n_deciles-1)  # Lowest
+		low_ent_nuc_orfs = self._retrieve_orfs_for_group('entropy', self.n_deciles-1)
+		low_pos_nuc_orfs = self._retrieve_orfs_for_group('positioning', self.n_deciles-1)
 
-		high_occ_nuc_orfs = self._retrieve_orfs_for_group('occupancy', 'high')
-		high_ent_nuc_orfs = self._retrieve_orfs_for_group('entropy', 'high')
-		high_pos_nuc_orfs = self._retrieve_orfs_for_group('positioning', 'high')
+		high_occ_nuc_orfs = self._retrieve_orfs_for_group('occupancy', 0)  # Highest
+		high_ent_nuc_orfs = self._retrieve_orfs_for_group('entropy', 0)
+		high_pos_nuc_orfs = self._retrieve_orfs_for_group('positioning', 0)
 
 		# Create adjacency matrix
 		result = create_set_adjacency_matrix(
@@ -700,88 +861,52 @@ class FigureNucleosomes:
 			labels=['Position\nnon-cyclers', 'Occupancy\nnon-cyclers', 'Entropy\nnon-cyclers', 
 					'Position\ncyclers', 'Occupancy\ncyclers', 'Entropy\ncyclers'],
 			metric='count',
-			title="Cycling and non-cycling nucleosome\nintersections counts"
+			title="Cycling and non-cycling nucleosome\ndecile intersections"
 		)
-
-	def plot_venn_diagrams(self):
-
-		low_occ_nuc_orfs = self._retrieve_orfs_for_group('occupancy', 'low')
-		low_ent_nuc_orfs = self._retrieve_orfs_for_group('entropy', 'low')
-		low_pos_nuc_orfs = self._retrieve_orfs_for_group('positioning', 'low')
-
-		high_occ_nuc_orfs = self._retrieve_orfs_for_group('occupancy', 'high')
-		high_ent_nuc_orfs = self._retrieve_orfs_for_group('entropy', 'high')
-		high_pos_nuc_orfs = self._retrieve_orfs_for_group('positioning', 'high')
-
-		# What is the overlap between each cell cycle group?
-		# Retrieve the set of ORFs for each category tested
-		fig, ax, venn, data = create_three_set_venn(
-			low_pos_nuc_orfs, low_ent_nuc_orfs, low_occ_nuc_orfs,
-			labels=['Positioning', 'Occupancy', 'Entropy'],
-			title="Non-cycling nucleosomes",
-			alpha=0.7
-		)
-		save_figure_for_paper(f"{self.save_dir}/noncyclers_venn.png")
-
-		fig, ax, venn, data = create_three_set_venn(
-			high_pos_nuc_orfs, high_ent_nuc_orfs, high_occ_nuc_orfs,
-			labels=['Positioning', 'Occupancy', 'Entropy'],
-			title="Cycling nucleosomes",
-			alpha=0.7
-		)
-		save_figure_for_paper(f"{self.save_dir}/cyclers_venn.png")
-
-		fig, ax, venn, data = create_three_set_venn(
-		high_pos_nuc_orfs, low_occ_nuc_orfs, high_ent_nuc_orfs,
-			labels=['Cycling positioning', 'Non-cycling occupancy', 'Cycling entropy'],
-			title="Non-cycling occupancy vs cyclers",
-			alpha=0.7
-		)
-		save_figure_for_paper(f"{self.save_dir}/noncycler_occupancy_vs_cyclers.png")
 
 	def layout_panel(self):
-
 		from pipeline.figure_composer import FigureCompositor
 		from pipeline.figure_composer_helpers import layout_images_vertically, \
 			add_panel_labels_to_images
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 940, debug_mode=True)
+		compositor = FigureCompositor(1024, 900, debug_mode=True)
 
 		image_paths = [
-			f'{self.save_dir}/plus_one_high_enrichment.png',
-			f'{self.save_dir}/plus_one_low_enrichment.png',
-			f'{self.save_dir}/plus_one_random_enrichment.png',
+			f'{self.save_dir}/plus_one_decile_enrichment.png',
 			f'{self.save_dir}/plus_one_heatmap_colorbar.png',
 		]
 
 		placed_images = layout_images_vertically(
 			compositor,
-			list(np.array(image_paths)[[0, 1, 2]]),
-			heights=[280, 278, 282],
+			[image_paths[0]],
+			heights=[840],
 			between_padding=30,
-			offsets=[(10, 0), (-5, 0), (0, 0)],
 			margin=(30, 30),
-			image_keys=['high', 'low', 'random']  # Custom keys
+			image_keys=['decile_enrichment']
 		)
 
-		# Add panel labels
-		add_panel_labels_to_images(
-			compositor, 
-			compositor.placed_images,
-			"ABC",
+		compositor.add_panel_label_to_image(
+			'decile_enrichment', "A", (-10, 47),
 			font_size=40,
-			offset=(-15, 0)
 		)
 
-		compositor.place_image(image_paths[-1], 970, 56, width=50,
-			name='colorbar')
+		compositor.add_panel_label_to_image(
+			'decile_enrichment', "B", (-10, 310),
+			font_size=40,
+		)
+
+		compositor.add_panel_label_to_image(
+			'decile_enrichment', "C", (-10, 577),
+			font_size=40,
+		)
+
+		compositor.place_image(image_paths[1], 940, 80, width=80, name='colorbar')
 
 		# Save the composite figure
 		compositor.save(f'{self.figures_dir}/Figure7_Nucleosome_Histones.png')
 
 	def layout_supplemental_panel(self):
-
 		from pipeline.figure_composer import FigureCompositor
 		from pipeline.figure_composer_helpers import layout_images_vertically, \
 			layout_images_horizontally, add_panel_labels_to_images
@@ -793,14 +918,7 @@ class FigureNucleosomes:
 			f'{self.save_dir}/plus_one_tss_comparison.png',
 			f'{self.save_dir}/plus_one_ptr_histograms.png',
 			f'{self.save_dir}/tx_nucleosome_ptrs.png',
-
-			# Venn diagrams and adjacency matrices
-			f'{self.save_dir}/cyclers_venn.png',
-			f'{self.save_dir}/noncyclers_venn.png',
-			f'{self.save_dir}/noncycler_occupancy_vs_cyclers.png',
-
-			# Adjacency heatmap
-			f'{self.save_dir}/cycler_non_cyclers_adjacency_heatmap.png',
+			f'{self.save_dir}/decile_intersections_heatmap.png',
 		]
 
 		placed_images = layout_images_vertically(
@@ -809,27 +927,16 @@ class FigureNucleosomes:
 			between_padding=30,
 			margin=(30, 30),
 			widths=[400, 400, 400],
-			image_keys=['tsses', 'histograms', 'ptrs']  # Custom keys
+			image_keys=['tsses', 'histograms', 'ptrs']
 		)
-
 
 		placed_images = layout_images_horizontally(
 			compositor,
-			image_paths[3:5],
+			[image_paths[3]],
 			between_padding=30,
 			margin=(460, 30),
-			heights=[300, 300],
-			image_keys=['cyclers_venn', 'noncyclers_venn'],  # Custom keys
-			available_width=530
-		)
-
-		placed_images = layout_images_horizontally(
-			compositor,
-			image_paths[5:7],
-			between_padding=30,
-			margin=(460, 320),
-			heights=[300, 300],
-			image_keys=['noncyc_occ_venn', 'adjacency'],  # Custom keys
+			heights=[400],
+			image_keys=['decile_heatmap'],
 			available_width=530
 		)
 
@@ -843,110 +950,3 @@ class FigureNucleosomes:
 
 		# Save the composite figure
 		compositor.save(f'{self.figures_dir}/Supplemental9_Nucleosome_metrics.png')
-
-
-def create_three_set_venn(set1, set2, set3, 
-						 labels=None, 
-						 colors=None, 
-						 alpha=0.6,
-						 title="Three-Set Venn Diagram",
-						 figsize=(5, 4),
-						 print_counts=False,
-						 circle_line_width=1,
-						 circle_line_color='black'):
-	"""
-	Create a three-set Venn diagram from three arrays/lists.
-	
-	Returns:
-	--------
-	fig, ax : matplotlib figure and axes objects
-	venn_diagram : matplotlib_venn object
-	intersection_data : dict containing intersection information
-	"""
-	from matplotlib_venn import venn3, venn3_circles
-	from matplotlib.patches import Circle
-
-	# Convert inputs to sets for set operations
-	s1 = set(set1)
-	s2 = set(set2)
-	s3 = set(set3)
-	
-	# Set default labels if not provided
-	if labels is None:
-		labels = ['Set 1', 'Set 2', 'Set 3']
-	
-	# Set default colors if not provided
-	if colors is None:
-		colors = [
-			plt.cm.Reds(0.3),
-			plt.cm.Blues(0.25),
-			plt.cm.Purples(0.32),
-		]
-	
-	# Create figure and axis
-	fig, ax = plt.subplots(figsize=figsize)
-	
-	# Create the Venn diagram
-	venn_diagram = venn3([s1, s2, s3], set_labels=labels, 
-		ax=ax, alpha=alpha, 
-		set_colors=colors)
-
-	from src.plot_helpers import blend_colors, blend_three_colors
-
-	# 2-way intersections
-	if venn_diagram.get_patch_by_id('110'):  # A ∩ B (not C)
-		blended_ab = blend_colors(colors[0], colors[1])
-		venn_diagram.get_patch_by_id('110').set_facecolor(blended_ab)
-	
-	if venn_diagram.get_patch_by_id('101'):  # A ∩ C (not B)
-		blended_ac = blend_colors(colors[0], colors[2])
-		venn_diagram.get_patch_by_id('101').set_facecolor(blended_ac)
-	
-	if venn_diagram.get_patch_by_id('011'):  # B ∩ C (not A)
-		blended_bc = blend_colors(colors[1], colors[2])
-		venn_diagram.get_patch_by_id('011').set_facecolor(blended_bc)
-	
-	# 3-way intersection
-	if venn_diagram.get_patch_by_id('111'):  # A ∩ B ∩ C
-		blended_abc = blend_three_colors(colors[0], colors[1], colors[2])
-		venn_diagram.get_patch_by_id('111').set_facecolor(blended_abc)
-
-	# Add lines around each circle
-	for patch in venn_diagram.patches:
-	    patch.set_edgecolor(circle_line_color)
-	    patch.set_linewidth(circle_line_width)
-	
-	# Calculate intersection data
-	intersection_data = {
-		'set1_only': len(s1 - s2 - s3),
-		'set2_only': len(s2 - s1 - s3),
-		'set3_only': len(s3 - s1 - s2),
-		'set1_and_set2_only': len(s1 & s2 - s3),
-		'set1_and_set3_only': len(s1 & s3 - s2),
-		'set2_and_set3_only': len(s2 & s3 - s1),
-		'all_three': len(s1 & s2 & s3),
-		'total_unique': len(s1 | s2 | s3),
-		'set1_total': len(s1),
-		'set2_total': len(s2),
-		'set3_total': len(s3)
-	}
-	
-	# Add title
-	plt.title(title, fontsize=16, fontweight='bold', pad=20)
-	
-	# Print intersection summary if show_counts is True
-	if print_counts:
-		print("Intersection Summary:")
-		print(f"Total unique items: {intersection_data['total_unique']}")
-		print(f"{labels[0]} only: {intersection_data['set1_only']}")
-		print(f"{labels[1]} only: {intersection_data['set2_only']}")
-		print(f"{labels[2]} only: {intersection_data['set3_only']}")
-		print(f"{labels[0]} ∩ {labels[1]} only: {intersection_data['set1_and_set2_only']}")
-		print(f"{labels[0]} ∩ {labels[2]} only: {intersection_data['set1_and_set3_only']}")
-		print(f"{labels[1]} ∩ {labels[2]} only: {intersection_data['set2_and_set3_only']}")
-		print(f"All three sets: {intersection_data['all_three']}")
-	
-	# Adjust layout and show
-	plt.tight_layout()
-	
-	return fig, ax, venn_diagram, intersection_data

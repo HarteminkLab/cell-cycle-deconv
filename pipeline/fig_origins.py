@@ -64,9 +64,18 @@ dynamics. Then sharing some clear examples of these dynamics.
 		self.origin_timings = origin_timings
 
 	def setup_processors(self, force_recompute=False):
-		from pipeline.origin_metrics_processor import OriginFootprintProcessor
-		self.origin_processor = OriginFootprintProcessor(self.output_dir)
-		self.origin_processor.process_all_origins(self.origin_timings, force_recompute=force_recompute)
+
+		from src.replication_fork_processor import OriginReplicationForkProcessor
+		fork_processor = OriginReplicationForkProcessor(self.output_dir)
+		fork_processor.process_all_origins_fork_progression(self.origin_timings,
+                                                         force_recompute=force_recompute)
+		self.fork_processor = fork_processor
+
+		from src.replication_fork_processor import OriginReplicationForkProcessor
+		fork_processor_no_copy = OriginReplicationForkProcessor(self.output_dir, copy_correct=False)
+		fork_processor_no_copy.process_all_origins_fork_progression(self.origin_timings,
+                                                         force_recompute=force_recompute)
+		self.fork_processor_no_copy = fork_processor_no_copy
 
 		from src.GenomeDeconvolutionAnalysis import GenomeDeconvolutionAnalysis
 		from pipeline.transcription_processor import ExpressionAnalysisProcessor
@@ -81,6 +90,32 @@ dynamics. Then sharing some clear examples of these dynamics.
 
 		self.genome_deconv_analysis = GenomeDeconvolutionAnalysis(
 			'output/draft4_run/')
+
+
+	def plot_replication_fork_heatmaps(self):
+
+		_ = self.fork_processor.plot_all_origin_percentiles('occupancy', normalize=True,
+						   branch='t', num_percentiles=5, 
+						   inferred=True,
+						   percentiles_to_plot=[0, 4],
+						   figsize=(7.5, 4.75))
+		save_figure_for_paper(f"{self.save_dir}/fork_quintiles_1_5_occupancy.png")
+
+		_ = self.fork_processor.plot_all_origin_percentiles('occupancy', normalize=True,
+						inferred=True, branch='t', num_percentiles=5, figsize=(7, 7),
+											  plot_phase_labels=False)
+		save_figure_for_paper(f"{self.save_dir}/fork_quintiles_inferred_occupancy.png")
+
+		_ = self.fork_processor.plot_all_origin_percentiles('occupancy', normalize=False,
+			inferred=True, branch='t', num_percentiles=5, figsize=(7, 7),
+													  plot_phase_labels=False)
+		plt.subplots_adjust(hspace=0.125)
+		save_figure_for_paper(f"{self.save_dir}/fork_quintiles_inferred_not_normalized.png")
+
+		_ = self.fork_processor_no_copy.plot_all_origin_percentiles('occupancy', normalize=True,
+						inferred=True, branch='t', num_percentiles=5, figsize=(7, 7),
+											  plot_phase_labels=False, plotting_xlim=(-20000, 20000))
+		save_figure_for_paper(f"{self.save_dir}/fork_quintiles_no_copy.png")
 
 
 	def plot_origin_timing(self):
@@ -228,30 +263,19 @@ dynamics. Then sharing some clear examples of these dynamics.
 
 	def plot_all(self):
 
-		# self.plot_origin_timing()
-		# self.plot_all_and_inferred_enrichments()
+		self.plot_origin_timing()
+		self.plot_all_and_inferred_enrichments()
 
-		# self.origin_processor.plot_origin_metrics_heatmaps()
-		# save_figure_for_paper(f"{self.save_dir}/all_origin_metrics_heatmap.png")
+		# 'oridb_526', # ARS1213, early firing with downstream shift
+		# 'oridb_189', # Late firing origin
+		self.plot_origin_locus(self.origin_timings.loc['oridb_526'], "Early firing")
+		save_figure_for_paper(f"{self.save_dir}/early_origin_locus.png")
 
-		# inferred_firing_origin = self.origin_timings
-		# inferred_firing_origin = inferred_firing_origin[inferred_firing_origin.inferred_firing].sort_values('replication_time')
-		# self.origin_processor.plot_origin_metrics_heatmaps(inferred_firing_origin.index)
-		# save_figure_for_paper(f"{self.save_dir}/inferred_firing_origin_metrics_heatmap.png")
+		self.plot_origin_locus(self.origin_timings.loc['oridb_189'], "Late firing")
+		save_figure_for_paper(f"{self.save_dir}/late_origin_locus.png")
 
-		# # 'oridb_526', # ARS1213, early firing with downstream shift
-		# # 'oridb_189', # Late firing origin
-		# self.plot_origin_locus(self.origin_timings.loc['oridb_526'], "Early firing")
-		# save_figure_for_paper(f"{self.save_dir}/early_origin_locus.png")
-
-		# self.plot_origin_locus(self.origin_timings.loc['oridb_189'], "Late firing")
-		# save_figure_for_paper(f"{self.save_dir}/late_origin_locus.png")
-
-		self.origin_processor.plot_origin_metrics_heatmaps(metric_key='entropy')
-		save_figure_for_paper(f"{self.save_dir}/origins_heatmap_entropy.png")
-
-		self.origin_processor.plot_origin_metrics_heatmaps()
-		save_figure_for_paper(f"{self.save_dir}/origins_heatmap_occupancy.png")
+		# Plot occupancy replication fork heatmaps
+		self.plot_replication_fork_heatmaps()
 
 
 	def layout_panel(self):
@@ -261,15 +285,14 @@ dynamics. Then sharing some clear examples of these dynamics.
 			add_panel_labels_to_images, layout_images_horizontally
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 1010, debug_mode=True)
+		compositor = FigureCompositor(1024, 1000, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/origin_replication_times.png',
-			f'{self.save_dir}/origins_heatmap_entropy.png',
-			f'{self.save_dir}/early_origin_enrichments.png',
-			f'{self.save_dir}/origins_heatmap_occupancy.png',
 			f'{self.save_dir}/early_origin_locus.png',
-			f'{self.save_dir}/late_origin_locus.png',
+			f'{self.save_dir}/early_origin_enrichments.png',
+			f'{self.save_dir}/fork_quintiles_1_5_occupancy.png',
+			f'{self.save_dir}/fork_quintiles_inferred_occupancy.png',
 		]
 
 		placed_images = layout_images_horizontally(
@@ -277,13 +300,13 @@ dynamics. Then sharing some clear examples of these dynamics.
 			image_paths[:2],
 			between_padding=30,
 			offsets=[(0, 0), (0, 0)],
-			width_proportions=[0.545, 1.],
+			width_proportions=[0.4, 0.6],
 			margin=(30, 30),
-			image_keys=['origins_repl', 'entropy']  # Custom keys
+			image_keys=['origins_repl', 'early_locus']  # Custom keys
 		)
 
 		origins_img = placed_images['origins_repl']
-		entropy_img = placed_images['entropy']
+		locus_img = placed_images['early_locus']
 
 		e_img = compositor.place_image(
 			image_paths[2], origins_img['logical_position'][0],
@@ -291,34 +314,64 @@ dynamics. Then sharing some clear examples of these dynamics.
 			width=origins_img['logical_size'][0], name='enrichment'
 		)
 
-		occupancy_img = compositor.place_image(
-			image_paths[3], entropy_img['logical_position'][0],
-			entropy_img['logical_position'][1]+entropy_img['logical_size'][1]+30,
-			width=entropy_img['logical_size'][0], name='occupancy'
-		)
-
-		y_position = occupancy_img['logical_position'][1]+occupancy_img['logical_size'][1]+30
+		y_position = locus_img['logical_position'][1]+locus_img['logical_size'][1]+30
 		placed_images = layout_images_horizontally(
 			compositor,
-			image_paths[4:],
+			image_paths[3:],
 			between_padding=30,
 			offsets=[(0, 0), (0, 0)],
-			width_proportions=[1.0, 1.],
+			width_proportions=[0.61, 0.39],
 			margin=(30, y_position),
-			image_keys=['early', 'late']  # Custom keys
+			image_keys=['fork', 'fork_quintiles']  # Custom keys
 		)
 
 		# Add panel labels
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			"ACBDEF",
+			"ACBDE",
 			font_size=30,
 			offset=[-10, 0]
 		)
 
 		# Save the composite figure
 		compositor.save(f'{self.figures_dir}/Figure6_Origins.png')
+
+	def layout_supplemental_panel(self):
+
+		from pipeline.figure_composer import FigureCompositor
+		from pipeline.figure_composer_helpers import layout_images_vertically, \
+			add_panel_labels_to_images, layout_images_horizontally
+
+		# Create compositor with wider dimensions for horizontal layout
+		compositor = FigureCompositor(1024, 330, debug_mode=True)
+
+		image_paths = [
+			f'{self.save_dir}/late_origin_locus.png',
+			f'{self.save_dir}/fork_quintiles_inferred_not_normalized.png',
+			f'{self.save_dir}/fork_quintiles_no_copy.png',
+		]
+
+		placed_images = layout_images_horizontally(
+			compositor,
+			image_paths,
+			between_padding=30,
+			offsets=[(0, 0), (0, 0), (0, 0)],
+			width_proportions=[1, 1, 1],
+			margin=(30, 30),
+			image_keys=['late', 'quintiles', 'no_copy']
+		)
+
+		# Add panel labels
+		add_panel_labels_to_images(
+			compositor, 
+			compositor.placed_images,
+			font_size=30,
+			offset=[-10, 0]
+		)
+
+		# Save the composite figure
+		compositor.save(f'{self.figures_dir}/SupplementalX_Origins.png')
 
 
 def calculate_enrichment_score(ranked_df, group_label):

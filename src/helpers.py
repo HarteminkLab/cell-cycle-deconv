@@ -961,3 +961,18 @@ def find_mode_float(data, bin_width):
 	mode_estimate = (edges[max_bin_index] + edges[max_bin_index + 1]) / 2
 	
 	return mode_estimate
+
+
+def _to_ordinal(number):
+
+	if number == 1:
+		return "1st"
+	elif number == 2:
+		return "2nd"
+	elif number == 3:
+		return "3rd"
+	else:
+		return f"{number:.0f}th"
+
+def _to_ordinal_from_array(numbers):
+	return [_to_ordinal(x) for x in numbers]

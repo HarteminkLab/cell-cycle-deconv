@@ -12,7 +12,7 @@ class HistoneModificationGroupedPlotter:
 	while maintaining the three-row metric structure.
 	"""
 	
-	def __init__(self, enrichment_results, subset_n):
+	def __init__(self, enrichment_results, n):
 		"""
 		Initialize the plotter with enrichment results data.
 		
@@ -25,7 +25,7 @@ class HistoneModificationGroupedPlotter:
 			Number of nucleosomes in the subset for labeling purposes
 		"""
 		self.enrichment_results = enrichment_results
-		self.subset_n = subset_n
+		self.n = n
 		self.organizer = HistoneModificationOrganizer()
 		
 		# Define modification type groupings
@@ -115,7 +115,8 @@ class HistoneModificationGroupedPlotter:
 		# Configure axes
 		ax.set_yticks([])
 		if show_ylabel and metric_name:
-			ax.set_ylabel(metric_name, rotation=0, ha='right', va='center', fontsize=12)
+			ax.set_ylabel(metric_name, rotation=0, ha='right', va='center', fontsize=14,
+				labelpad=0)
 		
 		# Add significance markers if plotting differences
 		if plot_key == 'difference':
@@ -144,13 +145,14 @@ class HistoneModificationGroupedPlotter:
 			xticks = np.arange(len(data_subset))
 			xtick_labels = data_subset.index
 			ax.set_xticks(xticks)
-			ax.set_xticklabels(xtick_labels, rotation=45, ha='right')
+			ax.set_xticklabels(xtick_labels, rotation=45, ha='right', fontsize=13)
 		else:
 			ax.set_xticks([])
 		
 		return im
 	
-	def plot_grouped_enrichment(self, group='high', plot_key='difference', figsize=(13, 2.5)):
+	def plot_grouped_enrichment(self, group='high', plot_key='difference', figsize=(13, 2.5),
+		title=None):
 		"""
 		Create the main grouped enrichment plot.
 		
@@ -174,7 +176,8 @@ class HistoneModificationGroupedPlotter:
 			labels=self.group_names,
 			figsize=figsize,
 			horizontal_padding=0.1,
-			vertical_padding=0.2
+			vertical_padding=0.2,
+			title_rows=[0, 1, 2]
 		)
 		
 		# Get enrichment data
@@ -205,7 +208,7 @@ class HistoneModificationGroupedPlotter:
 				ax = axes_groups[metric_idx][group_idx]
 				show_xticks = (metric_idx == 2)  # Only bottom row shows x-ticks
 				show_ylabel = (group_idx == 0)  # Only first column shows y-labels
-				
+
 				current_im = self._plot_metric_group(
 					ax, enrichment_data, modification_type, 
 					plot_key=plot_key, show_xticks=show_xticks, 
@@ -222,8 +225,11 @@ class HistoneModificationGroupedPlotter:
 			 titlesuffix = 'random nucleosomes'
 
 		title_label = "enrichment" if plot_key == 'p_value_fdr' else "differences"
-		fig.suptitle(f"Histone modification {title_label}, {titlesuffix}", 
-					fontsize=24, fontweight='demi', y=1.16)
+
+		if title is None:
+			title = f"Histone modification {title_label}, {titlesuffix}"
+		fig.suptitle(title, 
+					fontsize=24, fontweight='demi')
 		
 		return fig
 
@@ -333,5 +339,141 @@ class HistoneModificationGroupedPlotter:
 		# Plot p-values (bottom)  
 		plt.subplot(gs[1])
 		self.plot_grouped_enrichment(group='high', plot_key='p_value_fdr', figsize=figsize)
+		
+		return fig
+
+
+	def plot_decile_enrichment_gradient(self, plot_key='difference', n_deciles=10, 
+		title=None,
+		figsize=(13, 13)):
+		"""
+		Create a gradient heatmap showing enrichment across all deciles for all metrics.
+		
+		Parameters:
+		-----------
+		plot_key : str
+			What to plot ('difference' or 'p_value_fdr')
+		n_deciles : int
+			Number of deciles to plot (should match analysis)
+		figsize : tuple
+			Figure size (width, height)
+			
+		Returns:
+		--------
+		matplotlib.figure.Figure
+			The created figure showing decile gradients
+		"""
+		# Create proportional subplots
+		fig, axes_groups = create_proportional_subplots_3rows(
+			self.group_counts,
+			labels=self.group_names,
+			figsize=figsize,
+			horizontal_padding=0.1,
+			vertical_padding=0.5,
+			title_rows=[0, 1, 2]
+		)
+		
+		# Metric names and data
+		metrics = ['positioning', 'occupancy', 'entropy']
+		metric_names = [
+			f"Position",
+			f"Occupancy", 
+			f"Entropy"
+		]
+		
+		# For each metric and modification type group
+		for metric_idx, (metric, metric_name) in enumerate(zip(metrics, metric_names)):
+			for group_idx, (modification_type, group_name) in enumerate(zip(self.group_keys, self.group_names)):
+				
+				ax = axes_groups[metric_idx][group_idx]
+				
+				# Get modifications for this group
+				current_mod_names = self._get_group_modifications(modification_type)
+				
+				if len(current_mod_names) == 0:
+					ax.set_visible(False)
+					continue
+				
+				# Collect data across all deciles for this metric
+				decile_data = []
+				for decile_num in range(n_deciles):
+					decile_key = f'decile_{decile_num}'
+					if decile_key in self.enrichment_results[metric]:
+						decile_enrichment = self.enrichment_results[metric][decile_key]
+						decile_subset = decile_enrichment.set_index('modification').loc[current_mod_names]
+						decile_data.append(decile_subset[plot_key].values)
+				
+				if not decile_data:
+					ax.set_visible(False)
+					continue
+					
+				# Create 2D array: rows = deciles, columns = modifications
+				plot_matrix = np.array(decile_data)
+				
+				# Get colorbar parameters for consistent scaling
+				cb_params = self._get_colorbar_params(plot_key)
+				
+				# Create heatmap
+				im = ax.imshow(plot_matrix, cmap=cb_params['cmap'], 
+							   vmin=cb_params['vmin'], vmax=cb_params['vmax'], 
+							   aspect='auto', interpolation='nearest')
+				
+				# Configure y-axis (deciles)
+				if group_idx == 0:
+					ax.set_yticks(range(n_deciles))
+					ytick_labels = [f'{i+1}' for i in range(n_deciles)]
+					ytick_labels = ["Cyclic, 1"] +  ytick_labels[1:-1] + ["Stable, 10"]
+					ax.set_yticklabels(ytick_labels, fontsize=13)
+				
+				# Configure x-axis (modifications)
+				show_xticks = True#(metric_idx == 2)  # Only bottom row
+				if show_xticks:
+					ax.set_xticks(range(len(current_mod_names)))
+					ax.set_xticklabels(current_mod_names, rotation=45, ha='right')
+				else:
+					ax.set_xticks([])
+				
+				# Configure y-axis label
+				show_ylabel = (group_idx == 0)  # Only first column
+				if show_ylabel and metric_name:
+					ax.set_ylabel(metric_name, rotation=0, ha='right', va='center', fontsize=20)
+				
+				# Add significance markers if plotting differences
+				if plot_key == 'difference':
+					sig = 1e-3
+					super_sig = 1e-5
+					for decile_idx in range(n_deciles):
+						decile_key = f'decile_{decile_idx}'
+						if decile_key in self.enrichment_results[metric]:
+							decile_enrichment = self.enrichment_results[metric][decile_key]
+							decile_subset = decile_enrichment.set_index('modification').loc[current_mod_names]
+							for mod_idx, (name, row) in enumerate(decile_subset.iterrows()):
+								if row.p_value_fdr < sig:
+									sig_text = '*'
+									if row.p_value_fdr < super_sig:
+										sig_text = '**'
+									ax.text(mod_idx, decile_idx, sig_text, ha='center', va='center', 
+										   fontsize=8, color='black')
+				
+				# Add modification type separators
+				# for histones (e.g. H2, H3, H4)
+				horizontal_seps = {
+					'Acetylation': [1, 8],
+					'Methylation': [8], 
+					'Phosphorylation': [1],
+				}
+				
+				if modification_type in horizontal_seps.keys():
+					for index in horizontal_seps[modification_type]:
+						ax.axvline(index-0.5, c='black', zorder=1, lw=.75)
+		
+		# Add overall title
+		title_label = "enrichment gradient" if plot_key == 'p_value_fdr' else "difference gradient"
+		
+		if title is None:
+			title = f"Histone modification across cyclic PTR deciles, n={self.n}"
+
+		fig.suptitle(title, 
+					fontsize=24, fontweight='demi', y=0.98)
 		
 		return fig

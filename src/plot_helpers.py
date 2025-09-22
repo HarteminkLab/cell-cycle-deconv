@@ -909,62 +909,63 @@ def get_truncated_RdBu_r():
 
 
 def create_proportional_subplots_3rows(sizes, labels=None, figsize=(15, 18), 
-                                       horizontal_padding=0.3, vertical_padding=0.2,
-                                       subplot_kw=None, **fig_kwargs):
-    """
-    Create 3 rows of subplots with widths proportional to the given sizes using gridspec.
+									   horizontal_padding=0.3, vertical_padding=0.2,
+									   title_rows=[0],
+									   subplot_kw=None, **fig_kwargs):
+	"""
+	Create 3 rows of subplots with widths proportional to the given sizes using gridspec.
 
-    Used in nucleosome histones heatmap plotting to group histone modifications.
-    See fig_nucleosomes.py and histones.py
-    
-    Args:
-        sizes (list): List of sizes/counts that determine the relative widths
-        labels (list, optional): Labels for each subplot. If None, uses indices.
-        figsize (tuple): Figure size (width, height)
-        horizontal_padding (float): Horizontal spacing between columns (wspace)
-        vertical_padding (float): Vertical spacing between rows (hspace)
-        subplot_kw (dict, optional): Keyword arguments to pass to subplot creation
-        **fig_kwargs: Additional keyword arguments for figure creation
-        
-    Returns:
-        tuple: (fig, axes) where axes is a 2D list [row][col] of matplotlib axes objects
-    """
-    print(sizes)
-    if not sizes or all(s == 0 for s in sizes):
-        raise ValueError("All sizes cannot be zero or empty")
-    
-    # Convert sizes to width ratios (normalize to avoid very small/large numbers)
-    total_size = sum(sizes)
-    width_ratios = [size / total_size * 100 for size in sizes]  # Scale to reasonable numbers
-    
-    # Create figure and gridspec for 3 rows
-    fig = plt.figure(figsize=figsize, **fig_kwargs)
-    gs = gridspec.GridSpec(3, len(sizes), 
-                          width_ratios=width_ratios,
-                          height_ratios=[1, 1, 1],  # Equal height rows
-                          hspace=vertical_padding, 
-                          wspace=horizontal_padding)
-    
-    # Create subplots - 2D structure [row][col]
-    axes = []
-    subplot_kw = subplot_kw or {}
-    
-    for row in range(3):
-        row_axes = []
-        for col in range(len(sizes)):
-            ax = fig.add_subplot(gs[row, col], **subplot_kw)
-            row_axes.append(ax)
-            ax.set_xticks([])
-            ax.set_yticks([])            
-            
-            # Add title if labels provided (only for top row to avoid clutter)
-            if row == 0:  # Only add titles to top row
-                if labels and col < len(labels):
-                    ax.set_title(f"{labels[col]}", fontsize=14)
-        
-        axes.append(row_axes)
-    
-    return fig, axes
+	Used in nucleosome histones heatmap plotting to group histone modifications.
+	See fig_nucleosomes.py and histones.py
+	
+	Args:
+		sizes (list): List of sizes/counts that determine the relative widths
+		labels (list, optional): Labels for each subplot. If None, uses indices.
+		figsize (tuple): Figure size (width, height)
+		horizontal_padding (float): Horizontal spacing between columns (wspace)
+		vertical_padding (float): Vertical spacing between rows (hspace)
+		subplot_kw (dict, optional): Keyword arguments to pass to subplot creation
+		**fig_kwargs: Additional keyword arguments for figure creation
+		
+	Returns:
+		tuple: (fig, axes) where axes is a 2D list [row][col] of matplotlib axes objects
+	"""
+	print(sizes)
+	if not sizes or all(s == 0 for s in sizes):
+		raise ValueError("All sizes cannot be zero or empty")
+	
+	# Convert sizes to width ratios (normalize to avoid very small/large numbers)
+	total_size = sum(sizes)
+	width_ratios = [size / total_size * 100 for size in sizes]  # Scale to reasonable numbers
+	
+	# Create figure and gridspec for 3 rows
+	fig = plt.figure(figsize=figsize, **fig_kwargs)
+	gs = gridspec.GridSpec(3, len(sizes), 
+						  width_ratios=width_ratios,
+						  height_ratios=[1, 1, 1],  # Equal height rows
+						  hspace=vertical_padding, 
+						  wspace=horizontal_padding)
+	
+	# Create subplots - 2D structure [row][col]
+	axes = []
+	subplot_kw = subplot_kw or {}
+	
+	for row in range(3):
+		row_axes = []
+		for col in range(len(sizes)):
+			ax = fig.add_subplot(gs[row, col], **subplot_kw)
+			row_axes.append(ax)
+			ax.set_xticks([])
+			ax.set_yticks([])            
+			
+			# Add title to rows where needed
+			if row in title_rows:
+				if labels and col < len(labels):
+					ax.set_title(f"{labels[col]}", fontsize=18, pad=8)
+		
+		axes.append(row_axes)
+	
+	return fig, axes
 
 def blend_colors(color1, color2, alpha=0.5):
 	"""Blend two colors together"""

@@ -173,6 +173,159 @@ class NucleosomeDataLoader:
 				results[(chrom, nucleosome_center)] = None
 		
 		return results
+
+	def process_all_brogaard_nucleosomes(self, 
+										brogaard_dataset,
+										wide_window_size=200, window_size=160, 
+										force_recompute=False):
+		"""
+		Process all individual Brogaard nucleosomes and create summary DataFrames.
+		
+		Parameters
+		----------
+		wide_window_size : int, optional
+			Wide window for positioning calculation (default: 200bp)
+		window_size : int, optional
+			Analysis window size (default: 160bp)
+		force_recompute : bool, optional
+			Whether to recompute even if cached files exist
+			
+		Returns
+		-------
+		dict
+			Dictionary with keys 'entropy', 'occupancy', 'positioning'
+			Each value is a DataFrame with Brogaard nucleosome IDs as rows and timepoints as columns
+		"""
+		from src.utils import print_fl
+		from src.timer import Timer
+		
+		# Check for cached data unless force_recompute is True
+		if not force_recompute and self._check_brogaard_cached_files_exist():
+			print_fl("Loading cached Brogaard nucleosome metrics from disk...")
+			return self._load_brogaard_nucleosome_metrics()
+		
+		print_fl(f"Starting batch processing of {len(brogaard_dataset)} Brogaard nucleosomes...")
+		
+		# Determine number of timepoints from first successful nucleosome
+		n_timepoints = None
+		for nuc_id, nucleosome in brogaard_dataset.iterrows():
+			try:
+				chrom = int(nucleosome['chr'])
+				nuc_center = int(nucleosome['pos'])
+
+				test_data = self.load_nucleosome_data(chrom, nuc_center, wide_window_size)
+
+				
+				n_timepoints = test_data.shape[0]
+				print_fl(f"Detected {n_timepoints} timepoints from sample nucleosome {nuc_id}")
+				break
+			except Exception as e:
+				continue
+				
+		if n_timepoints is None:
+			raise RuntimeError("Could not determine number of timepoints from any Brogaard nucleosome")
+		
+		# Initialize result DataFrames
+		nucleosome_ids = brogaard_dataset.index.tolist()
+		timepoint_columns = list(range(n_timepoints))
+		
+		# Create DataFrames for each metric
+		brogaard_metrics = {
+			'entropy': pd.DataFrame(index=nucleosome_ids, columns=timepoint_columns, dtype=float),
+			'occupancy': pd.DataFrame(index=nucleosome_ids, columns=timepoint_columns, dtype=float),
+			'positioning': pd.DataFrame(index=nucleosome_ids, columns=timepoint_columns, dtype=float)
+		}
+		
+		timer = Timer()
+		successful_count = 0
+		failed_count = 0
+		
+		# Process each nucleosome
+		for i, (nuc_id, nucleosome) in enumerate(brogaard_dataset.iterrows()):
+			try:
+				chrom = int(nucleosome['chr'])
+				nuc_center = int(nucleosome['pos'])
+				
+				# Load data and compute summaries
+				data = self.load_nucleosome_data(chrom, nuc_center, wide_window_size)
+				summaries = self.compute_nucleosome_summaries(data, wide_window_size, window_size)
+				
+				# Store results in DataFrames
+				brogaard_metrics['entropy'].loc[nuc_id] = summaries['entropy']
+				brogaard_metrics['occupancy'].loc[nuc_id] = summaries['occupancy']
+				brogaard_metrics['positioning'].loc[nuc_id] = summaries['positioning']
+				
+				successful_count += 1
+				
+			except Exception as e:
+				print_fl(f"Failed processing nucleosome {nuc_id}: {e}")
+				failed_count += 1
+				continue
+			
+			# Progress tracking
+			if (i + 1) % 500 == 0:  # More frequent updates since processing individual nucleosomes
+				print_fl(f"{i + 1}/{len(brogaard_dataset)} ({successful_count} successful, {failed_count} failed) {timer.get_time()}")
+		
+		print_fl(f"Completed processing {len(brogaard_dataset)} Brogaard nucleosomes!")
+		print_fl(f"Successful: {successful_count}, Failed: {failed_count}")
+		
+		# Save results to disk
+		print_fl("Saving Brogaard results to disk...")
+		self._save_brogaard_nucleosome_metrics(brogaard_metrics)
+		print_fl(f"Results saved to {self.save_dir}/")
+		
+		# Store in class instance
+		self.brogaard_chromatin_metrics = brogaard_metrics
+		
+		return brogaard_metrics
+
+	def _save_brogaard_nucleosome_metrics(self, brogaard_metrics):
+		"""
+		Save Brogaard nucleosome metrics DataFrames to CSV files.
+		
+		Parameters
+		----------
+		brogaard_metrics : dict
+			Dictionary with 'entropy', 'occupancy', 'positioning' DataFrames
+		"""
+		brogaard_metrics['entropy'].to_csv(f"{self.save_dir}/brogaard_entropy.csv")
+		brogaard_metrics['occupancy'].to_csv(f"{self.save_dir}/brogaard_occupancy.csv")
+		brogaard_metrics['positioning'].to_csv(f"{self.save_dir}/brogaard_positioning.csv")
+
+	def _load_brogaard_nucleosome_metrics(self):
+		"""
+		Load Brogaard nucleosome metrics DataFrames from CSV files.
+		
+		Returns
+		-------
+		dict
+			Dictionary with 'entropy', 'occupancy', 'positioning' DataFrames
+		"""
+		brogaard_metrics = {
+			'entropy': pd.read_csv(f"{self.save_dir}/brogaard_entropy.csv", index_col=0),
+			'occupancy': pd.read_csv(f"{self.save_dir}/brogaard_occupancy.csv", index_col=0),
+			'positioning': pd.read_csv(f"{self.save_dir}/brogaard_positioning.csv", index_col=0)
+		}
+		
+		self.brogaard_chromatin_metrics = brogaard_metrics
+		return brogaard_metrics
+
+	def _check_brogaard_cached_files_exist(self):
+		"""
+		Check if all 3 required Brogaard CSV files exist.
+		
+		Returns
+		-------
+		bool
+			True if all files exist, False otherwise
+		"""
+		required_files = [
+			"brogaard_entropy.csv",
+			"brogaard_occupancy.csv", 
+			"brogaard_positioning.csv"
+		]
+		
+		return all(os.path.exists(f"{self.save_dir}/{filename}") for filename in required_files)
 	
 	def process_all_gene_nucleosomes(self, gene_dataset, 
 								   nucleosome_keys=['+1 nucleosome', '-1 nucleosome'],

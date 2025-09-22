@@ -13,7 +13,7 @@ class DeconvolvedChromatinDataLoader(ChromatinDataLoader):
 	"""
 	
 	def __init__(self, output_dir: str, window_size: int = 10000, cache_size: int = 3,
-		chromatin_data_dir: str = None):
+		chromatin_data_dir: str = None, copy_correction=True):
 		"""
 		Initialize the deconvolved data loader.
 		
@@ -28,9 +28,13 @@ class DeconvolvedChromatinDataLoader(ChromatinDataLoader):
 		"""
 		super().__init__(window_size=window_size, cache_size=cache_size)
 		self.output_dir = output_dir
+		self.copy_correction = copy_correction
 
 		if chromatin_data_dir is None:
-			self.chromatin_data_dir = f"{self.output_dir}/chromatin_deconvolution/deconvolution_data"
+			if copy_correction:
+				self.chromatin_data_dir = f"{self.output_dir}/chromatin_deconvolution/deconvolution_data"
+			else:
+				self.chromatin_data_dir = f"{self.output_dir}/chromatin_deconvolution_no_copy/deconvolution_data"
 		else:
 			self.chromatin_data_dir = chromatin_data_dir
 		

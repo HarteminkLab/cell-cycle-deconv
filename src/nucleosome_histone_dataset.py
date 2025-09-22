@@ -89,54 +89,59 @@ class HistonesNucleosomesDataset:
 			'IX': 9, 'X': 10, 'XI': 11, 'XII': 12, 'XIII': 13, 'XIV': 14, 'XV': 15, 'XVI': 16
 		}
 		return roman_numerals.get(roman.upper(), 0)
-	
-	def fuzzy_join_nucleosomes(self, 
-							 weiner_df: pd.DataFrame,
-							 chereji_df: pd.DataFrame,
-							 nucleosome_key: str,
-							 window_size: int = None) -> pd.DataFrame:
+
+	def fuzzy_match_nucleosomes_general(self, 
+									  target_nucleosomes: pd.DataFrame,
+									  chr_col: str,
+									  pos_col: str,
+									  window_size: int = None) -> pd.DataFrame:
 		"""
-		Perform fuzzy matching between Weiner and Chereji nucleosome datasets.
+		General-purpose fuzzy matching between any nucleosome dataset and Weiner nucleosomes.
 		
 		Args:
-			weiner_df: Weiner nucleosome DataFrame
-			chereji_df: Chereji nucleosome DataFrame  
-			nucleosome_key: Column name in Chereji data ('+1 nucleosome' or '-1 nucleosome')
+			target_nucleosomes: DataFrame with nucleosome positions to match
+			chr_col: Column name for chromosome in target_nucleosomes
+			pos_col: Column name for position in target_nucleosomes  
 			window_size: Matching window size in bp
 			
 		Returns:
-			Chereji DataFrame with added 'matched_nuc_id' column
+			target_nucleosomes DataFrame with added 'matched_nuc_id' column
 		"""
+		if self.weiner_nucleosomes is None:
+			self.load_weiner_nucleosomes()
+			
 		window_size = window_size or self.fuzzy_window_size
 		half_window = window_size // 2
 		
-		# Prepare data for merge_asof
-		weiner_prep = weiner_df.reset_index()[['nuc_id', 'chr', 'center']].copy()
+		# Prepare Weiner data for merge_asof
+		weiner_prep = self.weiner_nucleosomes.reset_index()[['nuc_id', 'chr', 'center']].copy()
 		weiner_prep = weiner_prep.sort_values(['chr', 'center'])
 		
-		chereji_prep = chereji_df.reset_index().copy()
-		chereji_prep = chereji_prep.rename(columns={'Chr': 'chr', nucleosome_key: 'canonical_pos'})
-		chereji_prep = chereji_prep.dropna(subset=['canonical_pos'])
-		chereji_prep = chereji_prep.sort_values(['chr', 'canonical_pos'])
+		# Prepare target data
+		target_prep = target_nucleosomes.reset_index().copy()
+		target_prep = target_prep.rename(columns={chr_col: 'chr', pos_col: 'target_pos'})
+
+		target_prep = target_prep.dropna(subset=['target_pos'])
+		target_prep = target_prep.sort_values(['chr', 'target_pos'])
 		
 		# Perform chromosome-wise fuzzy matching
 		results = []
 		
-		for chr_num in chereji_prep['chr'].unique():
+		for chr_num in target_prep['chr'].unique():
 			weiner_chr = weiner_prep[weiner_prep['chr'] == chr_num]
-			chereji_chr = chereji_prep[chereji_prep['chr'] == chr_num]
+			target_chr = target_prep[target_prep['chr'] == chr_num]
 			
-			if weiner_chr.empty or chereji_chr.empty:
-				chereji_chr = chereji_chr.copy()
-				chereji_chr['matched_nuc_id'] = np.nan
-				results.append(chereji_chr)
+			if weiner_chr.empty or target_chr.empty:
+				target_chr = target_chr.copy()
+				target_chr['matched_nuc_id'] = np.nan
+				results.append(target_chr)
 				continue
 			
 			# Use merge_asof for nearest neighbor matching within tolerance
 			matched = pd.merge_asof(
-				chereji_chr,
+				target_chr,
 				weiner_chr[['center', 'nuc_id']],
-				left_on='canonical_pos',
+				left_on='target_pos',
 				right_on='center',
 				tolerance=half_window,
 				direction='nearest'
@@ -148,14 +153,146 @@ class HistonesNucleosomesDataset:
 		
 		# Combine results
 		final_result = pd.concat(results, ignore_index=True)
-		final_result = final_result.rename(columns={'chr': 'Chr', 'canonical_pos': nucleosome_key})
-		final_result = final_result.set_index(chereji_df.index.name)
 		
-		# Reorder columns
-		original_cols = list(chereji_df.columns)
+		# Restore original column names and structure
+		final_result = final_result.rename(columns={'chr': chr_col, 'target_pos': pos_col})
+		
+		# Restore original index
+		if target_nucleosomes.index.name is not None:
+			final_result = final_result.set_index(target_nucleosomes.index.name)
+		else:
+			final_result.index = target_nucleosomes.index
+		
+		# Reorder columns to match original + matched_nuc_id
+		original_cols = list(target_nucleosomes.columns)
 		final_result = final_result[original_cols + ['matched_nuc_id']]
 		
-		return final_result.loc[chereji_df.index]
+		# Order by original index to maintain consistency
+		final_result = final_result.loc[target_nucleosomes.index]
+		
+		# Report matching statistics
+		successful_matches = final_result['matched_nuc_id'].notna().sum()
+		print(f"Fuzzy matching: {successful_matches}/{len(target_nucleosomes)} nucleosomes matched to Weiner dataset")
+
+		return final_result
+
+	def match_brogaard_nucleosomes(self, brogaard_nucleosomes: pd.DataFrame) -> pd.DataFrame:
+		"""
+		Match Brogaard nucleosomes to Weiner nucleosome IDs.
+		
+		Args:
+			brogaard_nucleosomes: DataFrame with 'chromosome' and 'position' columns
+			
+		Returns:
+			Brogaard DataFrame with added 'matched_nuc_id' column
+		"""
+		return self.fuzzy_match_nucleosomes_general(
+			brogaard_nucleosomes,
+			chr_col='chr',
+			pos_col='pos'
+		)
+
+	def match_chereji_nucleosomes(self, 
+							 weiner_df: pd.DataFrame,
+							 chereji_df: pd.DataFrame,
+							 nucleosome_key: str,
+							 window_size: int = None) -> pd.DataFrame:
+		"""
+		Perform fuzzy matching between Weiner and Chereji nucleosome datasets.
+		REFACTORED to use general matching method.
+		
+		Args:
+			weiner_df: Weiner nucleosome DataFrame (unused now, kept for compatibility)
+			chereji_df: Chereji nucleosome DataFrame  
+			nucleosome_key: Column name in Chereji data ('+1 nucleosome' or '-1 nucleosome')
+			window_size: Matching window size in bp
+			
+		Returns:
+			Chereji DataFrame with added 'matched_nuc_id' column
+		"""
+		# Use the general matching method with Chereji-specific column names
+		old_window_size = self.fuzzy_window_size
+		if window_size is not None:
+			self.fuzzy_window_size = window_size
+			
+		try:
+			result = self.fuzzy_match_nucleosomes_general(
+				chereji_df,
+				chr_col='Chr', 
+				pos_col=nucleosome_key
+			)
+		finally:
+			# Restore original window size
+			self.fuzzy_window_size = old_window_size
+			
+		return result
+	
+	# def fuzzy_join_nucleosomes(self, 
+	# 						 weiner_df: pd.DataFrame,
+	# 						 chereji_df: pd.DataFrame,
+	# 						 nucleosome_key: str,
+	# 						 window_size: int = None) -> pd.DataFrame:
+	# 	"""
+	# 	Perform fuzzy matching between Weiner and Chereji nucleosome datasets.
+		
+	# 	Args:
+	# 		weiner_df: Weiner nucleosome DataFrame
+	# 		chereji_df: Chereji nucleosome DataFrame  
+	# 		nucleosome_key: Column name in Chereji data ('+1 nucleosome' or '-1 nucleosome')
+	# 		window_size: Matching window size in bp
+			
+	# 	Returns:
+	# 		Chereji DataFrame with added 'matched_nuc_id' column
+	# 	"""
+	# 	window_size = window_size or self.fuzzy_window_size
+	# 	half_window = window_size // 2
+		
+	# 	# Prepare data for merge_asof
+	# 	weiner_prep = weiner_df.reset_index()[['nuc_id', 'chr', 'center']].copy()
+	# 	weiner_prep = weiner_prep.sort_values(['chr', 'center'])
+		
+	# 	chereji_prep = chereji_df.reset_index().copy()
+	# 	chereji_prep = chereji_prep.rename(columns={'Chr': 'chr', nucleosome_key: 'canonical_pos'})
+	# 	chereji_prep = chereji_prep.dropna(subset=['canonical_pos'])
+	# 	chereji_prep = chereji_prep.sort_values(['chr', 'canonical_pos'])
+		
+	# 	# Perform chromosome-wise fuzzy matching
+	# 	results = []
+		
+	# 	for chr_num in chereji_prep['chr'].unique():
+	# 		weiner_chr = weiner_prep[weiner_prep['chr'] == chr_num]
+	# 		chereji_chr = chereji_prep[chereji_prep['chr'] == chr_num]
+			
+	# 		if weiner_chr.empty or chereji_chr.empty:
+	# 			chereji_chr = chereji_chr.copy()
+	# 			chereji_chr['matched_nuc_id'] = np.nan
+	# 			results.append(chereji_chr)
+	# 			continue
+			
+	# 		# Use merge_asof for nearest neighbor matching within tolerance
+	# 		matched = pd.merge_asof(
+	# 			chereji_chr,
+	# 			weiner_chr[['center', 'nuc_id']],
+	# 			left_on='canonical_pos',
+	# 			right_on='center',
+	# 			tolerance=half_window,
+	# 			direction='nearest'
+	# 		)
+			
+	# 		matched = matched.rename(columns={'nuc_id': 'matched_nuc_id'})
+	# 		matched = matched.drop(columns=['center'])
+	# 		results.append(matched)
+		
+	# 	# Combine results
+	# 	final_result = pd.concat(results, ignore_index=True)
+	# 	final_result = final_result.rename(columns={'chr': 'Chr', 'canonical_pos': nucleosome_key})
+	# 	final_result = final_result.set_index(chereji_df.index.name)
+		
+	# 	# Reorder columns
+	# 	original_cols = list(chereji_df.columns)
+	# 	final_result = final_result[original_cols + ['matched_nuc_id']]
+		
+	# 	return final_result.loc[chereji_df.index]
 	
 	def integrate_datasets(self) -> pd.DataFrame:
 		"""
@@ -171,13 +308,13 @@ class HistonesNucleosomesDataset:
 			self.load_chereji_nucleosomes()
 			
 		# Perform fuzzy matching for +1 and -1 nucleosomes
-		plus_one_matched = self.fuzzy_join_nucleosomes(
+		plus_one_matched = self.match_chereji_nucleosomes(
 			self.weiner_nucleosomes, 
 			self.chereji_nucleosomes,
 			'+1 nucleosome'
 		)
 		
-		minus_one_matched = self.fuzzy_join_nucleosomes(
+		minus_one_matched = self.match_chereji_nucleosomes(
 			self.weiner_nucleosomes,
 			self.chereji_nucleosomes, 
 			'-1 nucleosome'

@@ -576,6 +576,41 @@ class ModelConfig(object):
 		print("Daughter: ", bottom_smoothing_tps_length/top_smoothing_tps_length)
 		print()
 
+def retrieve_phase_index_ticks(branch, config1, with_labels=False):
+
+	indices = np.arange(len(config1.get_Hpositions_for_branch('t')))
+
+	g1_len = len(config1.get_Hpositions_for_phase('CG1'))
+	s_len = len(config1.get_Hpositions_for_phase('S'))
+	g2m_len = len(config1.get_Hpositions_for_phase('G2M'))
+
+	# Compute locations for tick marks
+	g1_mid = g1_len//2
+	s_mid = s_len//2
+	g2m_mid = g2m_len//2
+
+	g1_start = indices[0]
+	mid_g1_tp = indices[g1_mid]
+	g1_end = indices[g1_len]
+	s_mid = indices[g1_len+s_mid]
+	s_end = indices[g1_len+s_len]
+	g2m_mid = indices[g1_len+s_len+g2m_mid]
+	g2m_end = indices[-1]
+
+	phase_ticks = [mid_g1_tp, s_mid, g2m_mid]
+	edge_ticks = [g1_start, g1_end, s_end, g2m_end]
+
+	if with_labels:
+		if branch == 'i': labels = ['RG1', 'S', 'G2/M']
+		elif branch == 'tb': labels = ['mean G1', 'S', 'G2/M']
+		elif branch == 't': labels = ['G1', 'S', 'G2/M']
+		elif branch == 'b': labels = ['G1', 'S', 'G2/M']
+		else: raise ValueError()
+		return phase_ticks, edge_ticks, labels
+
+	else:
+		return phase_ticks, edge_ticks
+
 def retrieve_phase_ticks(branch, config1, config2, with_labels=False):
 
 	if branch == 'tb':
@@ -610,6 +645,8 @@ def retrieve_phase_ticks(branch, config1, config2, with_labels=False):
 	if with_labels:
 		if branch == 'i': labels = ['RG1', 'S', 'G2/M']
 		elif branch == 'tb': labels = ['mean G1', 'S', 'G2/M']
+		elif branch == 't': labels = ['G1', 'S', 'G2/M']
+		elif branch == 'b': labels = ['G1', 'S', 'G2/M']
 		else: raise ValueError()
 		return phase_ticks, edge_ticks, labels
 
