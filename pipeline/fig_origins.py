@@ -33,6 +33,7 @@ dynamics. Then sharing some clear examples of these dynamics.
 
 		origin_timings = self.origins.copy()
 		replication_timings = self.replication_timings
+		self.distance_for_entropy_analysis = 32000
 
 		from src.config import load_mean_dg1_mg1_length
 		g1_length = load_mean_dg1_mg1_length()
@@ -53,7 +54,7 @@ dynamics. Then sharing some clear examples of these dynamics.
 			
 			inferred_firing = replication_time < replication_time_left and\
 				replication_time < replication_time_right
-			
+
 			if replication_time < replication_timings.replications_df.replication_time.max() and \
 				origin.derived_origin_efficiency_from_mcguffee_et_al_2013 > 0:
 				origin_timings.loc[oridb, 'replication_time'] = replication_time+g1_length
@@ -62,19 +63,27 @@ dynamics. Then sharing some clear examples of these dynamics.
 		# Omit edge cases, negative efficiency and uncalled replication timing
 		origin_timings = origin_timings[~origin_timings.replication_time.isna()]
 		self.origin_timings = origin_timings
+		self.compute_set_of_nearest_and_termination_sites()
+
+		# Compute set of inferred firing and separated/isolated origins
+		min_distance_cutoff_from_neighbor = 10000
+		origin_nearest = self.origin_nearest
+		origins_filtered_by_nearest = origin_nearest[origin_nearest.min_distance_to_neighbor >\
+													 min_distance_cutoff_from_neighbor]
+		self.inferred_isolated_origins = origins_filtered_by_nearest[origins_filtered_by_nearest.inferred_firing]
 
 	def setup_processors(self, force_recompute=False):
 
 		from src.replication_fork_processor import OriginReplicationForkProcessor
 		fork_processor = OriginReplicationForkProcessor(self.output_dir)
 		fork_processor.process_all_origins_fork_progression(self.origin_timings,
-                                                         force_recompute=force_recompute)
+														 force_recompute=force_recompute)
 		self.fork_processor = fork_processor
 
 		from src.replication_fork_processor import OriginReplicationForkProcessor
 		fork_processor_no_copy = OriginReplicationForkProcessor(self.output_dir, copy_correct=False)
 		fork_processor_no_copy.process_all_origins_fork_progression(self.origin_timings,
-                                                         force_recompute=force_recompute)
+														 force_recompute=force_recompute)
 		self.fork_processor_no_copy = fork_processor_no_copy
 
 		from src.GenomeDeconvolutionAnalysis import GenomeDeconvolutionAnalysis
@@ -91,6 +100,13 @@ dynamics. Then sharing some clear examples of these dynamics.
 		self.genome_deconv_analysis = GenomeDeconvolutionAnalysis(
 			'output/draft4_run/')
 
+		# Compute entropies for origins and termination
+		self.compute_origin_entropies()
+		self.compute_termination_site_entropies()
+
+		# Collect composite data from genome deconv analysis
+		# and origin efficiencies
+		self.collect_composite_data()
 
 	def plot_replication_fork_heatmaps(self):
 
@@ -126,26 +142,29 @@ dynamics. Then sharing some clear examples of these dynamics.
 			attribute_values[selection] = true_value
 			return attribute_values
 
-		origin_timings = self.origin_timings
+		origin_timings = self.origin_timings.copy()
+		inferred_and_isolated = self.inferred_isolated_origins
+		origin_timings['inferred_and_isolated'] = False
+		origin_timings.loc[inferred_and_isolated.index, 'inferred_and_isolated'] = True
 		early_origins = origin_timings[origin_timings.activation_time == 'early']
 		late_origins = origin_timings[origin_timings.activation_time == 'late']
 
 		early_color = '#d14c43'
 		late_color = '#3f78d4'
 
-		early_facecolors = _create_attribute(early_origins.inferred_firing, 'none', 
+		early_facecolors = _create_attribute(early_origins.inferred_and_isolated, 'none', 
 			early_color)
-		late_facecolors = _create_attribute(late_origins.inferred_firing, 'none', 
+		late_facecolors = _create_attribute(late_origins.inferred_and_isolated, 'none', 
 			late_color)
 
-		early_edgecolors = _create_attribute(early_origins.inferred_firing, early_color, early_color)
-		late_edgecolors = _create_attribute(late_origins.inferred_firing, late_color, late_color)
+		early_edgecolors = _create_attribute(early_origins.inferred_and_isolated, early_color, early_color)
+		late_edgecolors = _create_attribute(late_origins.inferred_and_isolated, late_color, late_color)
 
 		plt.figure(figsize=(6, 4))
 		plt.scatter(early_origins.replication_time, 
 				  early_origins.derived_origin_efficiency_from_mcguffee_et_al_2013,
 				  s=12, edgecolor=early_edgecolors, facecolor=early_facecolors,
-				  label=f"Early firing, n={len(early_origins)}, {early_origins.inferred_firing.sum()}", 
+				  label=f"Early firing, n={len(early_origins)}, {early_origins.inferred_and_isolated.sum()}", 
 					lw=0.3)
 
 		plt.scatter(late_origins.replication_time, 
@@ -153,15 +172,16 @@ dynamics. Then sharing some clear examples of these dynamics.
 				  s=11, edgecolor=late_edgecolors,
 				  facecolor=late_facecolors, 
 					marker='D',
-				  label=f"Late firing, n={len(late_origins)}, {late_origins.inferred_firing.sum()}", 
+				  label=f"Late firing, n={len(late_origins)}, {late_origins.inferred_and_isolated.sum()}", 
 					lw=0.3)
 
-		num_local_max = origin_timings.inferred_firing.sum()
+
+		num_local_max = len(inferred_and_isolated)
 
 		plt.xlabel("Replication time, min")
 		plt.ylabel("Origin efficiency, derived McGuffee et al (2013)")
 		plt.title(f"Origin replication timing\nn={len(origin_timings)}, "
-		  f"{num_local_max} inferred firing",
+		  f"{num_local_max} inferred firing and separated",
 		 fontweight='demi', fontsize=16, pad=12)
 
 		from matplotlib.lines import Line2D
@@ -176,10 +196,10 @@ dynamics. Then sharing some clear examples of these dynamics.
 
 			Line2D([0], [0], marker='o', markeredgecolor=early_color, linewidth=0, 
 				markerfacecolor=early_color, markeredgewidth=0.3,
-				   markersize=4, label=f'Early inferred, n={early_origins.inferred_firing.sum()}'),
+				   markersize=4, label=f'Early inferred and separated, n={early_origins.inferred_and_isolated.sum()}'),
 			Line2D([0], [0], marker='D', markeredgecolor=late_color, linewidth=0, 
 				markerfacecolor=late_color, markeredgewidth=0.3,
-				   markersize=3, label=f'Late inferred, n={late_origins.inferred_firing.sum()}'),
+				   markersize=3, label=f'Late inferred and separated, n={late_origins.inferred_and_isolated.sum()}'),
 		]
 		plt.legend(handles=legend_elements_2, ncols=2)
 
@@ -205,9 +225,10 @@ dynamics. Then sharing some clear examples of these dynamics.
 		origins = origins.sort_values('replication_time')
 
 		if inferred_firing:
-			origins = origins.loc[origins.inferred_firing]
+			# origins = origins.loc[origins.inferred_firing]
+			origins = self.inferred_isolated_origins
 			color = plt.cm.Oranges(0.35)
-			title = "Inferred firing"
+			title = "Inferred firing and separated origins"
 		else:
 			color = '#555'
 			title = "All origins with replication timing"
@@ -222,7 +243,7 @@ dynamics. Then sharing some clear examples of these dynamics.
 		
 		# Plot replication times by group
 		if ax is None:
-			fig = plt.figure(figsize=(6, 4))
+			fig, ax = plt.subplots(1, 1, figsize=(6, 4))
 
 		# Plot GSEA-like enrichment plot
 		es_early = calculate_enrichment_score(origins_ranked, 'early')
@@ -239,9 +260,93 @@ dynamics. Then sharing some clear examples of these dynamics.
 		ax.set_xlabel('Rank (earliest to latest replication)')
 		ax.set_ylabel('Enrichment score, % of all early origins')
 		ax.set_title(f'{title},\nn={len(origins_ranked)}, '
-				  f"p_value={p_value:.4f}")
+				  f"p-value={p_value:.3g}")
 		ax.set_ylim(0, 105)
 		ax.set_xlim(0, len(origins))
+
+	def compute_set_of_nearest_and_termination_sites(self):
+
+		from pipeline.origin_metrics_processor import compute_nearest_neighbor_distance,\
+			create_termination_sites
+
+		# Create  a set origin termination sites
+		origins = self.origin_timings.copy()
+
+		# For each origin, pompute nearest distances to nearet neighboring origin
+		origin_nearest = compute_nearest_neighbor_distance(origins)
+		origin_nearest = origin_nearest.sort_values('min_distance_to_neighbor', 
+			ascending=False)
+		self.origin_nearest = origin_nearest
+
+		self.termination_sites = create_termination_sites(origin_nearest[
+			~origin_nearest.nearest_neighbor_id.isna()], N=50)
+
+	def compute_termination_site_entropies(self):
+		from pipeline.origin_metrics_processor import compute_nearest_neighbor_distance,\
+			create_termination_sites
+
+		from src.origin_entropy_processor import generate_origin_entropy_matrix
+
+		# Now that we have termination sites, let's collect the entropy for these sites and plot
+		# the result
+		furthest_dist = self.distance_for_entropy_analysis
+		
+		self.termination_entropies = generate_origin_entropy_matrix(
+			self.termination_sites, 
+			self.fork_processor.deconvolved_loader,
+			furthest_dist=furthest_dist, position_key='termination_pos')
+
+
+	def plot_termination_entropies(self):
+		from src.config import load_default_chrom_configs
+		from src.origin_entropy_processor import plot_entropy_by_distance
+		furthest_dist = self.distance_for_entropy_analysis
+
+		config1, _ = load_default_chrom_configs()
+		plot_entropy_by_distance(self.termination_entropies, config1, furthest_dist=furthest_dist,
+		title=f"Nucleosome entropy\nat termination sites, n={len(self.termination_entropies)}",
+		xlabel="Distance from termination")
+		save_figure_for_paper(f"{self.save_dir}/termination_site_entropy.png")
+
+
+	def compute_origin_entropies(self):
+		from src.origin_entropy_processor import select_region_away, fold_halves_together, _compute_entropy_3d
+		from src.origin_entropy_processor import generate_origin_entropy_matrix
+
+		deconvolved_loader = self.fork_processor.deconvolved_loader
+		furthest_dist = self.distance_for_entropy_analysis
+		origins = self.origin_timings.sort_values('replication_time')
+		
+		# Inferred
+		# inferred_firing_origins = origins[origins.inferred_firing]
+		# self.inferred_entropies = generate_origin_entropy_matrix(
+		# 	inferred_firing_origins, deconvolved_loader, furthest_dist=furthest_dist)
+
+		# Inferred and 10kb away from neighboring origins
+		self.inferred_isolated_origin_entropies = generate_origin_entropy_matrix(
+			self.inferred_isolated_origins, deconvolved_loader, furthest_dist=furthest_dist)
+
+		# Efficient and 10kb away from neighboring origins
+		# efficiency_cutoff = np.quantile(origin_nearest.derived_origin_efficiency_from_mcguffee_et_al_2013, q=0.9)
+		# eff_and_isolated_origins = origin_nearest[(origin_nearest.min_distance_to_neighbor >\
+		# 											 min_distance_cutoff_from_neighbor) &
+		# 											 (origin_nearest.derived_origin_efficiency_from_mcguffee_et_al_2013 >
+		# 											  efficiency_cutoff)]
+		# self.efficient_isolated_origins = eff_and_isolated_origins
+		# self.efficient_isolated_origin_entropies = generate_origin_entropy_matrix(
+		# 	self.efficient_isolated_origins, deconvolved_loader, furthest_dist=furthest_dist)
+
+
+	def plot_origin_entropies(self):
+		from src.origin_entropy_processor import plot_entropy_by_distance
+		from src.config import load_default_chrom_configs
+
+		furthest_dist = self.distance_for_entropy_analysis
+
+		config1, _ = load_default_chrom_configs()
+		plot_entropy_by_distance(self.inferred_isolated_origin_entropies, config1,
+								furthest_dist=furthest_dist)
+		save_figure_for_paper(f"{self.save_dir}/inferred_firing_entropies.png")
 
 
 	def plot_origin_locus(self, origin, label):
@@ -260,6 +365,105 @@ dynamics. Then sharing some clear examples of these dynamics.
 			plot_index_labels=False,
 			tpm_plotter=self.tpm_plotter)
 
+	def collect_composite_data(self):
+		"""Collect composite chromatin signal at early and late origins"""
+
+		from src.GenomeDeconvolutionAnalysis import GenomeDeconvolutionAnalysis
+		genome_analysis = self.genome_deconv_analysis
+		origins_sorted = self.origin_timings.sort_values('replication_time')
+		origins_sorted = origins_sorted#[origins_sorted.inferred_firing]
+
+		k = 20
+		efficiency_cutoff = np.quantile(origins_sorted.derived_origin_efficiency_from_mcguffee_et_al_2013, 
+				q=0.75)
+		early_origins = origins_sorted[origins_sorted.derived_origin_efficiency_from_mcguffee_et_al_2013 > efficiency_cutoff].head(k)
+		late_origins = origins_sorted[origins_sorted.derived_origin_efficiency_from_mcguffee_et_al_2013 > efficiency_cutoff].tail(k)
+
+		def collect_composite_origin_data(genome_analysis, origins, window=4000):
+			win_2 = window//2
+			origin_data = []
+			for i in range(k):
+				origin = origins.iloc[i]
+				span = origin.pos-win_2, origin.pos+win_2
+				loaded_data, loaded_span = genome_analysis.load_mnase_span(origin.chr, span)
+				origin_data.append(loaded_data)
+			average_composite = np.mean(origin_data, axis=0)
+			return average_composite
+
+		self.average_earliest = collect_composite_origin_data(genome_analysis, early_origins)
+		self.average_latest = collect_composite_origin_data(genome_analysis, late_origins)
+		self.num_composite = k
+
+	def plot_composite_heatmap(self, which):
+		from src.config import load_default_chrom_configs
+
+		if which == 'early':
+			average_composite_data = self.average_earliest
+		else:
+			average_composite_data = self.average_latest
+		
+		config1, _ = load_default_chrom_configs()
+		t_indices = config1.t_indices()
+		b_indices = config1.b_indices()
+
+		num_rows = 8
+		fig, axs = plt.subplots(num_rows, 1, figsize=(5, 5))
+		step = len(t_indices)//num_rows
+		extent = [-2000, 2000, 0, 260]
+
+		for i in range(0, num_rows):
+			ax = axs[i]
+
+			plot_index_t = t_indices[i*step]
+			plot_index_b = b_indices[i*step]
+
+			composite_data = (average_composite_data[plot_index_t]+
+							  average_composite_data[plot_index_b])/2.
+
+			ax.imshow(composite_data, cmap='magma_r', 
+					 origin='lower', aspect='auto', vmin=0, vmax=15, 
+					 extent=extent)
+
+			# Major ticks
+			if i == 1: # G1 Tick
+				ax.set_yticks([0])
+				ax.set_yticklabels(['Mean G1'], rotation=90, ha='right', va='center')
+			elif i == 4:
+				ax.set_yticks([0])
+				ax.set_yticklabels(['S'], rotation=90, ha='right', va='center')
+			elif i == 6:
+				ax.set_yticks([0])
+				ax.set_yticklabels(['G2/M'], rotation=90, ha='right', va='center')
+			else:
+				ax.set_yticks([])
+
+			# Minor ticks separating phases
+			if i == 0:
+				ax.set_yticks([260], minor=True)
+			elif i in [3, 5, 7]:
+				ax.set_yticks([0], minor=True)
+
+			if i == num_rows-1:
+				ax.set_xticks(np.arange(extent[0], extent[1], 500))
+				ax.set_xlabel("Position from origin center, bp")
+			else:
+				ax.set_xticks([])
+
+			ax.tick_params(axis='y', which='major', length=0, pad=2)
+			ax.tick_params(axis='y', which='minor', length=13)
+
+			ax.set_xlim(-1000, 1000)
+
+		plt.subplots_adjust(hspace=0)
+
+
+		if which == 'early':
+			plt.suptitle(f"Early efficient origins, n={self.num_composite}", 
+				fontweight='demi', fontsize=16)
+		elif which == 'late':
+			plt.suptitle(f"Late efficient origins, n={self.num_composite}", 
+				fontweight='demi', fontsize=16)
+		
 
 	def plot_all(self):
 
@@ -275,7 +479,20 @@ dynamics. Then sharing some clear examples of these dynamics.
 		save_figure_for_paper(f"{self.save_dir}/late_origin_locus.png")
 
 		# Plot occupancy replication fork heatmaps
-		self.plot_replication_fork_heatmaps()
+		# self.plot_replication_fork_heatmaps()
+
+		# Plot all inferred origin entropy heatmaps
+		self.plot_origin_entropies()
+
+		# Plot termination
+		self.plot_termination_entropies()
+
+		# Plot composite heatmaps
+		self.plot_composite_heatmap(which='early')
+		save_figure_for_paper(f"{self.save_dir}/early_origins_composite.png")
+
+		self.plot_composite_heatmap(which='late')
+		save_figure_for_paper(f"{self.save_dir}/late_origins_composite.png")
 
 
 	def layout_panel(self):
@@ -285,53 +502,50 @@ dynamics. Then sharing some clear examples of these dynamics.
 			add_panel_labels_to_images, layout_images_horizontally
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 1000, debug_mode=True)
+		compositor = FigureCompositor(1024, 500, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/origin_replication_times.png',
 			f'{self.save_dir}/early_origin_locus.png',
+			f'{self.save_dir}/inferred_firing_entropies.png',
+
 			f'{self.save_dir}/early_origin_enrichments.png',
-			f'{self.save_dir}/fork_quintiles_1_5_occupancy.png',
-			f'{self.save_dir}/fork_quintiles_inferred_occupancy.png',
+			f'{self.save_dir}/termination_site_entropy.png',
 		]
 
 		placed_images = layout_images_horizontally(
 			compositor,
-			image_paths[:2],
-			between_padding=30,
-			offsets=[(0, 0), (0, 0)],
-			width_proportions=[0.4, 0.6],
-			margin=(30, 30),
-			image_keys=['origins_repl', 'early_locus']  # Custom keys
+			image_paths[:3],
+			between_padding=32,
+			offsets=[(0, 0), (0, 0), (0, 0)],
+			width_proportions=[0.4, 0.6, 0.21],
+			margin=(33, 30),
+			image_keys=['origins_repl', 'early_locus', 'inferred_entropies']  # Custom keys
 		)
 
 		origins_img = placed_images['origins_repl']
-		locus_img = placed_images['early_locus']
+		inferred_ent_img = placed_images['inferred_entropies']
 
 		e_img = compositor.place_image(
-			image_paths[2], origins_img['logical_position'][0],
+			image_paths[3], origins_img['logical_position'][0],
 			origins_img['logical_position'][1]+origins_img['logical_size'][1]+30,
 			width=origins_img['logical_size'][0], name='enrichment'
 		)
 
-		y_position = locus_img['logical_position'][1]+locus_img['logical_size'][1]+30
-		placed_images = layout_images_horizontally(
-			compositor,
-			image_paths[3:],
-			between_padding=30,
-			offsets=[(0, 0), (0, 0)],
-			width_proportions=[0.61, 0.39],
-			margin=(30, y_position),
-			image_keys=['fork', 'fork_quintiles']  # Custom keys
+		y_position = inferred_ent_img['logical_position'][1]+inferred_ent_img['logical_size'][1]+20
+		t_img = compositor.place_image(
+			image_paths[4], inferred_ent_img['logical_position'][0],
+			y_position,
+			width=inferred_ent_img['logical_size'][0], name='termination_entropies'
 		)
 
 		# Add panel labels
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			"ACBDE",
+			"ACDBE",
 			font_size=30,
-			offset=[-10, 0]
+			offset=[-24, 0]
 		)
 
 		# Save the composite figure
@@ -344,12 +558,12 @@ dynamics. Then sharing some clear examples of these dynamics.
 			add_panel_labels_to_images, layout_images_horizontally
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 330, debug_mode=True)
+		compositor = FigureCompositor(1024, 380, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/late_origin_locus.png',
-			f'{self.save_dir}/fork_quintiles_inferred_not_normalized.png',
-			f'{self.save_dir}/fork_quintiles_no_copy.png',
+			f'{self.save_dir}/early_origins_composite.png',
+			f'{self.save_dir}/late_origins_composite.png',
 		]
 
 		placed_images = layout_images_horizontally(
@@ -357,9 +571,9 @@ dynamics. Then sharing some clear examples of these dynamics.
 			image_paths,
 			between_padding=30,
 			offsets=[(0, 0), (0, 0), (0, 0)],
-			width_proportions=[1, 1, 1],
+			width_proportions=[1.05, 0.95, 0.95],
 			margin=(30, 30),
-			image_keys=['late', 'quintiles', 'no_copy']
+			image_keys=['late', 'early_composite', 'late_composite']
 		)
 
 		# Add panel labels
@@ -416,5 +630,6 @@ def permutation_test(ranked_df, group_label, n_permutations=1000):
 	# Add pseudocount to avoid exact p=0
 	n_greater_equal = np.sum(np.array(permuted_scores) >= observed_es)
 	p_value = (n_greater_equal + 1) / (n_permutations + 1)
+	print(p_value)
 
 	return observed_es, p_value, permuted_scores

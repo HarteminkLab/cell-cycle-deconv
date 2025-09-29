@@ -908,6 +908,123 @@ def get_truncated_RdBu_r():
 	return new_cmap
 
 
+def create_proportional_subplots_vertical(sizes, labels=None, figsize=(8, 12), 
+										vertical_padding=0.15,
+										subplot_kw=None, **fig_kwargs):
+	"""
+	Create vertical subplots with heights proportional to the given sizes using gridspec.
+	
+	Used for plotting histone modifications grouped by modification type, where each
+	group gets a subplot with height proportional to the number of modifications.
+	
+	Args:
+		sizes (list): List of sizes/counts that determine the relative heights
+		labels (list, optional): Labels for each subplot. If None, uses indices.
+		figsize (tuple): Figure size (width, height)
+		vertical_padding (float): Vertical spacing between rows (hspace)
+		subplot_kw (dict, optional): Keyword arguments to pass to subplot creation
+		**fig_kwargs: Additional keyword arguments for figure creation
+		
+	Returns:
+		tuple: (fig, axes) where axes is a list of matplotlib axes objects
+	"""
+	if not sizes or all(s == 0 for s in sizes):
+		raise ValueError("All sizes cannot be zero or empty")
+	
+	# Convert sizes to height ratios (normalize to avoid very small/large numbers)
+	total_size = sum(sizes)
+	height_ratios = [size / total_size * 100 for size in sizes]  # Scale to reasonable numbers
+	
+	# Create figure and gridspec for vertical layout
+	fig = plt.figure(figsize=figsize, **fig_kwargs)
+	gs = gridspec.GridSpec(len(sizes), 1, 
+						  height_ratios=height_ratios,
+						  hspace=vertical_padding)
+	
+	# Create subplots
+	axes = []
+	subplot_kw = subplot_kw or {}
+	
+	for row in range(len(sizes)):
+		ax = fig.add_subplot(gs[row, 0], **subplot_kw)
+		axes.append(ax)
+		
+		# Add title if labels provided
+		if labels and row < len(labels):
+			ax.set_title(f"{labels[row]}", fontsize=14, pad=8)
+	
+	return fig, axes
+
+def create_proportional_subplots(sizes, n_rows, labels=None, figsize=(15, 18), 
+								  horizontal_padding=0.3, vertical_padding=0.2,
+								  title_rows=[0], height_ratios=None,
+								  subplot_kw=None, **fig_kwargs):
+	"""
+	Create n rows of subplots with widths proportional to the given sizes using gridspec.
+
+	Generic version that allows for any number of rows.
+	
+	Args:
+		sizes (list): List of sizes/counts that determine the relative widths
+		n_rows (int): Number of rows to create
+		labels (list, optional): Labels for each subplot. If None, uses indices.
+		figsize (tuple): Figure size (width, height)
+		horizontal_padding (float): Horizontal spacing between columns (wspace)
+		vertical_padding (float): Vertical spacing between rows (hspace)
+		title_rows (list): List of row indices that should have titles
+		height_ratios (list, optional): Custom height ratios for rows. If None, uses equal heights.
+		subplot_kw (dict, optional): Keyword arguments to pass to subplot creation
+		**fig_kwargs: Additional keyword arguments for figure creation
+		
+	Returns:
+		tuple: (fig, axes) where axes is a 2D list [row][col] of matplotlib axes objects
+	"""
+	if not sizes or all(s == 0 for s in sizes):
+		raise ValueError("All sizes cannot be zero or empty")
+	
+	if n_rows <= 0:
+		raise ValueError("Number of rows must be positive")
+	
+	# Convert sizes to width ratios (normalize to avoid very small/large numbers)
+	total_size = sum(sizes)
+	width_ratios = [size / total_size * 100 for size in sizes]  # Scale to reasonable numbers
+	
+	# Set up height ratios - default to equal heights if not specified
+	if height_ratios is None:
+		height_ratios = [1] * n_rows
+	elif len(height_ratios) != n_rows:
+		raise ValueError(f"height_ratios length ({len(height_ratios)}) must match n_rows ({n_rows})")
+	
+	# Create figure and gridspec for n rows
+	fig = plt.figure(figsize=figsize, **fig_kwargs)
+	gs = gridspec.GridSpec(n_rows, len(sizes), 
+						  width_ratios=width_ratios,
+						  height_ratios=height_ratios,
+						  hspace=vertical_padding, 
+						  wspace=horizontal_padding)
+	
+	# Create subplots - 2D structure [row][col]
+	axes = []
+	subplot_kw = subplot_kw or {}
+	
+	for row in range(n_rows):
+		row_axes = []
+		for col in range(len(sizes)):
+			ax = fig.add_subplot(gs[row, col], **subplot_kw)
+			row_axes.append(ax)
+			ax.set_xticks([])
+			ax.set_yticks([])            
+			
+			# Add title to rows where needed
+			if row in title_rows:
+				if labels and col < len(labels):
+					ax.set_title(f"{labels[col]}", fontsize=18, pad=8)
+		
+		axes.append(row_axes)
+	
+	return fig, axes
+
+
 def create_proportional_subplots_3rows(sizes, labels=None, figsize=(15, 18), 
 									   horizontal_padding=0.3, vertical_padding=0.2,
 									   title_rows=[0],
@@ -924,48 +1041,28 @@ def create_proportional_subplots_3rows(sizes, labels=None, figsize=(15, 18),
 		figsize (tuple): Figure size (width, height)
 		horizontal_padding (float): Horizontal spacing between columns (wspace)
 		vertical_padding (float): Vertical spacing between rows (hspace)
+		title_rows (list): List of row indices that should have titles
 		subplot_kw (dict, optional): Keyword arguments to pass to subplot creation
 		**fig_kwargs: Additional keyword arguments for figure creation
 		
 	Returns:
 		tuple: (fig, axes) where axes is a 2D list [row][col] of matplotlib axes objects
 	"""
-	print(sizes)
-	if not sizes or all(s == 0 for s in sizes):
-		raise ValueError("All sizes cannot be zero or empty")
+	print(sizes)  # Keep your existing print statement
 	
-	# Convert sizes to width ratios (normalize to avoid very small/large numbers)
-	total_size = sum(sizes)
-	width_ratios = [size / total_size * 100 for size in sizes]  # Scale to reasonable numbers
-	
-	# Create figure and gridspec for 3 rows
-	fig = plt.figure(figsize=figsize, **fig_kwargs)
-	gs = gridspec.GridSpec(3, len(sizes), 
-						  width_ratios=width_ratios,
-						  height_ratios=[1, 1, 1],  # Equal height rows
-						  hspace=vertical_padding, 
-						  wspace=horizontal_padding)
-	
-	# Create subplots - 2D structure [row][col]
-	axes = []
-	subplot_kw = subplot_kw or {}
-	
-	for row in range(3):
-		row_axes = []
-		for col in range(len(sizes)):
-			ax = fig.add_subplot(gs[row, col], **subplot_kw)
-			row_axes.append(ax)
-			ax.set_xticks([])
-			ax.set_yticks([])            
-			
-			# Add title to rows where needed
-			if row in title_rows:
-				if labels and col < len(labels):
-					ax.set_title(f"{labels[col]}", fontsize=18, pad=8)
-		
-		axes.append(row_axes)
-	
-	return fig, axes
+	# Call the generic function with 3 rows
+	return create_proportional_subplots(
+		sizes=sizes, 
+		n_rows=3,
+		labels=labels, 
+		figsize=figsize,
+		horizontal_padding=horizontal_padding,
+		vertical_padding=vertical_padding,
+		title_rows=title_rows,
+		height_ratios=None,  # Uses equal heights [1, 1, 1]
+		subplot_kw=subplot_kw,
+		**fig_kwargs
+	)
 
 def blend_colors(color1, color2, alpha=0.5):
 	"""Blend two colors together"""

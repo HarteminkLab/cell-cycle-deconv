@@ -152,6 +152,25 @@ class HistoneModificationOrganizer:
                 grouped[mod_type][histone] = modifications
         
         return grouped
+
+    def get_modifications_flattened_by_group_name(self, modification_type):
+        """
+        Get modifications for a specific modification type, ordered correctly.
+        
+        Parameters:
+        -----------
+        modification_type : str
+            The modification type to filter by
+            
+        Returns:
+        --------
+        list
+            Ordered list of modification names for this type
+        """
+        group_mods = self.get_by_modification_type(modification_type).modification_name.values
+        # Apply the global histones ordering but filter to only this group
+        all_ordered = histones_ordering()
+        return [mod for mod in all_ordered if mod in group_mods]
     
     def get_by_modification_type(self, modification_type):
         """

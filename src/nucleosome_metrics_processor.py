@@ -4,6 +4,7 @@ import numpy as np
 import pandas as pd
 from src.utils import mkdir_safe
 from src.global_config import GlobalConstants
+import matplotlib.pyplot as plt
 
 class NucleosomeDataLoader:
 	"""
@@ -32,6 +33,9 @@ class NucleosomeDataLoader:
 
 		self.minus_one_chromatin_metrics = None
 		self.plus_one_chromatin_metrics = None
+
+		# Filter tracking storage
+		self.filtered_nucleosome_ids = {}  # Will store {nucleosome_type: set_of_filtered_ids}
 	
 	def _setup_loader(self):
 		"""Initialize the deconvolved chromatin data loader."""
@@ -214,7 +218,6 @@ class NucleosomeDataLoader:
 				nuc_center = int(nucleosome['pos'])
 
 				test_data = self.load_nucleosome_data(chrom, nuc_center, wide_window_size)
-
 				
 				n_timepoints = test_data.shape[0]
 				print_fl(f"Detected {n_timepoints} timepoints from sample nucleosome {nuc_id}")
@@ -426,8 +429,6 @@ class NucleosomeDataLoader:
 		
 		print_fl(f"Completed processing {len(gene_dataset)} genes!")
 		
-		print_fl(f"Completed processing {len(gene_dataset)} genes!")
-		
 		# Save results to disk
 		print_fl("Saving results to disk...")
 		self._save_nucleosome_metrics(plus_one_metrics, minus_one_metrics)
@@ -629,6 +630,54 @@ class NucleosomeDataLoader:
 		"""
 		from src.helpers import calc_entropy
 		return calc_entropy(data_vector)
+
+	def create_occupancy_coverage_plot_and_filter(self, nucleosome_type='plus_one', 
+			threshold=0.05):
+		"""
+		Create coverage plot and identify low-coverage nucleosomes to filter.
+		
+		Args:
+			nucleosome_type (str): 'plus_one', 'minus_one', or 'brogaard'
+			threshold (float): Coverage threshold below which to filter (default: 0.05)
+			
+		Returns:
+			set: Set of identifiers to filter out (ORFs for +1/-1, nucleosome IDs for Brogaard)
+		"""
+		# Get appropriate occupancy data
+		if nucleosome_type == 'plus_one':
+			occupancies = self.plus_one_chromatin_metrics['occupancy']
+			id_type = 'ORF'
+		elif nucleosome_type == 'minus_one':
+			occupancies = self.minus_one_chromatin_metrics['occupancy']
+			id_type = 'ORF'
+		elif nucleosome_type == 'brogaard':
+			occupancies = self.brogaard_chromatin_metrics['occupancy']
+			id_type = 'nucleosome_id'
+		else:
+			raise ValueError(f"Unknown nucleosome_type: {nucleosome_type}")
+		
+		# Calculate mean occupancy per nucleosome
+		occupancy_means = occupancies.mean(axis=1).sort_values() / 16
+		threshold_value = threshold
+
+		# Identify nucleosomes to filter
+		to_filter = occupancy_means[(occupancy_means < threshold_value) | (occupancy_means.isna())]
+		
+		# Create coverage plot
+		plt.figure(figsize=(4, 3))
+		plt.hist(occupancy_means, bins=np.linspace(0, 1.0, 50))
+		plt.axvline(threshold_value, c='red', label=f'Filter threshold ({threshold_value})')
+		plt.title(f"{nucleosome_type.replace('_', ' ').title()} nucleosome coverage\n"
+				  f"n={len(occupancy_means)}, {len(to_filter)} below threshold ({threshold_value})", fontweight='demi', fontsize=16)
+		plt.xlabel("Read coverage")
+		plt.ylabel("Frequency")
+		plt.legend()
+		
+		
+		print(f"Filtering out {len(to_filter)} {nucleosome_type} nucleosomes "
+			  f"with low read coverage (<{threshold:.1f})%")
+		
+		self.filtered_nucleosome_ids[nucleosome_type] = to_filter.index
 	
 	def load_and_summarize_nucleosome(self, chrom: int, nucleosome_center: int, 
 									  wide_window_size = 200, window_size: int = 160):

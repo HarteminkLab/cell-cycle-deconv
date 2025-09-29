@@ -806,3 +806,134 @@ class OriginFootprintProcessor:
 		cbar2 = plt.colorbar(nucleosome_im, cax=cbar_ax2)
 		cbar_ax2.set_ylabel(f'Norm. nucleosome\n{metric_key}', fontsize=8, rotation=270, labelpad=3, 
 			ha='center', va='bottom')
+
+def compute_nearest_neighbor_distance(origins):
+	"""
+	Computes the nearest neighboring origin distance for each origin and identifies the neighbor.
+	
+	Parameters:
+	origins (pd.DataFrame): DataFrame containing origin data with 'chr' and 'pos' columns
+	
+	Returns:
+	pd.DataFrame: Input DataFrame with additional 'min_distance_to_neighbor' and 'nearest_neighbor_id' columns
+	"""
+	# Create a copy of the input DataFrame
+	result_df = origins.copy()
+	
+	# Initialize the new columns
+	result_df['min_distance_to_neighbor'] = float('inf')
+	result_df['nearest_neighbor_id'] = None
+	
+	# Get unique chromosomes
+	chromosomes = result_df['chr'].unique()
+	
+	# Process each chromosome
+	for chromosome in chromosomes:
+		# Get all origins for this chromosome
+		chr_origins = result_df[result_df['chr'] == chromosome]
+		chr_indices = chr_origins.index.tolist()
+		
+		# For each origin in this chromosome
+		for i in range(len(chr_indices)):
+			current_idx = chr_indices[i]
+			current_pos = chr_origins.loc[current_idx, 'pos']
+			min_distance = float('inf')
+			nearest_neighbor_id = None
+			
+			# Compare with all other origins in the same chromosome
+			for j in range(len(chr_indices)):
+				if i != j:  # Skip self-comparison
+					other_idx = chr_indices[j]
+					other_pos = chr_origins.loc[other_idx, 'pos']
+					
+					# Calculate absolute distance
+					distance = abs(current_pos - other_pos)
+					
+					# Update minimum distance and nearest neighbor ID
+					if distance < min_distance:
+						min_distance = distance
+						nearest_neighbor_id = other_idx
+			
+			# Store the minimum distance and nearest neighbor ID for this origin
+			result_df.loc[current_idx, 'min_distance_to_neighbor'] = min_distance
+			result_df.loc[current_idx, 'nearest_neighbor_id'] = nearest_neighbor_id
+	
+	return result_df
+
+def create_termination_sites(origins, N=10):
+	"""
+	Creates termination sites at midpoints between the most isolated origin pairs.
+	
+	Parameters:
+	origins (pd.DataFrame): DataFrame with origins including 'min_distance_to_neighbor' and 'nearest_neighbor_id' columns
+	N (int): Number of termination sites to create (default: 10)
+	
+	Returns:
+	pd.DataFrame: DataFrame with termination sites containing columns: 
+				  'chr', 'termination_pos', 'origin_1_id', 'origin_2_id', 'gap_distance'
+	"""
+	# Sort origins by min_distance_to_neighbor in descending order (most isolated first)
+	sorted_origins = origins.sort_values('min_distance_to_neighbor', ascending=False)
+	
+	# Initialize tracking structures
+	termination_sites = []
+	used_origins = set()
+	sites_created = 0
+	
+	# Process most isolated origins
+	for origin_id, row in sorted_origins.iterrows():
+		# Stop if we've created enough termination sites
+		if sites_created >= N:
+			break
+			
+		# Skip if current origin is already used
+		if origin_id in used_origins:
+			continue
+			
+		# Get nearest neighbor info
+		nearest_neighbor_id = row['nearest_neighbor_id']
+		
+		# Skip if nearest neighbor is already used
+		if nearest_neighbor_id in used_origins:
+			continue
+		
+		# Get origin information
+		origin_1_chr = row['chr']
+		origin_1_pos = row['pos']
+		gap_distance = row['min_distance_to_neighbor']
+		
+		# Get nearest neighbor information
+		neighbor_row = origins.loc[nearest_neighbor_id]
+		origin_2_chr = neighbor_row['chr']
+		origin_2_pos = neighbor_row['pos']
+		
+		# Sanity check: both origins should be on same chromosome
+		assert origin_1_chr == origin_2_chr, f"Origins {origin_id} and {nearest_neighbor_id} are on different chromosomes"
+		
+		# Calculate midpoint position
+		termination_pos = (origin_1_pos + origin_2_pos) / 2
+		
+		# Create termination site data
+		termination_site = {
+			'chr': origin_1_chr,
+			'termination_pos': termination_pos,
+			'origin_1_id': origin_id,
+			'origin_2_id': nearest_neighbor_id,
+			'gap_distance': gap_distance
+		}
+		
+		# Store the termination site
+		termination_sites.append(termination_site)
+		
+		# Mark both origins as used to prevent duplication
+		used_origins.add(origin_id)
+		used_origins.add(nearest_neighbor_id)
+		
+		# Increment counter
+		sites_created += 1
+	
+	# Convert results to DataFrame
+	termination_df = pd.DataFrame(termination_sites)
+	termination_df.termination_pos = termination_df.termination_pos.astype(int)
+	
+	return termination_df

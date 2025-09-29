@@ -24,7 +24,7 @@ class DensityScatterPlotter:
 		self.x = x
 		self.y = y
 
-	def plot_ax(self, ax, plot_colorbar=False, vmax=None):
+	def plot_ax(self, ax, plot_colorbar=False, vmin=0, vmax=None):
 
 		x, y = self.x, self.y
 		s = self.s
@@ -49,7 +49,7 @@ class DensityScatterPlotter:
 			    alpha=1., rasterized=True, zorder=0)
 
 		scatter = ax.scatter(x, y, c=z, lw=0, edgecolor=None, s=s, cmap=cmap,
-		   alpha=self.alpha, rasterized=True, zorder=zorder+1, vmax=vmax)
+		   alpha=self.alpha, rasterized=True, zorder=zorder+1, vmin=vmin, vmax=vmax)
 
 		if plot_colorbar: 
 			plt.colorbar(scatter)
