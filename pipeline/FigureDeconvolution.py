@@ -72,8 +72,11 @@ class FigureDeconvolution(object):
 		# Save loci to disk
 		self.plot_and_save_loci()
 
-	def layout_figure_panel(self):
-		layout_figure_panel(self.save_dir, self.fig_save_dir)
+	def layout_figure1_panel(self):
+		layout_figure1_panel(self.save_dir, self.fig_save_dir)
+
+	def layout_figure3_panel(self):
+		layout_figure3_panel(self.save_dir, self.fig_save_dir)
 
 	def create_panels(self):
 
@@ -737,7 +740,7 @@ class FigureDeconvolution(object):
 		compositor.save(f'{self.fig_save_dir}/Supplemental4_THI22_raw_deconvolved_locus.png')
 
 
-def layout_figure_panel(save_dir, figures_dir):
+def layout_figure1_panel(save_dir, figures_dir):
 	from pipeline.figure_composer import FigureCompositor
 	from pipeline.figure_composer_helpers import layout_images_horizontally
 
@@ -750,20 +753,15 @@ def layout_figure_panel(save_dir, figures_dir):
 		'Chromatin_profiles_G',
 		'Kernel_H_diagram',
 		'Deconvolved_Profiles_F',
-		
-		# D - New panel
-		'Deconvolved_Locus'
 	]
 
 	image_paths = [f"{save_dir}/{name}.png" for name in image_names]
 	
 	# Use project pathed branching diagram
 	image_paths[0] = "diagrams/Branching_diagram.png"
-	# Use the specific filename for the new locus panel
-	image_paths[5] = f"{save_dir}/locus_CLB5_deconvolved.png"
 
 	# Create compositor with same canvas size
-	compositor = FigureCompositor(1024, 1590, debug_mode=True)
+	compositor = FigureCompositor(1024, 670, debug_mode=True)
 
 	# Layout parameters
 	margin = 20
@@ -791,19 +789,6 @@ def layout_figure_panel(save_dir, figures_dir):
 
 	# ========== SCALED ABC PANELS ==========
 	letter_font_size = 42
-	
-	# # A: Branch diagram (scaled)
-	# branch_width_scaled = int(400 * scaling_factor)  # 378px
-	# branch_img = compositor.place_image(image_paths[0], margin, top_margin, 
-	# 								   branch_width_scaled, None, 'branch')
-	
-	
-	# # B: MNase histogram (scaled)
-	# padding_ab_scaled = int(20 * scaling_factor)  # 12px
-	# hist_width_scaled = int(500 * scaling_factor)  # 201px
-	# hist_img = compositor.place_image(image_paths[1], 
-	# 								 margin + branch_width_scaled + padding_ab_scaled, 
-	# 								 top_margin, hist_width_scaled, None, 'hist')
 
 	placed_images = layout_images_horizontally(
 		compositor,
@@ -843,15 +828,6 @@ def layout_figure_panel(save_dir, figures_dir):
 								  margin + g_width_scaled + padding_gh_scaled + h_width_scaled - int(0 * scaling_factor), 
 								  c_y_position, f_width_scaled, None, 'F')
 
-	# ========== PANEL D: FULL WIDTH ==========
-	
-	# Place panel D
-	d_vertical_padding = 60
-	y_position = g_img['logical_position'][1] + g_img['logical_size'][1] + d_vertical_padding
-	d_img = compositor.place_image(image_paths[5], margin, y_position, 
-								  width=d_width, name='locus_deconv')
-	compositor.add_panel_label_to_image('locus_deconv', 'D', offset=(0, 12), 
-		font_size=letter_font_size)
 
 	# ========== LABELS (scaled positions) ==========
 	
@@ -907,5 +883,33 @@ def layout_figure_panel(save_dir, figures_dir):
 
 	# Save the figure
 	save_path = f"{figures_dir}/Figure1_Deconvolution.png"
+	compositor.save(save_path)
+	print(f"Saved figure panel: {save_path}")
+
+
+def layout_figure3_panel(save_dir, figures_dir):
+	from pipeline.figure_composer import FigureCompositor
+	from pipeline.figure_composer_helpers import layout_images_horizontally
+
+	image_paths = [
+		f'{save_dir}/locus_CLB5_deconvolved.png',
+	]
+
+	# Create compositor with same canvas size
+	compositor = FigureCompositor(1024, 960, debug_mode=True)
+
+	placed_images = layout_images_horizontally(
+		compositor,
+		image_paths[0:1],
+		width_proportions=[1],  # Equal width for both images
+		between_padding=20,
+		margin=30,
+		image_keys=['locus']  # Custom keys for the images
+	)
+	
+	compositor.add_panel_label_to_image('locus', 'A', offset=(0, 0), font_size=42)
+
+	# Save the figure
+	save_path = f"{figures_dir}/Figure3_Locus.png"
 	compositor.save(save_path)
 	print(f"Saved figure panel: {save_path}")

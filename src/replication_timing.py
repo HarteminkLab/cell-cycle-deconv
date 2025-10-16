@@ -196,7 +196,7 @@ class ReplicationTiming:
 
 		mean_g1_len = load_mean_dg1_mg1_length()
 
-		fig = plt.figure(figsize=(7, 4))
+		fig = plt.figure(figsize=(10, 3.5))
 
 		plot_data = self.filtered_joined_muller_replication_data
 		chr_replication = plot_data.loc[chrom]
@@ -246,4 +246,4 @@ class ReplicationTiming:
 		plt.suptitle(f"Replication profile for chr{chrom}", 
 			fontsize=20, fontweight='demi')
 		plt.tight_layout()
-		plt.subplots_adjust(hspace=0.5)
+		plt.subplots_adjust(hspace=0.35)

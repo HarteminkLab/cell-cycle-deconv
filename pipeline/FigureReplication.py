@@ -196,21 +196,20 @@ class FigureReplicationDeconvolution():
 		from pipeline.figure_composer_helpers import layout_images_vertically,\
 			add_panel_labels_to_images
 
-		compositor = FigureCompositor(1024, 890, debug_mode=True)
+		compositor = FigureCompositor(1024,460, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/DNA_replication_diagram.png',
 			f'{self.save_dir}/Replication_diagram.png',
-			f'{self.save_dir}/Replication_components.png',
 		]
 
 		placed_images = layout_images_vertically(
 			compositor,
 			image_paths,
-			height_proportions=[0.35, 0.4, 0.6],
+			height_proportions=[0.35, 0.4],
 			between_padding=16,
 			margin=(30, 30),
-			image_keys=['DNA', 'Replication', 'Components']  # Custom keys for the images
+			image_keys=['DNA', 'Replication']  # Custom keys for the images
 		)
 
 		add_panel_labels_to_images(

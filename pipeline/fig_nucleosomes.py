@@ -44,6 +44,7 @@ class FigureNucleosomes:
 		self.window_size = window_size
 		self.n_deciles = n_deciles
 		self.random_seed = random_seed
+		self.sort_deciles_by_increasing_ptr = True
 		
 		# Core data processing objects
 		self.histones_nucleosomes_dataset = HistonesNucleosomesDataset()
@@ -112,6 +113,9 @@ class FigureNucleosomes:
 		
 		# Sort by PTR, select unfiltered nuclesomes
 		# and retrieve the nucleosome id to analyze
+		sort_column = f'{metric}_ptr'
+		ptr_df = ptr_df.sort_values(sort_column, ascending=self.sort_deciles_by_increasing_ptr)
+
 		orf_to_nucleosomes = self.chereji_integrated_data.loc[ptr_df.index][~self.chereji_integrated_data[
 			filter_column]][[nuc_id_column]]
 		nuc_id_sorted_by_ptr = orf_to_nucleosomes
@@ -267,7 +271,7 @@ class FigureNucleosomes:
 			key = f'{name}_ptr'
 			ptrs_df = pd.DataFrame(
 					ptrs_data, index=index, columns=[key]
-				).sort_values(key, ascending=False)
+				).sort_values(key, ascending=self.sort_deciles_by_increasing_ptr)
 			return ptrs_df
 
 		# Store +1 nucleosome PTRs
@@ -307,7 +311,7 @@ class FigureNucleosomes:
 		print(f"Calculated cyclicity measures for {len(entropy_brogaard)} Brogaard nucleosomes")
 
 	def get_orfs_to_chereji_nuc_mapping(self, key='matched_nuc_id_p1', index_on=None):
-		orfs_mapping = self.integrated_data.copy()
+		orfs_mapping = self.chereji_integrated_data.copy()
 		orfs_mapping = orfs_mapping[[key]].dropna()
 		orfs_mapping[key] = orfs_mapping[key].astype(int)
 		if index_on is None: index_on = key
@@ -532,7 +536,10 @@ class FigureNucleosomes:
 		self.plot_cyclicity_p1_histograms()
 		save_figure_for_paper(f"{self.save_dir}/plus_one_ptr_histograms.png")
 
+		# Plot enrichment deciles for each nucleosome type
 		self.plot_all_metrics_enrichment_deciles()
+		self.plot_all_metrics_enrichment_deciles(nucleosome='brogaard')
+		self.plot_all_metrics_enrichment_deciles(nucleosome='minus_one')
 
 		self.histone_mod_plotter.plot_colorbar()
 		save_figure_for_paper(f"{self.save_dir}/plus_one_heatmap_colorbar.png")
@@ -561,7 +568,6 @@ class FigureNucleosomes:
 		save_figure_for_paper(f"{self.save_dir}/position_scatter_regression.png")
 
 		self.plot_position_expression_deciles()
-		save_figure_for_paper(f"{self.save_dir}/position_expression_deciles.png")
 		
 
 	def plot_pos_scatter_w_regression(self):
@@ -667,10 +673,20 @@ class FigureNucleosomes:
 			current_decile_ptrs = self.expression_processor.all_transcripts_ptrs.loc[
 				current_decile_orfs].ptr.values
 
+			box_color = plt.cm.Reds(0.5)
+
 			plt.boxplot(current_decile_ptrs, positions=[i+1], vert=True,
 					   showfliers=False,
-						widths=0.35,
-						flierprops=dict(markersize=1, marker='o', markerfacecolor='black'))
+					   widths=0.3,
+					   patch_artist=True,  # Enable filling of boxes
+					   showmeans=True,  # Show mean line
+					   boxprops=dict(facecolor=box_color, edgecolor=box_color),
+					   whiskerprops=dict(color=box_color),
+					   capprops=dict(color=box_color),
+					   medianprops=dict(color='white'),
+					   meanprops=dict(marker='D', markerfacecolor='black', 
+					   	markeredgecolor='none', markersize=5),
+					   flierprops=dict(markersize=1, marker='o', markerfacecolor='black'))
 
 		if reverse_xlim:
 			plt.xlim(10.5, 0.5)
@@ -686,9 +702,10 @@ class FigureNucleosomes:
 
 		xticks = np.arange(1, 11)
 		xtick_labels = [f"{x}" for x in xticks]
-		xtick_labels[0] = "1\nCyclic"
-		xtick_labels[-1] = "10\nStable"
+		xtick_labels[0] = "1\nStable"
+		xtick_labels[-1] = "10\nCyclic"
 		plt.xticks(xticks, xtick_labels)
+		save_figure_for_paper(f"{self.save_dir}/position_expression_deciles.png")	
 
 
 	def create_brogaard_cyclicity_groups(self):
@@ -710,6 +727,7 @@ class FigureNucleosomes:
 			# Select the appropriate PTR DataFrame
 			ptr_df = self.brogaard_ptrs[metric]
 			sort_column = f'{metric}_ptr'
+			ptr_df = ptr_df.sort_values(sort_column, ascending=self.sort_deciles_by_increasing_ptr)
 			
 			# Get Brogaard nucleosome IDs ranked by PTR (ptr_df is already sorted)
 			brogaard_nuc_ids_sorted_by_ptr = ptr_df.index
@@ -886,21 +904,30 @@ class FigureNucleosomes:
 
 		nuc_type = name_mapping[nucleosome]
 
-		# Create plot showing gradient across deciles
-		fig = self.histone_mod_plotter.plot_decile_enrichment_gradient(
-			metrics=['positioning'],
-			show_metric_label=False,
-			title=f"Histone modifications by\n{nuc_type} nucleosome position cyclicity, n={n}"
-		)
-		save_figure_for_paper(f"{self.save_dir}/plus_one_positioning_decile_enrichment.png")
+		if nucleosome == 'plus_one':
+			# Create plot showing gradient across deciles
+			fig = self.histone_mod_plotter.plot_decile_enrichment_gradient(
+				metrics=['positioning'],
+				show_metric_label=False,
+				title=f"Histone modifications by\n{nuc_type} nucleosome position cyclicity, n={n}"
+			)
+			save_figure_for_paper(f"{self.save_dir}/{nucleosome}_positioning_decile_enrichment.png")
 
-		# Create plot showing gradient across deciles
-		fig = self.histone_mod_plotter.plot_decile_enrichment_gradient(
-			n_deciles=self.n_deciles,
-			metrics=['occupancy', 'entropy'],
-			title=f"Histone modifications by {nuc_type} nucleosome cyclicity, n={n}"
-		)
-		save_figure_for_paper(f"{self.save_dir}/plus_one_occupancy_entropy_decile_enrichment.png")
+			# Create plot showing gradient across deciles
+			fig = self.histone_mod_plotter.plot_decile_enrichment_gradient(
+				n_deciles=self.n_deciles,
+				metrics=['occupancy', 'entropy'],
+				title=f"Histone modifications by {nuc_type} nucleosome cyclicity, n={n}"
+			)
+			save_figure_for_paper(f"{self.save_dir}/{nucleosome}_occupancy_entropy_decile_enrichment.png")
+		else:
+
+			# Create plot showing gradient across deciles
+			fig = self.histone_mod_plotter.plot_decile_enrichment_gradient(
+				n_deciles=self.n_deciles,
+				title=f"Histone modifications by {nuc_type} nucleosome cyclicity, n={n}"
+			)
+			save_figure_for_paper(f"{self.save_dir}/{nuc_type}_occupancy_entropy_decile_enrichment.png")
 
 	def plot_p1_tss_agreement(self):
 		from src.transcripts_dataset import load_transcripts_sets

@@ -50,8 +50,8 @@ class FigureCopyCorrection():
 		save_figure_for_paper(f"{self.save_dir}/Replication_Timing_correlation.png")
 
 
-	def layout_panel(self, canvas_width=1024, canvas_height=620, margins=20, 
-				 column_padding=30, row_padding=30, debug_mode=True):
+	def layout_panel(self, canvas_width=1024, canvas_height=980, margins=20, 
+				 column_padding=30, row_padding=25, debug_mode=True):
 		"""
 		Create a 2x2 composite figure panel with replication timing and copy correction plots.
 		"""
@@ -60,26 +60,48 @@ class FigureCopyCorrection():
 		
 		# Create compositor 
 		compositor = FigureCompositor(canvas_width, canvas_height, debug_mode=debug_mode)
+
+		# ----------- Replication model ------------
+		replication_figures_dir = f"{self.output_directory}/fig_replication"
+
+		image_paths = [
+			f'{replication_figures_dir}/DNA_replication_diagram.png',
+			f'{replication_figures_dir}/Replication_diagram.png',
+		]
+
+		placed_images = layout_images_vertically(
+			compositor,
+			image_paths,
+			height_proportions=[0.35, 0.4],
+			between_padding=16,
+			margin=(30, 30),
+			image_keys=['DNA', 'Replication']  # Custom keys for the images
+		)
+
+		# --------- Replication and copy correction
 		
 		# Define file paths for your four figures
 		replication_chr4_path = f'{self.save_dir}/Replication_Timing_chr4.png'
 		replication_corr_path = f'{self.save_dir}/Replication_Timing_correlation.png'
 		copy_ptrs_path = f'{self.save_dir}/Copy_Correction_PTRs.png'
 		copy_examples_path = f'{self.save_dir}/Copy_Correction_Examples.png'
+
+		replication_imgs_bottom = compositor.placed_images['Replication']['logical_position'][1] + \
+			compositor.placed_images['Replication']['logical_size'][1]+row_padding
 		
 		# Layout top row (replication timing figures)
 		top_row_images = layout_images_horizontally(
 			compositor,
 			[replication_chr4_path, replication_corr_path],
-			width_proportions=[0.65, 0.35],  # Equal width for both top images
+			width_proportions=[0.75, 0.25],  # Equal width for both top images
 			between_padding=column_padding,
-			margin=margins,
+			margin=(margins, replication_imgs_bottom),
 			image_keys=['replication_chr4', 'replication_corr']
 		)
 		
 		# Calculate starting y position for bottom row
 		top_row_height = max([img['logical_size'][1] for img in top_row_images.values()])
-		bottom_row_start_y = margins + top_row_height + row_padding
+		bottom_row_start_y = replication_imgs_bottom + margins + top_row_height
 		
 		# Layout bottom row (copy correction figures)
 		bottom_row_images = layout_images_horizontally(
@@ -95,36 +117,51 @@ class FigureCopyCorrection():
 		def _retrieve_subset_dict(original_dict, keys_to_extract):
 			return {key: original_dict[key] for key in keys_to_extract if key in original_dict}
 
-		abd_imgs = _retrieve_subset_dict(compositor.placed_images,
+		ab_imgs = _retrieve_subset_dict(compositor.placed_images,
+			['DNA', 'Replication'])
+
+		cdf_imgs = _retrieve_subset_dict(compositor.placed_images,
 			['replication_chr4', 'replication_corr', 'copy_examples'])
-		c_imgs = _retrieve_subset_dict(compositor.placed_images,
+		e_imgs = _retrieve_subset_dict(compositor.placed_images,
 			['copy_ptrs'])
 	
-		font_size=28
-		# Add panel labels (A, B, D) to each quadrant
+		font_size=36
+
+		# Add panel labels
 		add_panel_labels_to_images(
 			compositor,
-			abd_imgs,
-			labels='ABD',
+			ab_imgs,
+			labels='AB',
 			font_size=font_size,
-			offset=(-10, -12),
+			offset=(-10, 0),
 			font_type='bold',
 			color=(0, 0, 0)
 		)
 
-		# Add panel labels (C) to each quadrant
+		# Add panel labels
 		add_panel_labels_to_images(
 			compositor,
-			c_imgs,
-			labels='C',
+			cdf_imgs,
+			labels='CDF',
 			font_size=font_size,
-			offset=(-20, -12),
+			offset=(-10, 0),
+			font_type='bold',
+			color=(0, 0, 0)
+		)
+
+		# Add panel labels
+		add_panel_labels_to_images(
+			compositor,
+			e_imgs,
+			labels='E',
+			font_size=font_size,
+			offset=(-20, 0),
 			font_type='bold',
 			color=(0, 0, 0)
 		)
 		
 		# Save the composite figure
-		output_path = f'{self.figures_dir}/Figure3_Copy_Correction.png'
+		output_path = f'{self.figures_dir}/Figure2_Replication_Copy_Correction.png'
 		compositor.save(output_path)
 		
 		return compositor
@@ -139,4 +176,34 @@ class FigureCopyCorrection():
 		self.plot_replication_results_chr4()
 		self.plot_all_ptrs()
 		self.plot_sample_curves()
-		self.plot_increased_ptr()
+
+	def layout_supplemental_panel(self):
+		from pipeline.figure_composer import FigureCompositor
+		from pipeline.figure_composer_helpers import layout_images_horizontally,\
+			add_panel_labels_to_images
+
+		compositor = FigureCompositor(1024,460, debug_mode=True)
+
+		# ----------- Replication model ------------
+		replication_figures_dir = f"{self.output_directory}/fig_replication"
+
+		image_paths = [
+			f'{replication_figures_dir}/Replication_components.png',
+		]
+
+		placed_images = layout_images_horizontally(
+			compositor,
+			image_paths,
+			between_padding=16,
+			margin=(30, 30),
+			image_keys=['Replication_Detail']
+		)
+
+		add_panel_labels_to_images(
+			compositor, 
+			compositor.placed_images,
+			font_size=36,
+			offset=(-10, -12)
+		)
+
+		compositor.save(f'{self.figures_dir}/Supplemental2.5_Replication_Detail.png')

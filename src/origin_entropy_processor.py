@@ -185,11 +185,12 @@ def plot_entropy_by_distance(deconv_all_origin_dist_entropies, config1,
 	ax.tick_params(axis='y', which='major', length=0)
 	ax.tick_params(axis='y', which='minor', length=10) 
 
-	step = 10000
+	step_2 = step//2
+	tick_step = 10000
 	tick_start = (furthest_dist//5000)*5000
-	xticks = np.arange(-tick_start, tick_start+step, step)
-	xtick_labels = [f"{x/1000:.0f} kb" if x <= 0 else 
-		f"+{x/1000:.0f} kb" for x in xticks]
+	xticks = np.arange(-tick_start, tick_start+tick_step, tick_step)
+	xtick_labels = [f"{x/step:.0f} kb" if x <= 0 else 
+		f"+{x/step:.0f} kb" for x in xticks]
 	plt.xticks(xticks, xtick_labels)
 
 	cmap = 'RdBu_r'
@@ -198,8 +199,8 @@ def plot_entropy_by_distance(deconv_all_origin_dist_entropies, config1,
 		deconv_folded_data = fold_halves_together(tb_data)
 		plot_data_folded = _normed_data(deconv_folded_data.mean(0)).T
 
-		x_values = np.arange(0, furthest_dist+1000, 1000)
-		extent = [0, furthest_dist, 128, 0]
+		x_values = np.arange(0, furthest_dist+step, step)
+		extent = [-step_2, furthest_dist+step_2, 128, 0]
 
 		im = plt.imshow(plot_data_folded, cmap=cmap,
 		        aspect='auto', vmin=-vmax, vmax=vmax, 
@@ -232,7 +233,7 @@ def plot_entropy_by_distance(deconv_all_origin_dist_entropies, config1,
 		ax.set_xlim(-25000, 25000)
 
 	if title is None:
-		title = f"Nucleosome entropy at firing,\nwell-separated origins, n={num_origins}"
+		title = f"Nucleosome entropy at firing,\nseparated origins, n={num_origins}"
 	plt.title(title, 
 		fontweight='demi', fontsize=15, pad=13)
 

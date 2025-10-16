@@ -1,49 +1,52 @@
 # Expression and Chromatin Cell cycle deconvolution
 
 
-## Abstract
-
-## Data
-
-
 ## Prequisites
 
-1. CLOCCS fits
+1. Successful runs of CLOCCS against FACS (flow cytometry) data for each replicate
+2. MNase and RNA-seq data
 
-## Generate Replication Profiles
+## Example deconvolution run for a local window
 
-1. Fit Replication Profiles for each replicate with MNase-seq:
-   - Initialize with CLOCCS fits
-   - Replicate 1 and Replicate 2
-   - Outputs H1, H2, N1, N2, Fr1, Fr2, B
-      - Fr1, Fr2 and B are genome-wide (per chromosome)
-   - `src/fit_replication_profile.py <1/2> <output_directory>`
+1. Load the configuration for each replicate
+2. Load the chromosome and span for the window
+3. Deconvolve the transcription
+4. Deconvolve the chromatin
+5. Plot the deconvolved result
+6. Plot the raw data for comparison
 
-2. Fit Combined Replication Profile
-   - Fit with combined model
-   - Outputs H1, H2, N1, N2, Fr, B
-      - Fr and B are genome-wide (per chromosome)
-   - `src/fit_combined_replication_profile.py <output_directory>`
+## The full pipeline commands
 
-## Deconvolve Gene Expression (combined model)
+### Transcription model
 
-1. Deconvolve the gene expression for all genes
-   - `src/deconvolve_gene_expression.py gene_name`
+1. `construct_rna_intermediate_files` - 
+2. `call_transcripts` - 
+3. `compute_tpms` - 
+4. `deconvolve_expression_index` - 
 
-## Deconvolve Chromatin
+### Replication model
 
-2. Deconvolve the chromatin for genome-wide (combined model)
-   - `src/deconvolve_chromatin.py chrom start end`
+5. `combined_replication` - 
 
-## Analysis
+### Chromatin model
 
-1. Chromatin dynamics with Gene expression 
-2. Copy correction analysis
-3. Origins of replication analysis
-4. Transcription factor binding analysis
-5. Daughter-specific gene expression dynamics
+#### Learn the regularization parameters
 
+6. `find_gamma_chromatin` - 
+7. `find_kappa_chromatin` - 
+8. `find_eta_chromatin` - 
+9. `find_alpha` - 
 
+#### Deconvolve the chromatin
 
+10. `deconvolve_chromatin` - 
 
+### Create the manuscript figures
+
+11. `figure1_chromatin_deconvolution` - 
+12. `figure2_replication` - 
+13. `figure3_loci` - 
+14. `figure4_copy_correction` - 
+15. `figure5_6_chromatin` - 
+16. `figures_antisense` - 
 

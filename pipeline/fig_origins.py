@@ -66,7 +66,7 @@ dynamics. Then sharing some clear examples of these dynamics.
 		self.compute_set_of_nearest_and_termination_sites()
 
 		# Compute set of inferred firing and separated/isolated origins
-		min_distance_cutoff_from_neighbor = 10000
+		min_distance_cutoff_from_neighbor = 5000
 		origin_nearest = self.origin_nearest
 		origins_filtered_by_nearest = origin_nearest[origin_nearest.min_distance_to_neighbor >\
 													 min_distance_cutoff_from_neighbor]
@@ -221,8 +221,6 @@ dynamics. Then sharing some clear examples of these dynamics.
 		save_figure_for_paper(f"{self.save_dir}/early_origin_enrichments.png")
 
 	def analyze_enrichment(self, inferred_firing=True, ax=None):
-		origins = self.origin_timings
-		origins = origins.sort_values('replication_time')
 
 		if inferred_firing:
 			# origins = origins.loc[origins.inferred_firing]
@@ -231,6 +229,7 @@ dynamics. Then sharing some clear examples of these dynamics.
 			title = "Inferred firing and separated origins"
 		else:
 			color = '#555'
+			origins = self.origin_timings
 			title = "All origins with replication timing"
 
 		# Sort by replication time (earliest first)
@@ -606,6 +605,7 @@ def calculate_enrichment_score(ranked_df, group_label):
 			current_score += hit_increment
 		else:
 			current_score += miss_increment
+
 		running_score.append(current_score)
 	
 	return np.array(running_score)
@@ -630,6 +630,5 @@ def permutation_test(ranked_df, group_label, n_permutations=1000):
 	# Add pseudocount to avoid exact p=0
 	n_greater_equal = np.sum(np.array(permuted_scores) >= observed_es)
 	p_value = (n_greater_equal + 1) / (n_permutations + 1)
-	print(p_value)
 
 	return observed_es, p_value, permuted_scores

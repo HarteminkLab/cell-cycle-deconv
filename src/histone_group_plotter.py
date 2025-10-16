@@ -30,8 +30,8 @@ class HistoneModificationGroupedPlotter:
 		self.organizer = HistoneModificationOrganizer()
 		
 		# Define modification type groupings
-		self.group_keys = ['Acetylation', 'Methylation', 'Phosphorylation', 'Histone Variant']
-		self.group_names = ['Acetylation', 'Methylation', 'Phosph.', 'Var.']
+		self.group_keys = ['Methylation', 'Acetylation', 'Phosphorylation', 'Histone Variant']
+		self.group_names = ['Methylation', 'Acetylation', 'Phosph.', 'Var.']
 		
 		# Calculate group counts for proportional sizing
 		group_counts_mapping = self.organizer.df.groupby('modification_type').count().rename(
@@ -220,17 +220,28 @@ class HistoneModificationGroupedPlotter:
 				if group_idx == 0:
 					ax.set_yticks(range(n_deciles))
 					ytick_labels = [f'{i+1}' for i in range(n_deciles)]
-					ytick_labels = ["Cyclic, 1"] +  ytick_labels[1:-1] + ["Stable, 10"]
+					ytick_labels = ["Stable, 1"] +  ytick_labels[1:-1] + ["Cyclic, 10"]
 					ax.set_yticklabels(ytick_labels, fontsize=14)
 				
 				# Configure x-axis (modifications)
 				show_xticks = True #(metric_idx == len(metrics) - 1)  # Only last selected metric
 				if show_xticks:
 					ax.set_xticks(range(len(current_mod_names)))
-					ax.set_xticklabels(current_mod_names, rotation=45, ha='right',
+
+					# Change display name of me to me1 to make clear the distinction of monomethylation
+					rename_map = {
+						'H3K4me': 'H3K4me1',
+						'H3K79me': 'H3K79me1',
+					}
+					mod_display_names = [rename_map[mod] if mod in rename_map \
+						else mod for mod in current_mod_names]
+
+					ax.set_xticklabels(mod_display_names, rotation=45, ha='right',
 						fontsize=13)
 				else:
 					ax.set_xticks([])
+
+				ax.set_ylim(-0.5, plot_matrix.shape[0]-0.5)
 				
 				# Configure y-axis label
 				if show_metric_label:
@@ -257,15 +268,32 @@ class HistoneModificationGroupedPlotter:
 				
 				# Add modification type separators
 				# for histones (e.g. H2, H3, H4)
-				horizontal_seps = {
+				histone_separators = {
 					'Acetylation': [1, 8],
 					'Methylation': [8], 
 					'Phosphorylation': [1],
 				}
+
+				residue_separators = {
+					'Methylation': [3, 6, 9], 
+				}
+
+				if modification_type in residue_separators.keys():
+					for index in residue_separators[modification_type]:
+						ax.axvline(index-0.5, c='black', ls='solid', zorder=1, lw=.5)
 				
-				if modification_type in horizontal_seps.keys():
-					for index in horizontal_seps[modification_type]:
-						ax.axvline(index-0.5, c='black', zorder=1, lw=.75)
+				if modification_type in histone_separators.keys():
+					for index in histone_separators[modification_type]:
+						ax.axvline(index-0.5, c='black', zorder=1, lw=1.5)
+
+				def _format_axes(ax):
+					spine_border_width = 1.5
+					ax.spines['top'].set_linewidth(spine_border_width)
+					ax.spines['bottom'].set_linewidth(spine_border_width)
+					ax.spines['left'].set_linewidth(spine_border_width)
+					ax.spines['right'].set_linewidth(spine_border_width)
+
+				_format_axes(ax)
 		
 		# Add overall title
 		title_label = "enrichment gradient" if plot_key == 'p_value_fdr' else "difference gradient"
