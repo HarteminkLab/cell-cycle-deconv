@@ -15,38 +15,38 @@
 5. Plot the deconvolved result
 6. Plot the raw data for comparison
 
-## The full pipeline commands
+## The full deconvolution pipeline
+
+The CyCLOPS deconvolution framework has three high-level components: (1) the transcription deconvolution model, (2) the replication deconvolution model, and (3) the chromatin deconvolution model.
+
+For each deconvolution model, a set of intermediate files are generated from BAM into pandas high density file storage. This conversion allows for quicker reading from disk.
+
+For each deconvolution component, the alpha parameter must be computed (the estimated delay between cytokinesis and cell wall degradation). Then, the transcription model is independent from the chromatin models. The copy correction in the chromatin deconvolution model relies on the completed replication profile estimation.
+
+### Data preparation and setup
+
+1. `construct_rna_intermediate_files` - Read in the RNA-seq data from BAM and generate the hdf (pandas data storage) files.
+2. `construct_mnase_intermediate_files` - Read in the MNase-seq data from BAM and generate the hdf (pandas data storage) files.
+3. `find_alpha` - The alpha parameter defines the estimated delay between cytokinesis and complete cell wall degradation. This value handles the fact that flow cytometry misclassifies joined mother-daughter cells with intact cell walls as a single cell with two copies of DNA. Using daughter-specific gene expression, we estimate this parameter as the optimal alpha for which daughter-specific gene expression is within the daughter-specific G1 phase.
 
 ### Transcription model
 
-1. `construct_rna_intermediate_files` - 
-2. `call_transcripts` - 
-3. `compute_tpms` - 
-4. `deconvolve_expression_index` - 
+1. `call_transcripts` - Call transcript boundaries for the entire genome. This function identifies non-genic transcripts as well as identifies TSSes for genes.
+2. `compute_tpms` - Compute the TPM (transcripts per million) calculation for all transcripts (genes and nongenic).
+3. `deconvolve_expression_index` - Deconvolve the transcription for a gene or non-genic transcript.
 
 ### Replication model
 
-5. `combined_replication` - 
+1. `combined_replication` - Compute the replication profile for all chromosomes using the MNase data
 
 ### Chromatin model
 
-#### Learn the regularization parameters
+#### Learn chromatin-specific regularization parameters
 
-6. `find_gamma_chromatin` - 
-7. `find_kappa_chromatin` - 
-8. `find_eta_chromatin` - 
-9. `find_alpha` - 
+1. `find_gamma_chromatin` - Deconvolving gene expression identifies the optimal smoothing regularization term for each gene in less than a minute. However, the chromatin has millions of individual bins, so we estimate and use a single shared gamma value for the chromatin for all of the genome. For 100 random windows in the genome, find the optimal gamma value to balance smoothing and fit.
+2. `find_kappa_chromatin` - Using daughter-specific genes, compute an optimal value of kappa to identify an appropriate amount of daughter-specific chromatin differences.
+3. `find_eta_chromatin` - For 100 random windows, identify an optimal eta value to regularize the difference between halted cells and the recovery G1 phase.
 
 #### Deconvolve the chromatin
 
-10. `deconvolve_chromatin` - 
-
-### Create the manuscript figures
-
-11. `figure1_chromatin_deconvolution` - 
-12. `figure2_replication` - 
-13. `figure3_loci` - 
-14. `figure4_copy_correction` - 
-15. `figure5_6_chromatin` - 
-16. `figures_antisense` - 
-
+10. `deconvolve_chromatin` - Deconvolve the chromatin for a specified 10kb window of the genome.
