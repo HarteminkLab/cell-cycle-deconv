@@ -1,19 +1,14 @@
-# Expression and Chromatin Cell cycle deconvolution
-
+# CyCLOPS (Cyclic Chromatin Landscape Occupancy Profiling System)
+A framework to deconvolve the chromatin and transcriptional landscape throughout the cell cycle.
 
 ## Prequisites
 
-1. Successful runs of CLOCCS against FACS (flow cytometry) data for each replicate
-2. MNase and RNA-seq data
+For our study, we generate two replicate experiments synchronized and released from alpha-factor. For each replicate, the flow cytometry, transcription state (through RNA-seq), and chromatin state (through MNase-seq) are collected.
 
-## Example deconvolution run for a local window
+Using the flow cytometry data, we use [CLOCCS](https://users.cs.duke.edu/~amink/software/cloccs/documentation/) to generate cell cycle parameter estimations to inform our deconvolution framework.
 
-1. Load the configuration for each replicate
-2. Load the chromosome and span for the window
-3. Deconvolve the transcription
-4. Deconvolve the chromatin
-5. Plot the deconvolved result
-6. Plot the raw data for comparison
+1. Synchronized experimental data: flow cytometry data, cellular and genomic assays (e.g. RNA-seq and MNase-seq). Replicate data recommended.
+2. Successful runs of CLOCCS against flow cytometry data.
 
 ## The full deconvolution pipeline
 
@@ -50,3 +45,12 @@ For each deconvolution component, the alpha parameter must be computed (the esti
 #### Deconvolve the chromatin
 
 10. `deconvolve_chromatin` - Deconvolve the chromatin for a specified 10kb window of the genome.
+
+## Example deconvolution run for a local window
+
+1. Load the configuration for each replicate
+2. Load the chromosome and span for the window
+3. Deconvolve the transcription
+4. Deconvolve the chromatin
+5. Plot the deconvolved result
+6. Plot the raw data for comparison
