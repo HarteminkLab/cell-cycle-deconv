@@ -131,9 +131,9 @@ class FigureCopyCorrection():
 		add_panel_labels_to_images(
 			compositor,
 			ab_imgs,
-			labels='AB',
+			labels='ab',
 			font_size=font_size,
-			offset=(-10, 0),
+			offset=(-10, 23),
 			font_type='bold',
 			color=(0, 0, 0)
 		)
@@ -142,9 +142,9 @@ class FigureCopyCorrection():
 		add_panel_labels_to_images(
 			compositor,
 			cdf_imgs,
-			labels='CDF',
+			labels='cdf',
 			font_size=font_size,
-			offset=(-10, 0),
+			offset=(-10, 23),
 			font_type='bold',
 			color=(0, 0, 0)
 		)
@@ -153,9 +153,9 @@ class FigureCopyCorrection():
 		add_panel_labels_to_images(
 			compositor,
 			e_imgs,
-			labels='E',
+			labels='e',
 			font_size=font_size,
-			offset=(-20, 0),
+			offset=(-20, 23),
 			font_type='bold',
 			color=(0, 0, 0)
 		)
@@ -203,7 +203,7 @@ class FigureCopyCorrection():
 			compositor, 
 			compositor.placed_images,
 			font_size=36,
-			offset=(-10, -12)
+			offset=(-10, 8)
 		)
 
 		compositor.save(f'{self.figures_dir}/Supplemental2.5_Replication_Detail.png')

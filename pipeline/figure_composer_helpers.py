@@ -358,7 +358,7 @@ def add_panel_labels_to_images(compositor, placed_images, labels=None, font_size
 	# Generate labels if not specified
 	if labels is None:
 		import string
-		labels = list(string.ascii_uppercase[:len(image_keys)])
+		labels = list(string.ascii_lowercase[:len(image_keys)])
 	elif isinstance(labels, str):
 		labels = list(labels[:len(image_keys)])
 	

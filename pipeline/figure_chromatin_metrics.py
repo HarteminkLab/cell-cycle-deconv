@@ -203,10 +203,6 @@ class FigureChromatinMetrics:
 		from pipeline.transcription_processor import ExpressionAnalysisProcessor
 		from src.deconvolved_tpm_plotter import DeconvolvedTPMPlotter
 
-		self.expression_processor = ExpressionAnalysisProcessor(self.output_dir)
-		self.expression_processor.setup_data_loaders()
-		self.expression_processor.load_deconvolved_expression()
-
 		self.tpm_plotter = DeconvolvedTPMPlotter(self.expression_processor.expression_data,
 								   self.expression_processor.all_transcripts_set)
 
@@ -319,7 +315,7 @@ class FigureChromatinMetrics:
 
 		from pipeline.figure_composer_helpers import layout_images_vertically
 
-		compositor = FigureCompositor(1024, 530, debug_mode=True)
+		compositor = FigureCompositor(1024, 510, debug_mode=True)
 		image_dir = self.figures_dir
 		panel_save_path = os.path.join(self.panel_figures_dir, 'Figure5_Chromatin_Metrics.png')
 		
@@ -338,7 +334,7 @@ class FigureChromatinMetrics:
 		all_placed_images = {}
 
 		# Calculate proportions - gene examples on left, diagram on right
-		left_prop = 0.31  # Gene examples get ~31% of width
+		left_prop = 0.305  # Gene examples get ~31% of width
 		left_width = (compositor.logical_width - panel_padding - (2 * margin[0])) * left_prop
 
 		# 1. Place two gene example images vertically on the left
@@ -357,13 +353,13 @@ class FigureChromatinMetrics:
 		all_placed_images.update(vertical_images)
 		
 		# 2. Place the diagram on the right side
-		right_col_x = margin[0] + left_width + panel_padding
+		right_col_x = margin[0] + left_width + panel_padding-5
 		right_width = (compositor.logical_width - panel_padding - (2 * margin[0]) - left_width)
 
 		right_img = compositor.place_image(
 			image_paths['traj_diagrams'],
 			x=right_col_x,
-			y=margin[1],
+			y=margin[1]-10,
 			width=right_width,
 			name='TrajDiagrams'
 		)
@@ -373,14 +369,20 @@ class FigureChromatinMetrics:
 		if add_labels:
 			# Order images for labeling: gene examples first, then diagram
 			ordered_keys = ['CLB1Trajectories', 'MCM7Trajectories', 'TrajDiagrams']
-			labels = ['A', 'B', 'C']
-			
+			labels = ['a', 'b', 'c']
+
 			for key, label in zip(ordered_keys, labels):
+
+				if label == 'c':
+					y_offset = 28
+				else:
+					y_offset = 20
+
 				if key in all_placed_images:
 					compositor.add_panel_label_to_image(
 						key,
 						label,
-						offset=(-10, -12),
+						offset=(-10, y_offset),
 						font_size=font_size,
 						font_type='bold'
 					)
@@ -388,8 +390,8 @@ class FigureChromatinMetrics:
 		# Add the second diagram label (as in original)
 		compositor.add_panel_label_to_image(
 			'TrajDiagrams',
-			'D',
-			offset=(-10, 235),
+			'd',
+			offset=(-10, 268),
 			font_size=font_size,
 			font_type='bold'
 		)
@@ -490,14 +492,14 @@ class FigureChromatinMetrics:
 				'RawvsPTR', 'PTRsVsPTR', 'CellCycleValues',  # Left column
 				'PromoterOccupancy', 'NucleosomeEntropy', 'NucleosomeOccupancy'  # Right column
 			]
-			labels = ['A', 'B', 'C', 'D', 'E', 'F']
+			labels = ['a', 'b', 'c', 'd', 'e', 'f']
 			
 			for key, label in zip(ordered_keys, labels):
 				if key in all_placed_images:
 					compositor.add_panel_label_to_image(
 						key,
 						label,
-						offset=(-10, -12),
+						offset=(-10, 10),
 						font_size=font_size,
 						font_type='bold'
 					)
@@ -634,10 +636,10 @@ class FigureChromatinMetrics:
 		if add_labels:
 			# Labels for the four main sections in order: A=histones, B=cyclins, C=HTA1_HTB1, D=CLB1
 			label_assignments = [
-				('TrajH2A', 'A'),        # Histones column (leftmost)
-				('LocusHTA1HTB1', 'B'),  # HTA1_HTB1 locus (second from left)
-				('TrajG1', 'C'),         # Cyclins column (third from left)
-				('LocusCLB1', 'D')       # CLB1 locus (rightmost)
+				('TrajH2A', 'a'),        # Histones column (leftmost)
+				('LocusHTA1HTB1', 'b'),  # HTA1_HTB1 locus (second from left)
+				('TrajG1', 'c'),         # Cyclins column (third from left)
+				('LocusCLB1', 'd')       # CLB1 locus (rightmost)
 			]
 			
 			for key, label in label_assignments:
@@ -645,7 +647,7 @@ class FigureChromatinMetrics:
 					compositor.add_panel_label_to_image(
 						key,
 						label,
-						offset=(-10, -12),
+						offset=(-10, 8),
 						font_size=font_size,
 						font_type='bold'
 					)
@@ -717,13 +719,13 @@ class FigureChromatinMetrics:
 		
 		# Add panel labels if requested
 		if add_labels:
-			labels = ['A', 'B', 'C']
+			labels = ['a', 'b', 'c']
 			for key, label in zip(image_keys, labels):
 				if key in placed_images:
 					compositor.add_panel_label_to_image(
 						key,
 						label,
-						offset=(-10, -12),
+						offset=(-10, 11),
 						font_size=font_size,
 						font_type='bold'
 					)

@@ -737,7 +737,7 @@ class FigureCompositor:
 								background: Optional[Union[str, Tuple[int, int, int]]] = None,
 								bg_padding: int = 4,
 								bg_opacity: int = 200,
-								text_anchor='lt') -> bool:
+								text_anchor='lb') -> bool:
 		"""
 		Add a panel label directly to a previously placed image.
 		

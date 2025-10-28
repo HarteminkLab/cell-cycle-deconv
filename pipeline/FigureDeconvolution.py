@@ -695,7 +695,7 @@ class FigureDeconvolution(object):
 			compositor, 
 			compositor.placed_images,
 			font_size=36,
-			offset=(-10, -12)
+			offset=(-10, 20)
 		)
 
 		compositor.save(f'{self.fig_save_dir}/Supplemental3_CLB5_raw_locus.png')
@@ -734,7 +734,7 @@ class FigureDeconvolution(object):
 			compositor, 
 			compositor.placed_images,
 			font_size=24,
-			offset=(-20, -12)
+			offset=(-20, 8)
 		)
 
 		compositor.save(f'{self.fig_save_dir}/Supplemental4_THI22_raw_deconvolved_locus.png')
@@ -761,11 +761,11 @@ def layout_figure1_panel(save_dir, figures_dir):
 	image_paths[0] = "diagrams/Branching_diagram.png"
 
 	# Create compositor with same canvas size
-	compositor = FigureCompositor(1024, 670, debug_mode=True)
+	compositor = FigureCompositor(1024, 676, debug_mode=True)
 
 	# Layout parameters
 	margin = 20
-	top_margin = margin + 30
+	top_margin = margin + 40
 	canvas_width = 1024
 	usable_width = canvas_width - 2 * margin  # 984px
 	
@@ -800,8 +800,8 @@ def layout_figure1_panel(save_dir, figures_dir):
 	)
 	branch_img = compositor.placed_images['branch']
 	hist_img = compositor.placed_images['hist']
-	compositor.add_panel_label_to_image('branch', 'A', offset=(0, -40), font_size=letter_font_size)
-	compositor.add_panel_label_to_image('hist', 'B', offset=(0, -40), font_size=letter_font_size)
+	compositor.add_panel_label_to_image('branch', 'a', offset=(0, -16), font_size=letter_font_size)
+	compositor.add_panel_label_to_image('hist', 'b', offset=(0, -16), font_size=letter_font_size)
 	branch_height = branch_img['logical_size'][1]
 
 	# C panels (scaled)
@@ -812,7 +812,8 @@ def layout_figure1_panel(save_dir, figures_dir):
 	g_width_scaled = int(325 * scaling_factor)  # 192px
 	g_img = compositor.place_image(image_paths[2], margin, c_y_position, 
 								  g_width_scaled, None, 'raw')
-	compositor.add_panel_label_to_image('raw', 'C', offset=(0, -50), font_size=letter_font_size)
+	compositor.add_panel_label_to_image('raw', 'c', offset=(0, -21),
+		font_size=letter_font_size)
 
 	# C2: Kernel H diagram (scaled)
 	padding_gh_scaled = int(15 * scaling_factor)  # 9px
@@ -907,7 +908,7 @@ def layout_figure3_panel(save_dir, figures_dir):
 		image_keys=['locus']  # Custom keys for the images
 	)
 	
-	compositor.add_panel_label_to_image('locus', 'A', offset=(0, 0), font_size=42)
+	compositor.add_panel_label_to_image('locus', 'a', offset=(0, 30), font_size=42)
 
 	# Save the figure
 	save_path = f"{figures_dir}/Figure3_Locus.png"

@@ -32,6 +32,8 @@ class ExpressionAnalysisProcessor:
 		
 		# Data storage
 		self.expression_data = None
+
+		print("** todo: Testing reset of expression ptrs **")
 		self.all_transcripts_ptrs = None
 		self.top_cycling_genes = None
 		self.threshold_value = None
@@ -145,6 +147,8 @@ class ExpressionAnalysisProcessor:
 		print_fl(f"Computed PTR values for {len(self.all_transcripts_ptrs)} transcripts")
 		print_fl(f"PTR range: {self.all_transcripts_ptrs.ptr.min():.3f} - "
 				f"{self.all_transcripts_ptrs.ptr.max():.3f}")
+
+		print("** todo: Testing setting of PTRs **")
 		
 		return self.all_transcripts_ptrs
 
