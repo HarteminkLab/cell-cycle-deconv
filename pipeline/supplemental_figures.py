@@ -53,14 +53,14 @@ class FigureSupplemental:
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			offset=(-10, -26),
+			offset=(-10, -6),
 			font_size=36,
 		)
 
-		compositor.add_panel_label_to_image('hm1', 'Replicate 1', offset=(170, -26), 
+		compositor.add_panel_label_to_image('hm1', 'Replicate 1', offset=(170, -6), 
 			font_size=24, font_type='semi_bold')
 
-		compositor.add_panel_label_to_image('hm2', 'Replicate 2', offset=(170, -26), 
+		compositor.add_panel_label_to_image('hm2', 'Replicate 2', offset=(170, -6), 
 			font_size=24, font_type='semi_bold')
 
 		# Save the composite figure
@@ -88,17 +88,17 @@ class FigureSupplemental:
 			image_keys=['fit1', 'fit2']  # Custom keys
 		)
 
-		compositor.add_panel_label_to_image('fit1', 'Replicate 1 CLOCCS fit', offset=(90, -40), 
+		compositor.add_panel_label_to_image('fit1', 'Replicate 1 CLOCCS fit', offset=(90, -20), 
 			font_size=24, font_type='semi_bold')
 
-		compositor.add_panel_label_to_image('fit2', 'Replicate 2 CLOCCS fit', offset=(90, -40), 
+		compositor.add_panel_label_to_image('fit2', 'Replicate 2 CLOCCS fit', offset=(90, -20), 
 			font_size=24, font_type='semi_bold')
 
 		# Add panel labels
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			offset=(-20, -40),
+			offset=(-20, -20),
 			font_size=36,
 		)
 

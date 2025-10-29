@@ -468,7 +468,7 @@ class FigureDaughterSpecific:
 
 		# STEP 2: Layout SCW11 locus images horizontally in upper right
 		print("Placing SCW11 locus images in upper right...")
-		locus_title_offset = 20
+		locus_title_offset = 37
 		x_position_right_column = 420
 		right_column_width = 510
 
@@ -489,7 +489,7 @@ class FigureDaughterSpecific:
 		# STEP 3: Layout DSE1 locus images horizontally in lower right
 		print("Placing DSE1 locus images in lower right...")
 		# Calculate y position for lower section
-		between_padding_vertical = 90
+		between_padding_vertical = 70
 		scw_locus_img = compositor.placed_images['locus_SCW11_mother']
 		lower_right_y = (scw_locus_img['logical_position'][1]/2 + scw_locus_img['logical_size'][1] + 
 			locus_title_offset*2)\
@@ -521,9 +521,9 @@ class FigureDaughterSpecific:
 		add_panel_labels_to_images(
 			compositor,
 			left_column_images,
-			labels='ABCDE',
+			labels='abcde',
 			font_size=32,
-			offset=(-15, -15),  # Position labels slightly outside and above each image
+			offset=(-15, 20),  # Position labels slightly outside and above each image
 			font_type='bold',
 			color=(0, 0, 0),
 			background=(255, 255, 255),  # White background for better visibility
@@ -532,9 +532,9 @@ class FigureDaughterSpecific:
 		add_panel_labels_to_images(
 			compositor,
 			scw11_images,
-			labels='F  ',
+			labels='f  ',
 			font_size=32,
-			offset=(-15, -40),  # Position labels slightly outside and above each image
+			offset=(-15, -10),  # Position labels slightly outside and above each image
 			font_type='bold',
 			color=(0, 0, 0),
 			background=(255, 255, 255),  # White background for better visibility
@@ -544,19 +544,19 @@ class FigureDaughterSpecific:
 		add_panel_labels_to_images(
 			compositor,
 			dse1_images,
-			labels='G  ',
+			labels='g  ',
 			font_size=32,
-			offset=(-15, -40),  # Position labels slightly outside and above each image
+			offset=(-15, -10),  # Position labels slightly outside and above each image
 			font_type='bold',
 			color=(0, 0, 0),
 			background=(255, 255, 255),  # White background for better visibility
 		)
 
 		compositor.add_panel_label_to_image('locus_DSE1_daughter', 'DSE1',
-			offset=(20, -35), font_type='italic', font_size=24)
+			offset=(20, -10), font_type='italic', font_size=24)
 
 		compositor.add_panel_label_to_image('locus_SCW11_daughter', 'SCW11',
-			offset=(20, -35), font_type='italic', font_size=24)
+			offset=(20, -10), font_type='italic', font_size=24)
 		
 		# STEP 5: Save the composite figure
 		print("Saving composite figure...")

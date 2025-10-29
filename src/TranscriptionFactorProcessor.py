@@ -998,13 +998,13 @@ class TranscriptionFactorProcessor:
 			compositor, 
 			compositor.placed_images,
 			font_size=26,
-			offset=(-15, 0)  # Adjust offset as needed
+			offset=(-15, 20)  # Adjust offset as needed
 		)
 
 		compositor.add_panel_label_to_image(
 			'locations_both', 
-			'C', 
-			offset=(320, 0),
+			'c', 
+			offset=(320, 20),
 			font_size=26,
 		)
 

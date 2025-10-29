@@ -797,7 +797,7 @@ class FigureNongenicTranscripts:
 			compositor, 
 			compositor.placed_images,
 			font_size=40,
-			offset=(-15, 0)  # Adjust offset as needed
+			offset=(-15, 25)  # Adjust offset as needed
 		)
 
 		# Save the composite figure
@@ -834,11 +834,11 @@ class FigureNongenicTranscripts:
 			compositor, 
 			compositor.placed_images,
 			font_size=26,
-			offset=(-15, -15)  # Adjust offset as needed
+			offset=(-15, 20)  # Adjust offset as needed
 		)
 
 		# Save the composite figure
-		compositor.save(f'{self.figures_dir}/Supplemental6_Nongenic_transcription.png')
+		compositor.save(f'{self.figures_dir}/Supplemental10_Nongenic_transcription.png')
 
 def parse_transcript_name(transcript_name):
 	transcript_split = transcript_name.split('_')

@@ -1197,7 +1197,7 @@ class FigureNucleosomes:
 			compositor, 
 			compositor.placed_images,
 			font_size=32,
-			offset=(-15, 0)
+			offset=(-15, 20)
 		)
 
 		# Save the composite figure
@@ -1269,14 +1269,14 @@ class FigureNucleosomes:
 			image_keys=['position_deciles', 'position_histones']
 		)
 
-		offsets = [(-20, 0)]*len(compositor.placed_images)
-		offsets[-1] = (-10, 0)
+		offsets = [(-20, 20)]*len(compositor.placed_images)
+		offsets[-1] = (-10, 20)
 
 		# Add panel labels
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			"ACDBE FG",
+			"acdbe fg",
 			font_size=30,
 			offsets=offsets
 		)

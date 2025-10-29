@@ -273,7 +273,7 @@ class FigureChromatinMetrics:
 			compositor, 
 			compositor.placed_images,
 			font_size=36,
-			offset=(-10, -12)
+			offset=(-10, 30)
 		)
 		
 		# Save the composed figure
@@ -317,7 +317,7 @@ class FigureChromatinMetrics:
 
 		compositor = FigureCompositor(1024, 510, debug_mode=True)
 		image_dir = self.figures_dir
-		panel_save_path = os.path.join(self.panel_figures_dir, 'Figure5_Chromatin_Metrics.png')
+		panel_save_path = os.path.join(self.panel_figures_dir, 'Figure4_Chromatin_Metrics.png')
 		
 		# Define image paths
 		image_paths = {
@@ -519,7 +519,7 @@ class FigureChromatinMetrics:
 
 		compositor = FigureCompositor(1024, 520, debug_mode=True)
 		image_dir = self.figures_dir
-		panel_save_path = os.path.join(self.panel_figures_dir, 'Figure6_Genesets.png')
+		panel_save_path = os.path.join(self.panel_figures_dir, 'Figure5_Genesets.png')
 		
 		# Define image paths
 		image_paths = {
