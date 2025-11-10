@@ -54,7 +54,12 @@ class ChromatinModel:
 		# note: works best with large windows of G
 		self.normalize_mean_1 = True
 
-	def load_mnase_span(self, chrom, mnase_span, verbose=True, impute_50_rep2=False):
+		# todo: default mnase output directory
+		# is stored directly in the output
+		self.mnase_output_directory = 'output/mnase'
+
+	def load_mnase_span(self, chrom, mnase_span, verbose=True, impute_50_rep2=False,
+		mnase_output_directory=None):
 		"""Load the MNase for an arbitrary genomic span"""
 
 		replicate = self.config.replicate
@@ -63,6 +68,9 @@ class ChromatinModel:
 		# convert to integers
 		self.mnase_span = int(mnase_span[0]), int(mnase_span[1])
 
+		if mnase_output_directory is None:
+			mnase_output_directory = self.mnase_output_directory
+
 		if not self.chr == chrom:
 
 			del self.chr_reads
@@ -70,7 +78,8 @@ class ChromatinModel:
 			if verbose:
 				print_fl(f"Loading chromosome reads: {chrom}")
 
-			self.chr_reads = read_chromosome_mnase_reads(replicate, chrom)
+			self.chr_reads = read_chromosome_mnase_reads(mnase_output_directory, 
+				replicate, chrom)
 			self.chr = chrom
 
 		else:
@@ -408,8 +417,8 @@ class ChromatinModel:
 			extent = [self.mnase_span[0], self.mnase_span[1], 0, 260]
 			plot_G_img(ax, G_img, vmax=vmax, extent=extent, vmin=0, cmap='magma_r')
 
-def read_chromosome_mnase_reads(replicate, chr):
-	chr_reads = pd.read_hdf(f'output/mnase/yl_rep{replicate}_mnase_reads/yl_rep{replicate}_mnase_reads_chr{chr}.h5', 
+def read_chromosome_mnase_reads(output_directory, replicate, chr):
+	chr_reads = pd.read_hdf(f'{output_directory}/yl_rep{replicate}_mnase_reads/yl_rep{replicate}_mnase_reads_chr{chr}.h5', 
 							 'mnase_data')
 
 	return chr_reads
