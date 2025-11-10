@@ -46,7 +46,8 @@ class EtaOptimizer:
 		
 		# Initialize chromatin model
 		config1, config2 = load_default_chrom_configs()
-		self.combined_model = CombinedChromatinModel(config1=config1, config2=config2)
+		self.combined_model = CombinedChromatinModel(config1=config1, config2=config2,
+			output_dir=self.output_dir)
 		self.config1 = config1
 		self.config2 = config2
 		

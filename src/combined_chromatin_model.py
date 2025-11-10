@@ -16,7 +16,7 @@ class CombinedChromatinModel:
 	In this class we will construct the combined chromatin deconvolution model
 	"""
 
-	def __init__(self, config1=None, config2=None):
+	def __init__(self, config1=None, config2=None, output_dir=None):
 
 		if config1 is None and config2 is None:
 			from src.config import load_default_chrom_configs
@@ -24,6 +24,7 @@ class CombinedChromatinModel:
 
 		self.chrom1_model = ChromatinModel(config1)
 		self.chrom2_model = ChromatinModel(config2)
+		self.output_directory = output_dir
 
 
 	def load_mnase_span(self, chrom, mnase_span, verbose=True, impute_50_rep2=False,
@@ -62,7 +63,9 @@ class CombinedChromatinModel:
 		chrom = self.chrom1_model.chr
 		mnase_span = self.chrom1_model.mnase_span
 
-		repl_parent_dir = self.chrom1_model.config.replication_parent_directory
+		# self.chrom1_model.config.replication_parent_directory
+		repl_parent_dir = self.output_directory
+
 		print(f"Loading copy correction N, Fr, B from {repl_parent_dir}")
 
 		_, combined_N, self.f_replication, self.b = read_n_fr_b(chrom, mnase_span, 1, 

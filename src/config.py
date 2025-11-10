@@ -16,8 +16,6 @@ DEFAULT_POSTG1_NUM_TPS = 64
 
 APPROX_MIN_PER_NUM_INDICES = 0.5
 
-DEFAULT_REPLICATION_PARENT_DIRECTORY = 'output/draft3_run/'
-
 class ModelConfig(object):
 	"""Model to handle loading, saving, and configuring deconvolution model runs..
 
@@ -682,7 +680,6 @@ def load_from_dic(filepath, replicate=None, config_type='distinct', mode='chroma
 	timepoints = timepoints1 if replicate == 1 else timepoints2
 	config.load_from_dic(filepath, timepoints)
 	config.replicate = replicate
-	config.replication_parent_directory = DEFAULT_REPLICATION_PARENT_DIRECTORY
 
 	return config
 

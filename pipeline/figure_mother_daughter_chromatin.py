@@ -91,7 +91,8 @@ class FigureDaughterSpecific:
 		self.rna_plotter.ylim = 13
 		
 		# Initialize combined chromatin model
-		self.combined_model = CombinedChromatinModel(config1=config1, config2=config2)
+		self.combined_model = CombinedChromatinModel(config1=config1, config2=config2,
+			output_dir=self.output_dir)
 		
 		# Setup tpm plotter and expression processor
 		self.setup_tpm_plotter()

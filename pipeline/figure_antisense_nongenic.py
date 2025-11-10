@@ -94,7 +94,8 @@ class FigureNongenicTranscripts:
 		self.orf_plotter = load_default_orf_plotter()
 		self.rna_plotter = RNASeqPileupPlotter(self.output_dir)
 		self.rna_plotter.ylim = 13
-		self.combined_model = CombinedChromatinModel(config1=config1, config2=config2)
+		self.combined_model = CombinedChromatinModel(config1=config1, config2=config2,
+			self.output_dir)
 	
 	def load_data(self):
 		"""Load all required data: expression, chromatin metrics, and gene annotations."""

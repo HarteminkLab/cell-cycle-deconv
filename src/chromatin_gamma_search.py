@@ -255,7 +255,7 @@ def create_gamma_sweep_plots_single_measure(config, N, H, Fs, f_rep, gamma_sweep
 
 	plt.suptitle("Gamma sweep of single chromatin metric", fontsize=16)
 
-def find_gamma_chromatin(chromatin_save_directory, window_set_path, index,
+def find_gamma_chromatin(output_directory, chromatin_save_directory, window_set_path, index,
 	copy_correct=True, kappa=1, eta=0):
 
 	from src.utils import mkdirs_safe, parse_bool, print_fl
@@ -273,7 +273,8 @@ def find_gamma_chromatin(chromatin_save_directory, window_set_path, index,
 		deconv_plots_directory = f"{chromatin_save_directory}/deconv_plots_directory/chr{chrom}"
 
 		mkdirs_safe([data_directory, raw_plots_directory, deconv_plots_directory])
-		combined_model = CombinedChromatinModel(config1=config1, config2=config2)
+		combined_model = CombinedChromatinModel(config1=config1, config2=config2,
+			output_dir=output_directory)
 
 		# Load window to deconvolve
 		combined_model.load_mnase_span(chrom, mnase_span)

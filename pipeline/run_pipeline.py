@@ -167,7 +167,8 @@ def main():
 		genome_random_100_windows_path = 'data/reference_data/sacCer3_genome_random_1k_windows.csv'
 
 		# Set gamma to -1, meaning find the optimal gamma
-		find_gamma_chromatin(save_directory, genome_random_100_windows_path, index,
+		find_gamma_chromatin(output_directory, save_directory, 
+			genome_random_100_windows_path, index,
 			copy_correct=False, kappa=1, eta=0)
 
 	elif command == 'find_kappa_chromatin':
@@ -347,7 +348,7 @@ def main():
 		index = int(index)
 
 		chrom, span = parse_windows_csv(WINDOWS_ALL_10K_PATH, index)
-		deconvolve_chromatin(chromatin_save_directory, chrom, span,
+		deconvolve_chromatin(output_directory, chromatin_save_directory, chrom, span,
 			kappa=DEFAULT_CHROM_KAPPA, gamma=DEFAULT_CHROM_GAMMA, eta=DEFAULT_CHROM_ETA)
 
 	elif command == 'deconvolve_chromatin_no_copy':
@@ -542,7 +543,7 @@ def main():
 	# generate_replication_profiles()
 
 
-def deconvolve_chromatin(chromatin_save_directory, chrom, span,
+def deconvolve_chromatin(output_directory, chromatin_save_directory, chrom, span,
 	copy_correct=True, gamma=0.0066, kappa=1, eta=0):
 
 	# Load the configs from disk
@@ -557,7 +558,8 @@ def deconvolve_chromatin(chromatin_save_directory, chrom, span,
 		deconv_plots_directory = f"{chromatin_save_directory}/deconv_plots_directory/chr{chrom}"
 
 		mkdirs_safe([data_directory, raw_plots_directory, deconv_plots_directory])
-		combined_model = CombinedChromatinModel(config1=config1, config2=config2)
+		combined_model = CombinedChromatinModel(config1=config1, config2=config2,
+			output_dir=output_directory)
 
 		# Load window to deconvolve
 		combined_model.load_mnase_span(chrom, mnase_span)
