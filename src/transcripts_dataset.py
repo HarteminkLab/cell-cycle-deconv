@@ -85,7 +85,7 @@ class TranscriptDatasetBuilder:
 
 		from src.sgd_dataset_helpers import define_genomic_region
 
-		new_sgd_genes = define_genomic_region(new_sgd_genes, 'TSS', (-300, 0),
+		new_sgd_genes = define_genomic_region(new_sgd_genes, 'TSS', (-200, 0),
 							 ['promoter_start', 'promoter_end'])
 		new_sgd_genes = define_genomic_region(new_sgd_genes, 'TSS', (0, 500),
 							 ['gene_body_start', 'gene_body_end'])
@@ -106,7 +106,7 @@ class TranscriptDatasetBuilder:
 		nongenic_transcripts = define_new_strand_specific_key(nongenic_transcripts, 'PAS', 
 			'end', 'start')
 
-		nongenic_transcripts = define_genomic_region(nongenic_transcripts, 'TSS', (-300, 0),
+		nongenic_transcripts = define_genomic_region(nongenic_transcripts, 'TSS', (-200, 0),
 							 ['promoter_start', 'promoter_end'])
 		nongenic_transcripts = define_genomic_region(nongenic_transcripts, 'TSS', (0, 500),
 							 ['transcript_body_start', 'transcript_body_end'])
