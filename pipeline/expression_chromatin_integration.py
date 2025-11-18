@@ -119,7 +119,7 @@ class IntegratedChromatinExpressionAnalyzer:
 	
 	def plot_ptr_correlations(self, chromatin_data_source='deconvolved', 
 							  color_by='density',
-							  figsize=(8, 3.5), save_plots=False):
+							  figsize=(10, 4), save_plots=False):
 		"""
 		Plot correlations between chromatin PTRs and expression PTRs.
 		
@@ -892,26 +892,28 @@ class IntegratedChromatinExpressionAnalyzer:
 					s=2, marker='D', color=plt.get_cmap(cmap)(0.7))
 		plt.title(f"{name}, n={len(selected_data)}")
 		ys = np.arange(len(gene_names))
-		plt.yticks(ys, gene_names, fontsize=4)
+		plt.yticks(ys, gene_names, fontsize=6)
 		plt.ylim(-0.5, len(gene_names)-0.5)
 		plt.xlabel("Trajectory area")
 		
 		return selected_data
 
 	def plot_all_trajectory_area_cell_cycle_genes(self):
-		plt.figure(figsize=(11, 4))
-		plt.subplot(1, 3, 1)
+		plt.figure(figsize=(4, 16))
+		plt.subplot(3, 1, 1)
 		top_prom_occ = self.plot_chromatin_traj_area_genes('promoter_occupancy')
+		plt.xlabel('')
 
-		plt.subplot(1, 3, 2)
+		plt.subplot(3, 1, 2)
 		self.plot_chromatin_traj_area_genes('nucleosome_entropy')
+		plt.xlabel('')
 
-		plt.subplot(1, 3, 3)
+		plt.subplot(3, 1, 3)
 		self.plot_chromatin_traj_area_genes('nucleosome_occupancy')
 
-		plt.suptitle("Cell cycling chromatin and transcription genes, Trajectory area", 
-			fontweight='demi', fontsize=18)
-		plt.subplots_adjust(wspace=0.25, top=0.82)
+		plt.suptitle("Cell cycling chromatin and\ntranscription genes, Trajectory area", 
+			fontweight='demi', fontsize=18, y=0.95)
+		plt.subplots_adjust(hspace=0.25)
 
 
 	# Plot the highest to lowest trajectory area genes, in the coordinated genes set

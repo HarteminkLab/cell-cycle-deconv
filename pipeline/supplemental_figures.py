@@ -30,22 +30,22 @@ class FigureSupplemental:
 	def layout_supplemental_flow_cytometry(self):
 
 		from pipeline.figure_composer import FigureCompositor
-		from pipeline.figure_composer_helpers import layout_images_horizontally, \
+		from pipeline.figure_composer_helpers import layout_images_vertically, \
 			add_panel_labels_to_images
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 440, debug_mode=True)
+		compositor = FigureCompositor(1024, 1600, debug_mode=True)
 
 		image_paths = [
 			f'data/2019_cloccs_fits/yl_2019_replicate1/rep1.png',
 			f'data/2019_cloccs_fits/yl_2019_replicate2/rep2.png',
 		]
 
-		placed_images = layout_images_horizontally(
+		placed_images = layout_images_vertically(
 			compositor,
 			image_paths,
 			between_padding=30,
-			margin=(30, 60),
+			margin=(30, 30),
 			image_keys=['hm1', 'hm2']  # Custom keys
 		)
 
@@ -53,15 +53,15 @@ class FigureSupplemental:
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			offset=(-10, -6),
+			offset=(-10, 6),
 			font_size=36,
 		)
 
-		compositor.add_panel_label_to_image('hm1', 'Replicate 1', offset=(170, -6), 
-			font_size=24, font_type='semi_bold')
+		compositor.add_panel_label_to_image('hm1', 'Replicate 1', offset=(400, 16), 
+			font_size=32, font_type='semi_bold')
 
-		compositor.add_panel_label_to_image('hm2', 'Replicate 2', offset=(170, -6), 
-			font_size=24, font_type='semi_bold')
+		compositor.add_panel_label_to_image('hm2', 'Replicate 2', offset=(400, 16), 
+			font_size=32, font_type='semi_bold')
 
 		# Save the composite figure
 		compositor.save(f'{self.figures_dir}/Supplemental1_flow_cytometry.png')
@@ -69,30 +69,30 @@ class FigureSupplemental:
 	def layout_supplemental_cloccs_fits(self):
 
 		from pipeline.figure_composer import FigureCompositor
-		from pipeline.figure_composer_helpers import layout_images_horizontally, \
+		from pipeline.figure_composer_helpers import layout_images_vertically, \
 			add_panel_labels_to_images
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 340, debug_mode=True)
+		compositor = FigureCompositor(1024, 1250, debug_mode=True)
 
 		image_paths = [
 			f'./data/2019_cloccs_fits/yl_2019_replicate1/fit_curves_rep1.png',
 			f'./data/2019_cloccs_fits/yl_2019_replicate2/fit_curves_rep2.png',
 		]
 
-		placed_images = layout_images_horizontally(
+		placed_images = layout_images_vertically(
 			compositor,
 			image_paths,
-			between_padding=30,
+			between_padding=90,
 			margin=(30, 60),
 			image_keys=['fit1', 'fit2']  # Custom keys
 		)
 
-		compositor.add_panel_label_to_image('fit1', 'Replicate 1 CLOCCS fit', offset=(90, -20), 
-			font_size=24, font_type='semi_bold')
+		compositor.add_panel_label_to_image('fit1', 'Replicate 1 CLOCCS fit', offset=(300, -10), 
+			font_size=32, font_type='semi_bold')
 
-		compositor.add_panel_label_to_image('fit2', 'Replicate 2 CLOCCS fit', offset=(90, -20), 
-			font_size=24, font_type='semi_bold')
+		compositor.add_panel_label_to_image('fit2', 'Replicate 2 CLOCCS fit', offset=(300, -10), 
+			font_size=32, font_type='semi_bold')
 
 		# Add panel labels
 		add_panel_labels_to_images(

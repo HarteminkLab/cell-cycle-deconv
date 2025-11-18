@@ -711,9 +711,10 @@ class FigureDeconvolution(object):
 		- locus_THI22_deconvolved.png
 		"""
 		from pipeline.figure_composer import FigureCompositor
-		from pipeline.figure_composer_helpers import layout_images_horizontally, add_panel_labels_to_images
+		from pipeline.figure_composer_helpers import layout_images_horizontally, add_panel_labels_to_images,\
+			place_image_below
 
-		compositor = FigureCompositor(1024, 420, debug_mode=True)
+		compositor = FigureCompositor(1024, 1710, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/locus_THI22_raw_rep1.png',
@@ -721,20 +722,24 @@ class FigureDeconvolution(object):
 			f'{self.save_dir}/locus_THI22_deconvolved.png',
 		]
 
+		horizontal_margin=30
 		placed_images = layout_images_horizontally(
 			compositor,
-			image_paths,
-			width_proportions=[1, 1, 1.75],
+			image_paths[0:2],
+			width_proportions=[1, 1],
 			between_padding=40,
-			margin=(30, 30),
-			image_keys=['THI22_rep1', 'THI22_rep2', 'THI22_deconvolved']  # Custom keys for the images
+			margin=(horizontal_margin, 30),
+			image_keys=['THI22_rep1', 'THI22_rep2']  # Custom keys for the images
 		)
+
+		place_image_below(compositor, image_paths[2], 'THI22_rep1',
+			vertical_padding=40, width=1024-horizontal_margin*2, new_key='THI22_deconvolved')
 
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			font_size=24,
-			offset=(-20, 8)
+			font_size=42,
+			offset=(-20, 16)
 		)
 
 		compositor.save(f'{self.fig_save_dir}/Supplemental4_THI22_raw_deconvolved_locus.png')

@@ -413,11 +413,13 @@ class FigureChromatinMetrics:
 									top_bottom_trajectories_nucleosome_occupancy.png
 		"""
 		import os
+		from pipeline.figure_composer_helpers import layout_images_vertically, layout_images_horizontally,\
+			place_image_below
 
 		image_dir = self.figures_dir
 		panel_save_path = os.path.join(self.panel_figures_dir, 'Supplemental6_Chromatin_Transcription.png')
 
-		compositor = FigureCompositor(1024, 580, debug_mode=True)
+		compositor = FigureCompositor(1024, 980, debug_mode=True)
 		
 		# Define image paths
 		image_paths = {
@@ -428,81 +430,41 @@ class FigureChromatinMetrics:
 			'nucleosome_entropy': os.path.join(image_dir, 'top_bottom_trajectories_nucleosome_entropy.png'),
 			'nucleosome_occupancy': os.path.join(image_dir, 'top_bottom_trajectories_nucleosome_occupancy.png')
 		}
-		
-		# Verify all images exist
-		missing_images = [path for path in image_paths.values() if not os.path.exists(path)]
-		if missing_images:
-			raise FileNotFoundError(f"Missing image files: {missing_images}")
-		
-		# Calculate column widths
-		total_width = compositor.logical_width - (2 * margin[0])
-		left_width = int(total_width * left_width_percent / 100)
-		right_width = total_width - left_width - between_padding
-		
-		# Calculate column x positions
-		left_x = margin[0]
-		right_x = left_x + left_width + between_padding
-		
-		all_placed_images = {}
-		
-		# Left column - vertical layout (first two figures)
-		left_column_paths = [
-			image_paths['raw_vs_ptr'],
-			image_paths['ptrs_vs_ptr'],
-			image_paths['cell_cycle_values']
-		]
-		left_column_keys = ['RawvsPTR', 'PTRsVsPTR', 'CellCycleValues']
-		
-		left_images = layout_images_vertically(
+
+		placed_images = layout_images_horizontally(
 			compositor,
-			left_column_paths,
-			between_padding=between_padding,
-			margin=(left_x, margin[1]),
-			widths=[left_width, left_width, left_width],
-			image_keys=left_column_keys
+			[image_paths['raw_vs_ptr'], image_paths['ptrs_vs_ptr']],
+			width_proportions=[1., 1.],
+			between_padding=20,
+			margin=30,
+			offsets=[(0, 0), (0, -5)],
+			image_keys=['raw_vs_ptr', 'ptrs_vs_ptr']
 		)
-		all_placed_images.update(left_images)
-		
-		# Right column - vertical layout (last three figures)
-		right_column_paths = [
-			image_paths['promoter_occupancy'],
-			image_paths['nucleosome_entropy'],
-			image_paths['nucleosome_occupancy']
-		]
-		right_column_keys = [
-			'PromoterOccupancy',
-			'NucleosomeEntropy',
-			'NucleosomeOccupancy'
-		]
-		
-		right_images = layout_images_vertically(
+
+		place_image_below(compositor, image_paths['cell_cycle_values'], 'raw_vs_ptr',
+			vertical_padding=40, width=230, new_key='cell_cycle_trajectories')
+
+		raw_vs_ptr_img = placed_images['raw_vs_ptr']
+		y_offset = raw_vs_ptr_img['logical_position'][1]+raw_vs_ptr_img['logical_size'][1]+40
+		trajectories_width = 730
+
+		placed_images = layout_images_vertically(
 			compositor,
-			right_column_paths,
-			between_padding=between_padding,
-			margin=(right_x, margin[1]),
-			widths=[right_width] * 3,
-			image_keys=right_column_keys
+			[image_paths['promoter_occupancy'], image_paths['nucleosome_entropy'],
+			 image_paths['nucleosome_occupancy']],
+			 widths=[trajectories_width, trajectories_width, trajectories_width],
+			 between_padding=30,
+			 margin=(0, y_offset),
+			 x_position=270,
+			 image_keys=['promoter_occupancy', 'nucleosome_entropy', 'nucleosome_occupancy']
 		)
-		all_placed_images.update(right_images)
-		
-		# Add panel labels if requested
-		if add_labels:
-			# Order images for labeling: left column first, then right column
-			ordered_keys = [
-				'RawvsPTR', 'PTRsVsPTR', 'CellCycleValues',  # Left column
-				'PromoterOccupancy', 'NucleosomeEntropy', 'NucleosomeOccupancy'  # Right column
-			]
-			labels = ['a', 'b', 'c', 'd', 'e', 'f']
-			
-			for key, label in zip(ordered_keys, labels):
-				if key in all_placed_images:
-					compositor.add_panel_label_to_image(
-						key,
-						label,
-						offset=(-10, 10),
-						font_size=font_size,
-						font_type='bold'
-					)
+
+		add_panel_labels_to_images(
+			compositor, 
+			compositor.placed_images,
+			font_size=36,
+			offset=(-16, 10)
+		)
 
 		# Save the composed figure
 		compositor.save(panel_save_path)

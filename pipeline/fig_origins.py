@@ -557,7 +557,7 @@ dynamics. Then sharing some clear examples of these dynamics.
 			add_panel_labels_to_images, layout_images_horizontally
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 380, debug_mode=True)
+		compositor = FigureCompositor(1024, 1560, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/late_origin_locus.png',
@@ -567,20 +567,32 @@ dynamics. Then sharing some clear examples of these dynamics.
 
 		placed_images = layout_images_horizontally(
 			compositor,
-			image_paths,
+			image_paths[0:1],
 			between_padding=30,
-			offsets=[(0, 0), (0, 0), (0, 0)],
-			width_proportions=[1.05, 0.95, 0.95],
+			offsets=[(0, 0)],
+			width_proportions=[1],
 			margin=(30, 30),
-			image_keys=['late', 'early_composite', 'late_composite']
+			image_keys=['late']
+		)
+
+		y_position = placed_images['late']['logical_position'][1]+placed_images['late']['logical_size'][1]+30
+		placed_images = layout_images_horizontally(
+			compositor,
+			image_paths[1:3],
+			between_padding=30,
+			offsets=[(0, 0), (0, 0)],
+			width_proportions=[1, 1],
+			margin=(30, 30),
+			y_position=y_position,
+			image_keys=['early_composite', 'late_composite']
 		)
 
 		# Add panel labels
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			font_size=30,
-			offset=[-10, 0]
+			font_size=42,
+			offset=[-10, 22]
 		)
 
 		# Save the composite figure

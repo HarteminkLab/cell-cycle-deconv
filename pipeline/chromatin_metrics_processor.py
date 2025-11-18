@@ -563,7 +563,7 @@ class ChromatinMetricsProcessor:
 
 	def plot_combined_ptr_change(self, normalized=True):
 		import matplotlib.pyplot as plt
-		fig = plt.figure(figsize=(11., 4.))
+		fig = plt.figure(figsize=(10., 4.))
 
 		genic_transcripts = self.all_transcripts_set[
 			self.all_transcripts_set.transcript_class == 'genic'].index
