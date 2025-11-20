@@ -252,7 +252,6 @@ dynamics. Then sharing some clear examples of these dynamics.
 
 		observed_es, p_value, permuted_scores = permutation_test(origins_ranked, 'early',
 			n_permutations=20000)
-		observed_es, p_value
 
 		ax.plot(range(1, len(es_early)+1), normalized_score, lw=2,
 			c=color)
@@ -262,6 +261,67 @@ dynamics. Then sharing some clear examples of these dynamics.
 				  f"p-value={p_value:.3g}")
 		ax.set_ylim(0, 105)
 		ax.set_xlim(0, len(origins))
+
+	def plot_early_fraction_cdf(self, 
+								time_col='replication_time',
+								label_col='activation_time',
+								positive_label='early'):
+		"""
+		Plot cumulative fraction of early origins vs replication time
+		for a full dataset and for a subset, as single lines per panel.
+
+		Parameters
+		----------
+		df_full, df_subset : pandas.DataFrame
+			DataFrames containing replication time and activation label.
+		time_col : str
+			Column holding replication time values.
+		label_col : str
+			Column holding 'early' / 'late' labels.
+		positive_label : str
+			Label that counts as 'early'.
+
+		Returns
+		-------
+		fig, axes : matplotlib Figure and Axes
+		"""
+		
+		df_full = self.origin_timings.sort_values('replication_time')
+		df_subset = self.inferred_isolated_origins.sort_values('replication_time')
+
+		def cumulative_early_fraction(df):
+			"""Return replication_time sorted and cumulative fraction of early labels."""
+			data = df[[time_col, label_col]].dropna().sort_values(time_col)
+			is_early = (data[label_col] == positive_label).astype(int)
+			cum_early = is_early.cumsum() / len(is_early[is_early == 1])
+			return data[time_col].values, np.clip(cum_early.values, 0, 1)
+
+		fig, ax = plt.subplots(1, 1, figsize=(5, 3.5))
+
+		_, full_p_value, permuted_scores = permutation_test(df_full, 'early',
+			n_permutations=20000)
+		_, inferred_p_value, permuted_scores = permutation_test(df_subset, 'early',
+			n_permutations=20000)
+
+		for data, color, title in zip(
+			[df_full, df_subset],
+			['#333', 'darkorange'],
+			[f"All (n={len(df_full)}),\np-value={full_p_value:.3g}",
+			 f"Inferred, separated (n={len(df_subset)}),\np-value={inferred_p_value:.3g}"]
+		):
+			x, y = cumulative_early_fraction(data)
+			ax.step(x, y, lw=1.5, label=title, color=color)
+			ax.set_xlim(df_full[time_col].min(), df_full[time_col].max())
+			ax.set_ylim(0, 1.005)
+			ax.set_xlabel("Replication time (min)")
+		
+		ax.set_ylabel("Cumulative fraction of early origins")
+
+		plt.title("Cumulative fraction of early-origins\nacross replication timing", 
+			fontweight='demi', fontsize=13, pad=10)
+		plt.legend()
+		save_figure_for_paper(f"{self.save_dir}/cumulative_early_origin_enrichments.png")
+
 
 	def compute_set_of_nearest_and_termination_sites(self):
 
@@ -369,14 +429,14 @@ dynamics. Then sharing some clear examples of these dynamics.
 
 		from src.GenomeDeconvolutionAnalysis import GenomeDeconvolutionAnalysis
 		genome_analysis = self.genome_deconv_analysis
-		origins_sorted = self.origin_timings.sort_values('replication_time')
-		origins_sorted = origins_sorted#[origins_sorted.inferred_firing]
+		#origins_sorted = self.origin_timings.sort_values('replication_time')
+		#origins_sorted = origins_sorted#[origins_sorted.inferred_firing]
+
+		origins_sorted = self.inferred_isolated_origins.sort_values('replication_time')
 
 		k = 20
-		efficiency_cutoff = np.quantile(origins_sorted.derived_origin_efficiency_from_mcguffee_et_al_2013, 
-				q=0.75)
-		early_origins = origins_sorted[origins_sorted.derived_origin_efficiency_from_mcguffee_et_al_2013 > efficiency_cutoff].head(k)
-		late_origins = origins_sorted[origins_sorted.derived_origin_efficiency_from_mcguffee_et_al_2013 > efficiency_cutoff].tail(k)
+		early_origins = origins_sorted.head(k)
+		late_origins = origins_sorted.tail(k)
 
 		def collect_composite_origin_data(genome_analysis, origins, window=4000):
 			win_2 = window//2
@@ -455,12 +515,11 @@ dynamics. Then sharing some clear examples of these dynamics.
 
 		plt.subplots_adjust(hspace=0)
 
-
 		if which == 'early':
-			plt.suptitle(f"Early efficient origins, n={self.num_composite}", 
+			plt.suptitle(f"Early inferred, separated origins, n={self.num_composite}", 
 				fontweight='demi', fontsize=16)
 		elif which == 'late':
-			plt.suptitle(f"Late efficient origins, n={self.num_composite}", 
+			plt.suptitle(f"Late inferred, separated origins, n={self.num_composite}", 
 				fontweight='demi', fontsize=16)
 		
 
@@ -468,6 +527,7 @@ dynamics. Then sharing some clear examples of these dynamics.
 
 		self.plot_origin_timing()
 		self.plot_all_and_inferred_enrichments()
+		self.plot_early_fraction_cdf()
 
 		# 'oridb_526', # ARS1213, early firing with downstream shift
 		# 'oridb_189', # Late firing origin
@@ -476,9 +536,6 @@ dynamics. Then sharing some clear examples of these dynamics.
 
 		self.plot_origin_locus(self.origin_timings.loc['oridb_189'], "Late firing")
 		save_figure_for_paper(f"{self.save_dir}/late_origin_locus.png")
-
-		# Plot occupancy replication fork heatmaps
-		# self.plot_replication_fork_heatmaps()
 
 		# Plot all inferred origin entropy heatmaps
 		self.plot_origin_entropies()
@@ -557,33 +614,20 @@ dynamics. Then sharing some clear examples of these dynamics.
 			add_panel_labels_to_images, layout_images_horizontally
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 1560, debug_mode=True)
+		compositor = FigureCompositor(1024, 560, debug_mode=True)
 
 		image_paths = [
-			f'{self.save_dir}/late_origin_locus.png',
 			f'{self.save_dir}/early_origins_composite.png',
 			f'{self.save_dir}/late_origins_composite.png',
 		]
 
 		placed_images = layout_images_horizontally(
 			compositor,
-			image_paths[0:1],
-			between_padding=30,
-			offsets=[(0, 0)],
-			width_proportions=[1],
-			margin=(30, 30),
-			image_keys=['late']
-		)
-
-		y_position = placed_images['late']['logical_position'][1]+placed_images['late']['logical_size'][1]+30
-		placed_images = layout_images_horizontally(
-			compositor,
-			image_paths[1:3],
+			image_paths,
 			between_padding=30,
 			offsets=[(0, 0), (0, 0)],
 			width_proportions=[1, 1],
 			margin=(30, 30),
-			y_position=y_position,
 			image_keys=['early_composite', 'late_composite']
 		)
 

@@ -724,10 +724,10 @@ class TranscriptionFactorProcessor:
 
 	def plot_before_after_genomic_classifications(self):
 
-		fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 13))
+		fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13, 16))
 		self.plot_genomic_classifications(mode='all', ax=ax1)
 		self.plot_genomic_classifications(mode='cycling', ax=ax2)
-		plt.subplots_adjust(wspace=0.3)
+		plt.subplots_adjust(wspace=0.23)
 		save_figure_for_paper(f'{self.save_dir}/binding_locations_both.png')
 
 
@@ -810,7 +810,7 @@ class TranscriptionFactorProcessor:
 			ax.text(total_counts+xmax*0.01, i, label, ha='left', va='center', color=color)
 
 	
-	def plot_tf_boxplots(self, column='ptr', figsize=(6, 13), 
+	def plot_tf_boxplots(self, column='ptr', figsize=(6, 16), 
 						 show_outliers=False, 
 						 show_points=True, 
 						 point_color='#777', point_alpha=0.5, 
@@ -904,8 +904,8 @@ class TranscriptionFactorProcessor:
 			patch.set_alpha(1.0)
 		
 		# Customize the plot
-		ax.set_xlabel(f'{column.upper()} Value', fontsize=12)
-		ax.set_ylabel('Transcription Factor', fontsize=12)
+		ax.set_xlabel(f'{column.upper()} Value', fontsize=16)
+		ax.set_ylabel('Transcription Factor', fontsize=16)
 
 		title = f"Binding cyclicity for {len(sorted_tf_index)} TFs,\n{n} sites, {number_of_cell_cycle_sites} cycling ({number_of_cell_cycle_sites/n*100:.0f}%)"
 		ax.set_title(title, fontsize=21, fontweight='demi', pad=13)
@@ -929,10 +929,10 @@ class TranscriptionFactorProcessor:
 
 		right_side_ax = ax.twinx()
 		right_side_ax.set_yticks(range(1, len(numeric_tick_names)+1))
-		right_side_ax.set_yticklabels(numeric_tick_names, fontsize=12)
+		right_side_ax.set_yticklabels(numeric_tick_names, fontsize=15)
 		right_side_ax.tick_params(axis='y', which='major', length=0, pad=5)
 
-		ax.set_yticklabels(tick_names, fontsize=12)
+		ax.set_yticklabels(tick_names, fontsize=15)
 		ax.set_ylim(0.5, len(sorted_tf_index)+0.5)
 		right_side_ax.set_ylim(0.5, len(sorted_tf_index)+0.5)
 		xticks = np.arange(1, max_xlim, 0.25)
@@ -975,7 +975,7 @@ class TranscriptionFactorProcessor:
 			add_panel_labels_to_images
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 690, debug_mode=True)
+		compositor = FigureCompositor(1024, 830, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/factor_binding_cyclicity.png',
@@ -987,7 +987,7 @@ class TranscriptionFactorProcessor:
 		placed_images = layout_images_horizontally(
 			compositor,
 			image_paths,
-			width_proportions=[1, 2.125],
+			width_proportions=[1, 2.18],
 			between_padding=30,
 			margin=(30, 30),
 			image_keys=['binding_cyclicity', 'locations_both']  # Custom keys

@@ -1161,36 +1161,40 @@ class FigureNucleosomes:
 	def layout_supplemental_panel(self):
 		from pipeline.figure_composer import FigureCompositor
 		from pipeline.figure_composer_helpers import layout_images_vertically, \
-			layout_images_horizontally, add_panel_labels_to_images
+			layout_images_horizontally, add_panel_labels_to_images, place_image_below
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 540, debug_mode=True)
+		compositor = FigureCompositor(1024, 1060, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/plus_one_tss_comparison.png',
 			f'{self.save_dir}/plus_one_ptr_histograms.png',
 			f'{self.save_dir}/tx_nucleosome_ptrs.png',
 			f'{self.save_dir}/plus_one_occupancy_entropy_decile_enrichment.png',
+			f'{self.save_dir}/plus_one_heatmap_colorbar.png'
 		]
 
 		placed_images = layout_images_vertically(
 			compositor,
-			image_paths[:2],
+			image_paths[:1],
 			between_padding=30,
 			margin=(30, 30),
-			widths=[500, 500],
-			image_keys=['tsses', 'histograms']
+			widths=[420],
+			image_keys=['tsses'], #'histograms']
 		)
 
 		placed_images = layout_images_vertically(
 			compositor,
-			image_paths[2:4],
+			image_paths[1:3],
 			between_padding=30,
 			margin=(30, 30),
-			offsets=[(520, 0), (520, 0)],
-			widths=[450, 450],
-			image_keys=['ptrs', 'deciles_modifications'],
+			offsets=[(440, 0), (440, 0)],
+			widths=[530, 530],
+			image_keys=['histograms', 'ptrs'],
 		)
+
+		place_image_below(compositor, image_paths[3], 'tsses',
+			vertical_padding=220, width=900, new_key='deciles_modifications')
 
 		# Add panel labels
 		add_panel_labels_to_images(
@@ -1199,6 +1203,9 @@ class FigureNucleosomes:
 			font_size=32,
 			offset=(-15, 20)
 		)
+
+		compositor.place_image(image_paths[4], 940, 520, 
+			width=70, name='colorbar')
 
 		# Save the composite figure
 		compositor.save(f'{self.figures_dir}/Supplemental9_Nucleosome_metrics.png')
@@ -1210,10 +1217,34 @@ class FigureNucleosomes:
 			add_panel_labels_to_images, layout_images_horizontally
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 780, debug_mode=True)
+		compositor = FigureCompositor(1024, 740, debug_mode=True)
 
 		nucleosomes_fig_dir = self.save_dir
 		origins_fig_dir = f"{self.output_dir}/figure_origins"
+
+		# ---------- Nucleosomes story -----------
+
+		nucleosomes_image_paths = [
+			f'{nucleosomes_fig_dir}/position_expression_deciles.png',
+			f'{nucleosomes_fig_dir}/plus_one_positioning_decile_enrichment.png',
+			f'{nucleosomes_fig_dir}/plus_one_heatmap_colorbar.png'
+		]
+
+		compositor.place_image(nucleosomes_image_paths[2], 930, 50, 
+			width=60, name='colorbar')
+
+		placed_images = layout_images_horizontally(
+			compositor,
+			nucleosomes_image_paths[:2],
+			between_padding=32,
+			offsets=[(-34, 20), (-34, 20)],
+			width_proportions=[0.34, 0.66],
+			margin=(70, 0),
+			y_position=0,
+			image_keys=['position_deciles', 'position_histones']
+		)
+
+		# ---------- Origins ------------------
 
 		image_paths = [
 			f'{origins_fig_dir}/origin_replication_times.png',
@@ -1224,6 +1255,9 @@ class FigureNucleosomes:
 			f'{origins_fig_dir}/termination_site_entropy.png',
 		]
 
+		y_position = placed_images['position_deciles']['logical_position'][1]+\
+			placed_images['position_deciles']['logical_size'][1]+30
+
 		placed_images = layout_images_horizontally(
 			compositor,
 			image_paths[:3],
@@ -1231,6 +1265,7 @@ class FigureNucleosomes:
 			offsets=[(0, 0), (0, 0), (0, 0)],
 			width_proportions=[0.37, 0.57, 0.215],
 			margin=(33, 30),
+			y_position=y_position,
 			image_keys=['origins_repl', 'early_locus', 'inferred_entropies']  # Custom keys
 		)
 
@@ -1250,37 +1285,21 @@ class FigureNucleosomes:
 			width=inferred_ent_img['logical_size'][0], name='termination_entropies'
 		)
 
-		nucleosomes_image_paths = [
-			f'{nucleosomes_fig_dir}/position_expression_deciles.png',
-			f'{nucleosomes_fig_dir}/plus_one_positioning_decile_enrichment.png',
-			f'{nucleosomes_fig_dir}/plus_one_heatmap_colorbar.png'
-		]
-
-		compositor.place_image(nucleosomes_image_paths[2], 930, 530, 
-			width=60, name='colorbar')
-
-		placed_images = layout_images_horizontally(
-			compositor,
-			nucleosomes_image_paths[:2],
-			between_padding=32,
-			offsets=[(-34, 0), (-34, 0)],
-			width_proportions=[0.34, 0.66],
-			margin=(70, 500),
-			image_keys=['position_deciles', 'position_histones']
-		)
+		# ------- Labels ----------
 
 		offsets = [(-20, 20)]*len(compositor.placed_images)
-		offsets[-1] = (-10, 20)
+		#offsets[-1] = (-10, 20)
 
 		# Add panel labels
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			"acdbe fg",
+			#"acdbe fg",
+			" abcefdg",
 			font_size=30,
 			offsets=offsets
 		)
 
 		# Save the composite figure
-		compositor.save(f'{self.figures_dir}/Figure6_Origins_Nucleosomes.png')
+		compositor.save(f'{self.figures_dir}/Figure6_Nucleosomes_Origins.png')
 

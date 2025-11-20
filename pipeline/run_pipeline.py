@@ -365,6 +365,7 @@ def main():
 			eta=DEFAULT_CHROM_ETA)
 
 	elif command == 'compute_chromatin_metrics':
+		"""Compute all chromatin metrics and save to disk"""
 
 		(_, command, output_directory) = system_args
 		metrics_save_directory = f"{output_directory}/chromatin_metrics/"
