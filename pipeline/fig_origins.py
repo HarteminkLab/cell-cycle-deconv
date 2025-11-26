@@ -635,12 +635,55 @@ dynamics. Then sharing some clear examples of these dynamics.
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			font_size=42,
-			offset=[-10, 22]
+			font_size=36,
+			offset=[-16, 29]
 		)
 
 		# Save the composite figure
-		compositor.save(f'{self.figures_dir}/Supplemental8.5_Origins.png')
+		compositor.save(f'{self.figures_dir}/Supplemental9_Origins.png')
+
+
+	def layout_supplemental_replication_origins_validation(self):
+
+		from pipeline.figure_composer import FigureCompositor
+		from pipeline.figure_composer_helpers import layout_images_vertically, \
+			add_panel_labels_to_images, layout_images_horizontally
+
+		# Create compositor with wider dimensions for horizontal layout
+		compositor = FigureCompositor(1024, 420, debug_mode=True)
+
+		nucleosomes_fig_dir = self.save_dir
+		origins_fig_dir = f"{self.output_dir}/figure_origins"
+
+		# ---------- Origins ------------------
+
+		image_paths = [
+			f'{origins_fig_dir}/origin_replication_times.png',
+			f'{origins_fig_dir}/cumulative_early_origin_enrichments.png',
+		]
+
+		placed_images = layout_images_horizontally(
+			compositor,
+			image_paths,
+			between_padding=32,
+			offsets=[(0, 0), (0, 0)],
+			width_proportions=[0.44, 0.44],
+			margin=(30, 30),
+			image_keys=['replication_times', 'cumualtive_early_origins']
+		)
+
+		# ------- Labels ----------
+
+		# Add panel labels
+		add_panel_labels_to_images(
+			compositor, 
+			compositor.placed_images,
+			font_size=30,
+			offset=(-15, 22)
+		)
+
+		# Save the composite figure
+		compositor.save(f'{self.figures_dir}/Supplemental2.7_Replication_Origins_Validation.png')
 
 
 def calculate_enrichment_score(ranked_df, group_label):

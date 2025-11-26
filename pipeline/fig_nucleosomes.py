@@ -1208,7 +1208,7 @@ class FigureNucleosomes:
 			width=70, name='colorbar')
 
 		# Save the composite figure
-		compositor.save(f'{self.figures_dir}/Supplemental9_Nucleosome_metrics.png')
+		compositor.save(f'{self.figures_dir}/Supplemental8.5_Nucleosome_metrics.png')
 
 	def layout_combined_origins_nucleosomes(self):
 
@@ -1217,7 +1217,7 @@ class FigureNucleosomes:
 			add_panel_labels_to_images, layout_images_horizontally
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 740, debug_mode=True)
+		compositor = FigureCompositor(1024, 680, debug_mode=True)
 
 		nucleosomes_fig_dir = self.save_dir
 		origins_fig_dir = f"{self.output_dir}/figure_origins"
@@ -1247,11 +1247,9 @@ class FigureNucleosomes:
 		# ---------- Origins ------------------
 
 		image_paths = [
-			f'{origins_fig_dir}/origin_replication_times.png',
 			f'{origins_fig_dir}/early_origin_locus.png',
+			f'{origins_fig_dir}/late_origin_locus.png',
 			f'{origins_fig_dir}/inferred_firing_entropies.png',
-
-			f'{origins_fig_dir}/early_origin_enrichments.png',
 			f'{origins_fig_dir}/termination_site_entropy.png',
 		]
 
@@ -1263,25 +1261,17 @@ class FigureNucleosomes:
 			image_paths[:3],
 			between_padding=32,
 			offsets=[(0, 0), (0, 0), (0, 0)],
-			width_proportions=[0.37, 0.57, 0.215],
+			width_proportions=[0.44, 0.44, 0.16],
 			margin=(33, 30),
 			y_position=y_position,
-			image_keys=['origins_repl', 'early_locus', 'inferred_entropies']  # Custom keys
+			image_keys=['early_locus', 'late_locus', 'inferred_entropies']  # Custom keys
 		)
 
-		origins_img = placed_images['origins_repl']
 		inferred_ent_img = placed_images['inferred_entropies']
 
 		e_img = compositor.place_image(
-			image_paths[3], origins_img['logical_position'][0],
-			origins_img['logical_position'][1]+origins_img['logical_size'][1]+30,
-			width=origins_img['logical_size'][0], name='enrichment'
-		)
-
-		y_position = inferred_ent_img['logical_position'][1]+inferred_ent_img['logical_size'][1]+20
-		t_img = compositor.place_image(
-			image_paths[4], inferred_ent_img['logical_position'][0],
-			y_position,
+			image_paths[3], inferred_ent_img['logical_position'][0],
+			inferred_ent_img['logical_position'][1]+inferred_ent_img['logical_size'][1]+30,
 			width=inferred_ent_img['logical_size'][0], name='termination_entropies'
 		)
 
@@ -1294,8 +1284,7 @@ class FigureNucleosomes:
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			#"acdbe fg",
-			" abcefdg",
+			" abcdef",
 			font_size=30,
 			offsets=offsets
 		)

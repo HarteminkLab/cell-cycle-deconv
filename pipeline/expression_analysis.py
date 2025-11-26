@@ -136,7 +136,7 @@ def load_deconvolved_gene_expression(output_directory, include_nongenic=False):
 		try:
 			filepath = f"{file_directory}/{filename}.npy"
 			expression_F = np.load(filepath)
-		except IndexError:
+		except FileNotFoundError:
 			print(f"Could not find deconvolved file for {transcript_name}, skipping")
 			skip += 1
 			i += 1

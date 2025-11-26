@@ -207,27 +207,27 @@ def create_pas_column(df, priority_list=['Park_PAS', 'strand_specific_stop']):
 	return create_genomic_coordinate_column(df, 'PAS', priority_list)
 
 
-def load_all_transcripts_from_runs(output_dir):
-	# Load the transcript boundary results from disk from each chromosome
-	dfs_arr = []
-	for chrom in range(1, 17):
-		chrom_transcripts_df = pd.read_csv(f'{output_dir}/antisense_calling/called_transcripts_chr{chrom}.csv')
-		dfs_arr.append(chrom_transcripts_df)
+# def load_all_transcripts_from_runs(output_dir):
+# 	# Load the transcript boundary results from disk from each chromosome
+# 	dfs_arr = []
+# 	for chrom in range(1, 17):
+# 		chrom_transcripts_df = pd.read_csv(f'{output_dir}/transcripts_calling/called_transcripts_chr{chrom}.csv')
+# 		dfs_arr.append(chrom_transcripts_df)
 
-	all_called_transcripts_df = pd.concat(dfs_arr)
-	all_called_transcripts_df = all_called_transcripts_df.sort_values(['chr', 'start'])
+# 	all_called_transcripts_df = pd.concat(dfs_arr)
+# 	all_called_transcripts_df = all_called_transcripts_df.sort_values(['chr', 'start'])
 
-	nongenic_transcripts = all_called_transcripts_df[all_called_transcripts_df.overlapping_orf_name.isna()].copy()
-	gene_associated_transcripts = all_called_transcripts_df[~all_called_transcripts_df.overlapping_orf_name.isna()].copy()
+# 	nongenic_transcripts = all_called_transcripts_df[all_called_transcripts_df.overlapping_orf_name.isna()].copy()
+# 	gene_associated_transcripts = all_called_transcripts_df[~all_called_transcripts_df.overlapping_orf_name.isna()].copy()
 
-	# Name the non-gene transcripts
-	nongeneic_names = 'nogene_chr' + nongenic_transcripts['chr'].astype(str) + \
-		'_' + nongenic_transcripts['start'].astype(str) + '_' + \
-		nongenic_transcripts['end'].astype(str)
-	nongenic_transcripts.index = nongeneic_names
-	nongenic_transcripts = nongenic_transcripts[['chr', 'strand', 'start', 'end', 'length']]
+# 	# Name the non-gene transcripts
+# 	nongeneic_names = 'nogene_chr' + nongenic_transcripts['chr'].astype(str) + \
+# 		'_' + nongenic_transcripts['start'].astype(str) + '_' + \
+# 		nongenic_transcripts['end'].astype(str)
+# 	nongenic_transcripts.index = nongeneic_names
+# 	nongenic_transcripts = nongenic_transcripts#[['chr', 'strand', 'start', 'end', 'length']]
 
-	return gene_associated_transcripts, nongenic_transcripts
+# 	return gene_associated_transcripts, nongenic_transcripts
 
 
 
@@ -318,9 +318,16 @@ def plot_tss_comparison(tss_comparison, threshold):
 	plt.axvline(threshold, c='red', alpha=0.75)
 	plt.axvline(-threshold, c='red', alpha=0.75)
 
-def load_transcripts_sets(output_dir, combined=False):
-	geneset = pd.read_csv(f"{output_dir}/transcripts_calling/updated_transcripts_geneset.csv")
-	nongenic_set = pd.read_csv(f"{output_dir}/transcripts_calling/nongenic_transcripts_set.csv")
+def load_transcripts_sets(output_dir, combined=False, genes_path=None, nongenes_path=None):
+
+	if genes_path is None:
+		genes_path = f"{output_dir}/transcripts_calling/updated_transcripts_geneset.csv"
+
+	if nongenes_path is None:
+		nongenes_path = f"{output_dir}/transcripts_calling/nongenic_transcripts_set.csv"
+
+	geneset = pd.read_csv(genes_path)
+	nongenic_set = pd.read_csv(nongenes_path)
 	geneset = geneset.set_index('orf_name')
 
 	nongenic_set = nongenic_set.set_index('transcript_name').rename(columns={'end': 'stop'})
