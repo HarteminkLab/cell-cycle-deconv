@@ -7,6 +7,7 @@ import matplotlib.pyplot as plt
 import matplotlib.gridspec as gridspec
 
 from src.plot_helpers import hide_spines
+from src.tf_sites import TFBindingSites
 from src.plot_helpers import color_for_key
 from src.config_utils import get_sample_indices
 from src.orf_plotter import load_default_orf_plotter
@@ -25,7 +26,8 @@ class SingleBranchChromatinPlotter:
 	"""
 
 	def __init__(self, outdir, config1, branch_type="mother", figsize=(6, 5), title=None,
-		rna_plotter=None, deconvolved_tpm_plotter=None, plot_index_labels=True):
+		rna_plotter=None, deconvolved_tpm_plotter=None, plot_index_labels=True,
+		tfs=[]):
 		"""
 		Initialize the plotter with configuration for a single branch
 		
@@ -53,6 +55,7 @@ class SingleBranchChromatinPlotter:
 		self.highlight_bins = []
 		self.add_genomic_scale = False
 		self.add_xticks = True
+		self.tfs = tfs
 
 		# Right side index labels
 		self.plot_index_labels = plot_index_labels
@@ -98,6 +101,7 @@ class SingleBranchChromatinPlotter:
 		# Initialize the axes
 		self._initialize_axes()
 
+		self.binding_sites = TFBindingSites()
 
 	def all_data_axes(self):
 		all_data_axes = [self.annotation_axis, self.rna_pileup_axis] + self.chromatin_axes
@@ -193,6 +197,20 @@ class SingleBranchChromatinPlotter:
 			plot_rect2(ax, x_bp[0], y_bp[0], 
 					   x_bp[1], y_bp[1], alpha=0.8,
 				lw=0.75, fill=False, edgecolor=color)
+
+		tf_colors = {
+			'Mcm1': '#2c9645',
+			'other': '#555555'
+		}
+
+		# Plot transcription factor binding sites
+		for tf in self.tfs:
+			sites_to_plot = self.current_binding_sites[self.current_binding_sites.tf == tf]
+
+			color = tf_colors[tf] if tf in tf_colors else tf_colors['other']
+
+			ax.scatter(sites_to_plot.start, [30]*len(sites_to_plot), 
+				color=color, marker='^', s=20, zorder=100)
 
 	def _get_phase_for_branch_type(self, branch_type):
 		"""Get the phase string for cell cycle annotations based on branch type"""
@@ -472,6 +490,11 @@ class SingleBranchChromatinPlotter:
 		self.span = span
 		self.orf_plotter.set_chrom_span(chrom, span)
 		self.rna_plotter.set_chrom_span(chrom, span, replicate='combined') 
+
+		rossi_sites = self.binding_sites.all_rossi_tf_dfs
+		self.current_binding_sites = rossi_sites[(rossi_sites.chr == chrom) &
+			   (rossi_sites.start > span[0]) & 
+			   (rossi_sites.start < span[1])]
 
 		if self.deconvolved_tpm_plotter is not None:
 			self.deconvolved_tpm_plotter.set_chrom_span(chrom, span)

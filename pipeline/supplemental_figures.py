@@ -35,7 +35,7 @@ class FigureSupplemental:
 		from src.transcripts_dataset import load_transcripts_sets
 
 		genes, _ = load_transcripts_sets('output/draft4_run/')
-		genes
+
 		import pandas as pd
 		import matplotlib.pyplot as plt
 		import numpy as np
@@ -128,7 +128,7 @@ class FigureSupplemental:
 		plt.text(210, 340, f"200 bp promoter length selection", c='red',
 				ha='left', va='top')
 
-		save_figure_for_paper(f'{self.save_dir}/')
+		save_figure_for_paper(f'{self.save_dir}/intergenic_spacing_distribution.png')
 
 
 	def layout_supplemental_flow_cytometry(self):
@@ -174,40 +174,26 @@ class FigureSupplemental:
 	def layout_supplemental_promoters(self):
 
 		from pipeline.figure_composer import FigureCompositor
-		from pipeline.figure_composer_helpers import layout_images_vertically, \
+		from pipeline.figure_composer_helpers import layout_images_horizontally, \
 			add_panel_labels_to_images
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 1600, debug_mode=True)
+		compositor = FigureCompositor(1024, 600, debug_mode=True)
 
 		image_paths = [
-			f'',
+			f'{self.save_dir}/intergenic_spacing_distribution.png',
 		]
 
-		placed_images = layout_images_vertically(
+		placed_images = layout_images_horizontally(
 			compositor,
 			image_paths,
 			between_padding=30,
 			margin=(30, 30),
-			image_keys=['hm1', 'hm2']  # Custom keys
+			image_keys=['intergenic']  # Custom keys
 		)
-
-		# Add panel labels
-		add_panel_labels_to_images(
-			compositor, 
-			compositor.placed_images,
-			offset=(-10, 6),
-			font_size=36,
-		)
-
-		compositor.add_panel_label_to_image('hm1', 'Replicate 1', offset=(400, 16), 
-			font_size=32, font_type='semi_bold')
-
-		compositor.add_panel_label_to_image('hm2', 'Replicate 2', offset=(400, 16), 
-			font_size=32, font_type='semi_bold')
 
 		# Save the composite figure
-		compositor.save(f'{self.figures_dir}/Supplemental1_flow_cytometry.png')
+		compositor.save(f'{self.figures_dir}/Supplemental4.5_Intergenic_distribution.png')
 
 	def layout_supplemental_cloccs_fits(self):
 

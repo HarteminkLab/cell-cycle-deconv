@@ -53,6 +53,7 @@ class TranscriptionFactorProcessor:
 		self.comprehensive_df = None
 
 		# Chromatin processor computes ptr threshold
+		self._load_gene_promoters()
 		self._load_chromatin_processor()
 		self._load_tf_datasets()
 	
@@ -401,14 +402,7 @@ class TranscriptionFactorProcessor:
 		
 		geneset, _ = load_transcripts_sets(self.output_dir, combined=False)
 		
-		# Create a clean DataFrame with necessary columns
-		self.gene_promoters = pd.DataFrame({
-			'orf_name': geneset.index,
-			'chr': geneset['chr'],
-			'promoter_start': geneset['promoter_start'],
-			'promoter_end': geneset['promoter_end']
-		}).reset_index(drop=True)
-		
+		self.gene_promoters = geneset
 		print(f"Loaded {len(self.gene_promoters)} gene promoters")
 	
 	def _find_gene_associations(self):
@@ -504,9 +498,12 @@ class TranscriptionFactorProcessor:
 
 		chromatin_processor = ChromatinMetricsProcessor(self.output_dir)
 		chromatin_processor.load_and_assign_saved_metrics()
-		promoter_values = chromatin_processor.deconvolved_chromatin_metrics['promoter_occupancy'].dropna().values.flatten()
-		self.ptr_threshold = np.quantile(promoter_values, q=0.95)
+		self.chromatin_processor = chromatin_processor
 
+		promoter_values = chromatin_processor.deconvolved_chromatin_metrics['promoter_occupancy'].dropna().values.flatten()
+
+		self.ptr_threshold = np.quantile(chromatin_processor.normalized_ptr_deconvolved[
+			'promoter_occupancy'].loc[self.gene_promoters.index].dropna().values, q=0.95)
 
 	def _add_ptr_values(self):
 		"""
@@ -810,7 +807,7 @@ class TranscriptionFactorProcessor:
 			ax.text(total_counts+xmax*0.01, i, label, ha='left', va='center', color=color)
 
 	
-	def plot_tf_boxplots(self, column='ptr', figsize=(6, 16), 
+	def plot_tf_boxplots(self, column='ptr', figsize=(6.7, 16), 
 						 show_outliers=False, 
 						 show_points=True, 
 						 point_color='#777', point_alpha=0.5, 
@@ -960,7 +957,7 @@ class TranscriptionFactorProcessor:
 			plt.Line2D([0], [0], color=color, lw=2, label='Cell cycle TF (Kelliher, 2018)'),
 			plt.Line2D([0], [0], color='gray', lw=2, label='Non cell cycle')
 		]
-		ax.legend(handles=legend_elements)
+		ax.legend(handles=legend_elements, loc='lower right')
 			
 		# Keep track of the transcription factors plotted and sorting
 		self.sorted_boxplot_tfs_index = sorted_tf_index
@@ -975,7 +972,7 @@ class TranscriptionFactorProcessor:
 			add_panel_labels_to_images
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 830, debug_mode=True)
+		compositor = FigureCompositor(1024, 806, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/factor_binding_cyclicity.png',
@@ -987,7 +984,7 @@ class TranscriptionFactorProcessor:
 		placed_images = layout_images_horizontally(
 			compositor,
 			image_paths,
-			width_proportions=[1, 2.18],
+			width_proportions=[1.041, 2.],
 			between_padding=30,
 			margin=(30, 30),
 			image_keys=['binding_cyclicity', 'locations_both']  # Custom keys

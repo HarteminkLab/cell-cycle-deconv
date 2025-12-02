@@ -1119,41 +1119,46 @@ class FigureNucleosomes:
 	def layout_panel(self):
 		from pipeline.figure_composer import FigureCompositor
 		from pipeline.figure_composer_helpers import layout_images_vertically, \
-			add_panel_labels_to_images
+			add_panel_labels_to_images, layout_images_horizontally
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 900, debug_mode=True)
+		compositor = FigureCompositor(1024, 300, debug_mode=True)
 
-		image_paths = [
-			f'{self.save_dir}/plus_one_decile_enrichment.png',
-			f'{self.save_dir}/plus_one_heatmap_colorbar.png',
+		nucleosomes_fig_dir = self.save_dir
+		origins_fig_dir = f"{self.output_dir}/figure_origins"
+
+		# ---------- Nucleosomes story -----------
+
+		nucleosomes_image_paths = [
+			f'{nucleosomes_fig_dir}/position_expression_deciles.png',
+			f'{nucleosomes_fig_dir}/plus_one_positioning_decile_enrichment.png',
+			f'{nucleosomes_fig_dir}/plus_one_heatmap_colorbar.png'
 		]
 
-		placed_images = layout_images_vertically(
+		compositor.place_image(nucleosomes_image_paths[2], 930, 50, 
+			width=60, name='colorbar')
+
+		placed_images = layout_images_horizontally(
 			compositor,
-			[image_paths[0]],
-			heights=[840],
-			between_padding=30,
-			margin=(30, 30),
-			image_keys=['decile_enrichment']
+			nucleosomes_image_paths[:2],
+			between_padding=32,
+			offsets=[(-34, 20), (-34, 20)],
+			width_proportions=[0.34, 0.66],
+			margin=(70, 0),
+			y_position=0,
+			image_keys=['position_deciles', 'position_histones']
 		)
 
-		compositor.add_panel_label_to_image(
-			'decile_enrichment', "A", (-10, 47),
-			font_size=40,
-		)
+		offsets = [(-20, 20)]*len(compositor.placed_images)
 
-		compositor.add_panel_label_to_image(
-			'decile_enrichment', "B", (-10, 310),
-			font_size=40,
+		# Add panel labels
+		add_panel_labels_to_images(
+			compositor, 
+			compositor.placed_images,
+			" ab",
+			font_size=30,
+			offsets=offsets
 		)
-
-		compositor.add_panel_label_to_image(
-			'decile_enrichment', "C", (-10, 577),
-			font_size=40,
-		)
-
-		compositor.place_image(image_paths[1], 940, 80, width=80, name='colorbar')
 
 		# Save the composite figure
 		compositor.save(f'{self.figures_dir}/Figure7_Nucleosome_Histones.png')

@@ -105,8 +105,11 @@ class GenomeDeconvolutionAnalysis:
 		return plotter
 	
 	def plot_loaded_data(self, config=None, expression_f=None, title=None,
-						figsize=(15, 5), highlight_bins=[], branch_type='mean_mother_daughter',
-						rna_plotter=None, tpm_plotter=None, plot_index_labels=True):
+						figsize=(15, 5), highlight_bins=[], 
+						branch_type='mean_mother_daughter',
+						rna_plotter=None, tpm_plotter=None, 
+						plot_index_labels=True,
+						tfs=[]):
 		"""
 		Plot the loaded chromatin data.
 		
@@ -128,7 +131,6 @@ class GenomeDeconvolutionAnalysis:
 		plotter : DeconvolutionChromatinExpressionPlotter
 			The plotter object
 		"""
-		from src.expression_chromatin_plots import DeconvolutionChromatinExpressionPlotter
 		from src.ChromatinRNALocusPlotter import SingleBranchChromatinPlotter
 
 		if config is None:
@@ -143,12 +145,13 @@ class GenomeDeconvolutionAnalysis:
 			title=title,
 			rna_plotter=rna_plotter,
 			deconvolved_tpm_plotter=tpm_plotter,
-			plot_index_labels=plot_index_labels
+			plot_index_labels=plot_index_labels,
+			tfs=tfs,
 		)
 		plotter.set_chrom_span(self.chrom, self.loaded_subset_span)
 		plotter.set_chromatin_data(self.loaded_subset_data)
 		plotter.highlight_bins = highlight_bins
-		
+
 		if expression_f is not None:
 			plotter.set_expression_data(expression_f)
 		

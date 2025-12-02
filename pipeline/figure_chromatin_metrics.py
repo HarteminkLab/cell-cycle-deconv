@@ -131,7 +131,7 @@ class FigureChromatinMetrics:
 			'Histones H2B', 
 			'Histones H3', 
 			'Histones H4', 
-			'MCM2-7 complex',
+			'MCM1 and MCM2-7 complex',
 			'Early, G1-type cyclins',
 			'S-phase, B-type cyclins',
 			'G2-phase, B-type cyclins',
@@ -139,8 +139,14 @@ class FigureChromatinMetrics:
 		]
 
 		for i, gene_group in enumerate(groups_to_plot):
+
+			title = group_titles[i]
+
+			if 'MCM1' in title:
+				title = '$\\it{MCM1}$ and $\\it{MCM}2$-$7$ complex'
+
 			fig = self.integration.plot_gene_group_trajectories_all_metrics(gene_group,
-				title=group_titles[i])
+				title=title)
 
 			save_path = f"{self.figures_dir}/trajectories_group_{group_titles[i].replace(' ', '_')}.png"
 			print('Wrote to: ', save_path)
@@ -182,7 +188,8 @@ class FigureChromatinMetrics:
 				'title': f"{get_gene_title_name('MCM7', include_system=False)}",
 				'span_offset': (-1500, 1500),
 				'save_name': 'locus_MCM7',
-				'figsize': (7, 11)
+				'figsize': (7, 11),
+				'tf_binding': ['Mcm1']
 			},
 		}
 
@@ -190,9 +197,14 @@ class FigureChromatinMetrics:
 			gene = genes[genes['gene'] == gene_key].iloc[0]
 			span = gene.TSS+gene_dict['span_offset'][0], gene.TSS+gene_dict['span_offset'][1]
 			loaded_data = genome_deconv_analysis.load_mnase_span(gene.chr, span)
+
+			tfs = []
+			if 'tf_binding' in gene_dict:
+				tfs = gene_dict['tf_binding']
+
 			genome_deconv_analysis.plot_loaded_data(figsize=gene_dict['figsize'], 
 				title=gene_dict['title'],
-				plot_index_labels=False,
+				plot_index_labels=False, tfs=tfs,
 				tpm_plotter=self.tpm_plotter)
 			save_figure_for_paper(f'{self.figures_dir}/{gene_dict["save_name"]}.png')
 
@@ -277,7 +289,7 @@ class FigureChromatinMetrics:
 		)
 		
 		# Save the composed figure
-		output_path = f'{self.panel_figures_dir}/Supplemental5_Chromatin_Metrics.png'
+		output_path = f'{self.panel_figures_dir}/Supplemental6_Chromatin_Metrics.png'
 		compositor.save(output_path)
 		
 		print(f"Panel layout saved to: {output_path}")
@@ -650,13 +662,13 @@ class FigureChromatinMetrics:
 		from pipeline.figure_composer_helpers import layout_images_horizontally
 		
 		# Set up compositor - adjust width as needed for three horizontal images
-		compositor = FigureCompositor(1024, 620, debug_mode=True)
+		compositor = FigureCompositor(1024, 590, debug_mode=True)
 		image_dir = self.figures_dir
 		panel_save_path = os.path.join(self.panel_figures_dir, 'Supplemental7_MCM_Panel.png')
 		
 		# Define image paths
 		image_paths = [
-			os.path.join(image_dir, 'trajectories_group_MCM2-7_complex.png'),
+			os.path.join(image_dir, 'trajectories_group_MCM1_and_MCM2-7_complex.png'),
 			os.path.join(image_dir, 'locus_MCM2.png'),
 			os.path.join(image_dir, 'locus_MCM7.png'),
 		]
@@ -673,7 +685,7 @@ class FigureChromatinMetrics:
 		placed_images = layout_images_horizontally(
 			compositor,
 			image_paths,
-			width_proportions=[0.96, 1.01, 1.01],  # Equal widths for all three images
+			width_proportions=[0.905, 1.0, 1.0],  # Equal widths for all three images
 			between_padding=between_padding,
 			margin=margin,
 			image_keys=image_keys
@@ -687,7 +699,7 @@ class FigureChromatinMetrics:
 					compositor.add_panel_label_to_image(
 						key,
 						label,
-						offset=(-10, 11),
+						offset=(-10, 21),
 						font_size=font_size,
 						font_type='bold'
 					)

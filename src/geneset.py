@@ -31,7 +31,7 @@ def cyclin_genes(phase=None):
 def mcm_genes():
 
 	genes = [
-		'MCM2', 'MCM3', 'MCM4', 'MCM5', 'MCM6', 'MCM7'
+		'MCM1', 'MCM2', 'MCM3', 'MCM4', 'MCM5', 'MCM6', 'MCM7'
 	]
 	return genes
 

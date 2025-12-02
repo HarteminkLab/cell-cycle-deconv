@@ -558,14 +558,14 @@ dynamics. Then sharing some clear examples of these dynamics.
 			add_panel_labels_to_images, layout_images_horizontally
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 500, debug_mode=True)
+		compositor = FigureCompositor(1024, 410, debug_mode=True)
+
+		# ---------- Origins ------------------
 
 		image_paths = [
-			f'{self.save_dir}/origin_replication_times.png',
 			f'{self.save_dir}/early_origin_locus.png',
+			f'{self.save_dir}/late_origin_locus.png',
 			f'{self.save_dir}/inferred_firing_entropies.png',
-
-			f'{self.save_dir}/early_origin_enrichments.png',
 			f'{self.save_dir}/termination_site_entropy.png',
 		]
 
@@ -574,38 +574,34 @@ dynamics. Then sharing some clear examples of these dynamics.
 			image_paths[:3],
 			between_padding=32,
 			offsets=[(0, 0), (0, 0), (0, 0)],
-			width_proportions=[0.4, 0.6, 0.21],
+			width_proportions=[0.44, 0.44, 0.16],
 			margin=(33, 30),
-			image_keys=['origins_repl', 'early_locus', 'inferred_entropies']  # Custom keys
+			image_keys=['early_locus', 'late_locus', 'inferred_entropies']  # Custom keys
 		)
 
-		origins_img = placed_images['origins_repl']
 		inferred_ent_img = placed_images['inferred_entropies']
 
 		e_img = compositor.place_image(
-			image_paths[3], origins_img['logical_position'][0],
-			origins_img['logical_position'][1]+origins_img['logical_size'][1]+30,
-			width=origins_img['logical_size'][0], name='enrichment'
-		)
-
-		y_position = inferred_ent_img['logical_position'][1]+inferred_ent_img['logical_size'][1]+20
-		t_img = compositor.place_image(
-			image_paths[4], inferred_ent_img['logical_position'][0],
-			y_position,
+			image_paths[3], inferred_ent_img['logical_position'][0],
+			inferred_ent_img['logical_position'][1]+inferred_ent_img['logical_size'][1]+30,
 			width=inferred_ent_img['logical_size'][0], name='termination_entropies'
 		)
+
+		# ------- Labels ----------
+
+		offsets = [(-20, 20)]*len(compositor.placed_images)
 
 		# Add panel labels
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			"ACDBE",
+			"abcd",
 			font_size=30,
-			offset=[-24, 0]
+			offsets=offsets
 		)
 
 		# Save the composite figure
-		compositor.save(f'{self.figures_dir}/Figure6_Origins.png')
+		compositor.save(f'{self.figures_dir}/Figure4_Origins.png')
 
 	def layout_supplemental_panel(self):
 
