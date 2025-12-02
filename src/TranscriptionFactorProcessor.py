@@ -59,6 +59,7 @@ class TranscriptionFactorProcessor:
 		# Chromatin processor computes ptr threshold
 		self._load_gene_promoters()
 		self._load_chromatin_processor()
+		self._load_expression_processor()
 		self._load_tf_datasets()
 	
 	# =================== NEW: File path helpers ===================
@@ -202,6 +203,11 @@ class TranscriptionFactorProcessor:
 			_, comprehensive_loaded = self.load_results()
 			if comprehensive_loaded and self.comprehensive_df is not None:
 				print("Using saved comprehensive results. Use force_recompute=True to regenerate.")
+
+				# Setup gene associations data frame
+				self._find_gene_associations()
+				self._integrate_gene_associations()
+
 				return self.comprehensive_df
 		
 		print("Building comprehensive dataframe with gene associations...")
@@ -218,6 +224,10 @@ class TranscriptionFactorProcessor:
 		
 		# Save comprehensive results
 		self.save_results()
+
+		# Setup gene associations data frame
+		self._find_gene_associations()
+		self._integrate_gene_associations()
 		
 		print(f"Comprehensive dataframe complete with {len(self.comprehensive_df)} sites")
 		return self.comprehensive_df
@@ -438,7 +448,7 @@ class TranscriptionFactorProcessor:
 					tf_site['start'], tf_site['end'],
 					gene['promoter_start'], gene['promoter_end']
 				):
-					associated_genes.append(gene['orf_name'])
+					associated_genes.append(gene.name)
 			
 			# Store the associations (empty list if no associations)
 			self.gene_associations[identifier] = associated_genes
@@ -475,27 +485,21 @@ class TranscriptionFactorProcessor:
 		- association_type: 'overlap' or 'none'
 		"""
 		print("Integrating gene association data...")
-		
-		# Prepare data for each site
-		associated_genes_list = []
-		association_types = []
-		
-		for identifier in self.comprehensive_df.index.get_level_values('identifier'):
-			genes = self.gene_associations.get(identifier, [])
-			
-			if genes:
-				associated_genes_list.append(','.join(genes))
-				association_types.append('overlap')
-			else:
-				associated_genes_list.append('')
-				association_types.append('none')
-		
-		# Add columns to dataframe
-		self.comprehensive_df['associated_genes'] = associated_genes_list
-		self.comprehensive_df['association_type'] = association_types
-		
-		n_with_genes = sum(1 for genes in associated_genes_list if genes)
-		print(f"Added gene associations: {n_with_genes} sites with gene overlaps")
+		tf_sites_index = list(self.gene_associations.keys())
+		associated_genes_list = associated_genes = [None if len(v) == 0 else ','.join(v) 
+			for v in self.gene_associations.values()]
+
+		# 2. (Optional) Define names for the index levels
+		index_names = ['tf', 'identifier']
+
+		# 3. Create the MultiIndex
+		tf_sites_multiindex = pd.MultiIndex.from_tuples(tf_sites_index, names=index_names)
+
+		tf_sites_to_genes_df = pd.DataFrame(associated_genes_list, columns=['associated_gene'], 
+			index=tf_sites_multiindex)
+		self.tf_sites_to_genes_df = tf_sites_to_genes_df
+
+		self.comprehensive_w_associated_genes_df = self.comprehensive_df.join(tf_sites_to_genes_df)
 	
 	def _load_chromatin_processor(self):
 		from pipeline.chromatin_metrics_processor import ChromatinMetricsProcessor
@@ -508,6 +512,16 @@ class TranscriptionFactorProcessor:
 
 		self.ptr_threshold = np.quantile(chromatin_processor.normalized_ptr_deconvolved[
 			'promoter_occupancy'].loc[self.gene_promoters.index].dropna().values, q=0.95)
+
+	def _load_expression_processor(self):
+		# Next we'll need to expression ptrs
+		from pipeline.transcription_processor import ExpressionAnalysisProcessor
+
+		expression_processor = ExpressionAnalysisProcessor(self.output_dir)
+		expression_processor.setup_data_loaders()
+		expression_processor.load_deconvolved_expression()
+		expression_processor.compute_expression_ptrs()
+		self.expression_processor = expression_processor
 
 	def _add_ptr_values(self):
 		"""
@@ -632,8 +646,6 @@ class TranscriptionFactorProcessor:
 			else:
 				classification = 'intergenic'
 
-			# print(len(found_in_genes), len(found_in_promoter), classification)
-
 			return classification
 
 		from src.transcripts_dataset import load_transcripts_sets
@@ -643,8 +655,6 @@ class TranscriptionFactorProcessor:
 		tf_sites = self.tf_sites.copy()
 
 		sites_with_peaks = sites.join(tf_sites, how='left')
-		#sites_with_peaks = sites_with_peaks.reset_index().set_index('tf').loc[self.sorted_boxplot_tfs_index]\
-		#.reset_index().set_index(['tf', 'identifier'])
 
 		for site_index, site in sites_with_peaks.iterrows():
 			classification = _classify_site_with_genes(site, gene_boundaries)
@@ -655,8 +665,14 @@ class TranscriptionFactorProcessor:
 		# Pivot for easier viewing
 		pivot_counts = counts.pivot(index='tf', columns='genomic_classification', values='count')
 
+		# pivot_table = sites_with_peaks.reset_index().pivot_table(index=['tf', 'identifier'], 
+		# 	columns='genomic_classification',
+		# 	aggfunc='size').fillna(0).reset_index().groupby('tf')[[
+		# 	'gene_body', 'intergenic', 'promoter']].sum()
+
 		# Add any missing tfs that don't have cell cycle binding for consistency
-		pivot_counts = pivot_counts.join(pd.DataFrame(index=self.sorted_boxplot_tfs_index), 
+		pivot_counts = pivot_counts.join(pd.DataFrame(
+			index=self.sorted_boxplot_tfs_index),
 			how='right').fillna(0)
 
 		# Then order according to box plot ordering
@@ -707,14 +723,14 @@ class TranscriptionFactorProcessor:
 		# Apply Benjamini-Hochberg correction
 		rejected, p_adjusted, alpha_sidak, alpha_bonf = multipletests(
 			p_values, 
-			alpha=0.1,
+			alpha=0.01,
 			method='fdr_bh'  # Benjamini-Hochberg
 		)
 		stat_test_results['p_adjusted'] = p_adjusted
 		total_cycling_sites_per_tf = self.cell_cycle_site_counts_pivoted.sum(1)
 		stat_test_results['total_cycling_sites'] = total_cycling_sites_per_tf
 
-		stats_results = stat_test_results[(stat_test_results.p_value < 0.2) & 
+		stats_results = stat_test_results[(stat_test_results.p_value < 0.01) & 
 						  (stat_test_results.total_cycling_sites > 7)]
 
 		self.significant_promoter_tfs = stats_results
@@ -755,6 +771,8 @@ class TranscriptionFactorProcessor:
 		nonintergenic_perc = nonintergenic/total*100
 		promoter_num = (counts.promoter)
 		promoter_perc = promoter_num/total*100
+
+		pivot_counts = pivot_counts.loc[self.subset_sorted_boxplot_tfs_index]
 
 		# Plot with specific column order
 		pivot_counts[['promoter', 'gene_body', 'intergenic']].plot(kind='barh', stacked=True, ax=ax,
@@ -802,9 +820,9 @@ class TranscriptionFactorProcessor:
 
 			if mode == 'cycling' and tf_name in self.significant_promoter_tfs.index:
 
-				p_value = self.significant_promoter_tfs.loc[tf_name].p_value
+				p_value = self.significant_promoter_tfs.loc[tf_name].p_adjusted
 
-				if p_value < 0.05:
+				if p_value < 0.01:
 					ax.axhspan(i-0.5, i+0.52, 0, 1, color='yellow', zorder=0, alpha=0.16)
 					label += "*"
 
@@ -821,6 +839,7 @@ class TranscriptionFactorProcessor:
 		"""
 
 		ptr_values = self.comprehensive_df[['ptr']].dropna()
+
 		number_of_cell_cycle_sites = len(ptr_values[ptr_values.ptr > self.ptr_threshold])
 		n = len(ptr_values)
 
@@ -841,20 +860,24 @@ class TranscriptionFactorProcessor:
 		ptr_counts_df['prop_cycling'] = ptr_counts_df.num_cycling / ptr_counts_df.num_total
 		ptr_counts_df = ptr_counts_df.sort_values(['prop_cycling', 'num_cycling', 'num_total'])
 		
+		# Keep track of the transcription factors plotted and sorting,
+		# prior to subsetting by number of sites
+		self.sorted_boxplot_tfs_index = ptr_counts_df.index
+
 		# Subset by number of sites to plot threshold
 		num_threshold = self.min_num_sites_to_plot
 		ptr_counts_df = ptr_counts_df[ptr_counts_df.num_total > num_threshold]
 
+		# Keep track of the subset tfs for the next set of plots
+		self.subset_sorted_boxplot_tfs_index = ptr_counts_df.index
+
 		print(f"Number of transcription factors with >{num_threshold} sites", len(ptr_counts_df))
-		
-		# Sort by number of cycling counts
-		sorted_tf_index = ptr_counts_df.index
 
 		# Prepare data for box plots
 		data_list = []
 		tf_names = []
 		
-		for tf_name in sorted_tf_index:
+		for tf_name in ptr_counts_df.index:
 			clean_data = ptr_values.loc[tf_name][column].dropna().values
 			
 			if len(clean_data) > 0:  # Only include if there's data
@@ -894,7 +917,7 @@ class TranscriptionFactorProcessor:
 		# Color the boxes
 		color=plt.cm.Blues(0.4)
 		for i, patch in enumerate(box_plot['boxes']):
-			tf = sorted_tf_index[i]
+			tf = self.subset_sorted_boxplot_tfs_index[i]
 
 			# Color the cell cycle tfs
 			if tf.upper() in self.binding_sites.cell_cycle_rossi_tfs:
@@ -908,7 +931,7 @@ class TranscriptionFactorProcessor:
 		ax.set_xlabel(f'{column.upper()} Value', fontsize=16)
 		ax.set_ylabel('Transcription Factor', fontsize=16)
 
-		title = f"Binding cyclicity for {len(sorted_tf_index)} TFs,\n{n} sites, {number_of_cell_cycle_sites} cycling ({number_of_cell_cycle_sites/n*100:.0f}%)"
+		title = f"Binding cyclicity for {len(self.subset_sorted_boxplot_tfs_index)} TFs,\n{n} sites, {number_of_cell_cycle_sites} cycling ({number_of_cell_cycle_sites/n*100:.0f}%)"
 		ax.set_title(title, fontsize=21, fontweight='demi', pad=13)
 		
 		# Add some statistics as text
@@ -917,7 +940,7 @@ class TranscriptionFactorProcessor:
 		
 		tick_names = []
 		numeric_tick_names = []
-		for i, tf_name in enumerate(sorted_tf_index):
+		for i, tf_name in enumerate(ptr_counts_df.index):
 			tick_names.append(tf_name)
 			
 			num_total_sites = num_sites.loc[tf_name].num_total
@@ -934,8 +957,8 @@ class TranscriptionFactorProcessor:
 		right_side_ax.tick_params(axis='y', which='major', length=0, pad=5)
 
 		ax.set_yticklabels(tick_names, fontsize=15)
-		ax.set_ylim(0.5, len(sorted_tf_index)+0.5)
-		right_side_ax.set_ylim(0.5, len(sorted_tf_index)+0.5)
+		ax.set_ylim(0.5, len(self.subset_sorted_boxplot_tfs_index)+0.5)
+		right_side_ax.set_ylim(0.5, len(self.subset_sorted_boxplot_tfs_index)+0.5)
 		xticks = np.arange(1, max_xlim, 0.25)
 		xticklabels = [f"{x}" for x in xticks]
 		xticklabels[-1] = f"{max_ptr_plot}+"
@@ -949,7 +972,7 @@ class TranscriptionFactorProcessor:
 		ax.axvline(self.ptr_threshold, c='black', lw=1, ls='dotted')
 
 		# Color the y-tick labels based on cell cycle criteria
-		for i, tf_name in enumerate(sorted_tf_index):
+		for i, tf_name in enumerate(self.subset_sorted_boxplot_tfs_index):
 			if tf_name.upper() in self.binding_sites.cell_cycle_rossi_tfs:
 				ax.get_yticklabels()[i].set_color(plt.cm.Blues(0.7))  # Darker orange for text readability
 				right_side_ax.get_yticklabels()[i].set_color(plt.cm.Blues(0.7))  # Darker orange for text readability
@@ -962,13 +985,105 @@ class TranscriptionFactorProcessor:
 			plt.Line2D([0], [0], color='gray', lw=2, label='Non cell cycle')
 		]
 		ax.legend(handles=legend_elements, loc='lower right')
-			
-		# Keep track of the transcription factors plotted and sorting
-		self.sorted_boxplot_tfs_index = sorted_tf_index
-
+	
 		save_figure_for_paper(f"{self.save_dir}/factor_binding_cyclicity.png")
 
-		return fig, ax, sorted_tf_index
+		return fig, ax, self.subset_sorted_boxplot_tfs_index
+
+
+	def create_tf_expression_plots(self):
+
+		def _plot_ptr_decile_boxplots(ax, data_df):
+			"""
+			Plot gene expression PTR values (gene_ptr) as boxplots across deciles of the TF PTR (ptr).
+
+			Parameters
+			----------
+			data_df : pandas.DataFrame
+				Must contain at least columns 'ptr' and 'gene_ptr'.
+			"""
+
+			# --- 1. Compute deciles from the 'ptr' column ---
+			# Use qcut to split into 10 bins (deciles)
+			data_df['ptr_decile'] = pd.qcut(data_df['ptr'], 10, labels=False)
+
+			# --- 2. Group by decile ---
+			grouped = data_df.groupby('ptr_decile')['gene_ptr']
+
+			# --- 3. Prepare list of arrays for each decile ---
+			boxplot_data = [grouped.get_group(i).values for i in range(10)]
+
+			# --- 4. Create the plot ---
+			box_color = plt.cm.Oranges(0.75)
+			ax.boxplot(boxplot_data, 
+					   vert=True,
+					   showfliers=False,
+					   widths=0.3,
+					   patch_artist=True,  # Enable filling of boxes
+					   showmeans=True,  # Show mean line
+					   boxprops=dict(facecolor=box_color, edgecolor=box_color),
+					   whiskerprops=dict(color=box_color),
+					   capprops=dict(color=box_color),
+					   medianprops=dict(color='white'),
+					   meanprops=dict(marker='D', markerfacecolor='black', 
+						markeredgecolor='none', markersize=5),
+					   flierprops=dict(markersize=1, marker='o', markerfacecolor='black'))
+
+
+			# --- 5. Customize axes and labels ---
+			ax.set_title('Gene PTR Distribution Across PTR Deciles')
+			deciles_labels = [f'{i+1}' for i in range(10)]
+			deciles_labels[0] = "1\nStable"
+			deciles_labels[9] = "1\nCyclic"
+			ax.set_xticklabels(deciles_labels)
+
+		# Retrieve data to plot
+
+		site_ptrs_w_gene_df = self.comprehensive_w_associated_genes_df[['ptr', 'associated_gene']].copy()
+		site_ptrs_w_gene_df = site_ptrs_w_gene_df[~site_ptrs_w_gene_df.associated_gene.isna()]
+
+		genic_tx_ptrs = self.expression_processor.get_genic_ptrs()
+		site_ptrs_w_gene_df['gene_ptr'] = None
+
+		for idx, row in site_ptrs_w_gene_df.iterrows():
+			
+			try:
+				site_ptrs_w_gene_df.loc[idx, 'gene_ptr'] = genic_tx_ptrs.loc[row.associated_gene].ptr
+			except KeyError:
+				print(f"Skipping row: {idx}, {row.associated_gene}")
+				continue
+
+
+		# ---------
+
+		sites_to_plot = site_ptrs_w_gene_df.dropna().copy()
+
+		fig, axes = plt.subplots(1, 2, figsize=(9, 3))
+
+		ax = axes[0]
+		ax.scatter(sites_to_plot.ptr, sites_to_plot.gene_ptr, 
+				   s=3, facecolor='none', edgecolor='#ccc', zorder=0)
+		ax.scatter(sites_to_plot.ptr, sites_to_plot.gene_ptr, 
+				   s=2, alpha=0.25, color=plt.cm.Oranges(0.5))
+		ax.set_xlabel("TF binding PTR")
+		ax.set_ylabel("Gene expression PTR")
+		ax.set_ylim(0.99, 1.5)
+		ax.set_title("TF site binding vs Expression PTR")
+
+		ax = axes[1]
+		boxplot_data = _plot_ptr_decile_boxplots(ax, 
+			sites_to_plot)
+		ax.set_title("Deciles of TF binding PTR")
+		ax.set_ylabel("Gene expression PTR")
+		ax.set_xlabel('TF binding PTR decile')
+		ax.set_ylim(0.99, 1.5)
+
+		plt.suptitle(f"TF promoter binding and gene expression cyclity, n={len(sites_to_plot)}",
+					fontweight='demi', y=1.1, fontsize=16)
+		plt.subplots_adjust(wspace=0.25)
+
+		save_figure_for_paper(f'{self.save_dir}/tf_binding_expression_ptrs.png')
+
 
 	def layout_panel(self):
 		from pipeline.figure_composer import FigureCompositor
@@ -1011,3 +1126,29 @@ class TranscriptionFactorProcessor:
 
 		# Save the composite figure
 		compositor.save(f'{self.figures_dir}/Supplemental8_Transcription_Factors.png')
+
+	def layout_supplemental_transcription_panel(self):
+		from pipeline.figure_composer import FigureCompositor
+		from pipeline.figure_composer_helpers import layout_images_horizontally, \
+			add_panel_labels_to_images
+
+		# Create compositor with wider dimensions for horizontal layout
+		compositor = FigureCompositor(1024, 506, debug_mode=True)
+
+		image_paths = [
+			f'{self.save_dir}/tf_binding_expression_ptrs.png',
+		]
+
+		# Layout images horizontally with custom width proportions
+		# Adjust these proportions based on your image content needs
+		placed_images = layout_images_horizontally(
+			compositor,
+			image_paths,
+			width_proportions=[1],
+			between_padding=30,
+			margin=(30, 30),
+			image_keys=['tf_tx_ptrs']  # Custom keys
+		)
+
+		# Save the composite figure
+		compositor.save(f'{self.figures_dir}/Supplemental8.2_TFs_Expression_PTRs.png')
