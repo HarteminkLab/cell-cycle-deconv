@@ -51,6 +51,10 @@ class TranscriptionFactorProcessor:
 		self.gene_promoters = None
 		self.gene_associations = None
 		self.comprehensive_df = None
+		
+		# Plotting threshold, which TFs have
+		# at least X number of sites?
+		self.min_num_sites_to_plot = 5
 
 		# Chromatin processor computes ptr threshold
 		self._load_gene_promoters()
@@ -837,8 +841,8 @@ class TranscriptionFactorProcessor:
 		ptr_counts_df['prop_cycling'] = ptr_counts_df.num_cycling / ptr_counts_df.num_total
 		ptr_counts_df = ptr_counts_df.sort_values(['prop_cycling', 'num_cycling', 'num_total'])
 		
-		# Subset by threshold, min 20
-		num_threshold = 5
+		# Subset by number of sites to plot threshold
+		num_threshold = self.min_num_sites_to_plot
 		ptr_counts_df = ptr_counts_df[ptr_counts_df.num_total > num_threshold]
 
 		print(f"Number of transcription factors with >{num_threshold} sites", len(ptr_counts_df))
