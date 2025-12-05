@@ -57,6 +57,10 @@ class SingleBranchChromatinPlotter:
 		self.add_xticks = True
 		self.tfs = tfs
 
+		# Initialize legend storage
+		self.tf_legend_items = []
+		self.tf_legend_labels = []
+
 		# Right side index labels
 		self.plot_index_labels = plot_index_labels
 
@@ -199,18 +203,31 @@ class SingleBranchChromatinPlotter:
 				lw=0.75, fill=False, edgecolor=color)
 
 		tf_colors = {
-			'Mcm1': '#2c9645',
-			'other': '#555555'
+			'Mcm1': '#2c9645',    # green (existing)
+			'Mbp1': '#3498db',    # blue
+			'Spt15': '#e74c3c',   # red
+			'Cin5': '#1abc9c',    # teal
+			'Fkh1': '#e91e63',    # pink/magenta
+			'Tbf1': '#f39c12',    # orange/gold
+			'other': '#555555'    # gray (existing)
 		}
 
 		# Plot transcription factor binding sites
-		for tf in self.tfs:
-			sites_to_plot = self.current_binding_sites[self.current_binding_sites.tf == tf]
+		for tf in self.current_binding_sites.tf.values:
 
-			color = tf_colors[tf] if tf in tf_colors else tf_colors['other']
+			# Plot selected tfs
+			if tf in self.tfs:
 
-			ax.scatter(sites_to_plot.start, [30]*len(sites_to_plot), 
-				color=color, marker='^', s=20, zorder=100)
+				sites_to_plot = self.current_binding_sites[self.current_binding_sites.tf == tf]
+
+				color = tf_colors[tf] if tf in tf_colors else tf_colors['other']
+
+				scatter = ax.scatter(sites_to_plot.start, [30]*len(sites_to_plot), 
+					color=color, marker='^', s=20, zorder=100)
+
+				if not tf in self.tf_legend_labels:
+					self.tf_legend_items.append(scatter)
+					self.tf_legend_labels.append(tf)
 
 	def _get_phase_for_branch_type(self, branch_type):
 		"""Get the phase string for cell cycle annotations based on branch type"""
@@ -474,6 +491,18 @@ class SingleBranchChromatinPlotter:
 
 			ax = self.chromatin_axes[-1]
 			add_im_genomic_scale_legend(ax, self.span[0], 1000, legend_y=-80)
+
+
+		# Add legend if necessary
+		if len(self.tf_legend_items) > 0:
+			ax = self.chromatin_axes[-1]
+			ax.legend(self.tf_legend_items, self.tf_legend_labels,
+				bbox_to_anchor=(-0.1, -0.2),
+				loc='upper left',
+				ncol=10,
+				fontsize=13,
+				handletextpad=0.,
+				frameon=False)
 
 	def set_chrom_span(self, chrom, span):
 		"""

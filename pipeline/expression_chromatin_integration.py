@@ -368,8 +368,8 @@ class IntegratedChromatinExpressionAnalyzer:
 							chromatin_sample[b_indices].values)/2
 		expression_values = np.concatenate([expression_values, expression_values[0:1]])
 		chromatin_values = np.concatenate([chromatin_values, chromatin_values[0:1]])
-		plt.plot(chromatin_values, expression_values,
-				   lw=1, color='#aaa', zorder=0)
+		# plt.plot(chromatin_values, expression_values,
+		# 		   lw=1, color='#aaa', zorder=0)
 
 		for phase in phases:
 
@@ -387,8 +387,10 @@ class IntegratedChromatinExpressionAnalyzer:
 				chromatin_values = chromatin_sample[indices].values
 
 			color = color_for_key(phase)
-			plt.scatter(chromatin_values, expression_values,
-					   s=1, color=color, label=phase, zorder=1)
+			plt.plot(chromatin_values, expression_values,
+					   lw=4, color=color, zorder=0)
+			# plt.scatter(chromatin_values, expression_values,
+			# 		   s=1, color=color, label=phase, zorder=1)
 
 			if phase == 'meanG1':
 
@@ -400,7 +402,7 @@ class IntegratedChromatinExpressionAnalyzer:
 
 				# Starting point
 				plt.scatter(chromatin_values[0], expression_values[0],
-						   s=2, color='black', marker='D', label=phase, zorder=1)
+						   s=4, color='black', marker='D', label=phase, zorder=1)
 
 			elif phase == 'S':
 
@@ -983,7 +985,130 @@ class IntegratedChromatinExpressionAnalyzer:
 		self.plot_deconvolved_examples_grid(selected_data.index.values, chromatin_key)
 		plt.suptitle(f"{name}, by normalized trajectory area", fontweight='demi', fontsize=16)
 
-	def plot_gene_group_trajectories_all_metrics(self, gene_list, figsize_per_row=(6, 1.5), title=''):
+	def _collect_trajectory_lims(self, orf_or_gene_name, chromatin_key):
+		"""
+		Collect all chromatin and expression values that will be plotted for a gene.
+		Used for limits calculation
+		"""
+		import numpy as np
+		from src.sgd import get_gene_name_orf_name
+		
+		# Get chromatin and expression data sources
+		chromatin_metrics_data = self.chromatin_processor.normalized_deconvolved_metrics
+		deconvolved_chromatin_data = chromatin_metrics_data[chromatin_key]
+		deconvolved_transcription_data = self.expression_processor.expression_data
+		
+		# Resolve ORF name
+		if orf_or_gene_name in chromatin_metrics_data[chromatin_key].index:
+			orf_name = orf_or_gene_name
+		else:
+			orf_name, gene_name = get_gene_name_orf_name(orf_or_gene_name)
+		
+		# Extract time course data for this gene
+		chromatin_sample = deconvolved_chromatin_data.loc[orf_name]
+		expression_sample = deconvolved_transcription_data.loc[orf_name]
+		
+		# Initialize lists to collect all values
+		all_chromatin_values = []
+		all_expression_values = []
+		
+		# 1. Collect connecting line values (averaged t/b branches)
+		t_indices = self.config.get_Hpositions_for_branch('t')
+		b_indices = self.config.get_Hpositions_for_branch('b')
+		expression_values = (expression_sample[t_indices].values + 
+							 expression_sample[b_indices].values) / 2
+		chromatin_values = (chromatin_sample[t_indices].values + 
+							chromatin_sample[b_indices].values) / 2
+		# Concatenate first point to end (closing the loop)
+		expression_values = np.concatenate([expression_values, expression_values[0:1]])
+		chromatin_values = np.concatenate([chromatin_values, chromatin_values[0:1]])
+		
+		all_chromatin_values.append(chromatin_values)
+		all_expression_values.append(expression_values)
+		
+		# 2. Collect phase-specific values
+		phases = ['G2M', 'S', 'meanG1']
+		
+		for phase in phases:
+			if phase == 'meanG1':
+				# Average CG1 and DG1 branches
+				t_indices = self.config.get_Hpositions_for_phase('CG1')
+				b_indices = self.config.get_Hpositions_for_phase('DG1')
+				
+				expression_values = (expression_sample[t_indices].values + 
+									 expression_sample[b_indices].values) / 2
+				chromatin_values = (chromatin_sample[t_indices].values + 
+									chromatin_sample[b_indices].values) / 2
+			else:
+				# Direct indices for G2M and S phases
+				indices = self.config.get_Hpositions_for_phase(phase)
+				expression_values = expression_sample[indices].values
+				chromatin_values = chromatin_sample[indices].values
+			
+			all_chromatin_values.append(chromatin_values)
+			all_expression_values.append(expression_values)
+		
+		# 3. Flatten all collected values into single arrays
+		chromatin_values_flat = np.concatenate(all_chromatin_values)
+		expression_values_flat = np.concatenate(all_expression_values)
+		
+		return chromatin_values_flat, expression_values_flat
+
+	def compute_trajectory_limits(self, gene_list, metrics=None, lim_padding=0.25):
+		"""
+		Compute x and y axis limits for trajectory plots based on a list of genes.
+		
+		This method collects all data points that would be plotted for the specified genes
+		and computes appropriate axis limits with padding. Useful for ensuring multiple
+		plots share the same axis limits.
+		"""
+		import numpy as np
+		
+		# 1. Set default metrics if not provided
+		if metrics is None:
+			metrics = ['promoter_occupancy', 'nucleosome_entropy', 'nucleosome_occupancy']
+		
+		# 2. Initialize data collectors
+		all_chromatin_data = {metric: [] for metric in metrics}
+		all_expression_data = []
+		
+		# 3. Collect all plot values
+		for gene in gene_list:
+			for metric in metrics:
+				chrom_vals, expr_vals = self._collect_trajectory_lims(gene, metric)
+				all_chromatin_data[metric].extend(chrom_vals)
+				all_expression_data.extend(expr_vals)
+		
+		# 4. Define limit calculation helper
+		def _create_lims(data, padding):
+			"""
+			Compute axis limits from data with padding.
+				
+			Returns
+			-------
+			tuple
+				(lower_limit, upper_limit)
+			"""
+			min_max = np.quantile(data, q=[0, 1])
+			value_range = min_max[1] - min_max[0]
+			ret = (min_max[0] - padding * value_range,
+					min_max[1] + padding * value_range)
+			return ret
+		
+		# 5. Compute expression limits (y-axis)
+		ylim = _create_lims(all_expression_data, lim_padding)
+		
+		# 6. Compute chromatin limits for each metric (x-axis)
+		xlim_dict = {}
+		for metric in metrics:
+			xlim_dict[metric] = _create_lims(all_chromatin_data[metric], lim_padding)
+
+		# 7. Return the computed limits
+		return xlim_dict, ylim
+
+	def plot_gene_group_trajectories_all_metrics(self, gene_list, 
+			figsize_per_row=(6, 1.5), title='', auto_lims=False,
+			override_xlim=None, override_ylim=None):
 		"""
 		Plot trajectories for a set of genes across all three chromatin metrics.
 		
@@ -1007,8 +1132,6 @@ class IntegratedChromatinExpressionAnalyzer:
 		metrics = ['promoter_occupancy', 'nucleosome_entropy', 'nucleosome_occupancy']
 		metric_titles = ['Promoter Occupancy', 'Nucleosome Entropy', 'Nucleosome Occupancy']
 		
-		ylim = trajectory_lims_mapping['expression']
-		
 		# Calculate total figure size
 		n_genes = len(gene_list)
 
@@ -1025,16 +1148,28 @@ class IntegratedChromatinExpressionAnalyzer:
 		# Handle case of single gene (axes won't be 2D)
 		if n_genes == 1:
 			axes = axes.reshape(1, -1)
-		
+
+		# Compute the limits based on each chromatin measures
+		# min and max ranges
+		if auto_lims:
+			auto_xlims, auto_ylims = \
+				self.compute_trajectory_limits(gene_list, metrics=None)
+
 		# Plot each gene-metric combination
 		for row_idx, gene in enumerate(gene_list):
 			for col_idx, (metric, metric_title) in enumerate(zip(metrics, metric_titles)):
 				ax = axes[row_idx, col_idx]
 				plt.sca(ax)  # Set current axis
 				
-				# Get appropriate y-axis limits for this metric
-				xlim = trajectory_lims_mapping[metric]
-				
+				if auto_lims:
+
+					xlim = auto_xlims[metric]
+					ylim = auto_ylims
+
+				else:
+					xlim = override_xlim[metric]
+					ylim = override_ylim
+
 				# Plot the trajectory
 				self.plot_orf_phase_state_deconvolved(
 					gene, 

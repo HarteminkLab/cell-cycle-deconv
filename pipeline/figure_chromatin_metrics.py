@@ -124,7 +124,8 @@ class FigureChromatinMetrics:
 			cyclin_genes('G1'), 
 			cyclin_genes('B-S'), 
 			cyclin_genes('B-G2'),
-			cyclin_genes('B-M')]
+			cyclin_genes('B-M')
+		]
 
 		group_titles = [
 			'Histones H2A', 
@@ -138,6 +139,19 @@ class FigureChromatinMetrics:
 			'M-phase, B-type cyclins',
 		]
 
+		# Precompute limits for ALL histone genes (H2A + H2B + H3 + H4)
+		all_histone_genes = (histone_genes('H2A') + histone_genes('H2B') + 
+		                     histone_genes('H3') + histone_genes('H4'))
+
+		histone_xlims, histone_ylim = self.integration.compute_trajectory_limits(
+			all_histone_genes)
+
+		# Precompute limits for ALL histone genes (H2A + H2B + H3 + H4)
+		all_cyclin_genes = (cyclin_genes('G1')+cyclin_genes('B-S')+cyclin_genes('B-G2')+
+			cyclin_genes('B-M'))
+		cyclin_xlims, cyclin_ylim = self.integration.compute_trajectory_limits(
+			all_cyclin_genes)
+
 		for i, gene_group in enumerate(groups_to_plot):
 
 			title = group_titles[i]
@@ -145,8 +159,17 @@ class FigureChromatinMetrics:
 			if 'MCM1' in title:
 				title = '$\\it{MCM1}$ and $\\it{MCM}2$-$7$ complex'
 
-			fig = self.integration.plot_gene_group_trajectories_all_metrics(gene_group,
-				title=title)
+			if "Histone" in title:
+				fig = self.integration.plot_gene_group_trajectories_all_metrics(gene_group,
+					title=title, override_xlim=histone_xlims, override_ylim=histone_ylim)
+
+			elif 'cyclins' in title:
+				fig = self.integration.plot_gene_group_trajectories_all_metrics(gene_group,
+					title=title, override_xlim=cyclin_xlims, override_ylim=cyclin_ylim)
+
+			else:
+				fig = self.integration.plot_gene_group_trajectories_all_metrics(gene_group,
+					title=title, auto_lims=True)
 
 			save_path = f"{self.figures_dir}/trajectories_group_{group_titles[i].replace(' ', '_')}.png"
 			print('Wrote to: ', save_path)
@@ -309,16 +332,17 @@ class FigureChromatinMetrics:
 		self.create_metrics_plots()
 		self.create_integration_plots()
 		self.create_locus_plots()
-		
+		print("Complete figure generation finished!")
+
+		self.layout_panels()
+
+	def layout_panels():
 		print("Creating panel layout...")
 		self.layout_trajectories_panel()
 		self.layout_chromatin_transcription_ptrs()
 		self.layout_genesets_panel()
 		self.layout_mcm_panel()
 		self.layout_supplemental_panel()
-
-		print("Complete figure generation finished!")
-
 
 	def layout_trajectories_panel(self, margin=(30, 30), between_padding=20, 
 							  panel_padding=40, add_labels=True, font_size=36):
@@ -329,7 +353,7 @@ class FigureChromatinMetrics:
 
 		compositor = FigureCompositor(1024, 510, debug_mode=True)
 		image_dir = self.figures_dir
-		panel_save_path = os.path.join(self.panel_figures_dir, 'Figure4_Chromatin_Metrics.png')
+		panel_save_path = os.path.join(self.panel_figures_dir, 'Figure5_Chromatin_Metrics.png')
 		
 		# Define image paths
 		image_paths = {
@@ -493,7 +517,7 @@ class FigureChromatinMetrics:
 
 		compositor = FigureCompositor(1024, 520, debug_mode=True)
 		image_dir = self.figures_dir
-		panel_save_path = os.path.join(self.panel_figures_dir, 'Figure5_Genesets.png')
+		panel_save_path = os.path.join(self.panel_figures_dir, 'Figure6_Genesets.png')
 		
 		# Define image paths
 		image_paths = {

@@ -523,6 +523,53 @@ class TranscriptionFactorProcessor:
 		expression_processor.compute_expression_ptrs()
 		self.expression_processor = expression_processor
 
+	def _setup_locus_plotting(self):
+		from src.transcripts_dataset import load_transcripts_sets
+		from src.GenomeDeconvolutionAnalysis import GenomeDeconvolutionAnalysis
+		from pipeline.transcription_processor import ExpressionAnalysisProcessor
+		from src.deconvolved_tpm_plotter import DeconvolvedTPMPlotter
+
+		self.genome_deconv_analysis = GenomeDeconvolutionAnalysis(
+			'output/draft4_run/')
+		self.tpm_plotter = DeconvolvedTPMPlotter(self.expression_processor.expression_data,
+								   self.expression_processor.all_transcripts_set)
+		self.genes, _ = load_transcripts_sets('output/draft4_run/')
+
+	def get_example_cyclic_regulation_binding_genes(self):
+		from src.transcripts_dataset import load_transcripts_sets
+
+		# What genes show the most clear cyclicity in TF binding and expression?
+		tfs_tx_data = self.tf_sites_tx_data
+
+		selected_genes_sites = tfs_tx_data.reset_index().set_index('associated_gene').join(self.genes[['gene']])\
+		    .sort_values('gene_ptr')
+
+		cyclic_binding_and_genes = selected_genes_sites[(selected_genes_sites.ptr > 1.4) &
+		    (selected_genes_sites.gene_ptr > 1.4)].sort_values('ptr')
+		return cyclic_binding_and_genes
+
+	def plot_locus_examples(self):
+		from src.figure_configs import save_figure_for_paper
+		from src.sgd import get_gene_title_name
+
+		tfs = ['Tbf1', 'Mcm1', 'Spt15', 'Fkh1', 'Mbp1', 'Reb1']
+		genes_to_plot = ['CDC6', 'HHF2', 'HHT1']
+
+		for gene_name in genes_to_plot:
+			gene = self.genes[self.genes['gene'] == gene_name].iloc[0]
+			span = gene.TSS-1000, gene.TSS+1000
+			loaded_data = self.genome_deconv_analysis.load_mnase_span(gene.chr, span)
+
+			gene_title = get_gene_title_name(gene_name, include_system=False)
+
+			self.genome_deconv_analysis.plot_loaded_data(figsize=(7, 11), 
+				title=gene_title,
+				plot_index_labels=False, tfs=tfs,
+				tpm_plotter=self.tpm_plotter)
+
+			save_figure_for_paper(f"{self.save_dir}/locus_{gene_name}.png")
+
+
 	def _add_ptr_values(self):
 		"""
 		Calculate and add peak-to-trough ratios to results DataFrame.
@@ -1034,7 +1081,7 @@ class TranscriptionFactorProcessor:
 			ax.set_title('Gene PTR Distribution Across PTR Deciles')
 			deciles_labels = [f'{i+1}' for i in range(10)]
 			deciles_labels[0] = "1\nStable"
-			deciles_labels[9] = "1\nCyclic"
+			deciles_labels[9] = "10\nCyclic"
 			ax.set_xticklabels(deciles_labels)
 
 		# Retrieve data to plot
@@ -1053,21 +1100,58 @@ class TranscriptionFactorProcessor:
 				print(f"Skipping row: {idx}, {row.associated_gene}")
 				continue
 
-
 		# ---------
 
 		sites_to_plot = site_ptrs_w_gene_df.dropna().copy()
+		self.tf_sites_tx_data = sites_to_plot
 
 		fig, axes = plt.subplots(1, 2, figsize=(9, 3))
+
+
+		selected_genes = [
+			('CDC6', 'top', 'right'),
+			('HHF2', 'top', 'left'),
+			('HHT1', 'bottom', 'center'),
+			('MCM7', 'bottom', 'right')
+		]
 
 		ax = axes[0]
 		ax.scatter(sites_to_plot.ptr, sites_to_plot.gene_ptr, 
 				   s=3, facecolor='none', edgecolor='#ccc', zorder=0)
 		ax.scatter(sites_to_plot.ptr, sites_to_plot.gene_ptr, 
 				   s=2, alpha=0.25, color=plt.cm.Oranges(0.5))
+
+		for gene_name, va, ha in selected_genes:
+
+			offset_x = 0.015
+			offset_y = 0.015
+
+			from src.sgd import get_orfname
+			orfname = get_orfname(gene_name)
+			selected_site = sites_to_plot[sites_to_plot['associated_gene'] == orfname].iloc[0]
+
+			ax.scatter(selected_site.ptr, selected_site.gene_ptr,
+				s=10, facecolor='none', edgecolor='black', zorder=100)
+
+			if ha == 'right': 
+				offset_x *= -1
+			elif ha == 'center': 
+				offset_x = 0
+
+			if va == 'top': 
+				offset_y *= -1
+			elif va == 'center':
+				offset_y = 0
+
+			text_x, text_y = selected_site.ptr+offset_x, \
+				selected_site.gene_ptr+offset_y
+
+			ax.text(text_x, text_y,
+				gene_name, ha=ha, va=va)
+
 		ax.set_xlabel("TF binding PTR")
 		ax.set_ylabel("Gene expression PTR")
-		ax.set_ylim(0.99, 1.5)
+		ax.set_ylim(0.99, 3)
 		ax.set_title("TF site binding vs Expression PTR")
 
 		ax = axes[1]
@@ -1076,7 +1160,7 @@ class TranscriptionFactorProcessor:
 		ax.set_title("Deciles of TF binding PTR")
 		ax.set_ylabel("Gene expression PTR")
 		ax.set_xlabel('TF binding PTR decile')
-		ax.set_ylim(0.99, 1.5)
+		ax.set_ylim(0.99, 1.3)
 
 		plt.suptitle(f"TF promoter binding and gene expression cyclity, n={len(sites_to_plot)}",
 					fontweight='demi', y=1.1, fontsize=16)
@@ -1133,21 +1217,53 @@ class TranscriptionFactorProcessor:
 			add_panel_labels_to_images
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 506, debug_mode=True)
+		compositor = FigureCompositor(1024, 1060, debug_mode=True)
 
 		image_paths = [
 			f'{self.save_dir}/tf_binding_expression_ptrs.png',
+			f'{self.save_dir}/locus_CDC6.png',
+			f'{self.save_dir}/locus_HHT1.png',
+			f'{self.save_dir}/locus_HHF2.png',
 		]
 
 		# Layout images horizontally with custom width proportions
 		# Adjust these proportions based on your image content needs
 		placed_images = layout_images_horizontally(
 			compositor,
-			image_paths,
+			image_paths[0:1],
 			width_proportions=[1],
 			between_padding=30,
 			margin=(30, 30),
 			image_keys=['tf_tx_ptrs']  # Custom keys
+		)
+
+		placed_images = layout_images_horizontally(
+			compositor,
+			image_paths[1:],
+			width_proportions=[1, 1, 1],
+			between_padding=30,
+			margin=(30, 30),
+			y_position=510,
+			image_keys=['cdc6', 'hht1', 'hhf2']  # Custom keys
+		)
+
+		# Add panel labels
+		add_panel_labels_to_images(
+			compositor,
+			compositor.placed_images,
+			'acde',
+			font_size=32,
+			offsets=[
+				(-11, 84),
+				(-11, 24), (-11, 24), (-11, 24),
+			]
+		)
+
+		compositor.add_panel_label_to_image(
+			'tf_tx_ptrs', 
+			'b', 
+			offset=(500, 84),
+			font_size=32,
 		)
 
 		# Save the composite figure
