@@ -96,10 +96,21 @@ class FigureChromatinMetrics:
 		self.integration.plot_all_trajectory_area_cell_cycle_genes()
 		save_figure_for_paper(f"{self.figures_dir}/cell_cycle_trajectory_values.png")
 
+		self.create_top_bottom_metric_trajectory_plots()
+		self.create_raw_deconvolved_trajectory_plots()
+
+		# Plot trajectories for each gene group
+		self.create_gene_group_trajectories_plots()
+
+	def create_top_bottom_metric_trajectory_plots(self):
+
+		metrics = ['promoter_occupancy', 'nucleosome_entropy', 'nucleosome_occupancy']
 		# Metric top and bottom exampels
 		for metric in metrics:
 			self.integration.plot_chromatin_example_trajectories(metric)
 			save_figure_for_paper(f"{self.figures_dir}/top_bottom_trajectories_{metric}.png")
+
+	def create_raw_deconvolved_trajectory_plots(self):
 
 		# Plot the raw vs deconvolved trajectory plots
 		# for sample genes
@@ -108,8 +119,6 @@ class FigureChromatinMetrics:
 			fig = self.integration.plot_all_metrics_all_replicates_gene(gene)
 			save_figure_for_paper(f"{self.figures_dir}/trajectories_{gene}.png")
 
-		# Plot trajectories for each gene group
-		self.create_gene_group_trajectories_plots()
 
 	def create_gene_group_trajectories_plots(self):
 
@@ -201,16 +210,66 @@ class FigureChromatinMetrics:
 				'save_name': 'locus_HTA1_HTB1',
 				'figsize': (7, 11)
 			},
+			'MCM1': {
+				'title': f"{get_gene_title_name('MCM1', include_system=False)}",
+				'span_offset': (-1500, 1500),
+				'save_name': 'locus_MCM1',
+				'figsize': (7, 11),
+				'tf_binding': ['Mcm1']
+			},
 			'MCM2': {
 				'title': f"{get_gene_title_name('MCM2', include_system=False)}",
 				'span_offset': (-1500, 1500),
 				'save_name': 'locus_MCM2',
-				'figsize': (7, 11)
+				'figsize': (7, 11),
+				'tf_binding': ['Mcm1']
+			},
+			'MCM3': {
+				'title': f"{get_gene_title_name('MCM3', include_system=False)}",
+				'span_offset': (-1500, 1500),
+				'save_name': 'locus_MCM3',
+				'figsize': (7, 11),
+				'tf_binding': ['Mcm1']
+			},
+			'MCM4': {
+				'title': f"{get_gene_title_name('MCM4', include_system=False)}",
+				'span_offset': (-1500, 1500),
+				'save_name': 'locus_MCM4',
+				'figsize': (7, 11),
+				'tf_binding': ['Mcm1']
+			},
+			'MCM5': {
+				'title': f"{get_gene_title_name('MCM5', include_system=False)}",
+				'span_offset': (-1500, 1500),
+				'save_name': 'locus_MCM5',
+				'figsize': (7, 11),
+				'tf_binding': ['Mcm1']
+			},
+			'MCM6': {
+				'title': f"{get_gene_title_name('MCM6', include_system=False)}",
+				'span_offset': (-1500, 1500),
+				'save_name': 'locus_MCM6',
+				'figsize': (7, 11),
+				'tf_binding': ['Mcm1']
 			},
 			'MCM7': {
 				'title': f"{get_gene_title_name('MCM7', include_system=False)}",
 				'span_offset': (-1500, 1500),
 				'save_name': 'locus_MCM7',
+				'figsize': (7, 11),
+				'tf_binding': ['Mcm1']
+			},
+			'YOX1': {
+				'title': f"{get_gene_title_name('YOX1', include_system=False)}",
+				'span_offset': (-1500, 1500),
+				'save_name': 'locus_YOX1',
+				'figsize': (7, 11),
+				'tf_binding': ['Mcm1']
+			},
+			'YHP1': {
+				'title': f"{get_gene_title_name('YHP1', include_system=False)}",
+				'span_offset': (-1500, 1500),
+				'save_name': 'locus_YHP1',
 				'figsize': (7, 11),
 				'tf_binding': ['Mcm1']
 			},
@@ -339,7 +398,7 @@ class FigureChromatinMetrics:
 	def layout_panels():
 		print("Creating panel layout...")
 		self.layout_trajectories_panel()
-		self.layout_chromatin_transcription_ptrs()
+		# self.layout_chromatin_transcription_ptrs()
 		self.layout_genesets_panel()
 		self.layout_mcm_panel()
 		self.layout_supplemental_panel()
@@ -438,78 +497,79 @@ class FigureChromatinMetrics:
 		
 		return panel_save_path
 
+	# todo: deprecated for 4d analysis with clusters.
+	#
+	# def layout_chromatin_transcription_ptrs(self, margin=(30, 30), between_padding=20,
+	# 						 left_width_percent=41, add_labels=True, font_size=24):
+	# 	"""
+	# 	Layout metrics panel 2 with the following arrangement:
+	# 	- Left column (35% width): ptrs_vs_ptr_trajectory.png, cell_cycle_trajectory_values.png
+	# 	- Right column (65% width): top_bottom_trajectories_promoter_occupancy.png,
+	# 								top_bottom_trajectories_nucleosome_entropy.png,
+	# 								top_bottom_trajectories_nucleosome_occupancy.png
+	# 	"""
+	# 	import os
+	# 	from pipeline.figure_composer_helpers import layout_images_vertically, layout_images_horizontally,\
+	# 		place_image_below
 
-	def layout_chromatin_transcription_ptrs(self, margin=(30, 30), between_padding=20,
-							 left_width_percent=41, add_labels=True, font_size=24):
-		"""
-		Layout metrics panel 2 with the following arrangement:
-		- Left column (35% width): ptrs_vs_ptr_trajectory.png, cell_cycle_trajectory_values.png
-		- Right column (65% width): top_bottom_trajectories_promoter_occupancy.png,
-									top_bottom_trajectories_nucleosome_entropy.png,
-									top_bottom_trajectories_nucleosome_occupancy.png
-		"""
-		import os
-		from pipeline.figure_composer_helpers import layout_images_vertically, layout_images_horizontally,\
-			place_image_below
+	# 	image_dir = self.figures_dir
+	# 	panel_save_path = os.path.join(self.panel_figures_dir, 'Supplemental6_Chromatin_Transcription.png')
 
-		image_dir = self.figures_dir
-		panel_save_path = os.path.join(self.panel_figures_dir, 'Supplemental6_Chromatin_Transcription.png')
-
-		compositor = FigureCompositor(1024, 980, debug_mode=True)
+	# 	compositor = FigureCompositor(1024, 980, debug_mode=True)
 		
-		# Define image paths
-		image_paths = {
-			'raw_vs_ptr':  os.path.join(image_dir, 'raw_vs_deconvolved_all_metrics_ptrs.png'),
-			'ptrs_vs_ptr': os.path.join(image_dir, 'ptrs_vs_ptr_trajectory.png'),
-			'cell_cycle_values': os.path.join(image_dir, 'cell_cycle_trajectory_values.png'),
-			'promoter_occupancy': os.path.join(image_dir, 'top_bottom_trajectories_promoter_occupancy.png'),
-			'nucleosome_entropy': os.path.join(image_dir, 'top_bottom_trajectories_nucleosome_entropy.png'),
-			'nucleosome_occupancy': os.path.join(image_dir, 'top_bottom_trajectories_nucleosome_occupancy.png')
-		}
+	# 	# Define image paths
+	# 	image_paths = {
+	# 		'raw_vs_ptr':  os.path.join(image_dir, 'raw_vs_deconvolved_all_metrics_ptrs.png'),
+	# 		'ptrs_vs_ptr': os.path.join(image_dir, 'ptrs_vs_ptr_trajectory.png'),
+	# 		'cell_cycle_values': os.path.join(image_dir, 'cell_cycle_trajectory_values.png'),
+	# 		'promoter_occupancy': os.path.join(image_dir, 'top_bottom_trajectories_promoter_occupancy.png'),
+	# 		'nucleosome_entropy': os.path.join(image_dir, 'top_bottom_trajectories_nucleosome_entropy.png'),
+	# 		'nucleosome_occupancy': os.path.join(image_dir, 'top_bottom_trajectories_nucleosome_occupancy.png')
+	# 	}
 
-		placed_images = layout_images_horizontally(
-			compositor,
-			[image_paths['raw_vs_ptr'], image_paths['ptrs_vs_ptr']],
-			width_proportions=[1., 1.],
-			between_padding=20,
-			margin=30,
-			offsets=[(0, 0), (0, -5)],
-			image_keys=['raw_vs_ptr', 'ptrs_vs_ptr']
-		)
+	# 	placed_images = layout_images_horizontally(
+	# 		compositor,
+	# 		[image_paths['raw_vs_ptr'], image_paths['ptrs_vs_ptr']],
+	# 		width_proportions=[1., 1.],
+	# 		between_padding=20,
+	# 		margin=30,
+	# 		offsets=[(0, 0), (0, -5)],
+	# 		image_keys=['raw_vs_ptr', 'ptrs_vs_ptr']
+	# 	)
 
-		place_image_below(compositor, image_paths['cell_cycle_values'], 'raw_vs_ptr',
-			vertical_padding=40, width=230, new_key='cell_cycle_trajectories')
+	# 	place_image_below(compositor, image_paths['cell_cycle_values'], 'raw_vs_ptr',
+	# 		vertical_padding=40, width=230, new_key='cell_cycle_trajectories')
 
-		raw_vs_ptr_img = placed_images['raw_vs_ptr']
-		y_offset = raw_vs_ptr_img['logical_position'][1]+raw_vs_ptr_img['logical_size'][1]+40
-		trajectories_width = 730
+	# 	raw_vs_ptr_img = placed_images['raw_vs_ptr']
+	# 	y_offset = raw_vs_ptr_img['logical_position'][1]+raw_vs_ptr_img['logical_size'][1]+40
+	# 	trajectories_width = 730
 
-		placed_images = layout_images_vertically(
-			compositor,
-			[image_paths['promoter_occupancy'], image_paths['nucleosome_entropy'],
-			 image_paths['nucleosome_occupancy']],
-			 widths=[trajectories_width, trajectories_width, trajectories_width],
-			 between_padding=30,
-			 margin=(0, y_offset),
-			 x_position=270,
-			 image_keys=['promoter_occupancy', 'nucleosome_entropy', 'nucleosome_occupancy']
-		)
+	# 	placed_images = layout_images_vertically(
+	# 		compositor,
+	# 		[image_paths['promoter_occupancy'], image_paths['nucleosome_entropy'],
+	# 		 image_paths['nucleosome_occupancy']],
+	# 		 widths=[trajectories_width, trajectories_width, trajectories_width],
+	# 		 between_padding=30,
+	# 		 margin=(0, y_offset),
+	# 		 x_position=270,
+	# 		 image_keys=['promoter_occupancy', 'nucleosome_entropy', 'nucleosome_occupancy']
+	# 	)
 
-		add_panel_labels_to_images(
-			compositor, 
-			compositor.placed_images,
-			font_size=36,
-			offset=(-16, 10)
-		)
+	# 	add_panel_labels_to_images(
+	# 		compositor, 
+	# 		compositor.placed_images,
+	# 		font_size=36,
+	# 		offset=(-16, 10)
+	# 	)
 
-		# Save the composed figure
-		compositor.save(panel_save_path)
-		print(f"Panel layout saved to: {panel_save_path}")
+	# 	# Save the composed figure
+	# 	compositor.save(panel_save_path)
+	# 	print(f"Panel layout saved to: {panel_save_path}")
 		
-		return panel_save_path
+	# 	return panel_save_path
 
-	def layout_genesets_panel(self, margin=(30, 30), between_padding=30, traj_vertical_padding=15, 
-						  panel_padding=30, add_labels=True, font_size=28):
+	def layout_genesets_panel(self, margin=(30, 30), between_padding=30, 
+			traj_vertical_padding=15, panel_padding=30, add_labels=True, font_size=28):
 		"""Layout the figure panel for genesets analysis"""
 		import os
 		
@@ -733,5 +793,4 @@ class FigureChromatinMetrics:
 		print(f"MCM panel layout saved to: {panel_save_path}")
 		
 		return panel_save_path
-
 

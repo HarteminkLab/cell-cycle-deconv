@@ -8,6 +8,7 @@ from scipy import stats
 from scipy.stats import pearsonr, spearmanr
 from matplotlib.colors import ListedColormap
 from src.sgd import get_gene_title_name
+from src.plot_helpers import plot_trajectory_deconvolved_values
 
 
 trajectory_lims_mapping = {
@@ -119,7 +120,7 @@ class IntegratedChromatinExpressionAnalyzer:
 	
 	def plot_ptr_correlations(self, chromatin_data_source='deconvolved', 
 							  color_by='density',
-							  figsize=(10, 4), save_plots=False):
+							  figsize=(3, 10), save_plots=False):
 		"""
 		Plot correlations between chromatin PTRs and expression PTRs.
 		
@@ -137,7 +138,7 @@ class IntegratedChromatinExpressionAnalyzer:
 		
 		results = self.correlation_results[chromatin_data_source]
 		
-		fig, axes = plt.subplots(1, 3, figsize=figsize)
+		fig, axes = plt.subplots(3, 1, figsize=figsize)
 		
 		metric_names = ['promoter_occupancy', 'nucleosome_entropy', 'nucleosome_occupancy']
 		titles = ['Promoter Occupancy', 'Nucleosome Entropy', 'Nucleosome Occupancy']
@@ -207,7 +208,7 @@ class IntegratedChromatinExpressionAnalyzer:
 			ax.set_xlim(*ptr_lims)
 			ax.set_ylim(0.7, 6)
 		
-		plt.suptitle(f'Chromatin vs Expression PTR concordance ({chromatin_data_source})', 
+		plt.suptitle(f'Chromatin vs Expression PTR\nconcordance ({chromatin_data_source})', 
 					fontweight='demi', fontsize=14)
 		plt.tight_layout()
 		
@@ -312,22 +313,7 @@ class IntegratedChromatinExpressionAnalyzer:
 		plt.title(chromatin_key)
 	
 	def plot_orf_phase_state_deconvolved(self, orf_or_gene_name, chromatin_key=None, 
-		xlim=(-0.5, 8), ylim=(-0.5, 12), plot_arrows=False):
-		"""
-		Plot chromatin vs expression data colored by cell cycle phase for a single gene.
-		
-		Parameters
-		----------
-		orf_or_gene_name : str
-			Gene name or ORF name to plot
-		chromatin_key : str, optional
-			Which chromatin metric to plot ('promoter_occupancy', 'nucleosome_entropy', 
-			'nucleosome_occupancy')
-		xlim : tuple, optional
-			X-axis limits
-		ylim : tuple, optional
-			Y-axis limits
-		"""
+		xlim=(-0.5, 8), ylim=(-0.5, 12), lw=5, plot_arrows=False, color_arrows=True):
 
 		# Get chromatin PTRs based on data source
 		chromatin_metrics_data = self.chromatin_processor.normalized_deconvolved_metrics
@@ -346,76 +332,11 @@ class IntegratedChromatinExpressionAnalyzer:
 		# Extract time course data
 		chromatin_sample = deconvolved_chromatin_data.loc[orf_name]
 		expression_sample = deconvolved_transcription_data.loc[orf_name]
-		
-		# Plot by cell cycle phase
-		from src.plot_helpers import color_for_key
-		phases = ['G2M', 'S', 'meanG1']
 
-		# Set lims for arrow aspect ratio calculation
-		plt.xlim(*xlim)
-		plt.ylim(*ylim)
-		
-		from src.plot_helpers import add_trajectory_arrows
-
-		ax = plt.gca()  # Get current axes
-
-		# Plot a connecting line below the scatter plots
-		t_indices = self.config.get_Hpositions_for_branch('t')
-		b_indices = self.config.get_Hpositions_for_branch('b')
-		expression_values = (expression_sample[t_indices].values+
-							 expression_sample[b_indices].values)/2
-		chromatin_values = (chromatin_sample[t_indices].values+
-							chromatin_sample[b_indices].values)/2
-		expression_values = np.concatenate([expression_values, expression_values[0:1]])
-		chromatin_values = np.concatenate([chromatin_values, chromatin_values[0:1]])
-		# plt.plot(chromatin_values, expression_values,
-		# 		   lw=1, color='#aaa', zorder=0)
-
-		for phase in phases:
-
-			if phase == 'meanG1':
-				t_indices = self.config.get_Hpositions_for_phase('CG1')
-				b_indices = self.config.get_Hpositions_for_phase('DG1')
-
-				expression_values = (expression_sample[t_indices].values+
-									 expression_sample[b_indices].values)/2
-				chromatin_values = (chromatin_sample[t_indices].values+
-									chromatin_sample[b_indices].values)/2
-			else:
-				indices = self.config.get_Hpositions_for_phase(phase)
-				expression_values = expression_sample[indices].values
-				chromatin_values = chromatin_sample[indices].values
-
-			color = color_for_key(phase)
-			plt.plot(chromatin_values, expression_values,
-					   lw=4, color=color, zorder=0)
-			# plt.scatter(chromatin_values, expression_values,
-			# 		   s=1, color=color, label=phase, zorder=1)
-
-			if phase == 'meanG1':
-
-				# Add arrows to show trajectory direction
-				if plot_arrows:
-					add_trajectory_arrows(ax, chromatin_values, expression_values,
-						index=10, index_offset=1, # Plot the 10th to the 11th index (smooth here)
-						arrow_color=color)
-
-				# Starting point
-				plt.scatter(chromatin_values[0], expression_values[0],
-						   s=4, color='black', marker='D', label=phase, zorder=1)
-
-			elif phase == 'S':
-
-				if plot_arrows:
-					add_trajectory_arrows(ax, chromatin_values, expression_values,
-						index=len(indices)-7, index_offset=1, # Plot the end of S
-						arrow_color=color)
-
-		plt.xlabel(f"{chromatin_key}")
-		plt.ylabel(f"Expression")
-		plt.xlim(*xlim)
-		plt.ylim(*ylim)
-		plt.title(chromatin_key)
+		return plot_trajectory_deconvolved_values(self.config, 
+			chromatin_sample, expression_sample,
+			chromatin_key=chromatin_key, xlim=xlim, ylim=ylim, lw=lw, 
+			plot_arrows=plot_arrows, color_arrows=color_arrows)
 	
 	def plot_all_metrics_all_replicates_gene(self, gene_or_orf_name, figsize=(4, 4),
 											save_plots=False, title=None):
@@ -495,7 +416,8 @@ class IntegratedChromatinExpressionAnalyzer:
 						gene_or_orf_name, 
 						chromatin_key=metric, 
 						xlim=metric_config['xlim'], 
-						ylim=metric_config['ylim']
+						ylim=metric_config['ylim'],
+						lw=4,
 					)
 				
 				# Set titles for top row
@@ -939,7 +861,8 @@ class IntegratedChromatinExpressionAnalyzer:
 			plt.subplot(nrows, ncols, i+1)
 			self.plot_orf_phase_state_deconvolved(orf_name, chromatin_key,
 																plot_arrows=False,
-																	xlim=xlim, ylim=ylim)
+																	xlim=xlim, ylim=ylim,
+																	lw=2)
 			plt.title('')
 			plt.xlabel('')
 			plt.ylabel('')
@@ -1078,7 +1001,7 @@ class IntegratedChromatinExpressionAnalyzer:
 				chrom_vals, expr_vals = self._collect_trajectory_lims(gene, metric)
 				all_chromatin_data[metric].extend(chrom_vals)
 				all_expression_data.extend(expr_vals)
-		
+
 		# 4. Define limit calculation helper
 		def _create_lims(data, padding):
 			"""
@@ -1096,7 +1019,8 @@ class IntegratedChromatinExpressionAnalyzer:
 			return ret
 		
 		# 5. Compute expression limits (y-axis)
-		ylim = _create_lims(all_expression_data, lim_padding)
+		from src.math_utils import create_data_lims
+		ylim = create_data_lims(all_expression_data, lim_padding)
 		
 		# 6. Compute chromatin limits for each metric (x-axis)
 		xlim_dict = {}
@@ -1213,3 +1137,271 @@ class IntegratedChromatinExpressionAnalyzer:
 		plt.subplots_adjust(wspace=0, hspace=0, top=top_margin, bottom=0)
 		
 		return fig
+
+
+	# Here I begin an updated trajectory analysis.
+	#
+	# Design:
+	# 1. Selection of dual cyclic genes (cycling in chromatin and expression)
+	# 2. Computation of trajectory area and slope for these genes
+	# 3. Two tiered analysis: 
+	#    i. Slope of small trajectory area genes
+	#    ii. Directionality of large trajectory area genes
+	# 
+	def select_data_for_trajectory_analysis(self):
+
+		# We'll hold state and process these metrics one at a time
+		# todo: for now...
+		chromatin_key = 'promoter_occupancy'
+
+		ptr_q = 0.9
+
+		joined_data = self.correlation_results['deconvolved'][chromatin_key]['joined_data'].copy()
+		chrom_threshold = np.quantile(joined_data.chromatin_ptr, q=ptr_q)
+		tx_threshold = np.quantile(joined_data.expression_ptr, q=ptr_q)
+
+		joined_data['is_chrom_cycling'] = joined_data.chromatin_ptr > chrom_threshold
+		joined_data['is_tx_cycling'] = joined_data.expression_ptr > tx_threshold
+
+		both_cycling = joined_data[joined_data.is_chrom_cycling & joined_data.is_tx_cycling]
+		print(f"Number of genes cycling in {chromatin_key} and transcription", len(both_cycling))
+
+		self.current_joined_chromatin_data = joined_data
+		self.current_chromatin_key = chromatin_key
+		self.current_chrom_threshold = chrom_threshold
+		self.expression_threshold = tx_threshold
+
+	def _select_chrom_tx_data(self, orf_name, chrom_key, config=None):
+		"""Helper function to select the chromatin and expression data
+		for an orf, averaging the mother/daughter branches"""
+
+		if config is None:
+			from src.config import load_default_chrom_configs
+			config, _ = load_default_chrom_configs()    
+
+		chrom_data = self.chromatin_processor.deconvolved_chromatin_metrics[\
+			chrom_key]
+		expression_data = self.expression_processor.expression_data
+
+		selected_gene_chromatin_data = chrom_data.loc[orf_name]
+		selecetd_gene_expression_data = expression_data.loc[orf_name]
+
+		def _get_mean_tb_data(data):
+			data = data.copy()
+			data.index = data.index.astype(int)
+			return (data[config.t_indices()].values + data[config.b_indices()].values)/2
+
+		chromatin_values = _get_mean_tb_data(selected_gene_chromatin_data)
+		expression_values = _get_mean_tb_data(selecetd_gene_expression_data)
+		return chromatin_values, expression_values
+
+	def compute_trajectory_metrics_all_genes(self):
+
+		from src.config import load_default_chrom_configs
+		config1, _ = load_default_chrom_configs()    
+
+		from src.math_utils import ordinary_least_squares
+		from src.math_utils import compute_signed_area
+			
+		slope_traj_data = self.trajectory_area_linkages[self.current_chromatin_key]\
+			[['normalized_trajectory_area']].loc[self.current_joined_chromatin_data.index]
+
+		for i, (orf_name, row) in enumerate(slope_traj_data.iterrows()):
+			chromatin_values, expression_values = self._select_chrom_tx_data(orf_name, 
+				self.current_chromatin_key, config=config1)
+			ols_slope, ols_intercept = ordinary_least_squares(chromatin_values, expression_values)    
+			signed_area = compute_signed_area(chromatin_values, expression_values)
+			
+			slope_traj_data.loc[orf_name, 'ols_slope'] = ols_slope
+			slope_traj_data.loc[orf_name, 'ols_intercept'] = ols_intercept
+			slope_traj_data.loc[orf_name, 'signed_area'] = signed_area
+			slope_traj_data.loc[orf_name, 'is_ccw'] = signed_area > 0
+
+			if i % 1000 == 0:
+				print(f"{i}/{len(slope_traj_data)}")
+
+		# Set threshold for promoter occupancy manually, based on visual
+		# inspection for separating genes
+		self.current_traj_threshold = 0.07
+		slope_traj_data['is_large_area'] = \
+			slope_traj_data.normalized_trajectory_area >= self.current_traj_threshold
+
+		self.current_slope_trajectory_data = slope_traj_data
+
+	def plot_slope_trajectory_data(self):
+
+		slope_traj_data = self.current_slope_trajectory_data
+		joined_data = self.current_joined_chromatin_data
+		both_cycling = joined_data[
+			joined_data.is_chrom_cycling &
+			joined_data.is_tx_cycling].index
+
+		plt.figure(figsize=(8.5, 3.5))
+
+		plt.subplot(1, 2, 1)
+		ax = plt.gca()
+
+		from src.DensityScatterPlotter import DensityScatterPlotter
+		cmap = plt.cm.Oranges
+		density_scatter_pltr = DensityScatterPlotter()
+		density_scatter_pltr.bw = [0.025, 0.05]
+		density_scatter_pltr.cmap = cmap
+		density_scatter_pltr.alpha = 1.
+		density_scatter_pltr.logz = True
+		density_scatter_pltr.set_data(joined_data.chromatin_ptr,
+			joined_data.expression_ptr)
+		density_scatter_pltr.plot_ax(ax, plot_colorbar=False, vmin=0, 
+			vmax=10)
+
+		plt.title(f"Promoter occupancy cyclicity\n"
+			f"vs transcription cyclicity, n={len(joined_data)}", fontweight='demi')
+		plt.xlabel("Promoter occupancy PTR")
+		plt.ylabel("Gene expression PTR")
+
+		plt.axvline(self.current_chrom_threshold, c='black', lw=0.75, ls='dotted')
+		plt.axhline(self.expression_threshold, c='black', lw=0.75, ls='dotted')
+
+		ylim = 0.9, 6
+		xlim = 0.95, 2.5
+		plt.xlim(*xlim)
+		plt.ylim(*ylim)
+
+		# Place the counts as text annotations
+		num_both = len(both_cycling)
+		num_chrom_only = len(joined_data[joined_data.is_chrom_cycling & 
+			~joined_data.is_tx_cycling])
+		num_tx_only = len(joined_data[~joined_data.is_chrom_cycling & 
+			joined_data.is_tx_cycling])
+		neither = len(joined_data[(
+			~joined_data.is_chrom_cycling & 
+			~joined_data.is_tx_cycling)])
+
+		y_text_positions = 1.25, ylim[1]*0.75
+		x_text_positions = 1.15, xlim[1]*0.75
+
+		plt.text(x_text_positions[1], y_text_positions[1], f"Co-cycling\n{num_both}",
+			ha='center', va='center')
+		plt.text(x_text_positions[1], y_text_positions[0], f"Promoter only, {num_chrom_only}",
+			ha='center', va='center')
+		plt.text(x_text_positions[0], y_text_positions[1], f"Expression only\n{num_tx_only}",
+			rotation=90, ha='center', va='center')
+		plt.text(x_text_positions[0], y_text_positions[0], f"{neither}",
+			ha='center', va='center')
+
+		plt.subplot(1, 2, 2)
+		plt.scatter(slope_traj_data.ols_slope, 
+					slope_traj_data.normalized_trajectory_area, s=5, 
+					color=plt.cm.Greys(0.2), alpha=0.1)
+
+		both_cycling_traj_data = slope_traj_data.loc[both_cycling]
+
+		large_area_genes = both_cycling_traj_data[
+			both_cycling_traj_data.is_large_area]
+		small_area_genes = both_cycling_traj_data[
+			~both_cycling_traj_data.is_large_area]
+
+		large_ccw = large_area_genes[~large_area_genes.is_ccw]
+		large_cw = large_area_genes[large_area_genes.is_ccw]
+
+		# Tier 1: Concurrent cyclers
+		n = len(small_area_genes)
+		plt.scatter(small_area_genes.ols_slope, 
+					small_area_genes.normalized_trajectory_area, s=9, 
+					color='black', marker='x', lw=0.75, label=f"Concurrent, n={n}")
+
+		# Tier 2: Delayed cyclers
+		n = len(large_ccw)
+		plt.scatter(large_ccw.ols_slope, 
+					large_ccw.normalized_trajectory_area, facecolor='none',
+					s=13, edgecolor='red', marker='o', lw=0.75, label=f"Delayed activation (CCW), n={n}")
+
+		n = len(large_cw)
+		plt.scatter(large_cw.ols_slope, 
+					large_cw.normalized_trajectory_area, s=13, 
+					facecolor='none',
+					edgecolor='blue', marker='o', lw=0.75, label=f"Delayed repression (CW), n={n}")
+
+		# todo: hardcoded trajectory area threshold for promoter occupancy
+		plt.axhline(self.current_traj_threshold, c='black', lw=0.75, alpha=0.5, ls='dotted')
+
+		plt.xlim(-25, 25)
+		plt.ylim(-0.01, 0.45)
+		plt.axvline(0, c='black', lw=0.75, alpha=0.5, ls='solid', zorder=0)
+		plt.title(f"Slope vs trajectory area,"
+			f"\nn={len(both_cycling_traj_data)} co-cycling genes",
+			fontweight='demi')
+		plt.xlabel("Concurrent regulation (slope)")
+		plt.ylabel("Temporal offset (trajectory area)")
+		plt.legend()
+
+		xticks = [-20, 0, 20]
+		xtick_labels = ['Repression', '0', 'Activation']
+
+		plt.xticks(xticks, xtick_labels)
+
+		plt.subplots_adjust(wspace=0.35)
+
+	def plot_orf_trajectory(self, sort_idx=None):
+
+		joined_traj_data = self.current_joined_chromatin_data.join(
+			self.current_slope_trajectory_data)[['is_chrom_cycling', 
+				'is_tx_cycling', 'ols_slope', 'normalized_trajectory_area',
+			'is_large_area']]
+
+		both_cycling = joined_traj_data[joined_traj_data.is_chrom_cycling & joined_traj_data.is_tx_cycling]\
+			.sort_values(['is_large_area', 'normalized_trajectory_area'])
+
+		# Let's try modifying the area by normalizing it with a pseudocount
+		dat = self.trajectory_area_linkages['promoter_occupancy'].loc[both_cycling.index]
+		dat['normalized_trajectory_area'] = dat['trajectory_area']/\
+			(dat['diameter_sq'])
+		dat = dat.sort_values('normalized_trajectory_area')
+
+		both_cycling = dat[['trajectory_area', 'diameter_sq', 'bounding_box_area']].join(
+			both_cycling, how='left')
+
+		chromatin_key = 'promoter_occupancy'
+
+		# If predefined sorting order
+		if sort_idx is not None:
+			both_cycling = both_cycling.loc[sort_idx]
+
+		plt.figure(figsize=(11, 12))
+		for i, (orf_name, row) in enumerate(both_cycling.iterrows()):
+
+			color_arrows = row.is_large_area
+
+			plt.subplot(11, 8, i+1)
+
+			# Normalize to mean center for plotting visilibity
+			chromatin_data = self.chromatin_processor.deconvolved_chromatin_metrics[\
+				'promoter_occupancy'].loc[orf_name]
+			m, s = chromatin_data.mean(), chromatin_data.std()	
+			chromatin_data = (chromatin_data-m)
+
+			expression_data = self.expression_processor.expression_data.loc[orf_name]
+			m, s = expression_data.mean(), expression_data.std()	
+			expression_data = (expression_data-m)
+
+			plot_orf_phase_state_deconvolved_values(self.config, 
+				chromatin_data, expression_data,
+				'promoter_occupancy',
+				lw=2, xlim=(-1.5, 1.5), ylim=(-4, 4),#xlim=None, ylim=None,
+				plot_arrows=True, color_arrows=color_arrows)
+
+			from src.sgd import get_gene_name
+
+			gene_name = get_gene_name(orf_name)
+			if gene_name is None: gene_name = orf_name
+			plt.text(-1.5, 3, f"{gene_name}")
+			#\nN.area: {row.normalized_trajectory_area:.2f}\n"
+			#	f"Area:{row.trajectory_area:.2f}\nDiam2:{row.diameter_sq:.2f}",
+			#	ha='left', va='top')
+
+			plt.xlabel('')
+			plt.ylabel('')
+			plt.title('')
+			plt.xticks([])
+			plt.yticks([])
+
+		plt.subplots_adjust(wspace=0, hspace=0)

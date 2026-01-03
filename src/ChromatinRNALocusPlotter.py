@@ -12,7 +12,7 @@ from src.plot_helpers import color_for_key
 from src.config_utils import get_sample_indices
 from src.orf_plotter import load_default_orf_plotter
 from src.rna_pileup_plotter import RNASeqPileupPlotter
-
+from src.figure_configs import tf_colors
 
 internal_spine_color = '#b0a996'
 
@@ -100,7 +100,7 @@ class SingleBranchChromatinPlotter:
 		else:
 			self.rna_plotter = rna_plotter
 
-		self.rna_plotter.ylim = 5
+		self.rna_plotter.ylim = 10
 
 		# Initialize the axes
 		self._initialize_axes()
@@ -201,16 +201,6 @@ class SingleBranchChromatinPlotter:
 			plot_rect2(ax, x_bp[0], y_bp[0], 
 					   x_bp[1], y_bp[1], alpha=0.8,
 				lw=0.75, fill=False, edgecolor=color)
-
-		tf_colors = {
-			'Mcm1': '#2c9645',    # green (existing)
-			'Mbp1': '#3498db',    # blue
-			'Spt15': '#e74c3c',   # red
-			'Cin5': '#1abc9c',    # teal
-			'Fkh1': '#e91e63',    # pink/magenta
-			'Tbf1': '#f39c12',    # orange/gold
-			'other': '#555555'    # gray (existing)
-		}
 
 		# Plot transcription factor binding sites
 		for tf in self.current_binding_sites.tf.values:

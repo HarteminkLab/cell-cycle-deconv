@@ -17,7 +17,8 @@ class TranscriptionFactorProcessor:
 	filtered by Kelliher cell cycle TF list.
 	"""
 	
-	def __init__(self, output_dir, window_size=25, fragment_range=(0, 100)):
+	def __init__(self, output_dir, window_size=25, fragment_range=(0, 100),
+		expression_processor=None, chromatin_processor=None):
 		"""
 		Initialize the ChromatinTFAnalyzer.
 		
@@ -58,8 +59,14 @@ class TranscriptionFactorProcessor:
 
 		# Chromatin processor computes ptr threshold
 		self._load_gene_promoters()
-		self._load_chromatin_processor()
-		self._load_expression_processor()
+
+		# Processors for expression and chromatin
+		if chromatin_processor is None: self._load_chromatin_processor()
+		else: self.chromatin_processor = chromatin_processor
+
+		if expression_processor is None: self._load_expression_processor()
+		else: self.expression_processor = expression_processor
+
 		self._load_tf_datasets()
 	
 	# =================== NEW: File path helpers ===================

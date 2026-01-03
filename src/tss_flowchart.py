@@ -335,14 +335,14 @@ class GeneAnalysisFlowchart:
 		ax_with.set_xlabel('Update difference', fontsize=self.style_config.font_sizes['hist_label'])
 		ax_with.set_ylabel('Frequency', fontsize=self.style_config.font_sizes['hist_label'])
 		ax_with.set_xlim(-2000, 2000)
-		ax_with.set_ylim(0, 2200)
+		ax_with.set_ylim(0, 2500)
 
 		update_cutoff = 200
 		ax_with.axvline(-update_cutoff, c='red')
 		ax_with.axvline(update_cutoff, c='red')
 
 		num_updated_park = len(data_with[(data_with > -update_cutoff) & (data_with < update_cutoff)])
-		y = 2000
+		y = 2200
 		y_cutoffs = 1000
 		ax_with.text(0, y, f"{num_updated_park}", ha='center', 
 			fontsize=14, color='red')

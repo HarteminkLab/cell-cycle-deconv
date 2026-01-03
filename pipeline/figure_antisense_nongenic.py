@@ -95,7 +95,7 @@ class FigureNongenicTranscripts:
 		self.rna_plotter = RNASeqPileupPlotter(self.output_dir)
 		self.rna_plotter.ylim = 13
 		self.combined_model = CombinedChromatinModel(config1=config1, config2=config2,
-			self.output_dir)
+			output_dir=self.output_dir)
 	
 	def load_data(self):
 		"""Load all required data: expression, chromatin metrics, and gene annotations."""
@@ -199,10 +199,11 @@ class FigureNongenicTranscripts:
 	def identify_divergent_genes_to_nongenic_transcripts(self, filtered_nongenic_transcripts):
 
 		all_genes, non_genes = load_transcripts_sets('output/draft4_run/')
-		# Let's characterize the antisense and divergent transcripts.
 
+		# Let's characterize the antisense and divergent transcripts.
 		# Antisense should be annotated already, let's check divergent transcripts. 
 		# What is considered a shared promoter?
+
 		# Criteria:
 		#             given a transcript, there exists an upstream gene that is less than: 
 		#             500 bp away
@@ -211,15 +212,22 @@ class FigureNongenicTranscripts:
 
 		# if transcript is left to right (+), 
 		# divergent is right to left (-)
+
 		search_window = -600, 100
+
+		# Track which gene is assigned to which transcript and the distance
+		gene_assignments = {}  # {gene_name: (transcript_name, distance)}
 
 		# Loop through nongenic transcripts, annotate divergent genes if criteria matches
 		for transcript_name, transcript in nongenic_transcripts_w_divergent.iterrows():
+
 			strand = transcript.strand
+
 			if strand == '+':
 				TSS = transcript.promoter_start
 				transcript_search_span = (TSS+search_window[0], 
 										  TSS+search_window[1])
+
 			else:
 				TSS = transcript.promoter_end
 				transcript_search_span = (TSS-search_window[1], 
@@ -229,10 +237,37 @@ class FigureNongenicTranscripts:
 								   (all_genes.TSS > transcript_search_span[0]) & 
 								   (all_genes.TSS < transcript_search_span[1]) &
 								   (all_genes.strand != strand)]
-			
+
 			if len(found_genes) > 0:
-				nongenic_transcripts_w_divergent.loc[transcript_name, 'divergent_orf'] = \
-					found_genes.index[0]
+				# Find the closest gene to this transcript
+				closest_gene = None
+				closest_distance = float('inf')
+				
+				for gene_name, gene in found_genes.iterrows():
+					distance = abs(TSS - gene.TSS)
+					if distance < closest_distance:
+						closest_distance = distance
+						closest_gene = gene_name
+				
+				# Now check if this closest gene is already assigned
+				if closest_gene not in gene_assignments:
+					# New assignment
+					gene_assignments[closest_gene] = (transcript_name, closest_distance)
+					nongenic_transcripts_w_divergent.loc[transcript_name, 'divergent_orf'] = closest_gene
+				else:
+					# Gene already assigned, check if current transcript is closer
+					previous_transcript, previous_distance = gene_assignments[closest_gene]
+					
+					if closest_distance < previous_distance:
+						# Current transcript is closer, update assignment
+						# Remove annotation from previous transcript
+						nongenic_transcripts_w_divergent.loc[previous_transcript, 'divergent_orf'] = None
+						
+						# Assign to current transcript
+						gene_assignments[closest_gene] = (transcript_name, closest_distance)
+						nongenic_transcripts_w_divergent.loc[transcript_name, 'divergent_orf'] = closest_gene
+
+					# else: previous transcript was closer, do nothing for current transcript
 
 		return nongenic_transcripts_w_divergent
 
@@ -427,6 +462,126 @@ class FigureNongenicTranscripts:
 		plt.xlabel(xlabel)
 		plt.ylabel("Expression PTR")
 
+	def plot_divergent_nongenic_ptrs(self):
+
+		from src.transcripts_dataset import load_transcripts_sets
+		all_genes, non_genes = load_transcripts_sets('output/draft4_run/')
+
+		def categorize_divergent_cycling(divergent_transcripts, threshold):
+			"""
+			Categorize divergent transcript pairs based on cycling status.
+			
+			Parameters:
+			-----------
+			divergent_transcripts : DataFrame
+				DataFrame with gene_ptr and nongenic_ptr columns
+			threshold : float
+				PTR threshold value (e.g., tx_q95_val) to determine cycling
+			
+			Returns:
+			--------
+			dict : Dictionary with category names as keys and counts as values
+			"""
+			# Create boolean masks for each category
+			gene_cycling = divergent_transcripts.gene_ptr > threshold
+			nongenic_cycling = divergent_transcripts.nongenic_ptr > threshold
+			
+			# Count each category
+			both_cycling = (gene_cycling & nongenic_cycling).sum()
+			only_gene_cycling = (gene_cycling & ~nongenic_cycling).sum()
+			only_nongenic_cycling = (~gene_cycling & nongenic_cycling).sum()
+			neither_cycling = (~gene_cycling & ~nongenic_cycling).sum()
+			
+			# Create results dictionary
+			results = {
+				'both': both_cycling,
+				'gene_only': only_gene_cycling,
+				'nongenic_only': only_nongenic_cycling,
+				'neither': neither_cycling
+			}
+			
+			# Validation check
+			total = sum(results.values())
+			assert total == len(divergent_transcripts), \
+				f"Category counts ({total}) don't match total pairs ({len(divergent_transcripts)})"
+			
+			return results
+
+		divergent_transcripts = self.final_filtered_nongenic_transcripts_with_ptr
+		divergent_transcripts = divergent_transcripts[~divergent_transcripts.divergent_orf.isna()]
+		divergent_transcripts = divergent_transcripts.reset_index().set_index('divergent_orf').join(
+			self.expression_processor.all_transcripts_ptrs[['ptr']])
+
+		divergent_transcripts = divergent_transcripts[['index', 'expression_ptr', 'ptr', 'promoter_occupancy_ptr']]
+		divergent_transcripts.columns = ['transcript_name', 'nongenic_ptr', 'gene_ptr', 'promoter_ptr']
+		divergent_transcripts = divergent_transcripts.join(all_genes[['gene', 'TSS']])
+
+		self.divergent_transcripts = divergent_transcripts
+
+		plt.figure(figsize=(5, 4.5))
+		plt.scatter(divergent_transcripts.nongenic_ptr, 
+					divergent_transcripts.gene_ptr, s=4, alpha=0.75,
+				   color=plt.cm.Reds(0.75))
+
+		plt.xlabel("Non-genic transcription PTR")
+		plt.ylabel("Divergent gene expression PTR")
+		plt.title(f"Cyclicity of non-genic transcripts and\ndivergent genes with shared promoters , "
+				  f"n={len(divergent_transcripts)}",
+				 fontweight='demi', pad=11, fontsize=13)
+
+		tx_q95_val = np.quantile(self.expression_processor.all_transcripts_ptrs.ptr,
+				   q=0.95)
+
+		plt.axvline(tx_q95_val, color='#ddd', lw=0.75, zorder=0)
+		plt.axhline(tx_q95_val, color='#ddd', lw=0.75, zorder=0)
+
+		category_counts = categorize_divergent_cycling(divergent_transcripts, tx_q95_val)
+
+		def _plot_text(x, y, txt, rotation=0):
+			import matplotlib.patheffects as patheffects
+			path_effects = patheffects.withStroke(linewidth=1, foreground='white')
+			plt.text(x, y, txt, ha='center', color='#666',
+				rotation=rotation, fontweight='regular', fontsize=10,
+					path_effects=[path_effects])
+			
+		_plot_text(4, 3, f"# Both cycling\n{category_counts['both']}")
+		_plot_text(4, 1, f"# Non-genic only\n{category_counts['nongenic_only']}")
+		_plot_text(1.2, 2.25, f"# Gene only\n{category_counts['gene_only']}",
+				rotation=90)
+		_plot_text(1.2, 1.2, f"{category_counts['neither']}")
+
+		genes_to_plot = ['MCD1', 'SVS1', 'SPT21', 'YLR194C']
+		has = ['right', 'left', 'left', 'left']
+		vas = ['bottom', 'bottom', 'top', 'center']
+		offsets = [(-0.03, 0.03), (0.03, 0.03), (0.06, -0.03), (0.1, 0.0)]
+		for i, gene in enumerate(genes_to_plot):
+			row = divergent_transcripts[(divergent_transcripts.gene == gene) | 
+			(divergent_transcripts.index == gene)].iloc[0]
+			plt.scatter(row.nongenic_ptr, row.gene_ptr, marker='D', s=30,
+					   facecolor='none', edgecolor='black')
+
+			if gene == 'YLR194C':
+				# switch to updated gene name:
+				gene = 'NCW2'
+
+			plt.text(row.nongenic_ptr+offsets[i][0], row.gene_ptr+offsets[i][1], 
+					 gene, c=plt.cm.Reds(0.75),
+					ha=has[i], va=vas[i])
+		plt.xlim(0.9, 6.05)
+		plt.ylim(0.9, 6.05)
+		save_figure_for_paper(f"{self.save_dir}/divergent_genes_scatter.png")
+
+
+	def plot_divergent_locus_examples(self):
+		from src.sgd import get_gene_title_name
+
+		title = get_gene_title_name('YPL163C')
+		self.plot_gene_locus('YPL163C', title=title)
+		save_figure_for_paper(f"{self.save_dir}/locus_SVS1.png")
+
+		title = ("$\\it{" + 'NCW2' + "}$ / $\\it{" + 'YLR194C' + "}$")
+		self.plot_gene_locus('YLR194C', title=title)
+		save_figure_for_paper(f"{self.save_dir}/locus_NCW2.png")
 
 	def plot_category_ptr_scatter_data(self, joined_data, x_column):
 
@@ -463,7 +618,7 @@ class FigureNongenicTranscripts:
 		# Plot examples near the boundaries
 		updated_TSS_from_geneset = self.geneset.copy()
 		updated_TSS_from_geneset['rna_Park_difference'] = updated_TSS_from_geneset.Park_TSS-\
-		    updated_TSS_from_geneset.TSS
+			updated_TSS_from_geneset.TSS
 
 		self.plot_TSS_update('YBL041W', updated_TSS_from_geneset)
 		save_figure_for_paper(f"{self.save_dir}/updated_TSS_example1.png")
@@ -708,17 +863,17 @@ class FigureNongenicTranscripts:
 		plt.figure(figsize=(4, 6))
 		plt.subplot(2, 1, 1)
 		plt.hist(geneset['length'], bins=60,
-		        color=plt.cm.Greys(0.5))
+				color=plt.cm.Greys(0.5))
 		plt.title(f"Gene transcript lengths,\nn={len(geneset)}", 
-		    fontsize=14, fontweight='demi')
+			fontsize=14, fontweight='demi')
 		plt.ylabel("Frequency")
 		plt.xlim(0, 8000)
 
 		plt.subplot(2, 1, 2)
 		plt.hist(filtered_nongenic_transcripts['length'], bins=30,
-		        color=plt.cm.Reds(0.55))
+				color=plt.cm.Reds(0.55))
 		plt.title(f"Non-genic transcript lengths,\nn={len(filtered_nongenic_transcripts)}", 
-		    fontsize=14, fontweight='demi')
+			fontsize=14, fontweight='demi')
 		plt.xlabel("Transcript length, bp")
 		plt.ylabel("Frequency")
 		plt.tight_layout()
@@ -752,9 +907,45 @@ class FigureNongenicTranscripts:
 
 		from pipeline.transcripts_TSS_update_analyzer import TranscriptTSSUpdateAnalyzer
 		update_analyzer = TranscriptTSSUpdateAnalyzer(self.output_dir)
+		self.update_analyzer = update_analyzer
+
 		update_analyzer.run_full_analysis()
 		save_figure_for_paper(f"{self.save_dir}/tss_update_flow.png")
-		self.update_analyzer = update_analyzer
+
+
+	def layout_supplemental_divergent_scatter(self):
+		from pipeline.figure_composer import FigureCompositor
+		from pipeline.figure_composer_helpers import layout_images_horizontally, \
+			add_panel_labels_to_images
+
+		# Create compositor with wider dimensions for horizontal layout
+		compositor = FigureCompositor(1024, 620, debug_mode=True)
+
+		image_paths = [
+			f'{self.save_dir}/divergent_genes_scatter.png',
+			f'{self.save_dir}/locus_SVS1.png',
+			f'{self.save_dir}/locus_NCW2.png',
+		]
+
+		placed_images = layout_images_horizontally(
+			compositor,
+			image_paths,
+			width_proportions=[0.35, 0.5, 0.5],
+			between_padding=26,
+			margin=(30, 30),
+			image_keys=['div', 'svs1', 'YLR194C']  # Custom keys
+		)
+
+		# Add panel labels
+		add_panel_labels_to_images(
+			compositor, 
+			compositor.placed_images,
+			font_size=34,
+			offset=(-15, 25)  # Adjust offset as needed
+		)
+
+		# # Save the composite figure
+		compositor.save(f'{self.figures_dir}/Supplemental10.5_Nongenic_Divergent.png')
 
 
 	def layout_supplemental_TSSes(self):

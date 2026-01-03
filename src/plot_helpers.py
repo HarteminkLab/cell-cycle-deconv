@@ -808,7 +808,7 @@ def create_nine_subplot_layout(figsize=(8, 3), left_padding=0.08, right_padding=
 	return fig, axes
 
 
-def add_trajectory_arrows(ax, x_data, y_data, index, index_offset, arrow_scale=0.01, 
+def add_trajectory_arrows(ax, x_data, y_data, index, index_offset, arrow_scale=0.1, 
 						 arrow_color='red', arrow_alpha=1.0):
 	"""
 	Add short directional arrows along a trajectory path.
@@ -834,8 +834,8 @@ def add_trajectory_arrows(ax, x_data, y_data, index, index_offset, arrow_scale=0
 
 	# Adjust arrow dimensions based on aspect ratio and data ranges
 	# Scale dimensions as fractions of the respective axis ranges
-	head_width = 0.1
-	head_length = 0.06
+	head_width = 0.2
+	head_length = 0.2
 	body_width = 0.01
 
 	corrected_head_width = head_width * y_range
@@ -864,7 +864,7 @@ def add_trajectory_arrows(ax, x_data, y_data, index, index_offset, arrow_scale=0
 					width=corrected_body_width,
 					head_width=corrected_head_width,
 					head_length=corrected_head_length,
-					overhang=0.6,
+					overhang=0.,
 					color=arrow_color,
 					alpha=arrow_alpha
 				)
@@ -1086,3 +1086,115 @@ def blend_three_colors(color1, color2, color3):
 	# Average the three colors
 	blended = tuple((c1 + c2 + c3) / 3 for c1, c2, c3 in zip(rgb1, rgb2, rgb3))
 	return blended
+
+
+def plot_trajectory_deconvolved_values(config, 
+	x_values, y_values, 
+	x_key=None, y_key='Expression', xlim=(-0.5, 8), ylim=(-0.5, 12), 
+	lw=5, plot_arrows=False, color_arrows=True, ax=None):
+	"""
+	Plot chromatin vs expression data colored by cell cycle phase for a single gene.
+	"""
+	
+	# Plot by cell cycle phase
+	from src.plot_helpers import color_for_key
+	phases = ['G2M', 'S', 'meanG1']
+
+	# Set the limits automatically
+	from src.math_utils import create_data_lims
+
+	if xlim is None:
+		xlim = create_data_lims(x_values, padding=0.2)
+
+	if ylim is None:
+		ylim = create_data_lims(y_values, padding=0.2)
+
+	# plt.xlim(*xlim)
+	# plt.ylim(*ylim)
+
+	if ax is None:
+		ax = plt.gca()  # Get current axes
+
+	# Repeat the last value to close the loop
+	looped_y_values = np.concatenate([y_values, y_values[0:1]])
+	looped_x_values = np.concatenate([x_values, x_values[0:1]])
+
+	if plot_arrows:
+		def _create_offset_curve(x_loop, y_loop, offset_dist_x, offset_dist_y):
+			from src.math_utils import compute_offset_curve, offset_curve_shapely
+
+			x_loop_offset, y_loop_offset = offset_curve_shapely(x_loop, y_loop, 
+				0.2)
+
+			return x_loop_offset, y_loop_offset
+
+		offset_dist_x = 0.02
+		offset_dist_y = 0.02
+
+		# offset_dist_scale = 6.0
+		# if x_key == 'promoter_occupancy':
+		# 	offset_dist_x = 0.05*offset_dist_scale
+		# elif x_key == 'nucleosome_entropy':
+		# 	offset_dist_x = 0.05*offset_dist_scale
+		# elif x_key == 'nucleosome_occupancy':
+		# 	offset_dist_x = 0.2*offset_dist_scale
+		# offset_dist_y = 0.2*offset_dist_scale
+
+		x_loop_offset, y_loop_offset = _create_offset_curve(looped_x_values, 
+			looped_y_values, offset_dist_x, offset_dist_y)
+
+		from matplotlib.patches import FancyArrowPatch
+		from src.math_utils import compute_signed_area
+
+		signed_area = compute_signed_area(looped_x_values, looped_y_values)
+		is_ccw = signed_area > 0
+
+
+		# Color arrows by CCW or CW
+		if color_arrows:
+			color = 'blue' if not is_ccw else 'red'
+		else:
+			color = 'black'
+
+		if is_ccw:
+			x_loop_offset = x_loop_offset[::-1]
+			y_loop_offset = y_loop_offset[::-1]
+
+		if abs(signed_area) > 0.05:
+			ax.plot(x_loop_offset[:30], y_loop_offset[:30], c=color, lw=lw*0.5)
+
+			# Add arrowhead
+			arrow = FancyArrowPatch((x_loop_offset[29], y_loop_offset[29]), 
+									(x_loop_offset[30], y_loop_offset[30]),
+									arrowstyle='-|>', mutation_scale=20, 
+									color=color, lw=0)
+			ax.add_patch(arrow)
+
+	for phase in phases:
+
+		g1_indices = range(0, len(config.get_Hpositions_for_phase('CG1')))
+		s_indices = range(g1_indices[-1], g1_indices[-1]+
+			len(config.get_Hpositions_for_phase('S')))
+		g2m_indices = range(s_indices[-1], s_indices[-1]+
+			len(config.get_Hpositions_for_phase('G2M')))
+
+		phase_indices_map = {
+			'meanG1': g1_indices,
+			'S': s_indices,
+			'G2M': g2m_indices,
+		}
+
+		cur_y_values = y_values[phase_indices_map[phase]]
+		cur_x_values = x_values[phase_indices_map[phase]]
+
+		color = color_for_key(phase)
+		ax.plot(cur_x_values, cur_y_values,
+				   lw=lw, color=color, zorder=0)
+
+		if phase == 'meanG1':
+			# Add start position
+			ax.scatter(cur_x_values[0], cur_y_values[0],
+					   s=10, color='black', marker='D', label=phase, zorder=1)
+
+	plt.xlim(*xlim)
+	plt.ylim(*ylim)

@@ -47,8 +47,11 @@ class TranscriptTSSUpdateAnalyzer:
 		
 		# Filter to only gene-overlapping transcripts
 		self.called_gene_transcripts = self.all_transcripts[
-			~self.all_transcripts.overlapping_gene.isna()
+			~self.all_transcripts.overlapping_orf_name.isna()
 		]
+
+		self.called_gene_transcripts['length'] = self.called_gene_transcripts['end']-\
+			self.called_gene_transcripts['start']
 		
 		return self.called_gene_transcripts
 	
@@ -67,8 +70,8 @@ class TranscriptTSSUpdateAnalyzer:
 		
 		# Prepare transcript data for joining
 		join_df = self.called_gene_transcripts[
-			['overlapping_gene', 'start', 'end', 'length']
-		].set_index('overlapping_gene').copy()
+			['overlapping_orf_name', 'start', 'end', 'length']
+		].set_index('overlapping_orf_name').copy()
 		
 		join_df = join_df.rename(columns={
 			'start': 'rna_start', 

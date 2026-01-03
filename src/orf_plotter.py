@@ -227,6 +227,18 @@ class ORFAnnotationPlotter:
 			gene_name = gene['gene']
 			name = gene['orf_name']
 
+			custom_lookup_genes = {
+				'YLR194C': 'NCW2',
+				'YMR178W': 'FPY1',
+			}
+
+			# Special case with updated gene name from sacCer3
+			if gene.orf_name in custom_lookup_genes:
+				gene = gene.copy()
+				gene_name = custom_lookup_genes[gene.orf_name]
+				name = gene.orf_name
+				gene.classification = 'Verified'
+
 			if self.plot_orf_names:
 				if gene_name is not None and not name == gene_name:
 					name = "{} / {}".format(gene_name, gene['orf_name'])

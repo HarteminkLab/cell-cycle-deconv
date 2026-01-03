@@ -1185,7 +1185,7 @@ class FigureNucleosomes:
 			between_padding=30,
 			margin=(30, 30),
 			widths=[420],
-			image_keys=['tsses'], #'histograms']
+			image_keys=['tsses']
 		)
 
 		placed_images = layout_images_vertically(
@@ -1211,6 +1211,9 @@ class FigureNucleosomes:
 
 		compositor.place_image(image_paths[4], 940, 520, 
 			width=70, name='colorbar')
+
+		compositor.add_panel_label_to_image('deciles_modifications', 'e', 
+			offset=(-15, 340), font_size=32)
 
 		# Save the composite figure
 		compositor.save(f'{self.figures_dir}/Supplemental8.5_Nucleosome_metrics.png')
