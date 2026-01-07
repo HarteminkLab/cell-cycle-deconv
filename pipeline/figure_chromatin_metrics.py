@@ -70,37 +70,20 @@ class FigureChromatinMetrics:
 
 	def create_integration_plots(self):
 
-		plot_datasets = ['raw_rep1', 'raw_rep2', 'deconvolved']
+		plot_datasets = ['deconvolved']#['raw_rep1', 'raw_rep2', 'deconvolved']
 		for dataset in plot_datasets:
 			fig = self.integration.plot_ptr_correlations(dataset)
 			save_figure_for_paper(f"{self.figures_dir}/expression_chromatin_{dataset}_scatter.png")
 
-		# Heatmap of counts showing change from raw data to deconvolved, likely
-		# a supplemental or omitted entirely
-		metrics = ['promoter_occupancy', 'nucleosome_entropy', 'nucleosome_occupancy']
-		figsizes = [(4, 3.25), (4, 3.5), (4, 4)]
-		for i, metric in enumerate(metrics):
-			fig = self.integration.create_gene_dataset_intersection_heatmap(metric,
-				figsize=figsizes[i])
-			save_figure_for_paper(f"{self.figures_dir}/gene_inclusion_map_{metric}.png")
+		# # Plot cell cycle genes, with trajectory area values
+		# self.integration.plot_all_trajectory_area_cell_cycle_genes()
+		# save_figure_for_paper(f"{self.figures_dir}/cell_cycle_trajectory_values.png")
 
-		# Plot PTR vs PTR with trajectory highlights
-		fig = self.integration.plot_ptr_correlations(color_by='normalized_trajectory_area')
-		save_figure_for_paper(f"{self.figures_dir}/ptrs_vs_ptr_trajectory.png")
+		# self.create_top_bottom_metric_trajectory_plots()
+		# self.create_raw_deconvolved_trajectory_plots()
 
-		# Plot PTR vs PTR with density
-		fig = self.integration.plot_ptr_correlations(color_by='density')
-		save_figure_for_paper(f"{self.figures_dir}/ptrs_vs_ptr.png")
-
-		# Plot cell cycle genes, with trajectory area values
-		self.integration.plot_all_trajectory_area_cell_cycle_genes()
-		save_figure_for_paper(f"{self.figures_dir}/cell_cycle_trajectory_values.png")
-
-		self.create_top_bottom_metric_trajectory_plots()
-		self.create_raw_deconvolved_trajectory_plots()
-
-		# Plot trajectories for each gene group
-		self.create_gene_group_trajectories_plots()
+		# # Plot trajectories for each gene group
+		# self.create_gene_group_trajectories_plots()
 
 	def create_top_bottom_metric_trajectory_plots(self):
 

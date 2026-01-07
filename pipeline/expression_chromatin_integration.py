@@ -120,7 +120,7 @@ class IntegratedChromatinExpressionAnalyzer:
 	
 	def plot_ptr_correlations(self, chromatin_data_source='deconvolved', 
 							  color_by='density',
-							  figsize=(3, 10), save_plots=False):
+							  figsize=(8, 3.5), save_plots=False):
 		"""
 		Plot correlations between chromatin PTRs and expression PTRs.
 		
@@ -138,10 +138,10 @@ class IntegratedChromatinExpressionAnalyzer:
 		
 		results = self.correlation_results[chromatin_data_source]
 		
-		fig, axes = plt.subplots(3, 1, figsize=figsize)
+		fig, axes = plt.subplots(1, 3, figsize=figsize)
 		
 		metric_names = ['promoter_occupancy', 'nucleosome_entropy', 'nucleosome_occupancy']
-		titles = ['Promoter Occupancy', 'Nucleosome Entropy', 'Nucleosome Occupancy']
+		titles = ['Promoter occupancy', 'Nucleosome entropy', 'Nucleosome occupancy']
 		
 		for i, (metric_name, title) in enumerate(zip(metric_names, titles)):
 			if metric_name not in results:
@@ -193,23 +193,48 @@ class IntegratedChromatinExpressionAnalyzer:
 				raise ValueError("Error in color_by argument: " + color_by)
 			
 			# Labels and title
-			ax.set_xlabel(f'{title} PTR')
-			ax.set_ylabel('Expression PTR')
-			ax.set_title(f'{title}\nn={results_for_metric["n_genes"]}')
+			ax.set_xlabel(f'{title} PTR', fontsize=13)
+			ax.set_ylabel('Expression PTR', fontsize=13)
+			ax.set_title(f'{title}\nn={results_for_metric["n_genes"]}',
+				fontsize=14)
 
 			chromatin_threshold_value = self.quantile_threshold_values[metric_name]
 			expression_threshold_value = self.quantile_threshold_values['expression']
 
-			ax.plot([chromatin_threshold_value, chromatin_threshold_value], [expression_threshold_value, 10], 
-				c='red', ls='solid', alpha=0.5, lw=1)
-			ax.plot([chromatin_threshold_value, 10], [expression_threshold_value, expression_threshold_value], 
-				c='red', ls='solid', alpha=0.5, lw=1)
+			from scipy.stats import pearsonr, spearmanr
+
+			# Compute correlation measures
+			pearsonr_value, pearson_p = pearsonr(data.chromatin_ptr, data.expression_ptr)
+
+			# ax.plot([chromatin_threshold_value, chromatin_threshold_value], 
+			# 	[expression_threshold_value, 10], 
+			# 	c='red', ls='solid', alpha=0.5, lw=1)
+			# ax.plot([chromatin_threshold_value, 10], [expression_threshold_value, 
+			# 	expression_threshold_value], 
+			# 	c='red', ls='solid', alpha=0.5, lw=1)
+
+			# num_chromatin_and_tx = len(data[(data.chromatin_ptr > chromatin_threshold_value) & 
+			# 	(data.expression_ptr > expression_threshold_value)])
+
+			x = (ptr_lims[1]-ptr_lims[0])*0.75 + ptr_lims[0]
+			y = 5
+
+			ax.text(x, y, f"$R^2$= {pearsonr_value:.2f}",
+				fontsize=12, fontweight='regular', ha='center', va='top')
+
+			# ax.text(x, y, f"{num_chromatin_and_tx} genes"\
+			# 	f"\n{num_chromatin_and_tx/n*100:.1f}%",
+			# 	fontsize=12, fontweight='regular', ha='center', va='top')
 
 			ax.set_xlim(*ptr_lims)
 			ax.set_ylim(0.7, 6)
 		
-		plt.suptitle(f'Chromatin vs Expression PTR\nconcordance ({chromatin_data_source})', 
-					fontweight='demi', fontsize=14)
+		if chromatin_data_source == 'deconvolved':
+			title = "Chromatin vs Expression"
+		else:
+			title = f'Chromatin vs Expression PTR concordance ({chromatin_data_source})'
+
+		plt.suptitle(title, fontweight='demi', fontsize=15)
 		plt.tight_layout()
 		
 		return fig

@@ -105,7 +105,7 @@ class ChromatinMetrics4D(object):
 		data_normalized_3d = self.filtered_data_normalized_3d
 		optimal_k = self.optimal_k
 
-		for current_k in range(1, optimal_k+1):
+		for current_k in [1, 11, 13]:#range(1, optimal_k+1):
 
 			print(f"Cluster {current_k}")
 
@@ -124,31 +124,45 @@ class ChromatinMetrics4D(object):
 				
 			orf_names_to_plot = masked_orfnames[example_indices]
 			
-			for i in range(num_examples):
+			# for i in range(num_examples):
 				
-				try:
-					example_i = example_indices[i]
-					orf_name = orf_names_to_plot[i]
-					from src.sgd import get_gene_name
-					gene_name = get_gene_name(orf_name)
-				except IndexError:
-					continue
+			# 	try:
+			# 		example_i = example_indices[i]
+			# 		orf_name = orf_names_to_plot[i]
+			# 		from src.sgd import get_gene_name
+			# 		gene_name = get_gene_name(orf_name)
 					
-				example_data = data_normalized_3d[example_i]
-				plot_pairs_index(example_data, color=color, expanded_lims=True)
-				plt.suptitle(f"Cluster {current_k}, example {example_i}, {gene_name}")
-				save_figure_for_paper(f"{save_dir}/cluster_{current_k}_{example_i}.png")
-				plt.cla()
-				plt.clf()
+			# 		example_data = data_normalized_3d[example_i]
+			# 		plot_pairs_index(example_data, color=color, expanded_lims=True)
+			# 		plt.suptitle(f"Cluster {current_k}, example {example_i}, {gene_name}")
+			# 		save_figure_for_paper(f"{save_dir}/cluster_{current_k}_{example_i}.png")
 
-			plot_pairs_index(cluster_meta_gene, color=color)
-			plt.suptitle(f"Cluster {current_k}, n={len(cluster_gene_indices)}")
+			# 	except Exception:
+			# 		print(f"Error with cluster {current_k}, example {example_i}, skipping")
+			# 		continue
+
+			# 	plt.cla()
+			# 	plt.clf()
+
+			title = f"Cluster {current_k} mean, n={len(cluster_gene_indices)}"
+
+			if current_k == 11:
+				title = "Chromatin reorganization\n"\
+						f"Cluster 11 mean, n={len(cluster_gene_indices)}"
+			elif current_k == 13:
+				title = "DNA replication and repair\n"\
+					f"Cluster 13 mean, n={len(cluster_gene_indices)}"
+
+			plot_pairs_index(cluster_meta_gene)
+			plt.suptitle(title,
+				fontsize=20, fontweight='demi')
 			save_figure_for_paper(f"{save_dir}/meta_cluster_{current_k}.png")
 
-			plt.cla()
-			plt.clf()
+			# plt.cla()
+			# plt.clf()
 				
-			plt.close('all')
+			# plt.close('all')
+			# break
 
 	def run_go_clusters(self):
 		from src.gene_ontology import GeneOntology
@@ -356,9 +370,7 @@ class ChromatinMetrics4D(object):
 		return kmeans
 
 
-	def plot_heatmap_of_clusters(self):
-
-		from src.figure_configs import tf_colors
+	def create_cluster_summaries(self):
 
 		def create_cluster_counts(clusters):
 			cluster_names, counts = np.unique(clusters, return_counts=True)
@@ -368,11 +380,29 @@ class ChromatinMetrics4D(object):
 				- cluster_counts_df['count'] / 2
 			return cluster_counts_df
 
+		cluster_counts_df = create_cluster_counts(self.clusters)
+		self.cluster_counts = cluster_counts_df
+
+		from pipeline.cluster_metrics_data_helpers import test_tf_enrichment_fisher
+
+		tf_counts = self.filtered_cluster_tf_summary.join(self.cluster_counts[['count']], how='right').fillna(0)
+		tf_counts.loc[:] = tf_counts.values.astype(int)
+		self.tf_binding_adj_p_values = test_tf_enrichment_fisher(tf_counts).pivot(
+		    index='cluster', columns='TF', values='adjusted_p_value').fillna(1)
+
+
+	def plot_heatmap_of_clusters(self):
+
+		from src.figure_configs import tf_colors
+		self.create_cluster_summaries()
+
 		clusters = self.clusters
 		data_normalized_2d = self.filtered_data_normalized_2d
 
 		enriched_terms = self.sig_results
-		cluster_counts_df = create_cluster_counts(clusters)
+		cluster_counts_df = self.cluster_counts
+		self.cluster_counts = cluster_counts_df
+
 		sorted_indices = np.argsort(clusters)
 
 		fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13.5, 10), 
@@ -488,9 +518,17 @@ class ChromatinMetrics4D(object):
 							x = tf_ticks[i]
 							y = row.label_position
 
-							plt.text(x, y, f"{count}", color=tf_colors[tf],
+							p_value = self.tf_binding_adj_p_values.loc[cluster][tf]
+
+							sig = ""
+							if p_value < 0.001:
+								sig = '**'
+							elif p_value < 0.05:
+								sig = '*'
+
+							plt.text(x, y, f"${count}^" + "{" + sig + "}$", color=tf_colors[tf],
 								ha='center', va='center',
-								fontweight='bold', fontsize=12,
+								fontweight='bold', fontsize=14,
 								path_effects=[path_effects.withStroke(linewidth=2, 
 									foreground='white')])
 
@@ -603,12 +641,63 @@ class ChromatinMetrics4D(object):
 
 		To do: this code currently plots a cluster example, and can
 		be changed to plot various gene examples."""
-		from pipeline.cluster_metrics_data_helpers import plot_pairs_index
+		from pipeline.cluster_metrics_data_helpers import plot_pairs_index, plot_single_pair
 
-		for current_k in range(self.trajectory_k):
-			example_i = np.where(self.trajectory_clusters == current_k)[0][2]
-			plot_pairs_index(self.metrics_gene_data, example_i)
-			break
+		# Get the gene array indices for the genes in the current cluster
+		# and the associated orf names
+		cluster_gene_indices = np.where(self.clusters == 11)[0]
+		
+		masked_orfnames = self.filtered_set_orfnames
+		cluster_orf_names = masked_orfnames[cluster_gene_indices]
+		
+		# The average gene in the cluster
+		data_normalized_3d = self.filtered_data_normalized_3d
+		cluster_meta_gene = np.mean(data_normalized_3d[cluster_gene_indices], axis=0)
+
+		# plot_pairs_index(cluster_meta_gene)
+
+		fig = plt.figure(figsize=(4, 4))
+		ax = plt.gca()
+
+		x_values = cluster_meta_gene[0]
+		y_values = cluster_meta_gene[3]
+
+		x_values = x_values - x_values.mean()
+		y_values = y_values - y_values.mean()
+
+		plot_single_pair(
+			ax=ax,
+			data_x=x_values,
+			data_y=y_values,
+			x_label='promoter_occupancy',
+			y_label='expression',
+			xlim=(-0.3, 0.3),
+			ylim=(-0.65, 0.65),
+			plot_arrows=True,
+			arrow_trajectory_offset=0.05,
+		)
+
+		from src.plot_helpers import color_for_key
+
+		def _plot_text(index, phase, ha='center', va='center', offset=(0, 0)):
+			if phase == 'meanG1':
+				text = 'G1'
+			else:
+				text = phase
+			plt.text(x_values[index]+offset[0], y_values[index]+offset[1], 
+				text, color=color_for_key(phase),
+				ha=ha, va=va, fontweight='demi', fontsize=15)
+
+		_plot_text(40, 'meanG1', va='bottom', offset=(0, 0.01))
+		_plot_text(85, 'S', ha='left', va='top', offset=(0.02, -0.01))
+		_plot_text(100, 'G2/M', va='top', offset=(0, -0.06))
+
+		ax.set_xlabel("Promoter occupancy", fontsize=16)
+		ax.set_ylabel("Expression", fontsize=16)
+		plt.title("Gene trajectory", fontweight='demi', fontsize=20,
+			pad=13)
+
+		save_figure_for_paper(f"{self.save_dir}/example_annotated_trajectory.png")
 
 		
 	def create_joined_ptrs_dataset(self, fig_metrics):
@@ -697,15 +786,16 @@ class ChromatinMetrics4D(object):
 		# Create compositor
 
 		from pipeline.figure_composer import FigureCompositor
-		compositor = FigureCompositor(1024, 500, debug_mode=True)
+		compositor = FigureCompositor(1024, 860, debug_mode=True)
 
 		self.figures_dir = self.save_dir
 		chrom_metrics_figs_dir = self.fig_metrics.figures_dir
 		
 		# Define image paths for the three chromatin metrics plots
 		image_paths = [
-			f'{chrom_metrics_figs_dir}/ptrs_vs_ptr.png',
+			f'{chrom_metrics_figs_dir}/expression_chromatin_deconvolved_scatter.png',
 			f'{self.figures_dir}/clusters_heatmap.png',
+			f'{self.save_dir}/example_annotated_trajectory.png',
 			f'{self.figures_dir}/trajectories/meta_cluster_11.png',
 			f'{self.figures_dir}/trajectories/meta_cluster_13.png',
 		]
@@ -720,26 +810,36 @@ class ChromatinMetrics4D(object):
 		# Layout images vertically with equal proportions
 		placed_images = layout_images_horizontally(
 			compositor,
-			image_paths[:3],
-			width_proportions=[0.2, 0.89, 0.31],
-			between_padding=30,
+			[image_paths[0], image_paths[2]],
+			width_proportions=[0.74, 0.26],
+			between_padding=80,
 			margin=(50, 30),
-			image_keys=['ptrs', 'heatmap', 'clust11']
+			image_keys=['ptrs', 'clust1']
 		)
 
-		place_image_below(compositor, image_paths[3], 'clust11',
+		hm_width = placed_images['ptrs']['logical_size'][0]+70
+		place_image_below(compositor, image_paths[1], 'ptrs',
+			width=hm_width,
+			new_key='heatmap')
+
+		place_image_below(compositor, image_paths[3], 'clust1',
+			new_key='clust11')
+
+		place_image_below(compositor, image_paths[4], 'clust11',
 			new_key='clust13')
 		
 		# Add panel labels (abcd)
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
+			labels="acbde",
 			font_size=30,
 			offsets=[
 				(-22, 20),
 				(0, 20),
 				(-22, 20),
-				(-22, 20),
+				(0, 20),
+				(0, 20),
 			]
 		)
 		

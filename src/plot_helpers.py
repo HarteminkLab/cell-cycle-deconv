@@ -1091,7 +1091,8 @@ def blend_three_colors(color1, color2, color3):
 def plot_trajectory_deconvolved_values(config, 
 	x_values, y_values, 
 	x_key=None, y_key='Expression', xlim=(-0.5, 8), ylim=(-0.5, 12), 
-	lw=5, plot_arrows=False, color_arrows=True, ax=None):
+	lw=5, plot_arrows=False, color_arrows=False, ax=None,
+	arrow_trajectory_offset=0.02):
 	"""
 	Plot chromatin vs expression data colored by cell cycle phase for a single gene.
 	"""
@@ -1120,35 +1121,22 @@ def plot_trajectory_deconvolved_values(config,
 	looped_x_values = np.concatenate([x_values, x_values[0:1]])
 
 	if plot_arrows:
-		def _create_offset_curve(x_loop, y_loop, offset_dist_x, offset_dist_y):
+		def _create_offset_curve(x_loop, y_loop, offset):
 			from src.math_utils import compute_offset_curve, offset_curve_shapely
 
 			x_loop_offset, y_loop_offset = offset_curve_shapely(x_loop, y_loop, 
-				0.2)
+				offset)
 
 			return x_loop_offset, y_loop_offset
 
-		offset_dist_x = 0.02
-		offset_dist_y = 0.02
-
-		# offset_dist_scale = 6.0
-		# if x_key == 'promoter_occupancy':
-		# 	offset_dist_x = 0.05*offset_dist_scale
-		# elif x_key == 'nucleosome_entropy':
-		# 	offset_dist_x = 0.05*offset_dist_scale
-		# elif x_key == 'nucleosome_occupancy':
-		# 	offset_dist_x = 0.2*offset_dist_scale
-		# offset_dist_y = 0.2*offset_dist_scale
-
 		x_loop_offset, y_loop_offset = _create_offset_curve(looped_x_values, 
-			looped_y_values, offset_dist_x, offset_dist_y)
+			looped_y_values, offset=arrow_trajectory_offset)
 
 		from matplotlib.patches import FancyArrowPatch
 		from src.math_utils import compute_signed_area
 
 		signed_area = compute_signed_area(looped_x_values, looped_y_values)
 		is_ccw = signed_area > 0
-
 
 		# Color arrows by CCW or CW
 		if color_arrows:
@@ -1160,7 +1148,7 @@ def plot_trajectory_deconvolved_values(config,
 			x_loop_offset = x_loop_offset[::-1]
 			y_loop_offset = y_loop_offset[::-1]
 
-		if abs(signed_area) > 0.05:
+		if abs(signed_area) > 0.00:
 			ax.plot(x_loop_offset[:30], y_loop_offset[:30], c=color, lw=lw*0.5)
 
 			# Add arrowhead
