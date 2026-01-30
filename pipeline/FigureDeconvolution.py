@@ -913,7 +913,7 @@ def layout_figure3_panel(save_dir, figures_dir):
 		image_keys=['locus']  # Custom keys for the images
 	)
 	
-	compositor.add_panel_label_to_image('locus', 'a', offset=(0, 30), font_size=42)
+	# compositor.add_panel_label_to_image('locus', 'a', offset=(0, 30), font_size=42)
 
 	# Save the figure
 	save_path = f"{figures_dir}/Figure3_Locus.png"

@@ -338,7 +338,7 @@ class IntegratedChromatinExpressionAnalyzer:
 		plt.title(chromatin_key)
 	
 	def plot_orf_phase_state_deconvolved(self, orf_or_gene_name, chromatin_key=None, 
-		xlim=(-0.5, 8), ylim=(-0.5, 12), lw=5, plot_arrows=False, color_arrows=True):
+		xlim=(-0.5, 8), ylim=(-0.5, 12), lw=5, plot_arrows=True, color_arrows=True):
 
 		# Get chromatin PTRs based on data source
 		chromatin_metrics_data = self.chromatin_processor.normalized_deconvolved_metrics
@@ -360,7 +360,7 @@ class IntegratedChromatinExpressionAnalyzer:
 
 		return plot_trajectory_deconvolved_values(self.config, 
 			chromatin_sample, expression_sample,
-			chromatin_key=chromatin_key, xlim=xlim, ylim=ylim, lw=lw, 
+			x_key=chromatin_key, xlim=xlim, ylim=ylim, lw=lw, 
 			plot_arrows=plot_arrows, color_arrows=color_arrows)
 	
 	def plot_all_metrics_all_replicates_gene(self, gene_or_orf_name, figsize=(4, 4),
@@ -1125,7 +1125,7 @@ class IntegratedChromatinExpressionAnalyzer:
 					chromatin_key=metric, 
 					xlim=xlim, 
 					ylim=ylim,
-					plot_arrows=False
+					plot_arrows=True
 				)
 				
 				# Clear the default title from individual plot function
@@ -1366,67 +1366,69 @@ class IntegratedChromatinExpressionAnalyzer:
 
 		plt.subplots_adjust(wspace=0.35)
 
-	def plot_orf_trajectory(self, sort_idx=None):
+	# def plot_orf_trajectory(self, sort_idx=None):
+	# todo: I don't believe this is being used anywhere, deprecate
 
-		joined_traj_data = self.current_joined_chromatin_data.join(
-			self.current_slope_trajectory_data)[['is_chrom_cycling', 
-				'is_tx_cycling', 'ols_slope', 'normalized_trajectory_area',
-			'is_large_area']]
+	# 	joined_traj_data = self.current_joined_chromatin_data.join(
+	# 		self.current_slope_trajectory_data)[['is_chrom_cycling', 
+	# 			'is_tx_cycling', 'ols_slope', 'normalized_trajectory_area',
+	# 		'is_large_area']]
 
-		both_cycling = joined_traj_data[joined_traj_data.is_chrom_cycling & joined_traj_data.is_tx_cycling]\
-			.sort_values(['is_large_area', 'normalized_trajectory_area'])
+	# 	both_cycling = joined_traj_data[joined_traj_data.is_chrom_cycling & joined_traj_data.is_tx_cycling]\
+	# 		.sort_values(['is_large_area', 'normalized_trajectory_area'])
 
-		# Let's try modifying the area by normalizing it with a pseudocount
-		dat = self.trajectory_area_linkages['promoter_occupancy'].loc[both_cycling.index]
-		dat['normalized_trajectory_area'] = dat['trajectory_area']/\
-			(dat['diameter_sq'])
-		dat = dat.sort_values('normalized_trajectory_area')
+	# 	# Let's try modifying the area by normalizing it with a pseudocount
+	# 	dat = self.trajectory_area_linkages['promoter_occupancy'].loc[both_cycling.index]
+	# 	dat['normalized_trajectory_area'] = dat['trajectory_area']/\
+	# 		(dat['diameter_sq'])
+	# 	dat = dat.sort_values('normalized_trajectory_area')
 
-		both_cycling = dat[['trajectory_area', 'diameter_sq', 'bounding_box_area']].join(
-			both_cycling, how='left')
+	# 	both_cycling = dat[['trajectory_area', 'diameter_sq', 'bounding_box_area']].join(
+	# 		both_cycling, how='left')
 
-		chromatin_key = 'promoter_occupancy'
+	# 	chromatin_key = 'promoter_occupancy'
 
-		# If predefined sorting order
-		if sort_idx is not None:
-			both_cycling = both_cycling.loc[sort_idx]
+	# 	# If predefined sorting order
+	# 	if sort_idx is not None:
+	# 		both_cycling = both_cycling.loc[sort_idx]
 
-		plt.figure(figsize=(11, 12))
-		for i, (orf_name, row) in enumerate(both_cycling.iterrows()):
+	# 	plt.figure(figsize=(11, 12))
+	# 	for i, (orf_name, row) in enumerate(both_cycling.iterrows()):
 
-			color_arrows = row.is_large_area
+	# 		color_arrows = row.is_large_area
 
-			plt.subplot(11, 8, i+1)
+	# 		plt.subplot(11, 8, i+1)
 
-			# Normalize to mean center for plotting visilibity
-			chromatin_data = self.chromatin_processor.deconvolved_chromatin_metrics[\
-				'promoter_occupancy'].loc[orf_name]
-			m, s = chromatin_data.mean(), chromatin_data.std()	
-			chromatin_data = (chromatin_data-m)
+	# 		# --- Normalize to mean center for plotting visilibity ---
+	# 		chromatin_data = self.chromatin_processor.deconvolved_chromatin_metrics[\
+	# 			'promoter_occupancy'].loc[orf_name]
+	# 		m, s = chromatin_data.mean(), chromatin_data.std()	
+	# 		chromatin_data = (chromatin_data-m)
 
-			expression_data = self.expression_processor.expression_data.loc[orf_name]
-			m, s = expression_data.mean(), expression_data.std()	
-			expression_data = (expression_data-m)
+	# 		expression_data = self.expression_processor.expression_data.loc[orf_name]
+	# 		m, s = expression_data.mean(), expression_data.std()	
+	# 		expression_data = (expression_data-m)
+	# 		# ---------------------------------------------------------
 
-			plot_orf_phase_state_deconvolved_values(self.config, 
-				chromatin_data, expression_data,
-				'promoter_occupancy',
-				lw=2, xlim=(-1.5, 1.5), ylim=(-4, 4),#xlim=None, ylim=None,
-				plot_arrows=True, color_arrows=color_arrows)
+	# 		plot_orf_phase_state_deconvolved_values(self.config, 
+	# 			chromatin_data, expression_data,
+	# 			'promoter_occupancy',
+	# 			lw=2, xlim=(-1.5, 1.5), ylim=(-4, 4),#xlim=None, ylim=None,
+	# 			plot_arrows=True, color_arrows=color_arrows)
 
-			from src.sgd import get_gene_name
+	# 		from src.sgd import get_gene_name
 
-			gene_name = get_gene_name(orf_name)
-			if gene_name is None: gene_name = orf_name
-			plt.text(-1.5, 3, f"{gene_name}")
-			#\nN.area: {row.normalized_trajectory_area:.2f}\n"
-			#	f"Area:{row.trajectory_area:.2f}\nDiam2:{row.diameter_sq:.2f}",
-			#	ha='left', va='top')
+	# 		gene_name = get_gene_name(orf_name)
+	# 		if gene_name is None: gene_name = orf_name
+	# 		plt.text(-1.5, 3, f"{gene_name}")
+	# 		#\nN.area: {row.normalized_trajectory_area:.2f}\n"
+	# 		#	f"Area:{row.trajectory_area:.2f}\nDiam2:{row.diameter_sq:.2f}",
+	# 		#	ha='left', va='top')
 
-			plt.xlabel('')
-			plt.ylabel('')
-			plt.title('')
-			plt.xticks([])
-			plt.yticks([])
+	# 		plt.xlabel('')
+	# 		plt.ylabel('')
+	# 		plt.title('')
+	# 		plt.xticks([])
+	# 		plt.yticks([])
 
-		plt.subplots_adjust(wspace=0, hspace=0)
+	# 	plt.subplots_adjust(wspace=0, hspace=0)

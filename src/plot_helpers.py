@@ -1091,8 +1091,8 @@ def blend_three_colors(color1, color2, color3):
 def plot_trajectory_deconvolved_values(config, 
 	x_values, y_values, 
 	x_key=None, y_key='Expression', xlim=(-0.5, 8), ylim=(-0.5, 12), 
-	lw=5, plot_arrows=False, color_arrows=False, ax=None,
-	arrow_trajectory_offset=0.02):
+	lw=5, plot_arrows=True, color_arrows=True, ax=None,
+	arrow_trajectory_offset=0.0, values_are_preindexed_by_branch=False):
 	"""
 	Plot chromatin vs expression data colored by cell cycle phase for a single gene.
 	"""
@@ -1116,21 +1116,35 @@ def plot_trajectory_deconvolved_values(config,
 	if ax is None:
 		ax = plt.gca()  # Get current axes
 
+	# Select indices values for plotting, mean t and b
+	if not values_are_preindexed_by_branch:
+		t_indices = config.t_indices()
+		b_indices = config.b_indices()
+
+		t_x_values = x_values[t_indices].values
+		b_x_values = x_values[b_indices].values
+		x_values = (t_x_values+b_x_values)/2
+
+		t_y_values = y_values[t_indices].values
+		b_y_values = y_values[b_indices].values
+		y_values = (t_y_values+b_y_values)/2
+
 	# Repeat the last value to close the loop
 	looped_y_values = np.concatenate([y_values, y_values[0:1]])
 	looped_x_values = np.concatenate([x_values, x_values[0:1]])
 
 	if plot_arrows:
-		def _create_offset_curve(x_loop, y_loop, offset):
-			from src.math_utils import compute_offset_curve, offset_curve_shapely
+		# def _create_offset_curve(x_loop, y_loop, offset):
+		# 	from src.math_utils import compute_offset_curve, offset_curve_shapely
 
-			x_loop_offset, y_loop_offset = offset_curve_shapely(x_loop, y_loop, 
-				offset)
+		# 	x_loop_offset, y_loop_offset = offset_curve_shapely(x_loop, y_loop, 
+		# 		offset)
+			# return x_loop_offset, y_loop_offset
 
-			return x_loop_offset, y_loop_offset
+		# x_loop_offset, y_loop_offset = _create_offset_curve(looped_x_values, 
+		# 	looped_y_values, offset=arrow_trajectory_offset)
 
-		x_loop_offset, y_loop_offset = _create_offset_curve(looped_x_values, 
-			looped_y_values, offset=arrow_trajectory_offset)
+		x_loop_offset, y_loop_offset = looped_x_values, looped_y_values
 
 		from matplotlib.patches import FancyArrowPatch
 		from src.math_utils import compute_signed_area
@@ -1139,32 +1153,74 @@ def plot_trajectory_deconvolved_values(config,
 		is_ccw = signed_area > 0
 
 		# Color arrows by CCW or CW
-		if color_arrows:
-			color = 'blue' if not is_ccw else 'red'
-		else:
-			color = 'black'
-
 		if is_ccw:
-			x_loop_offset = x_loop_offset[::-1]
-			y_loop_offset = y_loop_offset[::-1]
+			ls = 'solid'
+			start_marker_color = 'black'
+		else:
+			ls = (0, (2, 1))
+			start_marker_color = 'white'
 
 		if abs(signed_area) > 0.00:
-			ax.plot(x_loop_offset[:30], y_loop_offset[:30], c=color, lw=lw*0.5)
+
+			arrow_index_offset = 0
+
+			# Find the index in which the trajectory has traveled
+			# some distance
+			def _compute_dist_traveled(x1, y1, index):
+				return (x2-x1)**2 + (y2-y1)**2
+
+			def _cumulative_distance(x, y):
+				"""
+				Compute cumulative distance traveled from arrays of x and y coordinates.
+				"""
+				x = np.array(x)
+				y = np.array(y)
+				
+				# Compute differences between consecutive points
+				dx = np.diff(x)
+				dy = np.diff(y)
+				
+				# Compute distance between consecutive points using Pythagorean theorem
+				distances = np.sqrt(dx**2 + dy**2)
+				
+				# Compute cumulative sum, prepending 0 for the starting point
+				cumulative_dist = np.concatenate([[0], np.cumsum(distances)])
+
+				return cumulative_dist
+
+			min_proportion_traveled = 0.20
+			trajectory_distances = _cumulative_distance(x_loop_offset, y_loop_offset)
+			total_distance = trajectory_distances[-1]
+			arrow_index_offset = np.argmax(trajectory_distances >= min_proportion_traveled\
+				 * trajectory_distances[-1])
+
+			ax.plot(x_loop_offset[:arrow_index_offset], 
+				y_loop_offset[:arrow_index_offset], c='black',
+			ls=ls, lw=3)
 
 			# Add arrowhead
-			arrow = FancyArrowPatch((x_loop_offset[29], y_loop_offset[29]), 
-									(x_loop_offset[30], y_loop_offset[30]),
-									arrowstyle='-|>', mutation_scale=20, 
-									color=color, lw=0)
+			arrow = FancyArrowPatch((x_loop_offset[arrow_index_offset-1], 
+									 y_loop_offset[arrow_index_offset-1]), 
+									(x_loop_offset[arrow_index_offset+1], 
+									 y_loop_offset[arrow_index_offset+1]),
+									arrowstyle='-|>', mutation_scale=16, 
+									color='black', lw=0)
+
 			ax.add_patch(arrow)
+			ax.scatter(x_loop_offset[0],
+				y_loop_offset[0], s=40, marker='D', facecolor=start_marker_color,
+				edgecolor='black', zorder=10, lw=2)
+
 
 	for phase in phases:
 
+		# Use absolute indexing, that is the first indices represent
+		# the mean g1, then s, then G2M
 		g1_indices = range(0, len(config.get_Hpositions_for_phase('CG1')))
 		s_indices = range(g1_indices[-1], g1_indices[-1]+
 			len(config.get_Hpositions_for_phase('S')))
-		g2m_indices = range(s_indices[-1], s_indices[-1]+
-			len(config.get_Hpositions_for_phase('G2M')))
+		g2m_indices = list(range(s_indices[-1], s_indices[-1]+
+			len(config.get_Hpositions_for_phase('G2M')))) + [0] # encircle
 
 		phase_indices_map = {
 			'meanG1': g1_indices,
@@ -1172,17 +1228,17 @@ def plot_trajectory_deconvolved_values(config,
 			'G2M': g2m_indices,
 		}
 
-		cur_y_values = y_values[phase_indices_map[phase]]
-		cur_x_values = x_values[phase_indices_map[phase]]
+		cur_y_values = looped_y_values[phase_indices_map[phase]]
+		cur_x_values = looped_x_values[phase_indices_map[phase]]
 
 		color = color_for_key(phase)
 		ax.plot(cur_x_values, cur_y_values,
 				   lw=lw, color=color, zorder=0)
 
-		if phase == 'meanG1':
-			# Add start position
-			ax.scatter(cur_x_values[0], cur_y_values[0],
-					   s=10, color='black', marker='D', label=phase, zorder=1)
+		# if phase == 'meanG1':
+		# Add start position
+		# ax.scatter(cur_x_values[0], cur_y_values[0],
+		# 		   s=10, color='black', marker='D', label=phase, zorder=1)
 
 	plt.xlim(*xlim)
 	plt.ylim(*ylim)

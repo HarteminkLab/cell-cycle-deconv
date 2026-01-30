@@ -46,6 +46,7 @@ def plot_single_pair(ax, data_x, data_y, x_label, y_label, xlim, ylim,
 		x_key=x_label, y_key=y_label,
 		ax=ax, plot_arrows=plot_arrows,
 		arrow_trajectory_offset=arrow_trajectory_offset,
+		values_are_preindexed_by_branch=True # Values are already indexed by average t and b branches
 	)
 	
 	# Set limits and remove ticks

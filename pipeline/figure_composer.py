@@ -636,6 +636,31 @@ class FigureCompositor:
 		debug_base_path = '/'.join(debug_path_split)
 
 		return f"{debug_base_path}_debug{ext}"
+
+	def _get_uppercase_path(self, output_path: str) -> str:
+		"""
+		Create an uppercase version of the output path placing these panels in a 
+		new directory.
+		
+		Parameters:
+		-----------
+		output_path : str
+			Original output path
+			
+		Returns:
+		--------
+		str
+			Path with '_debug' inserted before the extension
+		"""
+		base, ext = os.path.splitext(output_path)
+
+		path_split = base.split('/')
+
+		# Insert the debug folder into the debug path
+		uppercase_path_split = (path_split[:-1]	+ ['Uppercase'] + path_split[-1:])
+		uppercase_base_path = '/'.join(uppercase_path_split)
+
+		return f"{uppercase_base_path}.{ext}"
 		
 	def _draw_debug_grid(self):
 		"""

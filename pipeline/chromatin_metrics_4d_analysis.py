@@ -388,7 +388,7 @@ class ChromatinMetrics4D(object):
 		tf_counts = self.filtered_cluster_tf_summary.join(self.cluster_counts[['count']], how='right').fillna(0)
 		tf_counts.loc[:] = tf_counts.values.astype(int)
 		self.tf_binding_adj_p_values = test_tf_enrichment_fisher(tf_counts).pivot(
-		    index='cluster', columns='TF', values='adjusted_p_value').fillna(1)
+			index='cluster', columns='TF', values='adjusted_p_value').fillna(1)
 
 
 	def plot_heatmap_of_clusters(self):
@@ -405,14 +405,25 @@ class ChromatinMetrics4D(object):
 
 		sorted_indices = np.argsort(clusters)
 
-		fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(13.5, 10), 
-										gridspec_kw={'width_ratios': [0.75, 0.25]})
+		fig, (ax_chromatin, ax_expression, ax_tfs) = plt.subplots(1, 3, figsize=(13, 10), 
+									 gridspec_kw={'width_ratios': [0.45, 0.15, 0.25]})
+		# ax_chromatin = chromatin heatmap (3 metrics wide)
+		# ax_expression = expression heatmap (1 metric wide)  
+		# ax_tf3 = TF binding counts
 
-		# Plot your heatmap in the first subplot
-		im = ax1.imshow(data_normalized_2d[sorted_indices], vmin=-4, vmax=4, 
+		len_of_tps = 128
+		chromatin_data = data_normalized_2d[sorted_indices, :len_of_tps*3]  # First 384 columns
+		expression_data = data_normalized_2d[sorted_indices, len_of_tps*3:]  # Last 128 columns
+
+		# Plot chromatin heatmap
+		im = ax_chromatin.imshow(chromatin_data, vmin=-4, vmax=4, 
 						cmap='RdYlBu_r',
 						aspect='auto', interpolation='none')
-		ax1.set_xticks([])
+
+		# Plot expression heatmap
+		im = ax_expression.imshow(expression_data, vmin=-4, vmax=4, 
+						cmap='RdYlBu_r',
+						aspect='auto', interpolation='none')
 
 		from src.config import retrieve_phase_index_ticks, load_default_chrom_configs
 		config1, _ = load_default_chrom_configs()
@@ -428,19 +439,26 @@ class ChromatinMetrics4D(object):
 		all_tick_labels = tick_labels.copy()
 		all_edge_ticks = edge_ticks.copy()
 
-		for i in range(1, 4):  # Repeat 3 more times
+		ax_expression.set_xticks(phase_ticks)
+		ax_expression.set_xticklabels(tick_labels, fontsize=10)
+		ax_expression.set_xticks(edge_ticks, minor=True)
+		ax_expression.set_yticks([])
+
+		for i in range(1, 3):  # Repeat 2 more times
 			offset = period_length * i
 			# Append phase ticks (excluding the first one to avoid duplication at boundaries)
 			all_phase_ticks = np.concatenate([all_phase_ticks, phase_ticks + offset])
 			all_edge_ticks = np.concatenate([all_edge_ticks, edge_ticks + offset])
 			all_tick_labels = all_tick_labels + tick_labels
 
-		ax1.set_xticks(all_phase_ticks)
-		ax1.set_xticklabels(all_tick_labels, fontsize=10)
-		ax1.set_xticks(all_edge_ticks, minor=True)
+		ax_chromatin.set_xticks(all_phase_ticks)
+		ax_chromatin.set_xticklabels(all_tick_labels, fontsize=10)
+		ax_chromatin.set_xticks(all_edge_ticks, minor=True)
 
-		ax1.tick_params(axis='x', which='major', length=10)
-		ax1.tick_params(axis='x', which='minor', length=10) 
+		ax_chromatin.tick_params(axis='x', which='major', length=0)
+		ax_chromatin.tick_params(axis='x', which='minor', length=10) 
+		ax_expression.tick_params(axis='x', which='major', length=0)
+		ax_expression.tick_params(axis='x', which='minor', length=10) 
 
 		# Load the TF summary data
 		tf_summary = self.filtered_cluster_tf_summary
@@ -462,16 +480,18 @@ class ChromatinMetrics4D(object):
 		for i, x in enumerate(tf_ticks):
 			tf_name = tf_summary.columns[i]
 			color = tf_colors.get(tf_name, tf_colors['other'])
-			ax2.axvline(x, c=color, lw=0.5, zorder=0, ls=(1, (1, 1)))
+			ax_tfs.axvline(x, c=color, lw=0.5, zorder=0, ls=(1, (1, 1)))
 
 		# Plot the horizontal cluster separators
 		for cluster_name, row in cluster_counts_df.iterrows():
-			ax1.axhline(row.cumulative_sum, c='black', lw=1.5)
-			ax2.axhline(row.cumulative_sum, c='black', lw=1.5)
-		ax1.set_ylim(row.cumulative_sum, 0)
-		ax2.set_ylim(row.cumulative_sum, 0)
-		ax1.set_ylabel("Cluster", fontsize=18, fontweight='demi')
-		ax2.set_yticks([])
+			ax_chromatin.axhline(row.cumulative_sum, c='black', lw=1.5)
+			ax_tfs.axhline(row.cumulative_sum, c='black', lw=1.5)
+			ax_expression.axhline(row.cumulative_sum, c='black', lw=1.5)
+		ax_chromatin.set_ylim(row.cumulative_sum, 0)
+		ax_expression.set_ylim(row.cumulative_sum, 0)
+		ax_tfs.set_ylim(row.cumulative_sum, 0)
+		ax_chromatin.set_ylabel("Cluster", fontsize=18, fontweight='demi')
+		ax_tfs.set_yticks([])
 
 		yticks = []
 		ytick_labels = []
@@ -526,32 +546,35 @@ class ChromatinMetrics4D(object):
 							elif p_value < 0.05:
 								sig = '*'
 
-							plt.text(x, y, f"${count}^" + "{" + sig + "}$", color=tf_colors[tf],
+							color = tf_colors.get(tf, tf_colors['other'])
+
+							plt.text(x, y, f"{count}$^" + "{" + sig + "}$", color=color,
 								ha='center', va='center',
 								fontweight='bold', fontsize=14,
 								path_effects=[path_effects.withStroke(linewidth=2, 
 									foreground='white')])
 
-		ax1.set_yticks(yticks, ytick_labels, fontsize=16, fontweight='demi')
+		ax_chromatin.set_yticks(yticks, ytick_labels, fontsize=16, fontweight='demi')
 		len_of_tps = 128
 		len_tps_2 = len_of_tps//2
 
 		metric_titles = [n.title().replace('_', '\n') 
 			for n in self.metrics_gene_data.metric_names]
 
-		top_ax1 = ax1.twiny()
-		top_ax1.set_xlim(ax1.get_xlim())
-		top_ax1.set_xticks(np.arange(len_tps_2, len_of_tps*4, len_of_tps))
-		top_ax1.set_xticklabels(metric_titles, rotation=0, fontweight='demi',
+		top_ax_chromatin = ax_chromatin.twiny()
+		top_ax_chromatin.set_xlim(ax_chromatin.get_xlim())
+		top_ax_chromatin.set_xticks(np.arange(len_tps_2, len_of_tps*3, len_of_tps))
+		top_ax_chromatin.set_xticklabels(metric_titles[:3], rotation=0, fontweight='demi',
 					ha='center', fontsize=14)
 
-		ax_right = ax2.twinx()
-		ax_right.set_ylim(ax1.get_ylim())
+		ax_expression.set_title('Expression', fontsize=14, fontweight='demi')
+
+		ax_right = ax_tfs.twinx()
+		ax_right.set_ylim(ax_chromatin.get_ylim())
 		ax_right.set_yticks(right_yticks)
 		ax_right.set_yticklabels(right_ytick_terms, fontsize=13)
 		ax_right.tick_params(axis='x', which='major', length=0)
-		ax1.tick_params(axis='x', which='major', length=0)
-		top_ax1.tick_params(axis='x', which='major', length=0)
+		top_ax_chromatin.tick_params(axis='x', which='major', length=0)
 
 		for col, x in enumerate(range(len_of_tps, len_of_tps*4, len_of_tps)):
 			if col == 2:
@@ -561,16 +584,16 @@ class ChromatinMetrics4D(object):
 				lw = 1
 				ls = 'dotted'
 
-			ax1.axvline(x-0.5, c='black', lw=lw, ls=ls)
+			ax_chromatin.axvline(x-0.5, c='black', lw=lw, ls=ls)
 
-		ax2.set_xticks(tf_ticks)
-		ax2.set_xticklabels(tf_summary.columns, rotation=90, fontsize=11,
+		ax_tfs.set_xticks(tf_ticks)
+		ax_tfs.set_xticklabels(tf_summary.columns, rotation=90, fontsize=11,
 			fontweight='demi')
-		ax2.set_xlim(tf_ticks[0]-0.5, tf_ticks[-1]+0.5)
-		ax2.set_title("TF binding", fontweight='demi')
+		ax_tfs.set_xlim(tf_ticks[0]-0.5, tf_ticks[-1]+0.5)
+		ax_tfs.set_title("TF binding", fontweight='demi')
 
 		# Add colored borders to each tick label
-		for i, (tick_label, tf_name) in enumerate(zip(ax2.get_xticklabels(),
+		for i, (tick_label, tf_name) in enumerate(zip(ax_tfs.get_xticklabels(),
 			tf_summary.columns)):
 			color = tf_colors.get(tf_name, tf_colors['other'])
 			tick_label.set_color('white')
@@ -587,8 +610,9 @@ class ChromatinMetrics4D(object):
 			ax.spines['left'].set_linewidth(spine_border_width)
 			ax.spines['right'].set_linewidth(spine_border_width)
 
-		format_axes(ax1)
-		format_axes(ax2)
+		format_axes(ax_chromatin)
+		format_axes(ax_expression)
+		format_axes(ax_tfs)
 
 		plt.suptitle((f"Genes clustered by chromatin trajectories\n"
 					  f"n={len(self.filtered_set_orfnames)} genes, k={self.optimal_k} clusters"), 
@@ -643,59 +667,100 @@ class ChromatinMetrics4D(object):
 		be changed to plot various gene examples."""
 		from pipeline.cluster_metrics_data_helpers import plot_pairs_index, plot_single_pair
 
-		# Get the gene array indices for the genes in the current cluster
-		# and the associated orf names
-		cluster_gene_indices = np.where(self.clusters == 11)[0]
-		
-		masked_orfnames = self.filtered_set_orfnames
-		cluster_orf_names = masked_orfnames[cluster_gene_indices]
-		
-		# The average gene in the cluster
-		data_normalized_3d = self.filtered_data_normalized_3d
-		cluster_meta_gene = np.mean(data_normalized_3d[cluster_gene_indices], axis=0)
+		def plot_example_cluster(cluster_num=None, gene_name=None, 
+			x_metric_index=0, y_metric_index=3, xlim=None, ylim=None,
+			cell_phase_formatting={}, ax=None):
 
-		# plot_pairs_index(cluster_meta_gene)
+			# Get the gene array indices for the genes in the current cluster
+			# and the associated orf names
 
-		fig = plt.figure(figsize=(4, 4))
-		ax = plt.gca()
-
-		x_values = cluster_meta_gene[0]
-		y_values = cluster_meta_gene[3]
-
-		x_values = x_values - x_values.mean()
-		y_values = y_values - y_values.mean()
-
-		plot_single_pair(
-			ax=ax,
-			data_x=x_values,
-			data_y=y_values,
-			x_label='promoter_occupancy',
-			y_label='expression',
-			xlim=(-0.3, 0.3),
-			ylim=(-0.65, 0.65),
-			plot_arrows=True,
-			arrow_trajectory_offset=0.05,
-		)
-
-		from src.plot_helpers import color_for_key
-
-		def _plot_text(index, phase, ha='center', va='center', offset=(0, 0)):
-			if phase == 'meanG1':
-				text = 'G1'
+			if gene_name is not None:
+				from src.sgd import get_orfname
+				orf_name = get_orfname(gene_name)
+				gene_indices_to_plot = np.where(self.filtered_set_orfnames == orf_name)[0]
 			else:
-				text = phase
-			plt.text(x_values[index]+offset[0], y_values[index]+offset[1], 
-				text, color=color_for_key(phase),
-				ha=ha, va=va, fontweight='demi', fontsize=15)
+				gene_indices_to_plot = np.where(self.clusters == cluster_num)[0]
 
-		_plot_text(40, 'meanG1', va='bottom', offset=(0, 0.01))
-		_plot_text(85, 'S', ha='left', va='top', offset=(0.02, -0.01))
-		_plot_text(100, 'G2/M', va='top', offset=(0, -0.06))
+			
+			masked_orfnames = self.filtered_set_orfnames
+			cluster_orf_names = masked_orfnames[gene_indices_to_plot]
+			
+			# The average gene in the cluster
+			data_normalized_3d = self.filtered_data_normalized_3d
+			cluster_meta_gene = np.mean(data_normalized_3d[gene_indices_to_plot], axis=0)
 
-		ax.set_xlabel("Promoter occupancy", fontsize=16)
-		ax.set_ylabel("Expression", fontsize=16)
-		plt.title("Gene trajectory", fontweight='demi', fontsize=20,
+			x_values = cluster_meta_gene[x_metric_index]
+			y_values = cluster_meta_gene[y_metric_index]
+
+			x_values = x_values - x_values.mean()
+			y_values = y_values - y_values.mean()
+
+			metrics = [
+				'promoter_occupancy', 'nucleosome_entropy', 'nucleosome_occupancy', 
+				'expression']
+
+			plot_single_pair(
+				ax=ax,
+				data_x=x_values,
+				data_y=y_values,
+				x_label=metrics[x_metric_index],
+				y_label=metrics[y_metric_index],
+				xlim=xlim,
+				ylim=ylim,
+				plot_arrows=True,
+			)
+
+			from src.plot_helpers import color_for_key
+
+			def _plot_text(index, phase, ha='center', va='center', offset=(0, 0)):
+				if phase == 'meanG1':
+					text = 'G1'
+				else:
+					text = phase
+				ax.text(x_values[index]+offset[0], y_values[index]+offset[1], 
+					text, color=color_for_key(phase),
+					ha=ha, va=va, fontweight='demi', fontsize=15)
+
+			for phase, (index, ha, va, offset) in cell_phase_formatting.items():
+				_plot_text(index, phase, va=va, ha=ha, offset=offset)
+
+			ax.set_xlabel(metrics[x_metric_index].title().replace('_', ' '), fontsize=16)
+			ax.set_ylabel(metrics[y_metric_index].title().replace('_', ' '), fontsize=16)
+
+		fig, (ax0, ax1, ax2) = plt.subplots(3, 1, figsize=(4, 14))
+
+		cell_phase_formatting = {
+						'meanG1': (40, 'left', 'top', (0.01, 0.0)),
+						'S': (85, 'left', 'bottom', (0.5, 0.01)),
+						'G2/M': (100, 'right', 'center', (-0.1, 0.0))}
+		plot_example_cluster(gene_name='HTA2', x_metric_index=0, y_metric_index=3,
+				xlim=(-2, 2), ylim=(-2, 2), 
+				cell_phase_formatting=cell_phase_formatting, ax=ax0)
+		ax0.set_title("Direct, positively\n linked (slope) measures", 
+			fontweight='demi', fontsize=15,
 			pad=13)
+
+		cell_phase_formatting = {
+						'meanG1': (40, 'center', 'bottom', (0, 0.01)),
+						'S': (85, 'left', 'top', (0.02, -0.01)),
+						'G2/M': (100, 'center', 'top', (0, -0.06))}
+		plot_example_cluster(cluster_num=11, x_metric_index=0, y_metric_index=3,
+				xlim=(-0.3, 0.3), ylim=(-0.65, 0.65), 
+				cell_phase_formatting=cell_phase_formatting, ax=ax1)
+		ax1.set_title("Temporally offset,\nclockwise measures", 
+			fontweight='demi', fontsize=15,
+			pad=13)
+
+		cell_phase_formatting = {
+						'meanG1': (40, 'right', 'top', (-0.01, -0.01)),
+						'S': (85, 'left', 'center', (0.05, 0.0)),
+						'G2/M': (110, 'left', 'bottom', (0.01, 0.01))}
+		plot_example_cluster(gene_name='CLB1', x_metric_index=2, y_metric_index=3,
+				xlim=(-2, 2),
+				ylim=(-2, 2), cell_phase_formatting=cell_phase_formatting, ax=ax2)
+		ax2.set_title("Temporally offset,\ncounter-clockwise measures", 
+			fontweight='demi', fontsize=15, pad=13)
+		plt.subplots_adjust(hspace=0.4)
 
 		save_figure_for_paper(f"{self.save_dir}/example_annotated_trajectory.png")
 
@@ -761,7 +826,7 @@ class ChromatinMetrics4D(object):
 		cluster_tf_indicator_df = cluster_tf_indicator_df.reset_index()\
 			.sort_values('cluster')
 
-				# Group by cluster and sum the TF indicators
+		# Group by cluster and sum the TF indicators
 		cluster_tf_summary = cluster_tf_indicator_df.groupby('cluster')[
 			['Abf1', 'Ace2', 'Bas1', 'Cha4', 'Cin5', 'Crz1', 'Cup9', 'Fhl1', 
 			 'Ste12', 'Stp2', 'Stp4', 'Sum1', 'Swi4', 'Tbf1', 'Ume6', 'Urc2', 'Yap1', 'Yrr1']
@@ -770,6 +835,9 @@ class ChromatinMetrics4D(object):
 		# Or more simply, exclude the 'index' column if it exists:
 		tf_columns = [col for col in cluster_tf_indicator_df.columns if col not in ['index', 'cluster']]
 		cluster_tf_summary = cluster_tf_indicator_df.groupby('cluster')[tf_columns].sum()
+
+		print("Only include TFs with at 2 or more total sites in the set.")
+		print(f"Filtering from {cluster_tf_summary.sum().sum()} sites to {self.filtered_cluster_tf_summary.sum().sum()}.")
 
 		self.filtered_cluster_tf_summary = cluster_tf_summary.loc[:, (cluster_tf_summary > 1).any(axis=0)]
 		self.cluster_tf_summary = cluster_tf_summary
@@ -786,7 +854,7 @@ class ChromatinMetrics4D(object):
 		# Create compositor
 
 		from pipeline.figure_composer import FigureCompositor
-		compositor = FigureCompositor(1024, 860, debug_mode=True)
+		compositor = FigureCompositor(1024, 650, debug_mode=True)
 
 		self.figures_dir = self.save_dir
 		chrom_metrics_figs_dir = self.fig_metrics.figures_dir
@@ -801,47 +869,53 @@ class ChromatinMetrics4D(object):
 		]
 
 		from pipeline.figure_composer_helpers import layout_images_horizontally,\
-			place_image_below, add_panel_labels_to_images
-
-		# def place_image_below(compositor, image_path, img_key, 
-				  # vertical_padding=20, width=None, height=None,
-				  # offset=(0, 0), new_key=None, preserve_aspect_ratio=True):
+			place_image_below, add_panel_labels_to_images,\
+			layout_images_vertically
 		
 		# Layout images vertically with equal proportions
 		placed_images = layout_images_horizontally(
 			compositor,
 			[image_paths[0], image_paths[2]],
-			width_proportions=[0.74, 0.26],
+			width_proportions=[0.71, 0.29],
 			between_padding=80,
-			margin=(50, 30),
-			image_keys=['ptrs', 'clust1']
+			margin=(10, 10),
+			available_width=640,
+			image_keys=['ptrs', 'diagram']
 		)
 
-		hm_width = placed_images['ptrs']['logical_size'][0]+70
+		hm_width = placed_images['ptrs']['logical_size'][0]+80
 		place_image_below(compositor, image_paths[1], 'ptrs',
 			width=hm_width,
 			new_key='heatmap')
 
-		place_image_below(compositor, image_paths[3], 'clust1',
-			new_key='clust11')
+		placed_images = layout_images_vertically(
+			compositor,
+			[image_paths[3], image_paths[4]],
+			widths=[250, 250],
+			x_position=750,
+			between_padding=30,
+			margin=(10, 10),
+			image_keys=['clust11', 'clust13']
+		)
 
-		place_image_below(compositor, image_paths[4], 'clust11',
-			new_key='clust13')
-		
 		# Add panel labels (abcd)
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			labels="acbde",
+			labels="acbfg",
 			font_size=30,
 			offsets=[
-				(-22, 20),
 				(0, 20),
-				(-22, 20),
+				(0, 20),
+				(0, 20),
 				(0, 20),
 				(0, 20),
 			]
 		)
+
+		compositor.add_panel_label_to_image('diagram', 'd', offset=(0, 226), font_size=30)
+
+		compositor.add_panel_label_to_image('diagram', 'e', offset=(0, 430), font_size=30)
 		
 		# Save the composed figure
 		output_path = f'{self.fig_metrics.panel_figures_dir}/Figure5_Chromatin_Transcription.png'
