@@ -636,7 +636,7 @@ dynamics. Then sharing some clear examples of these dynamics.
 		)
 
 		# Save the composite figure
-		compositor.save(f'{self.figures_dir}/Supplemental9_Origins.png')
+		compositor.save(f'{self.figures_dir}/Supplemental4.2_Origins.png')
 
 
 	def layout_supplemental_replication_origins_validation(self):
