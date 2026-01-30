@@ -484,7 +484,7 @@ class FigureCompositor:
 		# Track the annotation with both logical and scaled values
 		if name is None:
 			name = f"label_{label}"
-			
+
 		self.annotations[name] = {
 			'text': label,
 			'logical_position': (x, y),
@@ -493,13 +493,17 @@ class FigureCompositor:
 			'font_size': self._scale(font_size),
 			'color': color,
 			'font_type': font_type,
-			'anchor': text_anchor
+			'anchor': text_anchor,
 		}
 	
-	def save(self, output_path: str, quality: int = 95, dpi: Tuple[int, int] = (300, 300),
-			 save_debug_version: bool = False) -> bool:
+	def save(self, output_path: str, quality: int = 95, dpi: Tuple[int, int] = (300, 300)) -> bool:
 		"""
 		Save the composite figure to a file.
+		
+		Always generates three versions:
+		- Clean lowercase version (normal output path)
+		- Clean uppercase version (UppercasePanelLabels folder)
+		- Debug version (Debug folder, only if debug_mode=True)
 		
 		Parameters:
 		-----------
@@ -509,109 +513,128 @@ class FigureCompositor:
 			JPEG quality (0-100) if saving as JPEG (default: 95)
 		dpi : tuple of int, optional
 			DPI information to embed in the image (default: (300, 300))
-		save_debug_version : bool, optional
-			Whether to save an additional debug version with bounding boxes (default: False)
 			
 		Returns:
 		--------
 		bool
 			True if successfully saved, False otherwise
 		"""
-		# Ensure the directory exists
-		os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+		# 1. Ensure all output directories exist
+		self._ensure_all_directories(output_path)
 		
-		# If we need a debug version and debug mode is off, create a new debug compositor
-		if save_debug_version and not self.debug_mode:
-			# Create a copy with debug enabled, same scale factor
-			debug_comp = FigureCompositor(self.logical_width, self.logical_height, 
-										 self.background_color, debug_mode=True,
-										 grid_size=self.logical_grid_size, 
-										 grid_color=self.grid_color,
-										 scale_factor=self.scale_factor,
-										 font_dir=self.font_dir)
-			
-			# Copy all placed images
-			for name, info in self.placed_images.items():
-				debug_comp.place_image(
-					info['path'], 
-					info['logical_position'][0], 
-					info['logical_position'][1],
-					info['logical_size'][0],
-					info['logical_size'][1],
-					name=name
-				)
-			
-			# Copy all annotations
-			for name, info in self.annotations.items():
-				if 'text' in info:
-					font_type = info.get('font_type', 'bold')
-					debug_comp.add_panel_label(
-						info['text'],
-						info['logical_position'][0],
-						info['logical_position'][1],
-						info.get('logical_font_size', 24),
-						info.get('color', (0, 0, 0)),
-						name=name,
-						font_type=font_type,
-						text_anchor=info['anchor']
-					)
-			
-			# Save the debug version
-			debug_path = self._get_debug_path(output_path)
-			debug_comp.canvas.save(debug_path, quality=quality, dpi=dpi)
-			print(f"Debug figure saved to: {debug_path}")
-		
-		# If we're in debug mode and don't need a separate debug version,
-		# save a clean version as well
-		elif self.debug_mode and not save_debug_version:
-			# Save the debug version (current canvas with debug annotations)
+		# 2. Save current canvas to appropriate location
+		if self.debug_mode:
 			debug_path = self._get_debug_path(output_path)
 			self.canvas.save(debug_path, quality=quality, dpi=dpi)
 			print(f"Debug figure saved to: {debug_path}")
-			
-			# Create a clean version with same scale factor
-			clean_comp = FigureCompositor(self.logical_width, self.logical_height, 
-										 self.background_color, debug_mode=False,
-										 scale_factor=self.scale_factor,
-										 font_dir=self.font_dir)
-			
-			# Copy all placed images
-			for name, info in self.placed_images.items():
-				clean_comp.place_image(
-					info['path'], 
-					info['logical_position'][0], 
-					info['logical_position'][1],
-					info['logical_size'][0],
-					info['logical_size'][1],
-					name=name
-				)
-			
-			# Copy all annotations
-			for name, info in self.annotations.items():
-				if 'text' in info:
-					font_type = info.get('font_type', 'bold')
-					clean_comp.add_panel_label(
-						info['text'],
-						info['logical_position'][0],
-						info['logical_position'][1],
-						info.get('logical_font_size', 24),
-						info.get('color', (0, 0, 0)),
+		else:
+			self.canvas.save(output_path, quality=quality, dpi=dpi)
+			print(f"Figure saved to: {output_path}")
+		
+		# 3. Generate and save clean lowercase version (if in debug mode)
+		if self.debug_mode:
+			clean_comp = FigureCompositor(
+				self.logical_width, self.logical_height,
+				self.background_color, debug_mode=False,
+				scale_factor=self.scale_factor,
+				font_dir=self.font_dir
+			)
+			self._replay_compositor(clean_comp, uppercase=False)
+			clean_comp.canvas.save(output_path, quality=quality, dpi=dpi)
+			print(f"Clean figure saved to: {output_path}")
+		
+		# 4. Generate and save clean uppercase version (always)
+		uppercase_comp = FigureCompositor(
+			self.logical_width, self.logical_height,
+			self.background_color, debug_mode=False,
+			scale_factor=self.scale_factor,
+			font_dir=self.font_dir
+		)
+		self._replay_compositor(uppercase_comp, uppercase=True)
+		uppercase_path = self._get_uppercase_path(output_path)
+		uppercase_comp.canvas.save(uppercase_path, quality=quality, dpi=dpi)
+		print(f"Uppercase figure saved to: {uppercase_path}")
+		
+		return True
+
+	def _ensure_all_directories(self, output_path: str) -> None:
+		"""
+		Ensure all required output directories exist.
+		
+		Parameters:
+		-----------
+		output_path : str
+			The main output path
+		"""
+		# Main output directory
+		os.makedirs(os.path.dirname(os.path.abspath(output_path)), exist_ok=True)
+		
+		# Debug subdirectory
+		debug_path = self._get_debug_path(output_path)
+		os.makedirs(os.path.dirname(os.path.abspath(debug_path)), exist_ok=True)
+		
+		# Uppercase subdirectory
+		uppercase_path = self._get_uppercase_path(output_path)
+		os.makedirs(os.path.dirname(os.path.abspath(uppercase_path)), exist_ok=True)
+
+	def _replay_compositor(self, compositor: 'FigureCompositor', uppercase: bool = False) -> None:
+		"""
+		Replay all placed images and annotations onto a new compositor.
+		
+		Parameters:
+		-----------
+		compositor : FigureCompositor
+			The compositor instance to replay onto
+		uppercase : bool, optional
+			Whether to apply .upper() to annotation text (default: False)
+		"""
+		# Replay all placed images
+		for name, info in self.placed_images.items():
+			compositor.place_image(
+				info['path'],
+				info['logical_position'][0],
+				info['logical_position'][1],
+				info['logical_size'][0],
+				info['logical_size'][1],
+				name=name
+			)
+		
+		# Replay all annotations
+		for name, info in self.annotations.items():
+			if 'text' in info:
+				text = info['text']
+
+				# Auto uppercase the text if it is a single letter figure panel label
+				auto_uppercase = len(text) == 1 and text in 'abcdefghijklmnopqrstuv'
+
+				if uppercase and auto_uppercase:
+					text = text.upper()
+
+				font_type = info.get('font_type', 'bold')
+				
+				if 'attached_to' in info:
+					# This was created with add_panel_label_to_image()
+					compositor.add_panel_label_to_image(
+						image_name=info['attached_to'],
+						label=text,
+						offset=info['offset'],
+						font_size=info.get('logical_font_size', 24),
+						color=info.get('color', (0, 0, 0)),
+						font_type=font_type,
+						text_anchor=info['anchor']
+					)
+				else:
+					# This was created with add_panel_label()
+					compositor.add_panel_label(
+						label=text,
+						x=info['logical_position'][0],
+						y=info['logical_position'][1],
+						font_size=info.get('logical_font_size', 24),
+						color=info.get('color', (0, 0, 0)),
 						name=name,
 						font_type=font_type,
 						text_anchor=info['anchor']
 					)
-			
-			# Save the clean version to the original path
-			clean_comp.canvas.save(output_path, quality=quality, dpi=dpi)
-			print(f"Clean figure saved to: {output_path}")
-			
-			return True
-		
-		# Normal case - just save the current canvas
-		self.canvas.save(output_path, quality=quality, dpi=dpi)
-		print(f"Figure saved to: {output_path}")
-		
-		return True
 	
 	def _get_debug_path(self, output_path: str) -> str:
 		"""
@@ -660,7 +683,7 @@ class FigureCompositor:
 		uppercase_path_split = (path_split[:-1]	+ ['Uppercase'] + path_split[-1:])
 		uppercase_base_path = '/'.join(uppercase_path_split)
 
-		return f"{uppercase_base_path}.{ext}"
+		return f"{uppercase_base_path}{ext}"
 		
 	def _draw_debug_grid(self):
 		"""

@@ -868,11 +868,13 @@ def layout_figure1_panel(save_dir, figures_dir):
 	compositor.add_panel_label("Joint deconvolution", 
 							  joint_text_x_pos,
 							  joint_text_y_pos,
-							  font_size=lower_font_size, font_type='semi_bold')
+							  font_size=lower_font_size, font_type='semi_bold',
+							  )
 	compositor.add_panel_label("profile", 
 							  joint_text_x_pos+60,
 							  joint_text_y_pos+20,
-							  font_size=lower_font_size, font_type='semi_bold')
+							  font_size=lower_font_size, font_type='semi_bold',
+							  )
 
 	# -------------------
 
@@ -880,12 +882,12 @@ def layout_figure1_panel(save_dir, figures_dir):
 	compositor.add_panel_label("=", 
 							  h_img['logical_position'][0] - int(26 * scaling_factor), 
 							  g_img['logical_position'][1] + int(150 * scaling_factor), 
-							  font_size=32, font_type='semi_bold')
+							  font_size=32, font_type='semi_bold', )
 
 	compositor.add_panel_label("X", 
 							  f_img['logical_position'][0] + int(5 * scaling_factor),
 							  g_img['logical_position'][1] + int(162 * scaling_factor), 
-							  font_size=18, font_type='semi_bold')
+							  font_size=18, font_type='semi_bold', )
 
 	# Save the figure
 	save_path = f"{figures_dir}/Figure1_Deconvolution.png"
