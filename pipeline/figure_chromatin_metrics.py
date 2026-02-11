@@ -321,13 +321,14 @@ class FigureChromatinMetrics:
 		In a single vertical panel with appropriate labels.
 		"""
 		# Create compositor
-		compositor = FigureCompositor(1024, 1040, debug_mode=True)
+		compositor = FigureCompositor(1024, 1260, debug_mode=True)
 		
 		# Define image paths for the three chromatin metrics plots
 		image_paths = [
 			f'{self.figures_dir}/promoter_occupancy_ptr.png',
 			f'{self.figures_dir}/nucleosome_entropy_ptr.png',
 			f'{self.figures_dir}/nucleosome_occupancy_ptr.png',
+			# f'{self.figures_dir}/raw_vs_deconvolved_all_metrics_ptrs.png',
 		]
 		
 		# Verify all images exist
@@ -338,23 +339,33 @@ class FigureChromatinMetrics:
 		# Layout images vertically with equal proportions
 		placed_images = layout_images_vertically(
 			compositor,
-			image_paths,
-			height_proportions=[0.33, 0.33, 0.34],  # Equal proportions for three plots
-			between_padding=20,
-			margin=(100, 30),
+			image_paths[:3],
+			between_padding=30,
+			margin=(20, 20),
+			#widths=(660, 660, 660),
 			image_keys=['PromoterOccupancy', 'NucleosomeEntropy', 'NucleosomeOccupancy']
 		)
-		
-		# Add panel labels (A, B, C)
+		# left_img = placed_images['PromoterOccupancy']
+		# right_col_x = left_img['logical_position'][0] + left_img['logical_size'][0]+40
+
+		# right_img = compositor.place_image(
+		# 	image_paths[3],
+		# 	x=right_col_x,
+		# 	y=20,
+		# 	width=260,
+		# 	name='PTRChange'
+		# )
+
+		# Add panel labels (A, B, C, D)
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			font_size=36,
-			offset=(-10, 30)
+			font_size=54,
+			offsets=[(-10, 36), (-10, 36), (-10, 36)]#, (-24, 30)]
 		)
 		
 		# Save the composed figure
-		output_path = f'{self.panel_figures_dir}/Supplemental6_Chromatin_Metrics.png'
+		output_path = f'{self.panel_figures_dir}/Supplemental4.1_Raw_vs_Deconvolved.png'
 		compositor.save(output_path)
 		
 		print(f"Panel layout saved to: {output_path}")

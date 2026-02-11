@@ -529,7 +529,7 @@ class ChromatinMetricsProcessor:
 		genic_transcripts = self.all_transcripts_set[
 			self.all_transcripts_set.transcript_class == 'genic'].index
 
-		fig = plt.figure(figsize=(11., 4.25))
+		fig = plt.figure(figsize=(10.75, 4.25))
 
 		plt.subplot(1, 3, 1)
 		plot_ptr_change(raw_rep1_ptrs.loc[genic_transcripts], 
@@ -557,13 +557,19 @@ class ChromatinMetricsProcessor:
 
 		suptitle = f"{metric_name.replace('_', ' ')}"
 		suptitle = suptitle[0:1].upper() + suptitle[1:]
-		plt.suptitle(f"{suptitle} PTR change\nfollowing deconvolution, n={len(raw_rep1_ptrs.loc[genic_transcripts])}", 
-					fontweight='demi', fontsize=18)
+		plt.suptitle(f"{suptitle} PTR change per replicate,"
+			f" n={len(raw_rep1_ptrs.loc[genic_transcripts])}", fontweight='demi', fontsize=26)
 		plt.tight_layout()
 
-	def plot_combined_ptr_change(self, normalized=True):
+	def plot_combined_ptr_change(self, normalized=True, vertical=False):
 		import matplotlib.pyplot as plt
-		fig = plt.figure(figsize=(10., 4.))
+
+		if vertical:
+			fig = plt.figure(figsize=(3.25, 11))
+			rows, columns = 3, 1
+		else:
+			fig = plt.figure(figsize=(10., 4.))
+			rows, columns = 1, 3
 
 		genic_transcripts = self.all_transcripts_set[
 			self.all_transcripts_set.transcript_class == 'genic'].index
@@ -589,27 +595,30 @@ class ChromatinMetricsProcessor:
 				deconv_ptrs.loc[genic_transcripts], metric_name, self.selected_genes, 
 				bw=bw, cmap=cmap, ptr_lims=ptr_lims)
 
-		plt.subplot(1, 3, 1)
+		plt.subplot(rows, columns, 1)
 		plot_combined_raw_metric_ptr('promoter_occupancy', normalized=normalized)
 		plt.xlabel("Combined raw data PTR")
 		plt.ylabel("Deconvolved PTR")
 		plt.title("Promoter occupancy")
 
-		plt.subplot(1, 3, 2)
+		plt.subplot(rows, columns, 2)
 		plot_combined_raw_metric_ptr('nucleosome_entropy', normalized=normalized)
 		plt.xlabel("Combined raw data PTR")
 		plt.ylabel("Deconvolved PTR")
 		plt.title("Nucleosome entropy")
 
-		plt.subplot(1, 3, 3)
+		plt.subplot(rows, columns, 3)
 		plot_combined_raw_metric_ptr('nucleosome_occupancy', normalized=normalized)
 		plt.xlabel("Mean raw data PTR")
 		plt.ylabel("Deconvolved PTR")
 		plt.title("Nucleosome occupancy")
 
-		plt.suptitle(f"PTR change following deconvolution, n={len(genic_transcripts)}", 
+		plt.suptitle(f"PTR change for combined\nreplicates, n={len(genic_transcripts)}", 
 					fontweight='demi', fontsize=18)
 		plt.tight_layout()
+
+		if vertical:
+			plt.subplots_adjust(hspace=0.5)
 
 
 	def plot_combined_ptr_change_w_expression(self, high_cycling_tx_genes=[]):
@@ -679,7 +688,7 @@ class ChromatinMetricsProcessor:
 
 		# Create combined chromatin metrics PTR plots
 		# replicate 1 and 2 raw data are combined
-		self.plot_combined_ptr_change()
+		self.plot_combined_ptr_change(vertical=True)
 		save_figure_for_paper(f"{save_dir}/raw_vs_deconvolved_all_metrics_ptrs.png")
 
 		# The distributions of each metric, with transformation
