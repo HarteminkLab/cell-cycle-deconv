@@ -5,6 +5,27 @@ A framework to deconvolve the chromatin and transcriptional landscape throughout
 
 The cell cycle has been extensively studied through the identification and characterization of key genes and transcription factors that regulate and orchestrate the cell cycle program. Cell cycle experiments typically involve the synchronization of a population of cells, but are limited because synchrony is lost as cells grow at different rates and divide and branch into old (mother) and young (daughter) cells. Researchers have made advances in addressing this challenge through the modeling and deconvolution of this branching process in expression, but have yet to fully deconvolve the chromatin. We develop a mathematical framework to deconvolve both expression and chromatin genome-wide, introducing novel chromatin-specific methods. These include deconvolution of replication timing to correct for DNA doubling during replication. Using our framework, we resolve subtle chromatin dynamics, including those related to replication and cell cycle gene transcription. Our approaches provide methodological foundations for future cell cycle chromatin studies.
 
+
+## Chromatin deconvolution
+<div align="center">
+	<img src="https://github.com/HarteminkLab/cell-cycle-deconv/blob/develop/figures/Figure_1_Deconvolution.jpg" width="70%"/>
+  <p>Figure 1. The deconvolution framework.</p>
+</div>
+
+## Replication profile deconvolution
+<div align="center">
+	<img src="https://github.com/HarteminkLab/cell-cycle-deconv/blob/develop/figures/Figure_2_Replication_Copy_Correction.jpg" width="70%"/>
+  <p>Figure 2. Replication deconvolution.</p>
+</div>
+
+
+## Example deconvoled locus
+<div align="center">
+	<img src="https://github.com/HarteminkLab/cell-cycle-deconv/blob/develop/figures/Figure_3_Locus.jpg" width="70%"/>
+  <p>Figure 3. Example deconvolved locus.</p>
+</div>
+
+
 ## Prequisites
 
 For our study, we generate two replicate experiments synchronized and released from alpha-factor. For each replicate, the flow cytometry, transcription state (through RNA-seq), and chromatin state (through MNase-seq) are collected.
