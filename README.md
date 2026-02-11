@@ -7,23 +7,28 @@ The cell cycle has been extensively studied through the identification and chara
 
 
 ## Chromatin deconvolution
+Chromatin deconvolution is constructed from the cell cycle branching process. By jointly modeling replicate MNase-seq (chromatin state) data sets, we create a high-resolution, cell-cycle resolved, profile of the chromatin.
+
 <div align="center">
 	<img src="https://github.com/HarteminkLab/cell-cycle-deconv/blob/develop/figures/Figure1_Deconvolution.jpg" width="70%"/>
   <p>Figure 1. The deconvolution framework.</p>
 </div>
 
 ## Replication profile deconvolution
+Modeling replication is also critical to anayze cell cycle chromatin changes. During S-phase, the genome replicates at different times creating a variable doubling effect. Thankfully, our MNase-seq data allows us to estimate this replication profile and correct for copy number for the final deconvolution.
+
 <div align="center">
 	<img src="https://github.com/HarteminkLab/cell-cycle-deconv/blob/develop/figures/Figure2_Replication_Copy_Correction.jpg" width="70%"/>
   <p>Figure 2. Replication deconvolution.</p>
 </div>
 
-
-## Example deconvoled locus
+## Example deconvolved locus
+A final copy-corrected deconvolved locus will contain: annotated genes, the signal of RNA-seq (transcript-level), and the deconvolved chromatin profile (a selection of 9 points in 128 time points are shown below).
 <div align="center">
 	<img src="https://github.com/HarteminkLab/cell-cycle-deconv/blob/develop/figures/Figure3_Locus.jpg" width="70%"/>
   <p>Figure 3. Example deconvolved locus.</p>
 </div>
+These locus allow us to see how the chromatin and the gene expression change over the cell cycle. For example, replication-initiation gene *CLB5* (in red, transcribed right to left) peaks in expression at the end of G1 into S-phase. At the same time, the nucleosomes disorganize to allow RNA polymerase to transcribe the gene and the upstream promoter (to the right) changes in architecture, allow transcription factors and machinery to bind.
 
 
 ## Prequisites
