@@ -8,20 +8,20 @@ The cell cycle has been extensively studied through the identification and chara
 
 ## Chromatin deconvolution
 <div align="center">
-	<img src="https://github.com/HarteminkLab/cell-cycle-deconv/blob/develop/figures/Figure_1_Deconvolution.jpg" width="70%"/>
+	<img src="https://github.com/HarteminkLab/cell-cycle-deconv/blob/develop/figures/Figure1_Deconvolution.jpg" width="70%"/>
   <p>Figure 1. The deconvolution framework.</p>
 </div>
 
 ## Replication profile deconvolution
 <div align="center">
-	<img src="https://github.com/HarteminkLab/cell-cycle-deconv/blob/develop/figures/Figure_2_Replication_Copy_Correction.jpg" width="70%"/>
+	<img src="https://github.com/HarteminkLab/cell-cycle-deconv/blob/develop/figures/Figure2_Replication_Copy_Correction.jpg" width="70%"/>
   <p>Figure 2. Replication deconvolution.</p>
 </div>
 
 
 ## Example deconvoled locus
 <div align="center">
-	<img src="https://github.com/HarteminkLab/cell-cycle-deconv/blob/develop/figures/Figure_3_Locus.jpg" width="70%"/>
+	<img src="https://github.com/HarteminkLab/cell-cycle-deconv/blob/develop/figures/Figure3_Locus.jpg" width="70%"/>
   <p>Figure 3. Example deconvolved locus.</p>
 </div>
 
