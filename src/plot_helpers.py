@@ -1242,3 +1242,11 @@ def plot_trajectory_deconvolved_values(config,
 
 	plt.xlim(*xlim)
 	plt.ylim(*ylim)
+
+
+def create_first_character_title(param_str):
+	"""Capitalize the first character in a string. Useful for title casing
+	for figures."""
+	return param_str[0].upper() + param_str[1:]
+
+

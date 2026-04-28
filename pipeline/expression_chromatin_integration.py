@@ -1079,7 +1079,7 @@ class IntegratedChromatinExpressionAnalyzer:
 		
 		# Define the metrics and their axis limits
 		metrics = ['promoter_occupancy', 'nucleosome_entropy', 'nucleosome_occupancy']
-		metric_titles = ['Promoter Occupancy', 'Nucleosome Entropy', 'Nucleosome Occupancy']
+		metric_titles = ['Promoter occupancy', 'Nucleosome entropy', 'Nucleosome occupancy']
 		
 		# Calculate total figure size
 		n_genes = len(gene_list)
@@ -1134,6 +1134,8 @@ class IntegratedChromatinExpressionAnalyzer:
 				# Set column headers only for top row
 				if row_idx == 0:
 					ax.set_title(metric_title.replace(' ', '\n'), fontsize=14)
+
+					print("Testing title capitalization: ", metric_title)
 
 				ax.set_ylabel('')
 				

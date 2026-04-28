@@ -168,6 +168,8 @@ class FigureChromatinMetrics:
 			save_figure_for_paper(save_path)
 			plt.close(fig)
 
+			break
+
 
 	def create_locus_plots(self):
 

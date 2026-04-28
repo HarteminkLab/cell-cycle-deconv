@@ -558,8 +558,11 @@ class ChromatinMetrics4D(object):
 		len_of_tps = 128
 		len_tps_2 = len_of_tps//2
 
-		metric_titles = [n.title().replace('_', '\n') 
-			for n in self.metrics_gene_data.metric_names]
+		metric_titles = []
+
+		for title in self.metrics_gene_data.metric_names:
+			modified_title = (title[0].upper() + title[1:]).replace('_', '\n')
+			metric_titles.append(modified_title)
 
 		top_ax_chromatin = ax_chromatin.twiny()
 		top_ax_chromatin.set_xlim(ax_chromatin.get_xlim())
@@ -724,8 +727,13 @@ class ChromatinMetrics4D(object):
 			for phase, (index, ha, va, offset) in cell_phase_formatting.items():
 				_plot_text(index, phase, va=va, ha=ha, offset=offset)
 
-			ax.set_xlabel(metrics[x_metric_index].title().replace('_', ' '), fontsize=16)
-			ax.set_ylabel(metrics[y_metric_index].title().replace('_', ' '), fontsize=16)
+			from src.plot_helpers import create_first_character_title
+
+			def _create_title_from_metric(title):
+				return create_first_character_title(title.replace('_', ' '))
+
+			ax.set_xlabel(_create_title_from_metric(metrics[x_metric_index]), fontsize=16)
+			ax.set_ylabel(_create_title_from_metric(metrics[y_metric_index]), fontsize=16)
 
 		fig, (ax0, ax1, ax2) = plt.subplots(3, 1, figsize=(4, 14))
 
@@ -837,10 +845,11 @@ class ChromatinMetrics4D(object):
 		cluster_tf_summary = cluster_tf_indicator_df.groupby('cluster')[tf_columns].sum()
 
 		print("Only include TFs with at 2 or more total sites in the set.")
-		print(f"Filtering from {cluster_tf_summary.sum().sum()} sites to {self.filtered_cluster_tf_summary.sum().sum()}.")
 
 		self.filtered_cluster_tf_summary = cluster_tf_summary.loc[:, (cluster_tf_summary > 1).any(axis=0)]
 		self.cluster_tf_summary = cluster_tf_summary
+
+		print(f"Filtering from {cluster_tf_summary.sum().sum()} sites to {self.filtered_cluster_tf_summary.sum().sum()}.")
 
 	def layout_chromatin_transcription_figure(self):
 		"""

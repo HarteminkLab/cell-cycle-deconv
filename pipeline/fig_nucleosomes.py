@@ -598,7 +598,7 @@ class FigureNucleosomes:
 
 			# plt.scatter(expression_chromatin_ptrs.positioning_ptr, 
 			#             expression_chromatin_ptrs.expression_ptr, alpha=0.1)
-			#plt.title("Positioning PTR vs Expression PTR")
+			#plt.title("Position PTR vs Expression PTR")
 
 			x = plot_data.positioning_ptr
 			y = plot_data.expression_ptr
@@ -615,10 +615,10 @@ class FigureNucleosomes:
 			plt.plot(x_line, y_line, 'r-', linewidth=0.5,
 				label=f'y = {coefficients[0]:.3f}x + {coefficients[1]:.3f}')
 
-			plt.xlabel("Positioning PTR")
+			plt.xlabel("Position PTR")
 			plt.ylabel("Expression PTR")
 
-			plt.xlabel('Positioning PTR')
+			plt.xlabel('Position PTR')
 			plt.legend()
 
 			plt.xlim(0.99, 1.2)
@@ -651,7 +651,7 @@ class FigureNucleosomes:
 		plt.ylabel('')
 		plt.title("Zoomed")
 
-		plt.suptitle("Positioning PTR vs Expression PTR", fontweight='demi',
+		plt.suptitle("Position PTR vs Expression PTR", fontweight='demi',
 					fontsize=16)
 
 		plt.tight_layout()
@@ -694,7 +694,7 @@ class FigureNucleosomes:
 			plt.xlim(0.5, 10.5)
 
 		plt.ylabel("Average expression PTR", fontsize=14)
-		plt.xlabel("Positioning PTR deciles", fontsize=14)
+		plt.xlabel("Position PTR deciles", fontsize=14)
 		plt.suptitle("+1 nucleosome position cyclicity \nvs expression cyclicity", 
 				  fontweight='demi', fontsize=16)
 		plt.tight_layout()
