@@ -30,9 +30,10 @@ class ChromatinModel:
 	"""
 
 
-	def __init__(self, config):
+	def __init__(self, config, output_directory):
 
 		self.impute_50_rep2 = False
+		self.output_directory = output_directory
 
 		# Padding defines the window around the TSS to retrieve MNase data
 		self.padding = 5000
@@ -107,7 +108,7 @@ class ChromatinModel:
 
 		# Load target total sums g from replication profile
 		from src.RealDataReplication import read_g
-		window_10kb_g_curve = read_g(chrom, mnase_span, replicate, verbose)
+		window_10kb_g_curve = read_g(self.output_directory, chrom, mnase_span, replicate, verbose)
 
 		# Preserve the length distribution and 10kb total curve
 		self.window_10kb_g_curve = window_10kb_g_curve

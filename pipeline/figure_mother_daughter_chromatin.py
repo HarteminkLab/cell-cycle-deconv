@@ -158,7 +158,8 @@ class FigureDaughterSpecific:
 			self.genome_deconv_analysis.plot_loaded_data(figsize=(7, 11), title=branch_name,
 											   branch_type=branch, rna_plotter=self.rna_plotter,
 											   tpm_plotter=self.tpm_plotter,
-											   plot_index_labels=False)
+											   plot_index_labels=False,
+											   tfs=['Ace2'])
 			save_figure_for_paper(f"{self.save_dir}/locus_{gene_name}_{branch}")
 
 
@@ -374,6 +375,7 @@ class FigureDaughterSpecific:
 
 		if not plot_all_genes:
 			genes_to_plot = ['DSE1', 'DSE2', 'PRY3', 'SCW11', 'CTS1', 'DSE3']
+			genes_to_plot = ['DSE1', 'DSE2', 'PRY3', 'SCW11', 'CTS1', 'DSE3', 'ASH1']
 		else:
 			genes_to_plot = self.daughter_specific_genes
 

@@ -22,8 +22,8 @@ class CombinedChromatinModel:
 			from src.config import load_default_chrom_configs
 			config1, config2 = load_default_chrom_configs()
 
-		self.chrom1_model = ChromatinModel(config1)
-		self.chrom2_model = ChromatinModel(config2)
+		self.chrom1_model = ChromatinModel(config1, output_dir)
+		self.chrom2_model = ChromatinModel(config2, output_dir)
 		self.output_directory = output_dir
 
 

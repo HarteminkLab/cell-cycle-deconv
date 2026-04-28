@@ -634,15 +634,13 @@ def compute_N(config, plot=False):
 	return average_DNA, N
 
 
-def read_g(chrom, deconv_span, replicate, verbose=True):
+def read_g(output_directory, chrom, deconv_span, replicate, verbose=True):
 
 	if verbose:
 		print_fl(f"Loading G data from combined replication run, 3/10/25")
 		print_fl(f"Refactor to use the output directory, of the replication deconvolution run")
 
-	directory = 'output/prototype_pipeline_subset/combined_replication'
-
-	G_df = pd.read_csv(f'{directory}/rep{replicate}_chr{chrom}_G.csv')
+	G_df = pd.read_csv(f'{output_directory}/combined_replication/rep{replicate}_chr{chrom}_G.csv')
 	G_df = G_df[G_df.columns[1:]]	
 	G_df.columns = G_df.columns.astype(int)
 	

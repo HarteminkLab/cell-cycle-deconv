@@ -207,7 +207,7 @@ class ReplicationTiming:
 			c='#777')
 		plt.xlim(chr_replication.index[0], chr_replication.index[-1])
 		plt.ylim(0.75, 2.25)
-		plt.title("Deep sequencing, (Müller, 2014)")
+		plt.title("Deep sequencing (Müller, 2014)")
 		plt.xticks([])
 		plt.ylabel("Copy # ratio")
 

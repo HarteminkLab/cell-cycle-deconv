@@ -206,7 +206,7 @@ class SingleBranchChromatinPlotter:
 		for tf in self.current_binding_sites.tf.values:
 
 			# Plot selected tfs
-			if tf in self.tfs:
+			if self.tfs == 'all' or tf in self.tfs:
 
 				sites_to_plot = self.current_binding_sites[self.current_binding_sites.tf == tf]
 
@@ -561,7 +561,7 @@ class SingleBranchChromatinPlotter:
 
 		self.annotation_axis.set_title(title, fontsize=24, fontweight='demi', pad=13)
 
-		self.rna_pileup_axis.set_ylabel("Experiment\nRNA pileup", fontsize=12,
+		self.rna_pileup_axis.set_ylabel("Experimental\nRNA pileup", fontsize=12,
 			fontweight='demi', labelpad=5)
 
 		# Labe the deconvolution section

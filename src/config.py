@@ -336,7 +336,7 @@ class ModelConfig(object):
 
 		return self.H
 
-	def plot_mass(self, plot_DNA=True, fig=None):
+	def plot_mass(self, plot_DNA=True, normalize=False, fig=None):
 
 		from src.plot_helpers import color_for_key
 		import matplotlib.pyplot as plt
@@ -360,7 +360,6 @@ class ModelConfig(object):
 		if fig is None:
 			fig = plt.figure(figsize=(6, 4))
 
-		plt.title("DNA mass over time", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE)
 		x = self.timepoints
 		prev = np.zeros(len(x))
 
@@ -372,6 +371,9 @@ class ModelConfig(object):
 			'S': 'S',
 			'G2M': 'G2/M',
 		}
+
+		plot_tuples = []
+
 		for i in range(len(phases)):
 			phase = phases[i]
 			cols = cols_list[i]
@@ -389,14 +391,40 @@ class ModelConfig(object):
 
 			y = prev+mass
 
-			plt.fill_between(x, prev, y, color=color, label=label_mapping[phase])
+			plot_tuples.append(
+				(x, prev, y, color, label_mapping[phase])
+				)
+
 			prev = y
 
-		plt.plot(x, y, c='#555', lw=3)
+		# Sum total is the last curve
+		total = y
+
+		for x, prev, y, color, label in plot_tuples:
+
+			if normalize:
+				prev = prev/total
+				y = y/total
+
+			plt.fill_between(x, prev, y, color=color, label=label)
+
+		if normalize:
+			plt.plot(x, total/total, c='#555', lw=3)
+		else:
+			plt.plot(x, total, c='#555', lw=3)
 
 		plt.legend(ncol=2)
 		plt.xlim(x[0], x[-1])
 		plt.ylim(0, 1.4*y.max())
+		plt.xlabel("Time, min", fontsize=13)
+
+		if normalize:
+			plt.ylabel("Proportion", fontsize=13)
+			plt.title("Proportion of cells over time", 
+				fontweight='demi', fontsize=16, pad=6)
+		else:
+			plt.ylabel("DNA", fontsize=13)
+			plt.title("DNA mass over time", fontweight='demi', fontsize=16, pad=6)
 
 
 	def plot_mass_cells_dna(self):

@@ -33,7 +33,7 @@ class FigureDeconvolution(object):
 		self.H = np.concatenate([H1, H2])
 		self.config1 = config1
 		self.config2 = config2
-		self.chrom_model = CombinedChromatinModel(config1, config2)
+		self.chrom_model = CombinedChromatinModel(config1, config2, self.output_dir)
 
 		self.genome_deconvolution_analysis = GenomeDeconvolutionAnalysis(self.output_dir)
 		self.genes, _ = load_transcripts_sets(self.output_dir)
@@ -91,7 +91,7 @@ class FigureDeconvolution(object):
 		from src.config import plot_H
 		plot_H(self.config1, self.H)
 
-	def plot_H_matrices(self, figsize=(7, 6), padding=0.0):
+	def plot_H_matrices(self, figsize=(6, 6), padding=0.0):
 		"""
 		Plot H1 and H2 matrices separately on two vertically stacked axes.
 		
@@ -221,23 +221,29 @@ class FigureDeconvolution(object):
 		ax2.set_ylabel("Replicate 2", fontsize=10,
 			labelpad=5)
 		
-		# Add overall figure labels
+		# --- Layout parameters ---
+		TITLE_Y = 0.97          # Vertical position of "H" title
+		BOX_BOTTOM = 0.05       # Bottom edge of gray box
+		BOX_TOP = 1.02          # Top edge of gray box (increase to reduce bottom padding)
+
+		# Derived
+		box_height = BOX_TOP - BOX_BOTTOM
+
 		fig.suptitle(r"$\bf{H}$", 
-			fontsize=24, y=0.96, fontweight='demi')
+			fontsize=26, y=TITLE_Y,
+			fontweight='demi')
 
 		fig.text(0.06, 0.5, "Experiment time", va='center', rotation='vertical', 
 			 fontsize=FiguresConfig.FIG_LABEL_FONTSIZE)
 
 		from matplotlib.patches import FancyBboxPatch
 		bg_ax = fig.add_axes([0, 0, 1, 1], zorder=-1)
-		bg_ax.axis('off')  # Hide axes
+		bg_ax.axis('off')
 
-		# Add rounded rectangle with light gray background
-		# Adjust the parameters as needed for desired appearance
 		rect = FancyBboxPatch(
-			(0.01, 0.02),                         # (x, y) position
-			0.95, 0.96,                             # width, height
-			boxstyle="round,pad=0,rounding_size=0.02", # Rounded corners
+			(0.01, BOX_BOTTOM),
+			0.95, box_height,
+			boxstyle="round,pad=0,rounding_size=0.02",
 			facecolor=SUBPANEL_COLOR,
 			linewidth=0,
 			alpha=1.,
@@ -263,11 +269,17 @@ class FigureDeconvolution(object):
 		img_indices = [0, 1, 2, 3, -2, -1]
 		n = len(img_indices)
 
+		# --- Layout parameters ---
+		BOX_BOTTOM = 0.05       # Bottom edge of gray box
+		BOX_TOP = 1.075          # Top edge of gray box (increase to reduce bottom padding)
+
+		box_height = BOX_TOP - BOX_BOTTOM
+
 		fig, axs = plt.subplots(n, 2, figsize=(6, 6))
 		axs = np.array(axs).T
 		plt.suptitle(r"$\bf{G}$", 
-			fontsize=28,
-	    		fontweight='demi', y=1.02)
+			fontsize=31,
+				fontweight='demi', y=1.03)
 
 		# Create a new axes that spans the entire figure for the background
 		from matplotlib.patches import FancyBboxPatch
@@ -279,8 +291,8 @@ class FigureDeconvolution(object):
 		# Add rounded rectangle with light gray background
 		# Adjust the parameters as needed for desired appearance
 		rect = FancyBboxPatch(
-			(0.01, 0.07),                         # (x, y) position
-			0.95, 1.02,                             # width, height
+			(0.01, BOX_BOTTOM),
+			0.95, box_height,
 			boxstyle="round,pad=0,rounding_size=0.02", # Rounded corners
 			facecolor=SUBPANEL_COLOR,
 			linewidth=0,
@@ -361,7 +373,7 @@ class FigureDeconvolution(object):
 
 		i = 0
 
-		fig = plt.figure(figsize=(3.5, 5.5))
+		fig = plt.figure(figsize=(4., 5.5))
 		ax = plt.gca()
 
 		w, h = 0.7, 0.2
@@ -421,6 +433,11 @@ class FigureDeconvolution(object):
 		xlims = -0.1, 1.4
 		ylims = -0.25, 2
 
+		# --- Layout parameters ---
+		BOX_BOTTOM = 0.1       # Bottom edge of gray box
+		BOX_TOP = 1.00          # Top edge of gray box (increase to reduce bottom padding)
+		box_height = BOX_TOP - BOX_BOTTOM
+
 		plt.xlim(*xlims)
 		plt.ylim(*ylims)
 		hide_spines(ax)
@@ -433,8 +450,8 @@ class FigureDeconvolution(object):
 		# Add rounded rectangle with light gray background
 		# Adjust the parameters as needed for desired appearance
 		rect = FancyBboxPatch(
-			(0.1, 0.09), # x, y
-			0.83, 0.92, # w, h
+			(0.1, BOX_BOTTOM), # x, y
+			0.83, box_height, # w, h
 			boxstyle="round,pad=0,rounding_size=0.02", # Rounded corners
 			facecolor=SUBPANEL_COLOR,
 			linewidth=0,
@@ -446,7 +463,7 @@ class FigureDeconvolution(object):
 		bg_ax.add_patch(rect)
 
 		ax.set_title(r"$\bf{F}$", fontsize=24, 
-			fontweight='demi')
+			fontweight='demi', y=1.017)
 		save_figure_for_paper(f"{self.save_dir}/Deconvolved_Profiles_F.png")
 
 
@@ -499,7 +516,7 @@ class FigureDeconvolution(object):
 		ax.set_xlim(*xlims)
 		plt.xlabel("Genomic position, bp")
 		# plt.ylabel("Fragment length, bp")
-		plt.title("2D Histogram", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=7,
+		plt.title("2D histogram", fontsize=FiguresConfig.FIG_TITLE_FONTSIZE, pad=7,
 			fontweight='demi')
 
 		plt.subplots_adjust(wspace=0.1)
@@ -812,9 +829,12 @@ def layout_figure1_panel(save_dir, figures_dir):
 	# C panels (scaled)
 	vertical_pad = 50
 	c_y_position = top_margin + branch_height + vertical_pad
+
+	# Widths of each item in C
+	widths = np.array([325, 344, 274])*1.085
 	
 	# C1: Raw profiles (scaled)
-	g_width_scaled = int(325 * scaling_factor)  # 192px
+	g_width_scaled = int(widths[0] * scaling_factor)
 	g_img = compositor.place_image(image_paths[2], margin, c_y_position, 
 								  g_width_scaled, None, 'raw')
 	compositor.add_panel_label_to_image('raw', 'c', offset=(0, -21),
@@ -822,16 +842,17 @@ def layout_figure1_panel(save_dir, figures_dir):
 
 	# C2: Kernel H diagram (scaled)
 	padding_gh_scaled = int(15 * scaling_factor)  # 9px
-	h_width_scaled = int(410 * scaling_factor)  # 242px
+	h_width_scaled = int(widths[1] * scaling_factor)
 	h_img = compositor.place_image(image_paths[3], 
 								  margin + g_width_scaled + padding_gh_scaled, 
-								  c_y_position - int(7 * scaling_factor),  # scaled offset
+								  c_y_position - int(2 * scaling_factor),  # scaled offset
 								  h_width_scaled, None, 'H')
 
 	# C3: Deconvolved profiles (scaled)
-	f_width_scaled = int(256 * scaling_factor)  # 154px
+	f_width_scaled = int(widths[2] * scaling_factor)
 	f_img = compositor.place_image(image_paths[4], 
-								  margin + g_width_scaled + padding_gh_scaled + h_width_scaled - int(0 * scaling_factor), 
+								  margin + g_width_scaled + padding_gh_scaled + 
+								  h_width_scaled - int(20 * scaling_factor), 
 								  c_y_position, f_width_scaled, None, 'F')
 
 
@@ -851,28 +872,26 @@ def layout_figure1_panel(save_dir, figures_dir):
 
 	# -- Lower labels --
 	lower_font_size = 21
-	compositor.add_panel_label("Replicate experiment data", margin + 40, 
+	lower_label_y = g_img['logical_size'][1] - 10
+	compositor.add_panel_label("Replicate experimental data", margin + 25, 
 							  g_img['logical_position'][1]+
-							  	g_img['logical_size'][1] - 10, 
+							  lower_label_y, 
 							  font_size=lower_font_size, font_type='semi_bold')
 
+	# todo: I don't know why the lower label y is positioned
+	# so differently than the g image, so these large offsets
+	# are a guess and check computation...
+	lower_label_y = h_img['logical_size'][1] + 256
 	compositor.add_panel_label("Cell cycle convolution kernel", 
-							  h_img['logical_position'][1] + 150, 
-							  h_img['logical_position'][1] +
-							  	h_img['logical_size'][1] + 0, 
+							  h_img['logical_position'][1] + 130,
+							  lower_label_y, 
 							  font_size=lower_font_size, font_type='semi_bold')
 
-	joint_text_x_pos = f_img['logical_position'][0]+ 32
-	joint_text_y_pos = f_img['logical_position'][1]+f_img['logical_size'][1]-30
-
-	compositor.add_panel_label("Joint deconvolution", 
+	joint_text_x_pos = f_img['logical_position'][0]+15
+	lower_label_y = f_img['logical_size'][1] + 235
+	compositor.add_panel_label("Joint deconvolution profile", 
 							  joint_text_x_pos,
-							  joint_text_y_pos,
-							  font_size=lower_font_size, font_type='semi_bold',
-							  )
-	compositor.add_panel_label("profile", 
-							  joint_text_x_pos+60,
-							  joint_text_y_pos+20,
+							  lower_label_y,
 							  font_size=lower_font_size, font_type='semi_bold',
 							  )
 
@@ -881,7 +900,7 @@ def layout_figure1_panel(save_dir, figures_dir):
 	# Mathematical symbols (scaled positions)
 	compositor.add_panel_label("=", 
 							  h_img['logical_position'][0] - int(26 * scaling_factor), 
-							  g_img['logical_position'][1] + int(150 * scaling_factor), 
+							  g_img['logical_position'][1] + int(158 * scaling_factor), 
 							  font_size=32, font_type='semi_bold', )
 
 	compositor.add_panel_label("X", 
@@ -915,7 +934,9 @@ def layout_figure3_panel(save_dir, figures_dir):
 		image_keys=['locus']  # Custom keys for the images
 	)
 	
-	# compositor.add_panel_label_to_image('locus', 'a', offset=(0, 30), font_size=42)
+	compositor.add_panel_label_to_image('locus', 'a', offset=(-18, 62), font_size=43)
+	compositor.add_panel_label_to_image('locus', 'b', offset=(-18, 160), font_size=43)
+	compositor.add_panel_label_to_image('locus', 'c', offset=(-18, 284), font_size=43)
 
 	# Save the figure
 	save_path = f"{figures_dir}/Figure3_Locus.png"
