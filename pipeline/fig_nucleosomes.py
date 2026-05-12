@@ -695,10 +695,9 @@ class FigureNucleosomes:
 
 		plt.ylabel("Average expression PTR", fontsize=14)
 		plt.xlabel("Position PTR deciles", fontsize=14)
-		plt.suptitle("+1 nucleosome position cyclicity \nvs expression cyclicity", 
+		plt.suptitle("Expression PTR vs. +1 nucleosome position PTR", 
 				  fontweight='demi', fontsize=16)
 		plt.tight_layout()
-		# plt.subplots_adjust(top=0.9)
 
 		xticks = np.arange(1, 11)
 		xtick_labels = [f"{x}" for x in xticks]
@@ -939,7 +938,7 @@ class FigureNucleosomes:
 		plt.hist(joined_tss_p1['difference'], color=plt.cm.Greys(0.5),
 		 bins=np.linspace(-600, 600, 100))
 		plt.xlim(-600, 600)
-		plt.title(f"+1 nucleosomes (Chereji, 2018) vs TSSes,\nn={len(joined_tss_p1)}")
+		plt.title(f"Offset of +1 nucleosomes (Chereji, 2018) relative to TSSs,\nn={len(joined_tss_p1)}")
 		plt.xlabel("Difference, bp")
 		plt.ylabel("Frequency")
 
@@ -999,7 +998,7 @@ class FigureNucleosomes:
 			plt.title(measure.title(), fontsize=13)
 			plt.ylim(0.99, 4)
 			
-		plt.suptitle(f"+1 nucleosome vs expression cyclicity, n={len(joined_chromatin_tx_ptrs)}", fontweight='demi', 
+		plt.suptitle(f"Expression PTR vs. Nucleosome PTRs for +1 nucleosomes, n={len(joined_chromatin_tx_ptrs)}", fontweight='demi', 
 					fontsize=18)
 		plt.tight_layout()
 
@@ -1021,25 +1020,25 @@ class FigureNucleosomes:
 		plt.subplot(1, 3, 1)
 		_plot_hist_ptrs(self.plus_one_ptrs['positioning'], 
 					  color=colors[0], bins=np.linspace(1, 1.2, 30))
-		plt.title("Positioning")
-		plt.xlabel("Peak-to-Trough Ratio (PTR)")
+		plt.title("Position")
+		plt.xlabel("Position PTR")
 		plt.xlim(*(ptr_formatting['positioning']['xlims']))
 
 		plt.subplot(1, 3, 2)
 		_plot_hist_ptrs(self.plus_one_ptrs['occupancy'], color=colors[1], 
 			bins=np.linspace(1, 2.5, 30))
 		plt.title("Occupancy")
-		plt.xlabel("Peak-to-Trough Ratio (PTR)")
+		plt.xlabel("Occupancy PTR")
 		plt.xlim(*(ptr_formatting['occupancy']['xlims']))
 
 		plt.subplot(1, 3, 3)
 		_plot_hist_ptrs(self.plus_one_ptrs['entropy'], color=colors[2], 
 			bins=np.linspace(1, 1.4, 30))
 		plt.title("Entropy")
-		plt.xlabel("Peak-to-Trough Ratio (PTR)")
+		plt.xlabel("Entropy PTR")
 
 		decile_size = len(self.plus_one_ptrs['entropy']) // self.n_deciles
-		plt.suptitle(f"Cyclicity of +1 Chereji, (2018) nucleosomes,\n"
+		plt.suptitle(f"Distributions of nucleosome PTRs for +1 nucleosomes (Chereji, 2018),\n"
 					f"n={len(self.plus_one_ptrs['entropy'])}, {decile_size} nucleosomes per decile",
 					fontweight='demi', fontsize=18)
 		plt.tight_layout()

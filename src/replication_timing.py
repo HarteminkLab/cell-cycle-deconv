@@ -148,8 +148,8 @@ class ReplicationTiming:
 		plotter.cmap = 'Purples'
 		plotter.plot_ax(plt.gca())
 		plt.ylim(72, 25)
-		plt.title(f"Deep sequencing vs MNase-seq\n"
-				  f"n={len(self.filtered_joined_muller_replication_data)}, Pearson r = {self.muller_pearsonr[0]:.2g}",
+		plt.title(f"Replication time from deconvolved\nMNase-seq vs. Copy # ratio,\n"
+				  f"n={len(self.filtered_joined_muller_replication_data)}, Pearson r={self.muller_pearsonr[0]:.2g}",
 				 fontweight='demi', fontsize=18, y=1.02)
 		plt.ylabel("Replication time, min (Deconvolved MNase-seq)")
 		plt.xlabel("Copy # ratio (Deep Sequencing, Müller, 2014)")
@@ -243,7 +243,9 @@ class ReplicationTiming:
 			plt.scatter(chr_origins.index, chr_origins.replication_time, 
 				alpha=alpha_values, s=10, c='blue')
 
-		plt.suptitle(f"Replication profile for chr{chrom}", 
+		from src.read_bam import _toRoman
+
+		plt.suptitle(f"Replication profile for Chr{_toRoman(chrom)}", 
 			fontsize=20, fontweight='demi')
 		plt.tight_layout()
 		plt.subplots_adjust(hspace=0.35)

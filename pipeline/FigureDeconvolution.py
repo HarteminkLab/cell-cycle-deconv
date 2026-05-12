@@ -661,7 +661,7 @@ class FigureDeconvolution(object):
 			chrom = gene.chr
 			span = (gene.TSS + start_offset, gene.TSS + end_offset)
 
-			title = f"Chr{_toRoman(chrom)}: {span[0]}...{span[1]}"
+			title = f"Chr{_toRoman(chrom)}: {span[0]}–{span[1]}"
 			
 			if mode in ['both', 'deconvolved']:
 				# Plot and save deconvolved locus
@@ -672,7 +672,7 @@ class FigureDeconvolution(object):
 			# Plot and save raw data for both replicates
 			if mode in ['both', 'raw']:
 				for replicate in [1, 2]:
-					raw_title = f"Raw data {title} - Replicate {replicate}"
+					raw_title = f"Raw data {title}, Replicate {replicate}"
 					fig_raw = self.plot_raw_data_locus(chrom, span, raw_title, replicate)
 					save_figure_for_paper(f"{save_dir}/locus_{gene_name}_raw_rep{replicate}.png")
 					plt.close(fig_raw)
@@ -859,7 +859,7 @@ def layout_figure1_panel(save_dir, figures_dir):
 	# ========== LABELS (scaled positions) ==========
 	
 	# Main section titles
-	compositor.add_panel_label("Cell cycling branching model", margin + 40, top_margin - 34,
+	compositor.add_panel_label("Cell cycle branching model", margin + 40, top_margin - 34,
 							  font_size=22, font_type='semi_bold')
 
 	compositor.add_panel_label("MNase data", 
@@ -883,7 +883,7 @@ def layout_figure1_panel(save_dir, figures_dir):
 	# are a guess and check computation...
 	lower_label_y = h_img['logical_size'][1] + 256
 	compositor.add_panel_label("Cell cycle convolution kernel", 
-							  h_img['logical_position'][1] + 130,
+							  h_img['logical_position'][1] + 147,
 							  lower_label_y, 
 							  font_size=lower_font_size, font_type='semi_bold')
 
@@ -900,12 +900,12 @@ def layout_figure1_panel(save_dir, figures_dir):
 	# Mathematical symbols (scaled positions)
 	compositor.add_panel_label("=", 
 							  h_img['logical_position'][0] - int(26 * scaling_factor), 
-							  g_img['logical_position'][1] + int(158 * scaling_factor), 
+							  g_img['logical_position'][1] + int(180 * scaling_factor), 
 							  font_size=32, font_type='semi_bold', )
 
 	compositor.add_panel_label("X", 
 							  f_img['logical_position'][0] + int(5 * scaling_factor),
-							  g_img['logical_position'][1] + int(162 * scaling_factor), 
+							  g_img['logical_position'][1] + int(180 * scaling_factor), 
 							  font_size=18, font_type='semi_bold', )
 
 	# Save the figure

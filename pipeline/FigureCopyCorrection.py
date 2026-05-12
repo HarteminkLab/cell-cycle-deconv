@@ -199,11 +199,11 @@ class FigureCopyCorrection():
 			image_keys=['Replication_Detail']
 		)
 
-		add_panel_labels_to_images(
-			compositor, 
-			compositor.placed_images,
-			font_size=36,
-			offset=(-10, 8)
-		)
+		# add_panel_labels_to_images(
+		# 	compositor, 
+		# 	compositor.placed_images,
+		# 	font_size=36,
+		# 	offset=(-10, 8)
+		# )
 
 		compositor.save(f'{self.figures_dir}/Supplemental2.5_Replication_Detail.png')

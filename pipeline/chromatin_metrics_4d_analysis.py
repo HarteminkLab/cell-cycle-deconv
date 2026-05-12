@@ -713,9 +713,15 @@ class ChromatinMetrics4D(object):
 				plot_arrows=True,
 			)
 
+			# Plot the gene or cluster name on the diagram
+			if gene_name is not None:
+				trajectory_label = '$\\it{' + gene_name + '}$'
+			else:
+				trajectory_label = f'Cluster {cluster_num}'
+
 			from src.plot_helpers import color_for_key
 
-			def _plot_text(index, phase, ha='center', va='center', offset=(0, 0)):
+			def _plot_phase_text(index, phase, ha='center', va='center', offset=(0, 0)):
 				if phase == 'meanG1':
 					text = 'G1'
 				else:
@@ -725,7 +731,7 @@ class ChromatinMetrics4D(object):
 					ha=ha, va=va, fontweight='demi', fontsize=15)
 
 			for phase, (index, ha, va, offset) in cell_phase_formatting.items():
-				_plot_text(index, phase, va=va, ha=ha, offset=offset)
+				_plot_phase_text(index, phase, va=va, ha=ha, offset=offset)
 
 			from src.plot_helpers import create_first_character_title
 
@@ -735,11 +741,19 @@ class ChromatinMetrics4D(object):
 			ax.set_xlabel(_create_title_from_metric(metrics[x_metric_index]), fontsize=16)
 			ax.set_ylabel(_create_title_from_metric(metrics[y_metric_index]), fontsize=16)
 
+			xlim_padding = (xlim[1]-xlim[0])*0.025
+			ylim_padding = (ylim[1]-ylim[0])*0.025
+
+			# Label of the gene or cluster
+			ax.text(xlim[1]-xlim_padding, ylim[0]+ylim_padding, 
+				trajectory_label, color='black',
+				ha='right', va='bottom', fontweight='regular', fontsize=14)
+
 		fig, (ax0, ax1, ax2) = plt.subplots(3, 1, figsize=(4, 14))
 
 		cell_phase_formatting = {
 						'meanG1': (40, 'left', 'top', (0.01, 0.0)),
-						'S': (85, 'left', 'bottom', (0.5, 0.01)),
+						'S': (85, 'left', 'bottom', (0.25, 0.01)),
 						'G2/M': (100, 'right', 'center', (-0.1, 0.0))}
 		plot_example_cluster(gene_name='HTA2', x_metric_index=0, y_metric_index=3,
 				xlim=(-2, 2), ylim=(-2, 2), 
@@ -755,18 +769,18 @@ class ChromatinMetrics4D(object):
 		plot_example_cluster(cluster_num=11, x_metric_index=0, y_metric_index=3,
 				xlim=(-0.3, 0.3), ylim=(-0.65, 0.65), 
 				cell_phase_formatting=cell_phase_formatting, ax=ax1)
-		ax1.set_title("Temporally offset,\nclockwise measures", 
+		ax1.set_title("Temporally offset\nmeasures (CW)", 
 			fontweight='demi', fontsize=15,
 			pad=13)
 
 		cell_phase_formatting = {
-						'meanG1': (40, 'right', 'top', (-0.01, -0.01)),
-						'S': (85, 'left', 'center', (0.05, 0.0)),
+						'meanG1': (40, 'right', 'top', (-0.0125, -0.01)),
+						'S': (85, 'left', 'center', (0.065, 0.0)),
 						'G2/M': (110, 'left', 'bottom', (0.01, 0.01))}
 		plot_example_cluster(gene_name='CLB1', x_metric_index=2, y_metric_index=3,
 				xlim=(-2, 2),
 				ylim=(-2, 2), cell_phase_formatting=cell_phase_formatting, ax=ax2)
-		ax2.set_title("Temporally offset,\ncounter-clockwise measures", 
+		ax2.set_title("Temporally offset\nmeasures (CCW)", 
 			fontweight='demi', fontsize=15, pad=13)
 		plt.subplots_adjust(hspace=0.4)
 

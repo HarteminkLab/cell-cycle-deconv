@@ -27,7 +27,7 @@ class SingleBranchChromatinPlotter:
 
 	def __init__(self, outdir, config1, branch_type="mother", figsize=(6, 5), title=None,
 		rna_plotter=None, deconvolved_tpm_plotter=None, plot_index_labels=True,
-		tfs=[]):
+		tfs=[], title_usetex=False):
 		"""
 		Initialize the plotter with configuration for a single branch
 		
@@ -56,6 +56,7 @@ class SingleBranchChromatinPlotter:
 		self.add_genomic_scale = False
 		self.add_xticks = True
 		self.tfs = tfs
+		self.title_usetex = title_usetex
 
 		# Initialize legend storage
 		self.tf_legend_items = []
@@ -557,9 +558,18 @@ class SingleBranchChromatinPlotter:
 		title = self.title
 		if title is None:
 			from src.read_bam import _toRoman
-			title = f"chr{_toRoman(self.chrom)} {self.span[0]}...{self.span[1]}"
+			title = f"Chr{_toRoman(self.chrom)} {self.span[0]}–{self.span[1]}"
 
-		self.annotation_axis.set_title(title, fontsize=24, fontweight='demi', pad=13)
+		# Note setting global parameter for latex font
+		if self.title_usetex:
+			from matplotlib import rcParams
+			old_params = rcParams['text.latex.preamble']
+			print(f"Replace old latex preamble params: ", old_params)
+			rcParams['text.latex.preamble'] = r'\usepackage{dejavu} \renewcommand{\familydefault}{\sfdefault}'
+			print(f"with: ", rcParams['text.latex.preamble'])
+
+		self.annotation_axis.set_title(title, fontsize=24, fontweight='demi', pad=13,
+			usetex=self.title_usetex)
 
 		self.rna_pileup_axis.set_ylabel("Experimental\nRNA pileup", fontsize=12,
 			fontweight='demi', labelpad=5)
@@ -582,6 +592,9 @@ class SingleBranchChromatinPlotter:
 		ax.tick_params(axis='x', which='major', length=5, width=1.25, labelbottom=self.add_xticks)
 		ax.tick_params(axis='x', which='minor', length=2, width=1, labelbottom=False)
 		ax.set_xlim(*self.span)
+
+		if self.title_usetex:		
+			rcParams['text.latex.preamble'] = old_params
 
 		return self.fig
 

@@ -327,6 +327,8 @@ class CopyCorrectionAnalysis():
 			window_names):
 
 			from src.config import load_mean_dg1_mg1_length
+			from src.read_bam import _toRoman
+
 			g1_len = load_mean_dg1_mg1_length()
 
 			"""Plot a row of windows (either all early or all late)"""
@@ -347,7 +349,7 @@ class CopyCorrectionAnalysis():
 				start = window[1]
 				end = start + 10000
 
-				title = f"{window_name}\n(chr{window[0]}: {start//1000}k-{end//1000}k)"
+				title = f"{window_name}\n(Chr{_toRoman(window[0])}: {start//1000}–{end//1000}k)"
 				add_pair_title(fig, axs_pair, title, fontweight='demi', fontsize=12)
 				
 				# Add legend to first column

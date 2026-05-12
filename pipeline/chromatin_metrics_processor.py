@@ -535,7 +535,7 @@ class ChromatinMetricsProcessor:
 		plot_ptr_change(raw_rep1_ptrs.loc[genic_transcripts], 
 				raw_rep2_ptrs.loc[genic_transcripts], metric_name, self.selected_genes, 
 				bw=bw, cmap=cmap, ptr_lims=ptr_lims)
-		plt.title('Rep 1 vs Rep 2')
+		plt.title('Rep 2 vs. Rep 1')
 		plt.xlabel("Replicate 1 PTR")
 		plt.ylabel("Replicate 2 PTR")
 
@@ -543,7 +543,7 @@ class ChromatinMetricsProcessor:
 		plot_ptr_change(raw_rep1_ptrs.loc[genic_transcripts], 
 				deconv_ptrs.loc[genic_transcripts], metric_name, self.selected_genes, 
 				bw=bw, cmap=cmap, ptr_lims=ptr_lims)
-		plt.title('Rep 1 vs Deconvolved')
+		plt.title('Deconvolved vs. Rep 1')
 		plt.ylabel("Deconvolved PTR")
 		plt.xlabel("Replicate 1 PTR")
 
@@ -551,7 +551,7 @@ class ChromatinMetricsProcessor:
 		plot_ptr_change(raw_rep2_ptrs.loc[genic_transcripts], 
 				deconv_ptrs.loc[genic_transcripts], metric_name, self.selected_genes, 
 				bw=bw, cmap=cmap, ptr_lims=ptr_lims)
-		plt.title('Rep 2 vs Deconvolved')
+		plt.title('Deconvolved vs. Rep 2')
 		plt.xlabel("Replicate 2 PTR")
 		plt.ylabel("Deconvolved PTR")
 

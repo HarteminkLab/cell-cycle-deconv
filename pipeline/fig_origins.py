@@ -317,7 +317,7 @@ dynamics. Then sharing some clear examples of these dynamics.
 		
 		ax.set_ylabel("Cumulative fraction of early origins")
 
-		plt.title("Cumulative fraction of early-origins\nacross replication timing", 
+		plt.title("Cumulative fraction of early origins\nvs. replication timing", 
 			fontweight='demi', fontsize=13, pad=10)
 		plt.legend()
 		save_figure_for_paper(f"{self.save_dir}/cumulative_early_origin_enrichments.png")

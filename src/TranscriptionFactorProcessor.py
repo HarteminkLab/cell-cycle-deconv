@@ -567,12 +567,12 @@ class TranscriptionFactorProcessor:
 			span = gene.TSS-1000, gene.TSS+1000
 			loaded_data = self.genome_deconv_analysis.load_mnase_span(gene.chr, span)
 
-			gene_title = get_gene_title_name(gene_name, include_system=False)
+			gene_title = get_gene_title_name(gene_name, include_system=False, usetex=True)
 
 			self.genome_deconv_analysis.plot_loaded_data(figsize=(7, 11), 
 				title=gene_title,
 				plot_index_labels=False, tfs=tfs,
-				tpm_plotter=self.tpm_plotter)
+				tpm_plotter=self.tpm_plotter, title_usetex=True)
 
 			save_figure_for_paper(f"{self.save_dir}/locus_{gene_name}.png")
 
@@ -1154,12 +1154,12 @@ class TranscriptionFactorProcessor:
 				selected_site.gene_ptr+offset_y
 
 			ax.text(text_x, text_y,
-				gene_name, ha=ha, va=va)
+				gene_name, ha=ha, va=va, style='italic')
 
 		ax.set_xlabel("TF binding PTR")
 		ax.set_ylabel("Gene expression PTR")
 		ax.set_ylim(0.99, 3)
-		ax.set_title("TF site binding vs Expression PTR")
+		ax.set_title("Expression PTR vs. TF binding PTR")
 
 		ax = axes[1]
 		boxplot_data = _plot_ptr_decile_boxplots(ax, 

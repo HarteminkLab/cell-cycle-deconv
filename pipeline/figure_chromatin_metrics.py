@@ -120,11 +120,23 @@ class FigureChromatinMetrics:
 		]
 
 		group_titles = [
-			'Histones H2A', 
+			'Histones H2A',
 			'Histones H2B', 
 			'Histones H3', 
 			'Histones H4', 
-			'MCM1 and MCM2-7 complex',
+			r'\textit{MCM1} and \textit{MCM2–7} complex',
+			'Early, G1-type cyclins',
+			'S-phase, B-type cyclins',
+			'G2-phase, B-type cyclins',
+			'M-phase, B-type cyclins',
+		]
+
+		path_names = [
+			'Histones H2A',
+			'Histones H2B', 
+			'Histones H3', 
+			'Histones H4', 
+			'MCM1 and MCM2–7 complex',
 			'Early, G1-type cyclins',
 			'S-phase, B-type cyclins',
 			'G2-phase, B-type cyclins',
@@ -144,12 +156,17 @@ class FigureChromatinMetrics:
 		cyclin_xlims, cyclin_ylim = self.integration.compute_trajectory_limits(
 			all_cyclin_genes)
 
+		from matplotlib import rcParams
+
+		# Note setting global parameter for latex font
+		old_params = rcParams['text.latex.preamble']
+		print(f"Replace old latex preamble params: ", old_params)
+		rcParams['text.latex.preamble'] = r'\usepackage{dejavu} \renewcommand{\familydefault}{\sfdefault}'
+		print(f"with: ", rcParams['text.latex.preamble'])
+
 		for i, gene_group in enumerate(groups_to_plot):
 
 			title = group_titles[i]
-
-			if 'MCM1' in title:
-				title = '$\\it{MCM1}$ and $\\it{MCM}2$-$7$ complex'
 
 			if "Histone" in title:
 				fig = self.integration.plot_gene_group_trajectories_all_metrics(gene_group,
@@ -163,12 +180,12 @@ class FigureChromatinMetrics:
 				fig = self.integration.plot_gene_group_trajectories_all_metrics(gene_group,
 					title=title, auto_lims=True)
 
-			save_path = f"{self.figures_dir}/trajectories_group_{group_titles[i].replace(' ', '_')}.png"
+			save_path = f"{self.figures_dir}/trajectories_group_{path_names[i].replace(' ', '_')}.png"
 			print('Wrote to: ', save_path)
 			save_figure_for_paper(save_path)
-			plt.close(fig)
+			# plt.close(fig)
 
-			break
+		rcParams['text.latex.preamble'] = old_params
 
 
 	def create_locus_plots(self):
@@ -184,75 +201,75 @@ class FigureChromatinMetrics:
 
 		genes_to_plot_map = {
 			'CLB1': {
-				'title': get_gene_title_name('CLB1', include_system=False),
+				'title': get_gene_title_name('CLB1', include_system=False, usetex=True),
 				'save_name': 'locus_CLB1',
 				'span_offset': (-1000, 2000),
 				'figsize': (9, 11)
 			},
 			'HTA1': {
-				'title': f"{get_gene_title_name('HTB1', include_system=False)} and {get_gene_title_name('HTA1', include_system=False)}",
+				'title': f"{get_gene_title_name('HTB1', include_system=False, usetex=True)} and {get_gene_title_name('HTA1', include_system=False, usetex=True)}",
 				'span_offset': (-1600, 1000),
 				'save_name': 'locus_HTA1_HTB1',
 				'figsize': (7, 11)
 			},
 			'MCM1': {
-				'title': f"{get_gene_title_name('MCM1', include_system=False)}",
+				'title': f"{get_gene_title_name('MCM1', include_system=False, usetex=True)}",
 				'span_offset': (-1500, 1500),
 				'save_name': 'locus_MCM1',
 				'figsize': (7, 11),
 				'tf_binding': ['Mcm1']
 			},
 			'MCM2': {
-				'title': f"{get_gene_title_name('MCM2', include_system=False)}",
+				'title': f"{get_gene_title_name('MCM2', include_system=False, usetex=True)}",
 				'span_offset': (-1500, 1500),
 				'save_name': 'locus_MCM2',
 				'figsize': (7, 11),
 				'tf_binding': ['Mcm1']
 			},
 			'MCM3': {
-				'title': f"{get_gene_title_name('MCM3', include_system=False)}",
+				'title': f"{get_gene_title_name('MCM3', include_system=False, usetex=True)}",
 				'span_offset': (-1500, 1500),
 				'save_name': 'locus_MCM3',
 				'figsize': (7, 11),
 				'tf_binding': ['Mcm1']
 			},
 			'MCM4': {
-				'title': f"{get_gene_title_name('MCM4', include_system=False)}",
+				'title': f"{get_gene_title_name('MCM4', include_system=False, usetex=True)}",
 				'span_offset': (-1500, 1500),
 				'save_name': 'locus_MCM4',
 				'figsize': (7, 11),
 				'tf_binding': ['Mcm1']
 			},
 			'MCM5': {
-				'title': f"{get_gene_title_name('MCM5', include_system=False)}",
+				'title': f"{get_gene_title_name('MCM5', include_system=False, usetex=True)}",
 				'span_offset': (-1500, 1500),
 				'save_name': 'locus_MCM5',
 				'figsize': (7, 11),
 				'tf_binding': ['Mcm1']
 			},
 			'MCM6': {
-				'title': f"{get_gene_title_name('MCM6', include_system=False)}",
+				'title': f"{get_gene_title_name('MCM6', include_system=False, usetex=True)}",
 				'span_offset': (-1500, 1500),
 				'save_name': 'locus_MCM6',
 				'figsize': (7, 11),
 				'tf_binding': ['Mcm1']
 			},
 			'MCM7': {
-				'title': f"{get_gene_title_name('MCM7', include_system=False)}",
+				'title': f"{get_gene_title_name('MCM7', include_system=False, usetex=True)}",
 				'span_offset': (-1500, 1500),
 				'save_name': 'locus_MCM7',
 				'figsize': (7, 11),
 				'tf_binding': ['Mcm1']
 			},
 			'YOX1': {
-				'title': f"{get_gene_title_name('YOX1', include_system=False)}",
+				'title': f"{get_gene_title_name('YOX1', include_system=False, usetex=True)}",
 				'span_offset': (-1500, 1500),
 				'save_name': 'locus_YOX1',
 				'figsize': (7, 11),
 				'tf_binding': ['Mcm1']
 			},
 			'YHP1': {
-				'title': f"{get_gene_title_name('YHP1', include_system=False)}",
+				'title': f"{get_gene_title_name('YHP1', include_system=False, usetex=True)}",
 				'span_offset': (-1500, 1500),
 				'save_name': 'locus_YHP1',
 				'figsize': (7, 11),
@@ -748,7 +765,7 @@ class FigureChromatinMetrics:
 		
 		# Define image paths
 		image_paths = [
-			os.path.join(image_dir, 'trajectories_group_MCM1_and_MCM2-7_complex.png'),
+			os.path.join(image_dir, 'trajectories_group_MCM1_and_MCM2–7_complex.png'),
 			os.path.join(image_dir, 'locus_MCM2.png'),
 			os.path.join(image_dir, 'locus_MCM7.png'),
 		]

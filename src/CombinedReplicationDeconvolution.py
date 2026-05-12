@@ -302,8 +302,8 @@ class CombinedReplicationDeconvolution():
 			ax.plot(np.diag(N), np.arange(N.shape[0]), c=plt.cm.Purples(0.5), lw=4)
 			ax.set_ylim(N.shape[0]-1, 0)
 			ax.set_xlim(0.5, 1.25)
-			ax.set_ylabel(r'$\mathrm{diag}(\bf{N_' + str(replicate) +'}$)', fontsize=label_fontsizes, 
-						  fontweight='demi', rotation=0, 
+			ax.set_ylabel(r'$\mathrm{diag}(\mathbf{N_' + str(replicate) + '})$', fontsize=label_fontsizes,
+             	fontweight='demi', rotation=0,
 				ha='right', va='center', labelpad=10)
 
 		plot_N(axes['left_top'], self.N[:n_1_tps, :][:, :n_1_tps], 1)

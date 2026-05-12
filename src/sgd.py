@@ -93,19 +93,22 @@ def get_gene_name(orf_name, genes=read_sgd_genes()):
 	return get_gene(orf_name, genes).gene
 
 
-def get_gene_title_name(gene_or_orf_name, genes=read_sgd_genes(), include_system=True):
+def get_gene_title_name(gene_or_orf_name, genes=read_sgd_genes(), include_system=True,
+	usetex=False):
 	"""For displaying gene names, avoid displaying None"""
 
 	orf_name, gene_name = get_gene_name_orf_name(gene_or_orf_name)
 
+	italics_command = 'textit' if usetex else 'it'
+
 	if gene_name is None:
-		gene_title = ("$\\it{" + orf_name + "}$")
+		gene_title = (f"$\{italics_command}" + "{" + orf_name + "}$")
 	else:
 
 		if include_system:
-			gene_title = ("$\\it{" + gene_name + "}$ / $\\it{" + orf_name + "}$")
+			gene_title = (f"$\{italics_command}" + "{" + gene_name + "}$ / " + f"$\{italics_command}" + "{"+ orf_name + "}$")
 		else:
-			gene_title = ("$\\it{" + gene_name + "}$")
+			gene_title = (f"$\{italics_command}" + "{" + gene_name + "}$")
 
 	return gene_title
 

@@ -230,9 +230,9 @@ class IntegratedChromatinExpressionAnalyzer:
 			ax.set_ylim(0.7, 6)
 		
 		if chromatin_data_source == 'deconvolved':
-			title = "Chromatin vs Expression"
+			title = "Expression PTR vs. Chromatin measure PTRs"
 		else:
-			title = f'Chromatin vs Expression PTR concordance ({chromatin_data_source})'
+			title = f'Expression PTR vs. Chromatin measure PTRs ({chromatin_data_source})'
 
 		plt.suptitle(title, fontweight='demi', fontsize=15)
 		plt.tight_layout()
@@ -1135,16 +1135,14 @@ class IntegratedChromatinExpressionAnalyzer:
 				if row_idx == 0:
 					ax.set_title(metric_title.replace(' ', '\n'), fontsize=14)
 
-					print("Testing title capitalization: ", metric_title)
-
 				ax.set_ylabel('')
 				
 				# Set gene names only for leftmost column
 				if col_idx == 0:
 					from src.sgd import get_gene_title_name
-					gene_title_name = get_gene_title_name(gene, include_system=False)
+					gene_title_name = gene
 					ax.set_ylabel(gene_title_name, rotation=0, ha='right', fontsize=24,
-						labelpad=7)
+						labelpad=7, fontstyle='italic')
 
 				elif col_idx == 2:
 					axis_label_ax = ax.twinx()
@@ -1160,7 +1158,7 @@ class IntegratedChromatinExpressionAnalyzer:
 		plot_area_height = figsize_per_row[1] * n_genes
 		top_margin = plot_area_height / total_figsize[1]  # This will be consistent
 
-		plt.suptitle(title, fontweight='demi', fontsize=26)
+		plt.suptitle(title, fontweight='demi', fontsize=26, usetex=True)
 		plt.subplots_adjust(wspace=0, hspace=0, top=top_margin, bottom=0)
 		
 		return fig
