@@ -159,7 +159,8 @@ class FigureDaughterSpecific:
 											   branch_type=branch, rna_plotter=self.rna_plotter,
 											   tpm_plotter=self.tpm_plotter,
 											   plot_index_labels=False,
-											   tfs=['Ace2'])
+											   tfs=['Ace2'],
+											   title_usetex=True)
 			save_figure_for_paper(f"{self.save_dir}/locus_{gene_name}_{branch}")
 
 
@@ -226,8 +227,11 @@ class FigureDaughterSpecific:
 			# Set y-limits
 			if chromatin_key in self.ylim_config:
 				plt.ylim(self.ylim_config[chromatin_key])
+
+			from src.plot_helpers import create_first_character_title
+			metric_title = create_first_character_title(chromatin_key.replace('_', ' '))
 			
-			plt.title(chromatin_key.replace('_', ' ').title())
+			plt.title(metric_title)
 			
 			if subplot_pos == 1:  # Only show legend on first subplot
 				plt.legend()
@@ -240,9 +244,9 @@ class FigureDaughterSpecific:
 		
 		from src.sgd import get_gene_title_name
 
-		gene_title_name = get_gene_title_name(gene_name)
+		gene_title_name = get_gene_title_name(gene_name, usetex=True)
 
-		plt.suptitle(gene_title_name, fontweight='demi', fontsize=20, y=0.92)
+		plt.suptitle(gene_title_name, fontweight='demi', fontsize=20, y=0.92, usetex=True)
 		plt.tight_layout()
 		
 		# Save plot if requested
@@ -342,6 +346,7 @@ class FigureDaughterSpecific:
 						plt.text(value, y+y_offset, gene_name, 
 							fontsize=13, ha=formatting['ha'],
 							va=va,
+							style='italic',
 							path_effects=[path_effects.withStroke(linewidth=2, 
 																  foreground='white')])
 						plt.scatter(value, y, s=27, facecolor='none', edgecolor='black',
@@ -352,7 +357,11 @@ class FigureDaughterSpecific:
 			plt.axvline(0, c='black', zorder=0, lw=0.5, ls='dotted')
 			plt.axvline(-0.07, c='black', zorder=0, lw=0.5, ls='solid')
 			plt.axvline(0.07, c='black', zorder=0, lw=0.5, ls='solid')    
-			plt.title(metric.replace('_', ' ').title())
+
+			from src.plot_helpers import create_first_character_title
+			metric_title = create_first_character_title(metric.replace('_', ' '))
+
+			plt.title(metric_title)
 			plt.xlabel("$\\log_2$ [Mother/Daughter]", fontsize=14)
 
 			# Thresholds based on +/-0.05 ratio change (log2(1.05))

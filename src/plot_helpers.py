@@ -1250,3 +1250,74 @@ def create_first_character_title(param_str):
 	return param_str[0].upper() + param_str[1:]
 
 
+def plot_composite_heatmap(average_composite_data, title, num_origins, extent=[-2000, 2000, 0, 260],
+	xlims=(-1000, 1000), figsize=(5, 5), show_footprint_box=False, footprint_box=(0, 50, 40, 120)):
+	"""
+	Plot average oriented MNase heatmap across a set of origins.
+	
+	Parameters
+	----------
+	average_composite_data : np.ndarray
+		Averaged 3D MNase data (time x fragment x position)
+	title : str
+		Plot title
+	num_origins : int
+		Number of origins in the composite, shown in title
+	"""
+	from src.config import load_default_chrom_configs
+
+	config1, _ = load_default_chrom_configs()
+	t_indices = config1.t_indices()
+	b_indices = config1.b_indices()
+	num_rows = 8
+	fig, axs = plt.subplots(num_rows, 1, figsize=figsize)
+	step = len(t_indices) // num_rows
+	extent = extent
+
+	for i in range(0, num_rows):
+		ax = axs[i]
+		plot_index_t = t_indices[i * step]
+		plot_index_b = b_indices[i * step]
+		composite_data = (average_composite_data[plot_index_t] +
+						  average_composite_data[plot_index_b]) / 2.
+
+		ax.imshow(composite_data, cmap='magma_r',
+				  origin='lower', aspect='auto', vmin=0, vmax=15,
+				  extent=extent)
+
+		if i == 1:
+			ax.set_yticks([0])
+			ax.set_yticklabels(['Mean G1'], rotation=90, ha='right', va='center')
+		elif i == 4:
+			ax.set_yticks([0])
+			ax.set_yticklabels(['S'], rotation=90, ha='right', va='center')
+		elif i == 6:
+			ax.set_yticks([0])
+			ax.set_yticklabels(['G2/M'], rotation=90, ha='right', va='center')
+		else:
+			ax.set_yticks([])
+
+		if i == 0:
+			ax.set_yticks([260], minor=True)
+		elif i in [3, 5, 7]:
+			ax.set_yticks([0], minor=True)
+
+		if i == num_rows - 1:
+			ax.set_xticks(np.arange(extent[0], extent[1], 500))
+			ax.set_xlabel("Position from origin center, bp")
+		else:
+			ax.set_xticks([])
+
+		ax.tick_params(axis='y', which='major', length=0, pad=2)
+		ax.tick_params(axis='y', which='minor', length=13)
+		ax.set_xlim(*xlims)
+
+		if show_footprint_box:
+			x1, x2, y1, y2 = footprint_box
+			plot_rect2(ax,
+				x1=x1, x2=x2, y1=y1, y2=y2,
+				edgecolor='blue', facecolor='none',
+				lw=0.8, alpha=0.4, zorder=50, fill=False)
+
+	plt.subplots_adjust(hspace=0)
+	plt.suptitle(f"{title}, n={num_origins}", fontweight='demi', fontsize=16)

@@ -131,6 +131,59 @@ class FigureSupplemental:
 		save_figure_for_paper(f'{self.save_dir}/intergenic_spacing_distribution.png')
 
 
+	def plot_facs_path(self, tsv_path, ax, replicate):
+		import matplotlib.colors as mcolors
+		
+		# ── Load data ──────────────────────────────────────────────────────────────────
+		df = pd.read_csv(tsv_path, sep="\t")
+
+		# First column = Y-axis bin edges; remaining columns = X-axis log10 bin labels
+		y_bins = df.iloc[:, 0].values.astype(float)          # e.g. 0, 10, 20, … 150
+		x_bins = df.columns[1:].astype(float)                # log10 values 0 → 10
+		Z      = df.iloc[:, 1:].values.astype(float)         # shape (n_y_bins, n_x_bins)
+		Z = Z+1e-9
+
+		# ── Convert log10 column labels → linear scale for the x-axis ─────────────────
+		x_linear = x_bins                              # e.g. 1 → 10^10
+
+		# pcolormesh needs (n_y+1, n_x+1) edge arrays for proper cell boundaries.
+		# Build X edges from the linear values; Y edges from the bin values.
+		x_edges = np.concatenate([[x_linear[0] * 0.9],
+								   np.sqrt(x_linear[:-1] * x_linear[1:]),   # geometric midpoints
+								   [x_linear[-1] * 1.1]])
+		y_step  = y_bins[1] - y_bins[0] if len(y_bins) > 1 else 10
+		y_edges = np.append(y_bins - y_step / 2, y_bins[-1] + y_step / 2)
+
+		mesh = ax.pcolormesh(
+			x_edges, y_edges, Z,
+			cmap="viridis",
+			norm=mcolors.Normalize(vmin=Z.min()+1e-9, vmax=Z.max()*0.75),
+			shading="flat",
+		)
+
+		ax.set_title(f"Heatmap of the flow cytometry data, replicate {replicate}", fontsize=14,
+		 fontweight="demi", pad=9)
+		ax.tick_params(axis="both", which="both", direction="in", top=True, right=True)
+		ax.set_xlim(6.5, 10)
+		ax.set_yticks(y_bins)
+		ax.set_xlabel("log-fluorescence")
+		ax.set_ylabel("Experimental time, min")
+
+	def plot_facs(self):
+		# ── Figure ─────────────────────────────────────────────────────────────────────
+		fig, ax = plt.subplots(1, 1, figsize=(6, 4))
+
+		tsv1_path = 'data/facs/cell_cycle/replicate_1_cleaned_for_cloccs.tsv'
+		tsv2_path = 'data/facs/cell_cycle/replicate_1_cleaned_for_cloccs.tsv'
+
+		self.plot_facs_path(tsv1_path, ax, 1)
+		save_figure_for_paper(f"{self.save_dir}/facs_replicate1.png")
+
+		fig, ax = plt.subplots(1, 1, figsize=(6, 4))
+		self.plot_facs_path(tsv2_path, ax, 2)
+		save_figure_for_paper(f"{self.save_dir}/facs_replicate2.png")
+
+
 	def layout_supplemental_flow_cytometry(self):
 
 		from pipeline.figure_composer import FigureCompositor
@@ -138,11 +191,11 @@ class FigureSupplemental:
 			add_panel_labels_to_images
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 1600, debug_mode=True)
+		compositor = FigureCompositor(1024, 1460, debug_mode=True)
 
 		image_paths = [
-			f'data/2019_cloccs_fits/yl_2019_replicate1/rep1.png',
-			f'data/2019_cloccs_fits/yl_2019_replicate2/rep2.png',
+			f"{self.save_dir}/facs_replicate1.png",
+			f"{self.save_dir}/facs_replicate2.png"
 		]
 
 		placed_images = layout_images_vertically(
@@ -157,18 +210,12 @@ class FigureSupplemental:
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			offset=(-10, 6),
-			font_size=36,
+			offset=(-10, 46),
+			font_size=48,
 		)
 
-		compositor.add_panel_label_to_image('hm1', 'Replicate 1', offset=(400, 16), 
-			font_size=32, font_type='semi_bold')
-
-		compositor.add_panel_label_to_image('hm2', 'Replicate 2', offset=(400, 16), 
-			font_size=32, font_type='semi_bold')
-
 		# Save the composite figure
-		compositor.save(f'{self.figures_dir}/Supplemental1_flow_cytometry.png')
+		compositor.save(f'{self.figures_dir}/Supplemental2_flow_cytometry.png')
 
 
 	def layout_supplemental_promoters(self):
@@ -232,5 +279,5 @@ class FigureSupplemental:
 		)
 
 		# Save the composite figure
-		compositor.save(f'{self.figures_dir}/Supplemental2_fit_curves.png')
+		compositor.save(f'{self.figures_dir}/Supplemental1_fit_curves.png')
 

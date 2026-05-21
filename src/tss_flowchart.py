@@ -193,14 +193,14 @@ class GeneAnalysisFlowchart:
 		
 		park_yes_box = FlowchartBox(
 			left_x, level2_y, box_w, box_h,
-			f'With Park TSS\n{self.stats["genes_with_park"]:,}',
+			f'With Park TSS\n{self.stats["genes_with_park"]:}',
 			self.style_config, 'park_yes', is_highlighted=True
 		)
 		self.boxes.append(park_yes_box)
 		
 		park_no_box = FlowchartBox(
 			right_x, level2_y, box_w, box_h,
-			f'Without Park TSS\n{self.stats["genes_without_park"]:,}',
+			f'Without Park TSS\n{self.stats["genes_without_park"]:}',
 			self.style_config, 'park_no', is_highlighted=True
 		)
 		self.boxes.append(park_no_box)
@@ -220,10 +220,10 @@ class GeneAnalysisFlowchart:
 		right_rna_no_x = right_x + box_w/2 + spacing
 		
 		rna_boxes_data = [
-			(left_rna_yes_x, f'With RNA calls\n{self.stats["genes_with_park_and_rna"]:,}', 'park_yes_rna_yes', True),
-			(left_rna_no_x, f'Without RNA calls\n{self.stats["genes_with_park_no_rna"]:,}', 'rna_no', False),
-			(right_rna_yes_x, f'With RNA calls\n{self.stats["genes_without_park_with_rna"]:,}', 'park_no_rna_yes', True),
-			(right_rna_no_x, f'Without RNA calls\n{self.stats["genes_without_park_no_rna"]:,}', 'rna_no', False)
+			(left_rna_yes_x, f'With RNA calls\n{self.stats["genes_with_park_and_rna"]:}', 'park_yes_rna_yes', True),
+			(left_rna_no_x, f'Without RNA calls\n{self.stats["genes_with_park_no_rna"]:}', 'rna_no', False),
+			(right_rna_yes_x, f'With RNA calls\n{self.stats["genes_without_park_with_rna"]:}', 'park_no_rna_yes', True),
+			(right_rna_no_x, f'Without RNA calls\n{self.stats["genes_without_park_no_rna"]:}', 'rna_no', False)
 		]
 		
 		for x_pos, text, color_key, highlighted in rna_boxes_data:
@@ -329,7 +329,7 @@ class GeneAnalysisFlowchart:
 		bins = np.arange(-2000, 2000, 100)
 		ax_with.hist(data_with, bins=bins, color=plt.cm.Oranges(0.5), alpha=0.8, 
 					edgecolor='black', linewidth=0.5)
-		ax_with.set_title(f'Genes with Park TSS,\nwith RNA calls, (n={len(data_with):,})',
+		ax_with.set_title(f'Genes with Park TSS,\nwith RNA calls, (n={len(data_with):})',
 						 fontsize=self.style_config.font_sizes['hist_title'], 
 						 fontweight='demi', color='black')
 		ax_with.set_xlabel('Update difference', fontsize=self.style_config.font_sizes['hist_label'])

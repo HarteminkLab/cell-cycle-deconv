@@ -565,7 +565,7 @@ class SingleBranchChromatinPlotter:
 			from matplotlib import rcParams
 			old_params = rcParams['text.latex.preamble']
 			print(f"Replace old latex preamble params: ", old_params)
-			rcParams['text.latex.preamble'] = r'\usepackage{dejavu} \renewcommand{\familydefault}{\sfdefault}'
+			rcParams['text.latex.preamble'] = r'\usepackage{helvet} \renewcommand{\familydefault}{\sfdefault}'
 			print(f"with: ", rcParams['text.latex.preamble'])
 
 		self.annotation_axis.set_title(title, fontsize=24, fontweight='demi', pad=13,

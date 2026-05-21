@@ -994,8 +994,13 @@ class FigureNucleosomes:
 			if i == 0: plt.ylabel('Expression PTR')
 			else: plt.yticks([])
 
+			if measure == 'positioning':
+				measure_title = 'Position'
+			else:
+				measure_title = measure.title()
+
 			plt.xlim(*ptr_formatting[measure]['xlims'])
-			plt.title(measure.title(), fontsize=13)
+			plt.title(measure_title, fontsize=13)
 			plt.ylim(0.99, 4)
 			
 		plt.suptitle(f"Expression PTR vs. Nucleosome PTRs for +1 nucleosomes, n={len(joined_chromatin_tx_ptrs)}", fontweight='demi', 

@@ -525,7 +525,7 @@ class FigureNongenicTranscripts:
 
 		plt.xlabel("Non-genic transcription PTR")
 		plt.ylabel("Divergent gene expression PTR")
-		plt.title(f"Cyclicity of non-genic transcripts and\ndivergent genes with shared promoters , "
+		plt.title(f"Cyclicity of non-genic transcripts and\ndivergent genes with shared promoters, "
 				  f"n={len(divergent_transcripts)}",
 				 fontweight='demi', pad=11, fontsize=13)
 
@@ -575,11 +575,11 @@ class FigureNongenicTranscripts:
 	def plot_divergent_locus_examples(self):
 		from src.sgd import get_gene_title_name
 
-		title = get_gene_title_name('YPL163C')
+		title = get_gene_title_name('YPL163C', usetex=True)
 		self.plot_gene_locus('YPL163C', title=title)
 		save_figure_for_paper(f"{self.save_dir}/locus_SVS1.png")
 
-		title = ("$\\it{" + 'NCW2' + "}$ / $\\it{" + 'YLR194C' + "}$")
+		title = (r"$\textit{" + 'NCW2' + r"}$ / $\textit{" + 'YLR194C' + "}$")
 		self.plot_gene_locus('YLR194C', title=title)
 		save_figure_for_paper(f"{self.save_dir}/locus_NCW2.png")
 
@@ -637,9 +637,10 @@ class FigureNongenicTranscripts:
 		park_TSS, updated_TSS = updated_TSS_from_geneset.Park_TSS, plotting_orf.TSS
 
 		num_difference = int(updated_TSS-park_TSS)
-		difference = f'+{num_difference}' if num_difference > 0 else f'{num_difference}'
+		difference = f'$+{num_difference}$' if num_difference > 0 else f'$-{abs(num_difference)}$'
 
-		plotter = self.plot_gene_locus(orf_name, title=f"Updated Park TSS: {difference}")
+		plotter = self.plot_gene_locus(orf_name, title=f"Updated Park TSS: {difference}",
+			title_usetex=False)
 
 		ax = plotter.annotation_axis
 		ax.axvline(plotting_orf.TSS, c='red', ls='dotted', lw='1')
@@ -654,7 +655,7 @@ class FigureNongenicTranscripts:
 		ax.axvline(updated_TSS_from_geneset.Park_TSS, c='black', ls='dotted', lw=1)
 
 
-	def plot_gene_locus(self, orf_name, title=None, span_size=None):
+	def plot_gene_locus(self, orf_name, title=None, span_size=None, title_usetex=True):
 		"""
 		Plot the chromatin and expression data for a specific transcript locus.
 		"""
@@ -685,7 +686,8 @@ class FigureNongenicTranscripts:
 			highlight_bins=[],
 			rna_plotter=self.rna_plotter,
 			tpm_plotter=self.tpm_plotter,
-			plot_index_labels=False
+			plot_index_labels=False,
+			title_usetex=title_usetex,
 		)
 
 		for ax in [plotter.annotation_axis, plotter.rna_pileup_axis]:

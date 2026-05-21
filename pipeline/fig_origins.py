@@ -445,6 +445,11 @@ dynamics. Then sharing some clear examples of these dynamics.
 				origin = origins.iloc[i]
 				span = origin.pos-win_2, origin.pos+win_2
 				loaded_data, loaded_span = genome_analysis.load_mnase_span(origin.chr, span)
+
+				# Flip if ACS is crick-oriented 
+				if origin.strand == '-':
+					loaded_data = np.flip(loaded_data, axis=2)
+
 				origin_data.append(loaded_data)
 			average_composite = np.mean(origin_data, axis=0)
 			return average_composite
@@ -453,75 +458,19 @@ dynamics. Then sharing some clear examples of these dynamics.
 		self.average_latest = collect_composite_origin_data(genome_analysis, late_origins)
 		self.num_composite = k
 
+
 	def plot_composite_heatmap(self, which):
-		from src.config import load_default_chrom_configs
+		from src.plot_helpers import plot_composite_heatmap as plot_composite_heatmap_helper
 
 		if which == 'early':
 			average_composite_data = self.average_earliest
+			title = "Early inferred, separated origins"
 		else:
 			average_composite_data = self.average_latest
-		
-		config1, _ = load_default_chrom_configs()
-		t_indices = config1.t_indices()
-		b_indices = config1.b_indices()
+			title = "Late inferred, separated origins"
 
-		num_rows = 8
-		fig, axs = plt.subplots(num_rows, 1, figsize=(5, 5))
-		step = len(t_indices)//num_rows
-		extent = [-2000, 2000, 0, 260]
+		plot_composite_heatmap_helper(average_composite_data, title, self.num_composite)
 
-		for i in range(0, num_rows):
-			ax = axs[i]
-
-			plot_index_t = t_indices[i*step]
-			plot_index_b = b_indices[i*step]
-
-			composite_data = (average_composite_data[plot_index_t]+
-							  average_composite_data[plot_index_b])/2.
-
-			ax.imshow(composite_data, cmap='magma_r', 
-					 origin='lower', aspect='auto', vmin=0, vmax=15, 
-					 extent=extent)
-
-			# Major ticks
-			if i == 1: # G1 Tick
-				ax.set_yticks([0])
-				ax.set_yticklabels(['Mean G1'], rotation=90, ha='right', va='center')
-			elif i == 4:
-				ax.set_yticks([0])
-				ax.set_yticklabels(['S'], rotation=90, ha='right', va='center')
-			elif i == 6:
-				ax.set_yticks([0])
-				ax.set_yticklabels(['G2/M'], rotation=90, ha='right', va='center')
-			else:
-				ax.set_yticks([])
-
-			# Minor ticks separating phases
-			if i == 0:
-				ax.set_yticks([260], minor=True)
-			elif i in [3, 5, 7]:
-				ax.set_yticks([0], minor=True)
-
-			if i == num_rows-1:
-				ax.set_xticks(np.arange(extent[0], extent[1], 500))
-				ax.set_xlabel("Position from origin center, bp")
-			else:
-				ax.set_xticks([])
-
-			ax.tick_params(axis='y', which='major', length=0, pad=2)
-			ax.tick_params(axis='y', which='minor', length=13)
-
-			ax.set_xlim(-1000, 1000)
-
-		plt.subplots_adjust(hspace=0)
-
-		if which == 'early':
-			plt.suptitle(f"Early inferred, separated origins, n={self.num_composite}", 
-				fontweight='demi', fontsize=16)
-		elif which == 'late':
-			plt.suptitle(f"Late inferred, separated origins, n={self.num_composite}", 
-				fontweight='demi', fontsize=16)
-		
 
 	def plot_all(self):
 
