@@ -1,2 +1,0 @@
-orf_name,gene,chr,cat,start,stop,strand,classification,length,rna_called_TSS,Park_TSS,Park_PAS,TSS,PAS,promoter_start,promoter_end,gene_body_start,gene_body_end
-YPR120C,CLB5,16,gene,773875,775182,-,Verified,1307,775227.0,775310.0,773838.0,775227,773838,775527,775227,775227,774727
