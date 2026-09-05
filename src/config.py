@@ -646,6 +646,8 @@ def retrieve_phase_ticks(branch, config1, config2, with_labels=False):
 	else:
 		tps = get_average_timepoints_for_branch(config1, config2, branch)
 
+	print('retrieve', tps[0])
+
 	# Use length of G1, S, and G2/M to delineate
 	# timing of each phase
 	g1_len = len(config1.get_Hpositions_for_phase('CG1'))

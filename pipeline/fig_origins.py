@@ -33,7 +33,7 @@ dynamics. Then sharing some clear examples of these dynamics.
 
 		origin_timings = self.origins.copy()
 		replication_timings = self.replication_timings
-		self.distance_for_entropy_analysis = 32000
+		self.distance_for_entropy_analysis = 64000
 
 		from src.config import load_mean_dg1_mg1_length
 		g1_length = load_mean_dg1_mg1_length()
@@ -41,8 +41,11 @@ dynamics. Then sharing some clear examples of these dynamics.
 
 		for oridb, origin in origin_timings.iterrows():
 			
-			replication_time = replication_timings\
-				.load_replication_entry_for(origin.chr, origin.pos).replication_time
+			replication_timing_entry = replication_timings\
+				.load_replication_entry_for(origin.chr, origin.pos)
+			replication_time = replication_timing_entry.replication_time
+			repl_index_t = replication_timing_entry.replication_index_t
+			repl_index_b = replication_timing_entry.replication_index_b
 			
 			# Check neighbors, if the timing for this origin is earlier than
 			# its neighbors, we can infer this origin as firing from the replication
@@ -59,6 +62,8 @@ dynamics. Then sharing some clear examples of these dynamics.
 				origin.derived_origin_efficiency_from_mcguffee_et_al_2013 > 0:
 				origin_timings.loc[oridb, 'replication_time'] = replication_time+g1_length
 				origin_timings.loc[oridb, 'inferred_firing'] = inferred_firing
+				origin_timings.loc[oridb, 'replication_index_b'] = repl_index_b
+				origin_timings.loc[oridb, 'replication_index_t'] = repl_index_t
 
 		# Omit edge cases, negative efficiency and uncalled replication timing
 		origin_timings = origin_timings[~origin_timings.replication_time.isna()]
@@ -108,30 +113,73 @@ dynamics. Then sharing some clear examples of these dynamics.
 		# and origin efficiencies
 		self.collect_composite_data()
 
-	def plot_replication_fork_heatmaps(self):
+	# def plot_replication_fork_heatmaps(self):
 
-		_ = self.fork_processor.plot_all_origin_percentiles('occupancy', normalize=True,
-						   branch='t', num_percentiles=5, 
-						   inferred=True,
-						   percentiles_to_plot=[0, 4],
-						   figsize=(7.5, 4.75))
-		save_figure_for_paper(f"{self.save_dir}/fork_quintiles_1_5_occupancy.png")
+		# _ = self.fork_processor.plot_all_origin_percentiles('occupancy', normalize=True,
+		# 				   branch='t', num_percentiles=5, 
+		# 				   inferred=True,
+		# 				   percentiles_to_plot=[0, 4],
+		# 				   figsize=(7.5, 4.75))
+		# save_figure_for_paper(f"{self.save_dir}/fork_quintiles_1_5_occupancy.png")
 
-		_ = self.fork_processor.plot_all_origin_percentiles('occupancy', normalize=True,
-						inferred=True, branch='t', num_percentiles=5, figsize=(7, 7),
-											  plot_phase_labels=False)
-		save_figure_for_paper(f"{self.save_dir}/fork_quintiles_inferred_occupancy.png")
+		# _ = self.fork_processor.plot_all_origin_percentiles('occupancy', normalize=True,
+		# 				inferred=True, branch='t', num_percentiles=5, figsize=(7, 7),
+		# 									  plot_phase_labels=False)
+		# save_figure_for_paper(f"{self.save_dir}/fork_quintiles_inferred_occupancy.png")
 
-		_ = self.fork_processor.plot_all_origin_percentiles('occupancy', normalize=False,
-			inferred=True, branch='t', num_percentiles=5, figsize=(7, 7),
-													  plot_phase_labels=False)
-		plt.subplots_adjust(hspace=0.125)
-		save_figure_for_paper(f"{self.save_dir}/fork_quintiles_inferred_not_normalized.png")
+		# _ = self.fork_processor.plot_all_origin_percentiles('occupancy', normalize=False,
+		# 	inferred=True, branch='t', num_percentiles=5, figsize=(7, 7),
+		# 											  plot_phase_labels=False)
+		# plt.subplots_adjust(hspace=0.125)
+		# save_figure_for_paper(f"{self.save_dir}/fork_quintiles_inferred_not_normalized.png")
 
-		_ = self.fork_processor_no_copy.plot_all_origin_percentiles('occupancy', normalize=True,
-						inferred=True, branch='t', num_percentiles=5, figsize=(7, 7),
-											  plot_phase_labels=False, plotting_xlim=(-20000, 20000))
-		save_figure_for_paper(f"{self.save_dir}/fork_quintiles_no_copy.png")
+		# _ = self.fork_processor_no_copy.plot_all_origin_percentiles('occupancy', normalize=True,
+		# 				inferred=True, branch='t', num_percentiles=5, figsize=(7, 7),
+		# 									  plot_phase_labels=False, plotting_xlim=(-20000, 20000))
+		# save_figure_for_paper(f"{self.save_dir}/fork_quintiles_no_copy.png")
+
+		self.footprint_analyzer.plot_footprint_timecourse_all_branches()
+		save_figure_for_paper(f"{self.save_dir}/fork_origins_aligned.png")
+
+
+	def plot_footprint_all_branches(self):
+		from src.config import load_default_chrom_configs, retrieve_phase_ticks
+
+		def set_tick_labels(ax, branch):
+		    config1, config2 = load_default_chrom_configs()
+		    phase_ticks, edge_ticks = retrieve_phase_ticks(branch, config1, config2)
+
+		    ax.set_xticks(phase_ticks)
+		    ax.set_xticklabels(['G1', 'S', 'G2/M'], fontsize=8)
+		    ax.set_xticks(edge_ticks, minor=True)
+		    ax.tick_params(axis='x', which='major', length=0)
+		    ax.tick_params(axis='x', which='minor', length=10) 
+
+
+		self.footprint_analyzer.plot_footprint_timecourse_all_branches()
+
+		# replication_times = repl_timing.replications_df.replication_time
+		# repl_S_time = np.quantile(replication_times, q=0.975)
+		# plt.axvline(repl_S_time, c=plt.cm.Oranges(0.5), lw=0.5, ls='dashed')
+		# plt.text(repl_S_time-0.05, 2, 
+		#          "Pseudo S-phase\n(97.5% of origins replicated)",
+		#         color=plt.cm.Oranges(0.5), ha='right')
+		#set_tick_labels(plt.gca(), 'i')
+
+
+	def plot_entropy_aligned_by_replication(self):
+		from src.origin_entropy_processor import plot_entropy_by_distance, \
+			_normed_data, _plot_peaks, plot_entropy_by_distance_offset
+		from src.origin_entropy_processor import select_region_away, \
+			fold_halves_together, _compute_entropy_3d
+		from src.config import load_default_chrom_configs
+
+		furthest_dist = self.distance_for_entropy_analysis
+
+		config1, _ = load_default_chrom_configs()
+		plot_entropy_by_distance_offset(self.efficient_origin_entropies, config1,
+								furthest_dist=furthest_dist, 
+										origin_timings=self.efficient_origins)
 
 
 	def plot_origin_timing(self):
@@ -382,8 +430,17 @@ dynamics. Then sharing some clear examples of these dynamics.
 		# 	inferred_firing_origins, deconvolved_loader, furthest_dist=furthest_dist)
 
 		# Inferred and 10kb away from neighboring origins
+		print("Computing entropies for inferred firing origins")
 		self.inferred_isolated_origin_entropies = generate_origin_entropy_matrix(
 			self.inferred_isolated_origins, deconvolved_loader, furthest_dist=furthest_dist)
+
+		# todo: attempting to examine the efficient origins from Li (the top 69 (20%)
+		print("todo: Computing entropies for most efficient origins")
+		self.efficient_origins = self.origin_timings.sort_values(
+			'derived_origin_efficiency_from_mcguffee_et_al_2013',
+			ascending=False).head(69)
+		self.efficient_origin_entropies = generate_origin_entropy_matrix(
+			self.efficient_origins, deconvolved_loader, furthest_dist=furthest_dist)
 
 		# Efficient and 10kb away from neighboring origins
 		# efficiency_cutoff = np.quantile(origin_nearest.derived_origin_efficiency_from_mcguffee_et_al_2013, q=0.9)
@@ -472,6 +529,84 @@ dynamics. Then sharing some clear examples of these dynamics.
 		plot_composite_heatmap_helper(average_composite_data, title, self.num_composite)
 
 
+	def prepare_footprint_analysis(self):
+		from pipeline.origin_footprint_analysis_per_yl import OriginsFootprintAnalysis
+
+		self.footprint_analyzer = OriginsFootprintAnalysis()
+		self.footprint_analyzer.setup(self.genome_deconv_analysis, self.origin_timings)
+
+		origins = self.footprint_analyzer.origins
+		g1_and_g2 = origins[origins.footprint_class == 'g1_and_g2_footprint']
+		g1_only = origins[origins.footprint_class == 'g1_only_footprint']
+
+		self.early_g1_and_g2 = g1_and_g2.sort_values('replication_time').head(50)
+		self.late_g1_and_g2 = g1_and_g2.sort_values('replication_time').tail(50)
+
+		origin_sets = {
+			'Early G1 & G2': self.early_g1_and_g2,
+			'Late G1 & G2': self.late_g1_and_g2,
+		}
+
+		# Compute the footprint time courses for each branch comparing early and late g1 and g2
+		# footprints
+		self.footprint_analyzer.compute_all_branch_timecourses(origin_sets)
+
+		# Compute the max occupancy in G1 for each branch
+		self.footprint_analyzer.compute_all_branch_g1_maxes()
+
+	def plot_footprint_analysis(self):
+
+		self.footprint_analyzer.plot_composite_heatmap(self.early_g1_and_g2, 'Early origins\nwith G1 & G2 footprint')
+		save_figure_for_paper(f"{self.save_dir}/early_composite_g1_g2.png")
+
+		self.footprint_analyzer.plot_composite_heatmap(self.late_g1_and_g2, 'Late origins\nwith G1 & G2 footprint')
+		save_figure_for_paper(f"{self.save_dir}/late_composite_g1_g2.png")
+
+		self.footprint_analyzer.plot_all_conditions_boxplot()	
+		save_figure_for_paper(f"{self.save_dir}/maxg1_footprint_boxplots.png")
+
+		self.footprint_analyzer.plot_footprint_timecourse_all_branches()
+
+		repl_times = self.replication_timings.replications_df.replication_time.values
+		trep975 = np.quantile(repl_times, q=0.975)
+		plt.axvline(trep975, c=plt.cm.Oranges(0.65), ls='dotted', lw=1)
+		plt.text(trep975-0.5, 0.8, '97.5% replicated', color=plt.cm.Oranges(0.65), ha='right')
+
+		save_figure_for_paper(f"{self.save_dir}/all_branches_footprint.png")
+
+		# self.footprint_analyzer.plot_footprint_timecourse('recovery')
+		# save_figure_for_paper(f"{self.save_dir}/recovery_footprint_timecourse.png")
+
+		# self.footprint_analyzer.plot_footprint_timecourse('mother')
+		# save_figure_for_paper(f"{self.save_dir}/mother_footprint_timecourse.png")
+
+		# self.footprint_analyzer.plot_footprint_timecourse('daughter')	
+		# save_figure_for_paper(f"{self.save_dir}/daughter_footprint_timecourse.png")
+
+		# self.footprint_analyzer.plot_footprint_timecourse('recovery', agg_method='median')
+		# save_figure_for_paper(f"{self.save_dir}/median_recovery_footprint_timecourse.png")
+
+		# self.footprint_analyzer.plot_footprint_timecourse('mother', agg_method='median')
+		# save_figure_for_paper(f"{self.save_dir}/median_mother_footprint_timecourse.png")
+
+		# self.footprint_analyzer.plot_footprint_timecourse('daughter', agg_method='median')	
+		# save_figure_for_paper(f"{self.save_dir}/median_daughter_footprint_timecourse.png")
+
+		# Old footprint time course plots
+		# 
+		# footprint_analyzer.compute_footprint_timecourses(origin_sets={'Early G1 & G2': early_g1_and_g2, 
+		#     'Late G1 & G2': late_g1_and_g2})
+		# footprint_analyzer.plot_footprint_timecourse(colors=['red', 'blue'])
+		# plt.title("Small fragment footprint Early vs Late G1 & G2 (deconvolved)", 
+		#     pad=9, fontweight='demi', fontsize=16)
+		# footprint_analyzer.compute_footprint_timecourses(origin_sets={'G1 only': g1_only, 
+		#     'G1 & G2': g1_and_g2})
+		# footprint_analyzer.plot_footprint_timecourse()
+		# plt.title("Small fragment footprint (deconvolved)", pad=9, fontweight='demi', 
+		#          fontsize=16)
+
+
+
 	def plot_all(self):
 
 		self.plot_origin_timing()
@@ -486,8 +621,13 @@ dynamics. Then sharing some clear examples of these dynamics.
 		self.plot_origin_locus(self.origin_timings.loc['oridb_189'], "Late firing")
 		save_figure_for_paper(f"{self.save_dir}/late_origin_locus.png")
 
-		# Plot all inferred origin entropy heatmaps
-		self.plot_origin_entropies()
+		# Plot all inferred origin entropy heatmaps (inferred, deprecated)
+		# self.plot_origin_entropies()
+
+		# Efficient origins aligned by replication time (replaces 
+		# inferred origins)
+		self.plot_entropy_aligned_by_replication()
+		save_figure_for_paper(f"{self.save_dir}/fork_origins_aligned.png")
 
 		# Plot termination
 		self.plot_termination_entropies()
@@ -507,44 +647,55 @@ dynamics. Then sharing some clear examples of these dynamics.
 			add_panel_labels_to_images, layout_images_horizontally
 
 		# Create compositor with wider dimensions for horizontal layout
-		compositor = FigureCompositor(1024, 410, debug_mode=True)
+		compositor = FigureCompositor(1024, 850, debug_mode=True)
 
 		# ---------- Origins ------------------
 
 		image_paths = [
-			f'{self.save_dir}/early_origin_locus.png',
-			f'{self.save_dir}/late_origin_locus.png',
-			f'{self.save_dir}/inferred_firing_entropies.png',
+			f'{self.save_dir}/all_branches_footprint.png',
+			f'{self.save_dir}/maxg1_footprint_boxplots.png',
+			f'{self.save_dir}/fork_origins_aligned.png',
 			f'{self.save_dir}/termination_site_entropy.png',
 		]
 
 		placed_images = layout_images_horizontally(
 			compositor,
-			image_paths[:3],
+			[image_paths[0], image_paths[2]],
 			between_padding=32,
-			offsets=[(0, 0), (0, 0), (0, 0)],
-			width_proportions=[0.44, 0.44, 0.16],
+			offsets=[(0, 0), (-10, 0)],
+			width_proportions=[0.65, 0.35],
 			margin=(33, 30),
-			image_keys=['early_locus', 'late_locus', 'inferred_entropies']  # Custom keys
+			image_keys=['mother_footprint', 'aligned_entropies']  # Custom keys
 		)
 
-		inferred_ent_img = placed_images['inferred_entropies']
+		mother_tc = placed_images['mother_footprint']
+		compositor.place_image(
+			image_paths[1], mother_tc['logical_position'][0],
+			mother_tc['logical_position'][1]+mother_tc['logical_size'][1]+30,
+			width=mother_tc['logical_size'][0], name='boxplots'
+		)
 
+		# Place the termination entropies below the firing entropies
+		inferred_ent_img = placed_images['aligned_entropies']
+		x_offset = 35
+		width_adjustment = -25
 		e_img = compositor.place_image(
-			image_paths[3], inferred_ent_img['logical_position'][0],
+			image_paths[3], inferred_ent_img['logical_position'][0]+x_offset,
 			inferred_ent_img['logical_position'][1]+inferred_ent_img['logical_size'][1]+30,
-			width=inferred_ent_img['logical_size'][0], name='termination_entropies'
+			width=inferred_ent_img['logical_size'][0]+width_adjustment, name='termination_entropies'
 		)
 
 		# ------- Labels ----------
 
 		offsets = [(-20, 20)]*len(compositor.placed_images)
+		offsets[1] = (-10, 20)
+		offsets[3] = (-37, 20)
 
 		# Add panel labels
 		add_panel_labels_to_images(
 			compositor, 
 			compositor.placed_images,
-			"abcd",
+			"acbd",
 			font_size=30,
 			offsets=offsets
 		)
@@ -562,8 +713,8 @@ dynamics. Then sharing some clear examples of these dynamics.
 		compositor = FigureCompositor(1024, 560, debug_mode=True)
 
 		image_paths = [
-			f'{self.save_dir}/early_origins_composite.png',
-			f'{self.save_dir}/late_origins_composite.png',
+			f'{self.save_dir}/early_composite_g1_g2.png',
+			f'{self.save_dir}/late_composite_g1_g2.png',
 		]
 
 		placed_images = layout_images_horizontally(
@@ -586,6 +737,41 @@ dynamics. Then sharing some clear examples of these dynamics.
 
 		# Save the composite figure
 		compositor.save(f'{self.figures_dir}/Supplemental4.2_Origins.png')
+
+	def layout_footprint_supplemental_panel(self):
+
+		from pipeline.figure_composer import FigureCompositor
+		from pipeline.figure_composer_helpers import layout_images_vertically, \
+			add_panel_labels_to_images, layout_images_horizontally
+
+		# Create compositor with wider dimensions for horizontal layout
+		compositor = FigureCompositor(1024, 300, debug_mode=True)
+
+		image_paths = [
+			f'{self.save_dir}/recovery_footprint_timecourse.png',
+			f'{self.save_dir}/daughter_footprint_timecourse.png',
+		]
+
+		placed_images = layout_images_horizontally(
+			compositor,
+			image_paths,
+			between_padding=30,
+			offsets=[(0, 0), (0, 0)],
+			width_proportions=[1, 1],
+			margin=(30, 30),
+			image_keys=['recovery', 'daughter']
+		)
+
+		# Add panel labels
+		add_panel_labels_to_images(
+			compositor, 
+			compositor.placed_images,
+			font_size=36,
+			offset=[-16, 29]
+		)
+
+		# Save the composite figure
+		compositor.save(f'{self.figures_dir}/Supplemental4.3_Footprints.png')
 
 
 	def layout_supplemental_replication_origins_validation(self):

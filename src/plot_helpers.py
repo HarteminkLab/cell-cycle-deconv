@@ -1251,7 +1251,7 @@ def create_first_character_title(param_str):
 
 
 def plot_composite_heatmap(average_composite_data, title, num_origins, extent=[-2000, 2000, 0, 260],
-	xlims=(-1000, 1000), figsize=(5, 5), show_footprint_box=False, footprint_box=(0, 50, 40, 120)):
+	xlims=(-1000, 1000), figsize=(5, 5), show_footprint_box=False, footprint_box=None):
 	"""
 	Plot average oriented MNase heatmap across a set of origins.
 	
@@ -1320,4 +1320,5 @@ def plot_composite_heatmap(average_composite_data, title, num_origins, extent=[-
 				lw=0.8, alpha=0.4, zorder=50, fill=False)
 
 	plt.subplots_adjust(hspace=0)
-	plt.suptitle(f"{title}, n={num_origins}", fontweight='demi', fontsize=16)
+	plt.suptitle(f"{title}, n={num_origins}", fontweight='demi', fontsize=16,
+		y=1.0)
