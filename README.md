@@ -31,7 +31,7 @@ A final copy-corrected deconvolved locus will contain: annotated genes, the sign
 These locus allow us to see how the chromatin and the gene expression change over the cell cycle. For example, replication-initiation gene *CLB5* (in red, transcribed right to left) peaks in expression at the end of G1 into S-phase. At the same time, the nucleosomes disorganize to allow RNA polymerase to transcribe the gene and the upstream promoter (to the right) changes in architecture, allow transcription factors and machinery to bind.
 
 
-## Prequisites
+## Prerequisites
 
 For our study, we generate two replicate experiments synchronized and released from alpha-factor. For each replicate, the flow cytometry, transcription state (through RNA-seq), and chromatin state (through MNase-seq) are collected.
 
